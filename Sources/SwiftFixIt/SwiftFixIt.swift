@@ -115,7 +115,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
 
     init(
         diagnostics: some Collection<some AnyDiagnostic>,
-        categories: Set<String> = [],
+        categories: Set<String>,
         fileSystem: any FileSystem
     ) throws {
         self.fileSystem = fileSystem
@@ -154,6 +154,15 @@ package struct SwiftFixIt /*: ~Copyable */ {
                 continue
             }
 
+            // Skip a primary diagnostic if categories were given and it does
+            // not belong to any of them.
+            if !categories.isEmpty && diagnostic.isPrimary {
+                guard let category = diagnostic.category, categories.contains(category) else {
+                    skipDiagnostic()
+                    continue
+                }
+            }
+
             defer {
                 diagnostics.formIndex(after: &index)
             }
@@ -183,14 +192,6 @@ package struct SwiftFixIt /*: ~Copyable */ {
             }
 
             let (sourceFile, convertedDiagnostic) = try diagnosticConverter.diagnostic(from: diagnostic)
-
-            if !categories.isEmpty {
-                guard let category = convertedDiagnostic.diagMessage.category?.name,
-                      categories.contains(category)
-                else {
-                    continue
-                }
-            }
 
             diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)
         }
