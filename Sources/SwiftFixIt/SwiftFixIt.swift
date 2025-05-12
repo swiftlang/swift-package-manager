@@ -78,8 +78,20 @@ extension AnyDiagnostic {
         self.level != .note
     }
 
+    var isNote: Bool {
+        !self.isPrimary
+    }
+
     var isIgnored: Bool {
         self.level == .ignored
+    }
+
+    var hasFixIt: Bool {
+        !self.fixIts.isEmpty
+    }
+
+    var hasNoLocation: Bool {
+        self.location == nil
     }
 }
 
@@ -113,90 +125,92 @@ package struct SwiftFixIt /*: ~Copyable */ {
         )
     }
 
-    init(
-        diagnostics: some Collection<some AnyDiagnostic>,
+    init<Diagnostic: AnyDiagnostic>(
+        diagnostics: some Collection<Diagnostic>,
         categories: Set<String>,
         fileSystem: any FileSystem
     ) throws {
         self.fileSystem = fileSystem
 
-        // Build a map from source files to `SwiftDiagnostics` diagnostics.
-        var diagnosticsPerFile: DiagnosticsPerFile = [:]
+        func shouldSkip(primaryDiagnosticWithNotes: some Collection<Diagnostic>) -> Bool {
+            let diagnostic = primaryDiagnosticWithNotes[primaryDiagnosticWithNotes.startIndex]
 
-        var diagnosticConverter = DiagnosticConverter(fileSystem: fileSystem)
-        var currentPrimaryDiagnosticHasNoteWithFixIt = false
-
-        var index = diagnostics.startIndex
-        while index != diagnostics.endIndex {
-            let diagnostic = diagnostics[index]
-
-            func skipDiagnostic() {
-                guard diagnostic.isPrimary else {
-                    diagnostics.formIndex(after: &index)
-                    return
-                }
-
-                // Skip a primary diagnostic together with its notes.
-                repeat {
-                    diagnostics.formIndex(after: &index)
-                } while index != diagnostics.endIndex && !diagnostics[index].isPrimary
+            // Skip if ignored.
+            if diagnostic.isIgnored {
+                return true
             }
 
-            // Skip ignored diagnostics.
-            guard !diagnostic.isIgnored else {
-                skipDiagnostic()
-                continue
+            // Skip if no location.
+            if diagnostic.hasNoLocation {
+                return true
             }
 
-            // Skip diagnostics with no location.
-            guard diagnostic.location != nil else {
-                skipDiagnostic()
-                continue
-            }
-
-            // Skip a primary diagnostic if categories were given and it does
-            // not belong to any of them.
-            if !categories.isEmpty && diagnostic.isPrimary {
+            // Skip if categories were given and the diagnostic does not
+            // belong to any of them.
+            if !categories.isEmpty {
                 guard let category = diagnostic.category, categories.contains(category) else {
-                    skipDiagnostic()
-                    continue
+                    return true
                 }
             }
 
-            defer {
-                diagnostics.formIndex(after: &index)
+            let notes = primaryDiagnosticWithNotes.dropFirst()
+
+            // Consider the diagnostic compromised if a note does not have a
+            // location.
+            if notes.contains(where: \.hasNoLocation) {
+                return true
             }
 
-            let hasFixits = !diagnostic.fixIts.isEmpty
-
-            if diagnostic.isPrimary {
-                currentPrimaryDiagnosticHasNoteWithFixIt = false
-            } else {
-                if hasFixits {
-                    // The Swift compiler produces parallel fix-its by attaching
-                    // them to notes, which in turn associate to a single
-                    // error/warning. Prefer the first fix-it in this case: if
-                    // the last error/warning we saw has a note with a fix-it
-                    // and so is this one, skip it.
-                    if currentPrimaryDiagnosticHasNoteWithFixIt {
-                        continue
-                    }
-
-                    currentPrimaryDiagnosticHasNoteWithFixIt = true
-                }
+            let numberOfNotesWithFixIts = notes.count(where: \.hasFixIt)
+            switch numberOfNotesWithFixIts {
+            case 0:
+                // Skip if neither the primary diagnostic nor any of its notes
+                // has a fix-it.
+                return !diagnostic.hasFixIt
+            case 1:
+                return false
+            default:
+                // Skip if more than 1 note has a fix-it. These diagnostics
+                // generally require user intervention.
+                // TODO: This will have to done lazier once we support printing them.
+                return true
             }
-
-            // We are only interested in diagnostics with fix-its.
-            guard hasFixits else {
-                continue
-            }
-
-            let (sourceFile, convertedDiagnostic) = try diagnosticConverter.diagnostic(from: diagnostic)
-
-            diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)
         }
 
-        self.diagnosticsPerFile = consume diagnosticsPerFile
+        // Build a map from source files to `SwiftDiagnostics` diagnostics.
+        var diagnosticsPerFile: DiagnosticsPerFile = [:]
+        var diagnosticConverter = DiagnosticConverter(fileSystem: fileSystem)
+
+        var nextPrimaryIndex = diagnostics.startIndex
+        while nextPrimaryIndex != diagnostics.endIndex {
+            let currentPrimaryIndex = nextPrimaryIndex
+            precondition(diagnostics[currentPrimaryIndex].isPrimary)
+
+            // Shift the index to the next primary diagnostic.
+            repeat {
+                diagnostics.formIndex(after: &nextPrimaryIndex)
+            } while nextPrimaryIndex != diagnostics.endIndex && diagnostics[nextPrimaryIndex].isNote
+
+            let primaryDiagnosticWithNotes = diagnostics[currentPrimaryIndex ..< nextPrimaryIndex]
+
+            if shouldSkip(primaryDiagnosticWithNotes: primaryDiagnosticWithNotes) {
+                continue
+            }
+
+            for diagnostic in primaryDiagnosticWithNotes {
+                // We are only interested in diagnostics with fix-its.
+                // TODO: This will have to change once we support printing them.
+                guard diagnostic.hasFixIt else {
+                    continue
+                }
+
+                let (sourceFile, convertedDiagnostic) = try diagnosticConverter.diagnostic(from: diagnostic)
+
+                diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)
+            }
+        }
+
+        self.diagnosticsPerFile = diagnosticsPerFile
     }
 
     package func applyFixIts() throws {

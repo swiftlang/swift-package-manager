@@ -13,6 +13,16 @@
 import XCTest
 
 final class BasicTests: XCTestCase {
+    func testNoDiagnostics() throws {
+        // Edge case.
+        try testAPI1File { _ in
+            .init(
+                edits: .init(input: "var x = 1", result: "var x = 1"),
+                diagnostics: []
+            )
+        }
+    }
+
     func testPrimaryDiag() throws {
         try testAPI1File { (filename: String) in
             .init(

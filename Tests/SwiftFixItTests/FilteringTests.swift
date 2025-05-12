@@ -154,22 +154,21 @@ final class FilteringTests: XCTestCase {
         }
     }
 
-    func testParallelFixIts1() throws {
-        // First parallel fix-it is applied per emission order.
-        try testAPI1File { (filename: String) in
+    func testMultipleNotesWithFixIts() throws {
+        try testAPI1File { filename in
             .init(
-                edits: .init(input: "var x = 1", result: "let x = 1"),
+                edits: .init(input: "var x = 1", result: "var x = 1"),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
-                        text: "error",
+                        text: "error1",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         notes: [
                             Note(
-                                text: "note",
+                                text: "error1_note1",
                                 location: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 fixIts: [
-                                    // Applied.
+                                    // Skipped, primary diagnostic has more than 1 note with fix-it.
                                     .init(
                                         start: .init(filename: filename, line: 1, column: 1, offset: 0),
                                         end: .init(filename: filename, line: 1, column: 4, offset: 0),
@@ -178,10 +177,10 @@ final class FilteringTests: XCTestCase {
                                 ]
                             ),
                             Note(
-                                text: "note",
+                                text: "error1_note2",
                                 location: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 fixIts: [
-                                    // Ignored, parallel to previous fix-it.
+                                    // Skipped, primary diagnostic has more than 1 note with fix-it.
                                     .init(
                                         start: .init(filename: filename, line: 1, column: 9, offset: 0),
                                         end: .init(filename: filename, line: 1, column: 10, offset: 0),
@@ -191,47 +190,37 @@ final class FilteringTests: XCTestCase {
                             ),
                         ]
                     ),
-                ]
-            )
-        }
-    }
-
-    func testParallelFixIts2() throws {
-        // First parallel fix-it is applied per emission order.
-        try testAPI1File { (filename: String) in
-            .init(
-                edits: .init(input: "var x = 1", result: "let x = 1"),
-                diagnostics: [
                     PrimaryDiagnostic(
-                        level: .error,
-                        text: "error",
+                        level: .warning,
+                        text: "warning1",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         notes: [
                             Note(
-                                text: "note",
+                                text: "warning1_note1",
                                 location: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 fixIts: [
-                                    // Applied.
+                                    // Skipped, primary diagnostic has more than 1 note with fix-it.
                                     .init(
-                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
-                                        text: "let"
+                                        start: .init(filename: filename, line: 1, column: 5, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 6, offset: 0),
+                                        text: "y"
                                     ),
                                 ]
                             ),
+                            // This separator note should not make a difference.
                             Note(
-                                text: "note",
+                                text: "warning1_note2",
                                 location: .init(filename: filename, line: 1, column: 1, offset: 0)
                             ),
                             Note(
-                                text: "note",
+                                text: "warning1_note3",
                                 location: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 fixIts: [
-                                    // Ignored, parallel to previous fix-it.
+                                    // Skipped, primary diagnostic has more than 1 note with fix-it.
                                     .init(
-                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
-                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
-                                        text: "22"
+                                        start: .init(filename: filename, line: 1, column: 7, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 8, offset: 0),
+                                        text: ":"
                                     ),
                                 ]
                             ),
