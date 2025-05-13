@@ -36,11 +36,8 @@ extension SwiftPackageCommand {
         @Argument(help: "The identity of the package to edit.")
         var packageIdentity: String
 
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
-
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: traits))
+            let workspace = try swiftCommandState.getActiveWorkspace()
 
             // Put the dependency in edit mode.
             await workspace.edit(
@@ -67,17 +64,13 @@ extension SwiftPackageCommand {
         @Argument(help: "The identity of the package to unedit.")
         var packageIdentity: String
 
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
-
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.resolve(.init(traitOptions: traits))
-            let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: traits))
+            let workspace = try swiftCommandState.getActiveWorkspace()
 
             try await workspace.unedit(
                 packageIdentity: packageIdentity,
                 forceRemove: shouldForceRemove,
-                root: swiftCommandState.getWorkspaceRoot(traitConfiguration: .init(traitOptions: traits)),
+                root: swiftCommandState.getWorkspaceRoot(),
                 observabilityScope: swiftCommandState.observabilityScope
             )
         }
