@@ -769,21 +769,19 @@ extension PackagePIFProjectBuilder {
         //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
         //
         // An imparted build setting on C will propagate back to both B and A.
-        let additionalRunPaths = if productType == .framework {
-            ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
-        } else {
-            ["@loader_path"]
-        }
         impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
-            additionalRunPaths +
+            ["@loader_path"] +
             (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
+
+        var impartedDebugSettings = impartedSettings
+        impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS]! += ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
 
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Debug",
                 settings: debugSettings,
-                impartedBuildSettings: impartedSettings
+                impartedBuildSettings: impartedDebugSettings
             )
         }
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
