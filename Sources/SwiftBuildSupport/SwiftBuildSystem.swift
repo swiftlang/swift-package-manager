@@ -30,13 +30,10 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-#if canImport(SwiftBuild)
 import Foundation
 import SWBBuildService
 import SwiftBuild
-#endif
 
-#if canImport(SwiftBuild)
 
 struct SessionFailedError: Error {
     var error: Error
@@ -155,7 +152,6 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
         .deferred
     }
 }
-#endif
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
@@ -232,7 +228,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset) async throws {
-        #if canImport(SwiftBuild)
         guard !buildParameters.shouldSkipBuilding else {
             return
         }
@@ -247,12 +242,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
 
-        #else
-        fatalError("Swift Build support is not linked in.")
-        #endif
+       
     }
 
-    #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
         let buildStartTime = ContinuousClock.Instant.now
 
@@ -511,7 +503,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return pifBuilder
         }
     }
-    #endif
 
     public func cancel(deadline: DispatchTime) throws {}
 
@@ -545,8 +536,6 @@ extension Basics.Diagnostic.Severity {
     }
 }
 
-#if canImport(SwiftBuild)
-
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {
         switch self {
@@ -573,5 +562,3 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
         }
     }
 }
-
-#endif
