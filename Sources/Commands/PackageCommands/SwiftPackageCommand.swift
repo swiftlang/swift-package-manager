@@ -95,7 +95,7 @@ extension SwiftPackageCommand {
             shouldDisplay: false
         )
 
-        @OptionGroup(visibility: .hidden)
+        @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
         @OptionGroup()
