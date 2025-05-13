@@ -42,7 +42,7 @@ private enum Error: Swift.Error {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnySourceLocation {
+protocol AnySourceLocation: Hashable {
     var filename: String { get }
     var line: UInt64 { get }
     var column: UInt64 { get }
@@ -96,8 +96,102 @@ extension AnyDiagnostic {
 }
 
 extension SerializedDiagnostics.Diagnostic: AnyDiagnostic {}
-extension SerializedDiagnostics.SourceLocation: AnySourceLocation {}
+extension SerializedDiagnostics.SourceLocation: AnySourceLocation, @retroactive Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.filename)
+        hasher.combine(self.line)
+        hasher.combine(self.column)
+    }
+}
+
 extension SerializedDiagnostics.FixIt: AnyFixIt {}
+
+/// Encapsulates initial diagnostic skipping behavior.
+private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
+    /// A hashable type storing the minimum data necessary to uniquely identify
+    /// a diagnostic for our purposes.
+    private struct DiagnosticID: Hashable {
+        private let location: Diagnostic.SourceLocation
+        private let message: String
+        private let level: SerializedDiagnostics.Diagnostic.Level
+
+        init(diagnostic: Diagnostic) {
+            self.level = diagnostic.level
+            self.message = diagnostic.text
+            // Force the location. We should be filtering out diagnostics
+            // without a location.
+            self.location = diagnostic.location!
+        }
+    }
+
+    private var uniquePrimaryDiagnostics: Set<DiagnosticID> = []
+
+    let categories: Set<String>
+
+    init(categories: Set<String>) {
+        self.categories = categories
+    }
+
+    /// Returns a Boolean value indicating whether to skip the given primary
+    /// diagnostic and its notes.
+    mutating func shouldSkip(primaryDiagnosticWithNotes: some Collection<Diagnostic>) -> Bool {
+        let diagnostic = primaryDiagnosticWithNotes[primaryDiagnosticWithNotes.startIndex]
+        precondition(diagnostic.isPrimary)
+
+        // Skip if ignored.
+        if diagnostic.isIgnored {
+            return true
+        }
+
+        // Skip if no location.
+        if diagnostic.hasNoLocation {
+            return true
+        }
+
+        // Skip if categories are given and the diagnostic does not
+        // belong to any of them.
+        if !self.categories.isEmpty {
+            guard let category = diagnostic.category, self.categories.contains(category) else {
+                return true
+            }
+        }
+
+        let notes = primaryDiagnosticWithNotes.dropFirst()
+        precondition(notes.allSatisfy(\.isNote))
+
+        // Consider the diagnostic compromised if a note does not have a
+        // location.
+        if notes.contains(where: \.hasNoLocation) {
+            return true
+        }
+
+        switch notes.count(where: \.hasFixIt) {
+        case 0:
+            // No notes have fix-its. Skip if neither does the primary
+            // diagnostic.
+            guard diagnostic.hasFixIt else {
+                return true
+            }
+        case 1:
+            break
+        default:
+            // Skip if more than 1 note has a fix-it. These diagnostics
+            // generally require user intervention.
+            // TODO: This will have to be done lazier once we support printing them.
+            return true
+        }
+
+        // Skip if we've seen this primary diagnostic before.
+        //
+        // NB: This check is done last to prevent the set from growing without
+        // need.
+        guard self.uniquePrimaryDiagnostics.insert(.init(diagnostic: diagnostic)).inserted else {
+            return true
+        }
+
+        return false
+    }
+}
 
 /// The backing API for `SwiftFixitCommand`.
 package struct SwiftFixIt /*: ~Copyable */ {
@@ -132,50 +226,8 @@ package struct SwiftFixIt /*: ~Copyable */ {
     ) throws {
         self.fileSystem = fileSystem
 
-        func shouldSkip(primaryDiagnosticWithNotes: some Collection<Diagnostic>) -> Bool {
-            let diagnostic = primaryDiagnosticWithNotes[primaryDiagnosticWithNotes.startIndex]
-
-            // Skip if ignored.
-            if diagnostic.isIgnored {
-                return true
-            }
-
-            // Skip if no location.
-            if diagnostic.hasNoLocation {
-                return true
-            }
-
-            // Skip if categories were given and the diagnostic does not
-            // belong to any of them.
-            if !categories.isEmpty {
-                guard let category = diagnostic.category, categories.contains(category) else {
-                    return true
-                }
-            }
-
-            let notes = primaryDiagnosticWithNotes.dropFirst()
-
-            // Consider the diagnostic compromised if a note does not have a
-            // location.
-            if notes.contains(where: \.hasNoLocation) {
-                return true
-            }
-
-            let numberOfNotesWithFixIts = notes.count(where: \.hasFixIt)
-            switch numberOfNotesWithFixIts {
-            case 0:
-                // Skip if neither the primary diagnostic nor any of its notes
-                // has a fix-it.
-                return !diagnostic.hasFixIt
-            case 1:
-                return false
-            default:
-                // Skip if more than 1 note has a fix-it. These diagnostics
-                // generally require user intervention.
-                // TODO: This will have to done lazier once we support printing them.
-                return true
-            }
-        }
+        var filter = PrimaryDiagnosticFilter<Diagnostic>(categories: categories)
+        _ = consume categories
 
         // Build a map from source files to `SwiftDiagnostics` diagnostics.
         var diagnosticsPerFile: DiagnosticsPerFile = [:]
@@ -193,7 +245,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
 
             let primaryDiagnosticWithNotes = diagnostics[currentPrimaryIndex ..< nextPrimaryIndex]
 
-            if shouldSkip(primaryDiagnosticWithNotes: primaryDiagnosticWithNotes) {
+            if filter.shouldSkip(primaryDiagnosticWithNotes: primaryDiagnosticWithNotes) {
                 continue
             }
 
