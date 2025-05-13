@@ -116,11 +116,11 @@ struct ArtifactsArchiveMetadataTests {
         #expect(metadata == expected, "Actual is not as expected")
 
         let binaryTarget = BinaryModule(
-            name: "protoc", kind: .artifactsArchive, path: .root, origin: .local
+            name: "protoc", kind: .artifactsArchive(types: [.executable]), path: .root, origin: .local
         )
         // No supportedTriples with binaryTarget should be rejected
         #expect(throws: (any Error).self) {
-            try binaryTarget.parseArtifactArchives(
+            try binaryTarget.parseExecutableArtifactArchives(
                 for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
             )
         }
