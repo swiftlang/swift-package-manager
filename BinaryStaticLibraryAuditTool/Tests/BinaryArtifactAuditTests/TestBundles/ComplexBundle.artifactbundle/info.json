@@ -1,0 +1,16 @@
+{
+    "schemaVersion": "1.0",
+    "artifacts": {
+        "complex": {
+            "type": "staticLibrary",
+            "version": "1.0.0",
+            "variants": [
+                {
+                    "path": "complex.a",
+                    "headerPaths": ["include"],
+                    "supportedTriples": ["arm64-apple-macosx"]
+                }
+            ]
+        }
+    }
+}
