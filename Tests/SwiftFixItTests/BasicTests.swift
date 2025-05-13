@@ -18,9 +18,9 @@ final class BasicTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -40,20 +40,21 @@ final class BasicTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
-                                text: "let"
+                        notes: [
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        text: "let"
+                                    ),
+                                ]
                             ),
                         ]
                     ),
@@ -67,38 +68,40 @@ final class BasicTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 22"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
+                        text: "error1",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
-                                text: "let"
+                        notes: [
+                            Note(
+                                text: "error1_note1",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        text: "let"
+                                    ),
+                                ]
                             ),
                         ]
                     ),
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    // Make sure we apply this fix-it.
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
+                        text: "error2",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 9, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 10, offset: 0),
-                                text: "22"
+                        notes: [
+                            Note(
+                                text: "error2_note1",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    // Make sure we apply this fix-it.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        text: "22"
+                                    ),
+                                ]
                             ),
                         ]
                     ),
@@ -126,9 +129,9 @@ final class BasicTests: XCTestCase {
                 ),
                 diagnostics: [
                     // Different lines.
-                    TestDiagnostic(
-                        text: "error1",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error1",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             // Replacement.
@@ -152,9 +155,9 @@ final class BasicTests: XCTestCase {
                         ]
                     ),
                     // Same line.
-                    TestDiagnostic(
-                        text: "error2",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error2",
                         location: .init(filename: filename, line: 4, column: 1, offset: 0),
                         fixIts: [
                             // Replacement.
@@ -187,9 +190,9 @@ final class BasicTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             // Applied.
@@ -216,9 +219,9 @@ final class BasicTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             // Applied.
@@ -229,9 +232,9 @@ final class BasicTests: XCTestCase {
                             ),
                         ]
                     ),
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             // Skipped, overlaps with previous fix-it.
@@ -256,9 +259,9 @@ final class BasicTests: XCTestCase {
                 ),
                 diagnostics: [
                     // filename1
-                    TestDiagnostic(
-                        text: "warning",
+                    PrimaryDiagnostic(
                         level: .warning,
+                        text: "warning",
                         location: .init(filename: filename1, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -268,9 +271,9 @@ final class BasicTests: XCTestCase {
                             ),
                         ]
                     ),
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename1, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -281,9 +284,9 @@ final class BasicTests: XCTestCase {
                         ]
                     ),
                     // filename2
-                    TestDiagnostic(
-                        text: "warning",
+                    PrimaryDiagnostic(
                         level: .warning,
+                        text: "warning",
                         location: .init(filename: filename2, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -293,9 +296,9 @@ final class BasicTests: XCTestCase {
                             ),
                         ]
                     ),
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename2, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -318,20 +321,21 @@ final class BasicTests: XCTestCase {
                     .init(input: "var x = 1", result: "var x = 1")
                 ),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
-                        location: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
-                                text: "let"
+                        text: "error",
+                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        notes: [
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    .init(
+                                        start: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                                        end: .init(filename: filename1, line: 1, column: 4, offset: 0),
+                                        text: "let"
+                                    ),
+                                ]
                             ),
                         ]
                     ),
@@ -349,9 +353,9 @@ final class BasicTests: XCTestCase {
                         .init(input: "", result: "")
                     ),
                     diagnostics: [
-                        TestDiagnostic(
-                            text: "error",
+                        PrimaryDiagnostic(
                             level: .error,
+                            text: "error",
                             location: .init(filename: filename2, line: 1, column: 1, offset: 0),
                             fixIts: [
                                 .init(

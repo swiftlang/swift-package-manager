@@ -18,9 +18,9 @@ final class FilteringTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .ignored,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             // Ignore, diagnostic is ignored.
@@ -41,9 +41,9 @@ final class FilteringTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: nil,
                         fixIts: [
                             // Ignore, diagnostic without location.
@@ -65,34 +65,34 @@ final class FilteringTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            // Applied.
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
-                                text: "let"
+                        notes: [
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        text: "let"
+                                    ),
+                                ]
                             ),
-                        ]
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            // Ignored, parallel to previous fix-it.
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 9, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 10, offset: 0),
-                                text: "22"
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    // Ignored, parallel to previous fix-it.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        text: "22"
+                                    ),
+                                ]
                             ),
                         ]
                     ),
@@ -107,39 +107,38 @@ final class FilteringTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            // Applied.
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
-                                text: "let"
+                        notes: [
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        text: "let"
+                                    ),
+                                ]
                             ),
-                        ]
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0)
-                    ),
-                    TestDiagnostic(
-                        text: "note",
-                        level: .note,
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
-                        fixIts: [
-                            // Ignored, parallel to previous fix-it.
-                            .init(
-                                start: .init(filename: filename, line: 1, column: 9, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 10, offset: 0),
-                                text: "22"
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0)
+                            ),
+                            Note(
+                                text: "note",
+                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                fixIts: [
+                                    // Ignored, parallel to previous fix-it.
+                                    .init(
+                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
+                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        text: "22"
+                                    ),
+                                ]
                             ),
                         ]
                     ),

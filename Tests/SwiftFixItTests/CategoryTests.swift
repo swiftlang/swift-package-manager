@@ -19,9 +19,9 @@ final class CategoryTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         fixIts: [
                             .init(
@@ -40,9 +40,9 @@ final class CategoryTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         category: "Other",
                         fixIts: [
@@ -61,9 +61,9 @@ final class CategoryTests: XCTestCase {
             .init(
                 edits: .init(input: "var x = 1", result: "let _ = 1"),
                 diagnostics: [
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 1, offset: 0),
                         category: "Test",
                         fixIts: [
@@ -74,9 +74,9 @@ final class CategoryTests: XCTestCase {
                             ),
                         ]
                     ),
-                    TestDiagnostic(
-                        text: "error",
+                    PrimaryDiagnostic(
                         level: .error,
+                        text: "error",
                         location: .init(filename: filename, line: 1, column: 4, offset: 0),
                         category: "Other",
                         fixIts: [

@@ -18,28 +18,137 @@ import SwiftFixIt
 import struct TSCUtility.SerializedDiagnostics
 import XCTest
 
-struct TestDiagnostic: AnyDiagnostic {
-    struct SourceLocation: AnySourceLocation {
-        let filename: String
-        let line: UInt64
-        let column: UInt64
-        let offset: UInt64
+struct SourceLocation: AnySourceLocation {
+    let filename: String
+    let line: UInt64
+    let column: UInt64
+    let offset: UInt64
+}
+
+struct FixIt: AnyFixIt {
+    let start: SourceLocation
+    let end: SourceLocation
+    let text: String
+}
+
+private struct CommonDiagnosticData {
+    let level: SerializedDiagnostics.Diagnostic.Level
+    let text: String
+    let location: SourceLocation?
+    let category: String?
+    let categoryURL: String?
+    let flag: String?
+    let ranges: [(SourceLocation, SourceLocation)]
+    let fixIts: [FixIt]
+}
+
+struct Note {
+    fileprivate let data: CommonDiagnosticData
+
+    init(
+        text: String,
+        location: SourceLocation?,
+        category: String? = nil,
+        categoryURL: String? = nil,
+        flag: String? = nil,
+        ranges: [(SourceLocation, SourceLocation)] = [],
+        fixIts: [FixIt] = [],
+    ) {
+        self.data = .init(
+            level: .note,
+            text: text,
+            location: location,
+            category: category,
+            categoryURL: categoryURL,
+            flag: flag,
+            ranges: ranges,
+            fixIts: fixIts,
+        )
+    }
+}
+
+struct PrimaryDiagnostic {
+    enum Level {
+        case ignored, warning, error, fatal, remark
     }
 
-    struct FixIt: AnyFixIt {
-        let start: TestDiagnostic.SourceLocation
-        let end: TestDiagnostic.SourceLocation
-        let text: String
+    fileprivate let data: CommonDiagnosticData
+    let notes: [Note]
+
+    init(
+        level: Level,
+        text: String,
+        location: SourceLocation?,
+        category: String? = nil,
+        categoryURL: String? = nil,
+        flag: String? = nil,
+        ranges: [(SourceLocation, SourceLocation)] = [],
+        fixIts: [FixIt] = [],
+        notes: [Note] = [],
+    ) {
+        let level: SerializedDiagnostics.Diagnostic.Level = switch level {
+        case .ignored: .ignored
+        case .warning: .warning
+        case .error: .error
+        case .fatal: .fatal
+        case .remark: .remark
+        }
+        self.data = .init(
+            level: level,
+            text: text,
+            location: location,
+            category: category,
+            categoryURL: categoryURL,
+            flag: flag,
+            ranges: ranges,
+            fixIts: fixIts,
+        )
+        self.notes = notes
+    }
+}
+
+private struct _TestDiagnostic: AnyDiagnostic {
+    let data: CommonDiagnosticData
+
+    var level: SerializedDiagnostics.Diagnostic.Level {
+        self.data.level
     }
 
-    var text: String
-    var level: SerializedDiagnostics.Diagnostic.Level
-    var location: SourceLocation?
-    var category: String?
-    var categoryURL: String?
-    var flag: String?
-    var ranges: [(SourceLocation, SourceLocation)] = []
-    var fixIts: [FixIt] = []
+    var text: String {
+        self.data.text
+    }
+
+    var location: SourceLocation? {
+        self.data.location
+    }
+
+    var category: String? {
+        self.data.category
+    }
+
+    var categoryURL: String? {
+        self.data.categoryURL
+    }
+
+    var flag: String? {
+        self.data.flag
+    }
+
+    var ranges: [(SourceLocation, SourceLocation)] {
+        self.data.ranges
+    }
+
+    var fixIts: [FixIt] {
+        self.data.fixIts
+    }
+
+    init(note: Note) {
+        self.data = note.data
+    }
+
+    init(primaryDiagnostic: PrimaryDiagnostic) {
+        self.data = primaryDiagnostic.data
+    }
 }
 
 struct SourceFileEdit {
@@ -49,20 +158,28 @@ struct SourceFileEdit {
 
 struct TestCase<T> {
     let edits: T
-    let diagnostics: [TestDiagnostic]
+    let diagnostics: [PrimaryDiagnostic]
 }
 
 private func _testAPI(
     _ sourceFilePathsAndEdits: [(AbsolutePath, SourceFileEdit)],
-    _ diagnostics: [TestDiagnostic],
+    _ diagnostics: [PrimaryDiagnostic],
     _ categories: Set<String>,
 ) throws {
     for (path, edit) in sourceFilePathsAndEdits {
         try localFileSystem.writeFileContents(path, string: edit.input)
     }
 
+    var testDiagnostics: [_TestDiagnostic] = []
+    for diagnostic in diagnostics {
+        testDiagnostics.append(.init(primaryDiagnostic: diagnostic))
+        for note in diagnostic.notes {
+            testDiagnostics.append(.init(note: note))
+        }
+    }
+
     let swiftFixIt = try SwiftFixIt(
-        diagnostics: diagnostics,
+        diagnostics: testDiagnostics,
         categories: categories,
         fileSystem: localFileSystem
     )
