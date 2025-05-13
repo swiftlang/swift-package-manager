@@ -131,10 +131,10 @@ struct TestEventStreamOptions: ParsableArguments {
             help: "Path where attachments should be written (Swift Testing only). This path must be an existing directory the current user can write to. If not specified, any attachments created during testing are discarded.")
     var attachmentsPath: AbsolutePath?
 
-    /// If experimental features should be enabled..
-    @Option(name: .customLong("enable-experimental-features"),
+    /// Which testing experimental features should be enabled
+    @Option(name: .customLong("enable-experimental-testing-feature"),
             help: .private)
-    var enableExperimentalFeatures: Bool
+    var enableExperimentalFeatures: String?
 }
 
 struct TestCommandOptions: ParsableArguments {
