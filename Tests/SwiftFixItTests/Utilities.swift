@@ -185,8 +185,24 @@ private func _testAPI(
     )
     try swiftFixIt.applyFixIts()
 
-    for (path, edit) in sourceFilePathsAndEdits {
-        try XCTAssertEqual(localFileSystem.readFileContents(path), edit.result)
+    for (i, (path, edit)) in sourceFilePathsAndEdits.enumerated() {
+        let actual = try localFileSystem.readFileContents(path) as String
+        let expected = edit.result
+        guard expected == actual else {
+            XCTFail(
+                """
+                ===================================>
+                File #\(i + 1) (expected/actual contents)
+                ====================================
+                \(expected)
+                ====================================
+                \(actual)
+                <===================================
+                """
+            )
+
+            continue
+        }
     }
 }
 
