@@ -152,7 +152,6 @@ struct BuildPlanTraversalTests {
             #expect(description == nil)
         } onModule: { module, destination, description in
             moduleDependencies.append((module, destination, description))
-            return .continue
         }
 
         #expect(moduleDependencies.count == 2)

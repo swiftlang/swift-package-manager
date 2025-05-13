@@ -890,3 +890,13 @@ final class PrebuiltsTests: XCTestCase {
         }
     }
 }
+
+extension String {
+    var fixwin: String {
+        #if os(Windows)
+        return self.replacingOccurrences(of: "/", with: "\\")
+        #else
+        return self
+        #endif
+    }
+}

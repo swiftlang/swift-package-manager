@@ -285,5 +285,3 @@ extension PIF {
         workspace.signature = try signature(of: workspace)
     }
 }
-
-#endif // SwiftBuild

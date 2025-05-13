@@ -1175,8 +1175,8 @@ extension BuildPlan {
 
     package func traverseDependencies(
         of description: ModuleBuildDescription,
-        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> DepthFirstContinue,
-        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> DepthFirstContinue
+        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
+        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
     ) {
         var visited = Set<TraversalNode>()
         func successors(
@@ -1217,16 +1217,16 @@ extension BuildPlan {
             case .package:
                 []
             }
-        } visitNext: { module, _ in
+        } onNext: { module, _ in
             switch module {
             case .package:
-                return .continue
+                break
 
             case .product(let product, let destination):
-                return onProduct(product, destination, self.description(for: product, context: destination))
+                onProduct(product, destination, self.description(for: product, context: destination))
 
             case .module(let module, let destination):
-                return onModule(module, destination, self.description(for: module, context: destination))
+                onModule(module, destination, self.description(for: module, context: destination))
             }
         }
     }

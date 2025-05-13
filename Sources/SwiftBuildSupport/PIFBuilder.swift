@@ -101,7 +101,6 @@ public final class PIFBuilder {
         printPIFManifestGraphviz: Bool = false,
         buildParameters: BuildParameters
     ) throws -> String {
-        #if canImport(SwiftBuild)
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
@@ -128,10 +127,6 @@ public final class PIFBuilder {
 
         return pifString
     }
-    
-    #if canImport(SwiftBuild)
-    
-    private var cachedPIF: PIF.TopLevelObject?
 
     private var cachedPIF: PIF.TopLevelObject?
 
@@ -189,8 +184,6 @@ public final class PIFBuilder {
             return PIF.TopLevelObject(workspace: workspace)
         }
     }
-    
-    #endif
 
     // Convenience method for generating PIF.
     public static func generatePIF(
