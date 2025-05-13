@@ -40,7 +40,6 @@ extension SwiftPackageCommand {
         package var traits: TraitOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.resolve(.init(traitOptions: traits))
             let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: traits))
 
             // Put the dependency in edit mode.
