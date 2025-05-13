@@ -24,9 +24,7 @@ import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
 
-#if canImport(SwiftBuild)
 import enum SwiftBuild.ProjectModel
-#endif
 
 /// The parameters required by `PIFBuilder`.
 struct PIFBuilderParameters {
@@ -129,13 +127,12 @@ public final class PIFBuilder {
         }
 
         return pifString
-        #else
-        fatalError("Swift Build support is not linked in.")
-        #endif
     }
     
     #if canImport(SwiftBuild)
     
+    private var cachedPIF: PIF.TopLevelObject?
+
     private var cachedPIF: PIF.TopLevelObject?
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
@@ -214,8 +211,6 @@ public final class PIFBuilder {
     }
 }
 
-#if canImport(SwiftBuild)
-
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
     
@@ -279,7 +274,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
         []
     }
     
-    func addCustomTargets(pifProject: SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
+    func addCustomTargets(pifProject: inout SwiftBuild.ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] {
         return []
     }
     
@@ -293,6 +288,7 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     
     func configureLibraryProduct(
         product: PackageModel.Product,
+        project: inout ProjectModel.Project,
         target: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         additionalFiles: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
     ) {
@@ -420,8 +416,6 @@ fileprivate func buildAggregateProject(
     return aggregateProject
 }
 
-#endif
-
 public enum PIFGenerationError: Error {
     case rootPackageNotFound, multipleRootPackagesFound
     
@@ -455,5 +449,22 @@ extension PIFGenerationError: CustomStringConvertible {
         case .printedPIFManifestGraphviz:
             "Printed PIF manifest as graphviz"
         }
+    }
+}
+
+// MARK: - Helpers
+
+extension PIFBuilderParameters {
+    init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
+        self.init(
+            triple: buildParameters.triple,
+            isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
+            enableTestability: buildParameters.enableTestability,
+            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
+            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
+            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
+            supportedSwiftVersions: supportedSwiftVersions
+        )
     }
 }

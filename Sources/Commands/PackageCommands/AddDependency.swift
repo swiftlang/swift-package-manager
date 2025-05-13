@@ -26,34 +26,34 @@ import Workspace
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a package dependency to the manifest"
+            abstract: "Add a package dependency to the manifest."
         )
 
-        @Argument(help: "The URL or directory of the package to add")
+        @Argument(help: "The URL or directory of the package to add.")
         var dependency: String
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The exact package version to depend on")
+        @Option(help: "The exact package version to depend on.")
         var exact: Version?
 
-        @Option(help: "The specific package revision to depend on")
+        @Option(help: "The specific package revision to depend on.")
         var revision: String?
 
-        @Option(help: "The branch of the package to depend on")
+        @Option(help: "The branch of the package to depend on.")
         var branch: String?
 
-        @Option(help: "The package version to depend on (up to the next major version)")
+        @Option(help: "The package version to depend on (up to the next major version).")
         var from: Version?
 
-        @Option(help: "The package version to depend on (up to the next minor version)")
+        @Option(help: "The package version to depend on (up to the next minor version).")
         var upToNextMinorFrom: Version?
 
-        @Option(help: "Specify upper bound on the package version range (exclusive)")
+        @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
 
-        @Option(help: "Specify dependency type")
+        @Option(help: "Specify dependency type.")
         var type: DependencyType = .url
 
         enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {

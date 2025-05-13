@@ -78,26 +78,19 @@ public struct FileSystemPackageContainer: PackageContainer {
             }
 
             // Load the manifest.
-            // FIXME: this should not block
-            return try await withCheckedThrowingContinuation { continuation in
-                manifestLoader.load(
-                    packagePath: packagePath,
-                    packageIdentity: self.package.identity,
-                    packageKind: self.package.kind,
-                    packageLocation: self.package.locationString,
-                    packageVersion: nil,
-                    currentToolsVersion: self.currentToolsVersion,
-                    identityResolver: self.identityResolver,
-                    dependencyMapper: self.dependencyMapper,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: {
-                        continuation.resume(with: $0)
-                    }
-                )
-            }
+            return try await manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: self.package.identity,
+                packageKind: self.package.kind,
+                packageLocation: self.package.locationString,
+                packageVersion: nil,
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                delegateQueue: .sharedConcurrent
+            )
         }
     }
 
@@ -136,15 +129,12 @@ public struct FileSystemPackageContainer: PackageContainer {
         fatalError("This should never be called")
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version? = nil) async throws -> Set<String> {
+    public func getEnabledTraits(traitConfiguration: TraitConfiguration, at version: Version? = nil) async throws -> Set<String> {
         guard version == nil else {
             throw InternalError("File system package container does not support versioning.")
         }
         let manifest = try await loadManifest()
-        guard manifest.packageKind.isRoot else {
-            return []
-        }
-        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
+        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
         return enabledTraits ?? []
     }
 }

@@ -212,51 +212,237 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         checksum: String? = nil,
         pluginUsages: [PluginUsage]? = nil
     ) throws {
+        let targetType = String(describing: type)
         switch type {
         case .regular, .executable, .test:
-            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
-            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
-            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
+            if url != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "url",
+                value: url ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "checksum",
+                value: checksum ?? "<nil>"
+            ) }
         case .system:
-            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
-            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
-            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
-            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
-            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
-            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-            if checksum != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "checksum") }
-            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "dependencies",
+                value: String(describing: dependencies)
+            ) }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "exclude",
+                value: String(describing: exclude)
+            ) }
+            if sources != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "sources",
+                value: String(describing: sources!)
+            ) }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "resources",
+                value: String(describing: resources)
+            ) }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "publicHeadersPath",
+                value: publicHeadersPath ?? "<nil>"
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "settings",
+                value: String(describing: settings)
+            ) }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "checksum",
+                value: checksum ?? "<nil>"
+            ) }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginUsages",
+                value: String(describing: pluginUsages!)
+            ) }
         case .binary:
             if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
-            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "dependencies") }
-            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "exclude") }
-            if sources != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "sources") }
-            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
-            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
-            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
-            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+            if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "dependencies",
+                value: String(describing: dependencies)
+            ) }
+            if !exclude.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "exclude",
+                value: String(describing: exclude)
+            ) }
+            if sources != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "sources",
+                value: String(describing: sources!)
+            ) }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "resources",
+                value: String(describing: resources)
+            ) }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "publicHeadersPath",
+                value: publicHeadersPath ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "settings",
+                value: String(describing: settings)
+            ) }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginUsages",
+                value: String(describing: pluginUsages!)
+            ) }
         case .plugin:
-            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
-            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
-            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
-            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
-            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if pluginCapability == nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
-            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "settings") }
-            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginUsages") }
+            if pluginCapability == nil { throw Error.pluginTargetRequiresPluginCapability(targetName: name) }
+            if url != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "url",
+                value: url ?? "<nil>"
+            ) }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "resources",
+                value: String(describing: resources)
+            ) }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "publicHeadersPath",
+                value: publicHeadersPath ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if !settings.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "settings",
+                value: String(describing: settings)
+            ) }
+            if pluginUsages != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginUsages",
+                value: String(describing: pluginUsages!)
+            ) }
         case .macro:
-            if url != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "url") }
-            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "resources") }
-            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "publicHeadersPath") }
-            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pkgConfig") }
-            if providers != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "providers") }
-            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(targetName: name, propertyName: "pluginCapability") }
+            if url != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "url",
+                value: url ?? "<nil>"
+            ) }
+            if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "resources",
+                value: String(describing: resources)
+            ) }
+            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "publicHeadersPath",
+                value: publicHeadersPath ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
         }
 
         self.name = name
@@ -404,14 +590,19 @@ import protocol Foundation.LocalizedError
 
 private enum Error: LocalizedError, Equatable {
     case binaryTargetRequiresEitherPathOrURL(targetName: String)
-    case disallowedPropertyInTarget(targetName: String, propertyName: String)
-    
+    case pluginTargetRequiresPluginCapability(targetName: String)
+    case disallowedPropertyInTarget(targetName: String, targetType: String, propertyName: String, value: String)
+
     var errorDescription: String? {
         switch self {
         case .binaryTargetRequiresEitherPathOrURL(let targetName):
-            return "binary target '\(targetName)' neither defines neither path nor URL for its artifacts"
-        case .disallowedPropertyInTarget(let targetName, let propertyName):
-            return "target '\(targetName)' contains a value for disallowed property '\(propertyName)'"
+            "binary target '\(targetName)' must define either path or URL for its artifacts"
+        case .pluginTargetRequiresPluginCapability(let targetName):
+            "plugin target '\(targetName)' must define a plugin capability"
+        case .disallowedPropertyInTarget(let targetName, let targetType, let propertyName, let value):
+            "target '\(targetName)' is assigned a property '\(propertyName)' which is not accepted " +
+            "for the \(targetType) target type. The current property value has " +
+            "the following representation: \(value)."
         }
     }
 }

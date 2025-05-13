@@ -9,7 +9,6 @@ import Basics
 import Foundation
 import protocol TSCBasic.OutputByteStream
 
-#if canImport(SwiftBuild)
 import SwiftBuild
 
 /// Serializes the specified PIF as a **Graphviz** directed graph.
@@ -223,5 +222,3 @@ fileprivate extension String {
         "\""
     }
 }
-
-#endif

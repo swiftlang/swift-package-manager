@@ -22,11 +22,12 @@ import class Basics.ObservabilitySystem
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 import class PackageModel.Manifest
+import struct PackageGraph.ModulesGraph
 import struct PackageModel.TargetDescription
 
 class PrepareForIndexTests: XCTestCase {
     func testPrepare() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: "coreCommands.count = 0 instead of 1. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
         let (graph, fs, scope) = try macrosPackageGraph()
 
@@ -94,10 +95,7 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertTrue(manifest.targets.keys.contains(name))
     }
 
-    // enable-testing requires the non-exportable-decls, make sure they aren't skipped.
-    func testEnableTesting() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
+    func testEnableTestingSetup() throws-> (fs: InMemoryFileSystem, observability: TestingObservability, graph: ModulesGraph) {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/lib/lib.swift",
@@ -105,7 +103,6 @@ class PrepareForIndexTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let scope = observability.topScope
 
         let graph = try loadModulesGraph(
             fileSystem: fs,
@@ -119,8 +116,16 @@ class PrepareForIndexTests: XCTestCase {
                     ]
                 ),
             ],
-            observabilityScope: scope
+            observabilityScope: observability.topScope
         )
+        return (fs, observability, graph)
+    }
+
+    func testEnableTestingDebugConfiguration() async throws {
+        // enable-testing requires the non-exportable-decls, make sure they aren't skipped.
+        let (fs, observability, graph) = try self.testEnableTestingSetup()
+        let scope = observability.topScope
+
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Under debug, enable-testing is turned on by default. Make sure the flag is not added.
@@ -143,6 +148,17 @@ class PrepareForIndexTests: XCTestCase {
             return swiftCommand.otherArguments.contains("-experimental-skip-non-exportable-decls")
                 && !swiftCommand.otherArguments.contains("-enable-testing")
         }))
+    }
+
+    func testEnableTestingReleaseConfiguration() async throws {
+        try XCTSkipOnWindows(because: """
+            Assertion failure.  ("0") is not equal to ("1"). Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511
+        """)
+
+        let (fs, observability, graph) = try self.testEnableTestingSetup()
+        let scope = observability.topScope
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
 
         // Under release, enable-testing is turned off by default so we should see our flag
         let releasePlan = try await BuildPlan(
@@ -167,7 +183,7 @@ class PrepareForIndexTests: XCTestCase {
     }
 
     func testPrepareNoLazy() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: "coreCommands.count = 0 instead of 1. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
         let (graph, fs, scope) = try macrosPackageGraph()
 

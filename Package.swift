@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 
 //===----------------------------------------------------------------------===//
 //
@@ -104,7 +104,7 @@ let package = Package(
     name: "SwiftPM",
     platforms: [
         .macOS(.v13),
-        .iOS(.v16),
+        .iOS(.v17),
         .macCatalyst(.v17),
     ],
     products:
@@ -138,7 +138,7 @@ let package = Package(
             type: .dynamic,
             targets: ["AppleProductTypes"]
         ),
-        
+
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -298,6 +298,21 @@ let package = Package(
             /** Shim for llbuild library */
             name: "SPMLLBuild",
             dependencies: ["Basics"],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
+        .target(
+            /** API for deserializing diagnostics and applying fix-its */
+            name: "SwiftFixIt",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ] + swiftSyntaxDependencies(
+                ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
+            ),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -573,6 +588,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SwiftFixIt",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -808,7 +824,11 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "_InternalTestSupport", "tsan_utils"],
+            dependencies: [
+                "Basics",
+                "_InternalTestSupport",
+                "tsan_utils",
+            ],
             exclude: [
                 "Archiver/Inputs/archive.tar.gz",
                 "Archiver/Inputs/archive.zip",
@@ -917,6 +937,10 @@ let package = Package(
             exclude: ["Inputs/TestRepo.tgz"]
         ),
         .testTarget(
+            name: "SwiftFixItTests",
+            dependencies: ["SwiftFixIt", "_InternalTestSupport"]
+        ),
+        .testTarget(
             name: "XCBuildSupportTests",
             dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
@@ -928,7 +952,7 @@ let package = Package(
             path: "Examples/package-info/Sources/package-info"
         )
     ],
-    swiftLanguageVersions: [.v5]
+    swiftLanguageModes: [.v5]
 )
 
 #if canImport(Darwin)
@@ -1079,8 +1103,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
-    ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil {
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [
