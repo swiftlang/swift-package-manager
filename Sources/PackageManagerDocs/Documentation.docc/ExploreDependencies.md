@@ -1,18 +1,17 @@
 # Exploring your package's dependencies
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Understand dependency failure scenarios.
 
 ## Overview
 
 You define constraints for dependencies when you add them to your package, and those constraints can not always be met.
 
-<!-- link to CLI docs for swift package resolve -->
-Prior to running a build or test, or when you run `swift package resolve`, the package manager walks through the dependencies in your package, and all their dependencies recursively, to build a complete list.
+Prior to running a build or test, or when you run <doc:PackageResolve>, the package manager walks through the dependencies in your package, and all their dependencies recursively, to build a complete list.
 It then attempts to choose a version of each dependency that fits within the constraints of your package, and any constraints provided by your dependencies.
 
 If all the dependencies are available and resolved, the versions are recorded locally in the file `Package.resolved`.
-You can view these dependencies using the command `swift package show-dependencies`, which provides a succint list of the entire set of dependencies.
-<!-- link to CLI docs for swift package show-dependencies -->
+You can view these dependencies using the command <doc:PackageShowDependencies>, which provides a succint list of the entire set of dependencies.
+
 
 <!-- this should  q include some meaningful advice on how to identify and resolve the failure conditions -->
 
