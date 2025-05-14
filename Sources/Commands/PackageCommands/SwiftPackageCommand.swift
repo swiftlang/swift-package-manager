@@ -45,6 +45,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Describe.self,
             Init.self,
             Format.self,
+            Migrate.self,
 
             Install.self,
             Uninstall.self,
@@ -94,7 +95,7 @@ extension SwiftPackageCommand {
             shouldDisplay: false
         )
 
-        @OptionGroup(visibility: .hidden)
+        @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
         @OptionGroup()

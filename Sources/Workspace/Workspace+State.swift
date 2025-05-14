@@ -209,7 +209,7 @@ extension WorkspaceStateStorage {
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
                 artifacts: artifacts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
-                prebuilts: prebuilts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity }
+                prebuilts: prebuilts.map { .init($0) }.sorted { $0.identity < $1.identity }
             )
         }
 
@@ -425,17 +425,18 @@ extension WorkspaceStateStorage {
                 }
             }
 
-            enum Kind: String, Codable {
+            enum Kind: Codable {
                 case xcframework
                 case artifactsArchive
+                case typedArtifactsArchive([String])
                 case unknown
 
                 init(_ underlying: BinaryModule.Kind) {
                     switch underlying {
                     case .xcframework:
                         self = .xcframework
-                    case .artifactsArchive:
-                        self = .artifactsArchive
+                    case .artifactsArchive(let types):
+                        self = .typedArtifactsArchive(types.map { $0.rawValue })
                     case .unknown:
                         self = .unknown
                     }
@@ -446,7 +447,11 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        return .artifactsArchive
+                        // For backwards compatiblity reasons we assume an empty types array which in the worst case
+                        // results in a need for a clean build but we won't fail decoding the JSON.
+                        return .artifactsArchive(types: [])
+                    case .typedArtifactsArchive(let types):
+                        return .artifactsArchive(types: types.compactMap { ArtifactsArchiveMetadata.ArtifactType(rawValue: $0) })
                     case .unknown:
                         return .unknown
                     }
@@ -455,14 +460,16 @@ extension WorkspaceStateStorage {
         }
 
         struct Prebuilt: Codable {
-            let packageRef: PackageReference
+            let identity: PackageIdentity
+            let version: TSCUtility.Version
             let libraryName: String
             let path: Basics.AbsolutePath
             let products: [String]
             let cModules: [String]
 
             init(_ managedPrebuilt: Workspace.ManagedPrebuilt) {
-                self.packageRef = .init(managedPrebuilt.packageRef)
+                self.identity = managedPrebuilt.identity
+                self.version = managedPrebuilt.version
                 self.libraryName = managedPrebuilt.libraryName
                 self.path = managedPrebuilt.path
                 self.products = managedPrebuilt.products
@@ -534,8 +541,9 @@ extension Workspace.ManagedArtifact {
 
 extension Workspace.ManagedPrebuilt {
     fileprivate init(_ prebuilt: WorkspaceStateStorage.V7.Prebuilt) throws {
-        try self.init(
-            packageRef: .init(prebuilt.packageRef),
+        self.init(
+            identity: prebuilt.identity,
+            version: prebuilt.version,
             libraryName: prebuilt.libraryName,
             path: prebuilt.path,
             products: prebuilt.products,
@@ -830,7 +838,7 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        return .artifactsArchive
+                        return .artifactsArchive(types: [])
                     case .unknown:
                         return .unknown
                     }

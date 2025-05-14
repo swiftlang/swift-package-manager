@@ -507,7 +507,6 @@ extension Workspace {
         // Ensure the cache path exists and validate that edited dependencies.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,

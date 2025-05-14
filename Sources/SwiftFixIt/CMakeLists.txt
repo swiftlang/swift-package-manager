@@ -17,8 +17,8 @@ target_link_libraries(SwiftFixIt PUBLIC
   SwiftSyntax::SwiftSyntax
 
   TSCBasic
-  TSCUtility
-)
+  TSCUtility)
 
+# NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SwiftFixIt PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})

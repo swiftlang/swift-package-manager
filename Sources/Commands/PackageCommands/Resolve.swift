@@ -72,7 +72,7 @@ extension SwiftPackageCommand {
     struct Fetch: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
 
-        @OptionGroup(visibility: .hidden)
+        @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
         @OptionGroup()

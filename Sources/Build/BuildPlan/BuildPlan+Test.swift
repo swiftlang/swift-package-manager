@@ -27,6 +27,7 @@ import struct PackageGraph.ResolvedProduct
 import struct PackageGraph.ResolvedModule
 
 import struct PackageModel.Sources
+import enum PackageModel.BuildSettings
 import class PackageModel.SwiftModule
 import class PackageModel.Module
 import struct SPMBuildCore.BuildParameters
@@ -80,17 +81,28 @@ extension BuildPlan {
                 let discoveryMainFile = discoveryDerivedDir.appending(component: TestDiscoveryTool.mainFileName)
 
                 var discoveryPaths: [AbsolutePath] = []
+                var discoveryBuildSettings: BuildSettings.AssignmentTable = .init()
                 discoveryPaths.append(discoveryMainFile)
                 for testTarget in testProduct.modules {
                     let path = discoveryDerivedDir.appending(components: testTarget.name + ".swift")
                     discoveryPaths.append(path)
+                    // Add in the include path from the test targets to ensure this module builds
+                    if let flags = testTarget.underlying.buildSettings.assignments[.OTHER_SWIFT_FLAGS] {
+                        for assignment in flags {
+                            let values = assignment.values.filter({ $0.hasPrefix("-I") })
+                            if !values.isEmpty {
+                                discoveryBuildSettings.add(.init(values: values, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            }
+                        }
+                    }
                 }
 
                 let discoveryTarget = SwiftModule(
                     name: discoveryTargetName,
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) },
                     packageAccess: true, // test target is allowed access to package decls by default
-                    testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir)
+                    testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir),
+                    buildSettings: discoveryBuildSettings
                 )
                 let discoveryResolvedModule = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
@@ -127,13 +139,28 @@ extension BuildPlan {
                 let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
 
+                var entryPointBuildSettings: BuildSettings.AssignmentTable = .init()
+                for testTarget in testProduct.modules {
+                    // Add in the include path from the test targets to ensure this module builds
+                    if let flags = testTarget.underlying.buildSettings.assignments[.OTHER_SWIFT_FLAGS] {
+                        for assignment in flags {
+                            let values = assignment.values.filter({ $0.hasPrefix("-I") })
+                            if !values.isEmpty {
+                                entryPointBuildSettings.add(.init(values: values, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            }
+                        }
+                    }
+                }
+
                 let entryPointTarget = SwiftModule(
                     name: testProduct.name,
                     type: .library,
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) } + swiftTargetDependencies,
                     packageAccess: true, // test target is allowed access to package decls
-                    testEntryPointSources: entryPointSources
+                    testEntryPointSources: entryPointSources,
+                    buildSettings: entryPointBuildSettings
                 )
+
                 let entryPointResolvedTarget = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
                     underlying: entryPointTarget,
@@ -249,7 +276,8 @@ private extension PackageModel.SwiftModule {
         type: PackageModel.Module.Kind? = nil,
         dependencies: [PackageModel.Module.Dependency],
         packageAccess: Bool,
-        testEntryPointSources sources: Sources
+        testEntryPointSources sources: Sources,
+        buildSettings: BuildSettings.AssignmentTable = .init()
     ) {
         self.init(
             name: name,
@@ -258,6 +286,7 @@ private extension PackageModel.SwiftModule {
             sources: sources,
             dependencies: dependencies,
             packageAccess: packageAccess,
+            buildSettings: buildSettings,
             usesUnsafeFlags: false
         )
     }

@@ -403,6 +403,8 @@ public final class MockWorkspace {
                 defaultRegistry: self.defaultRegistry,
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.customPrebuiltsManager != nil,
+                prebuiltsDownloadURL: nil,
+                prebuiltsRootCertPath: nil,
                 pruneDependencies: self.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),

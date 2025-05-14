@@ -12695,28 +12695,20 @@ final class WorkspaceTests: XCTestCase {
                 dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                delegateQueue: DispatchQueue,
-                callbackQueue: DispatchQueue,
-                completion: @escaping (Result<Manifest, Error>) -> Void
-            ) {
+                delegateQueue: DispatchQueue
+            ) async throws -> Manifest {
                 if let error {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
+                    throw error
                 } else {
-                    callbackQueue.async {
-                        completion(.success(
-                            Manifest.createManifest(
-                                displayName: packageIdentity.description,
-                                path: manifestPath,
-                                packageKind: packageKind,
-                                packageIdentity: packageIdentity,
-                                packageLocation: packageLocation,
-                                platforms: [],
-                                toolsVersion: manifestToolsVersion
-                            )
-                        ))
-                    }
+                    return Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
             }
 

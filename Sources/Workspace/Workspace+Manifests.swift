@@ -842,19 +842,15 @@ extension Workspace {
         }
 
         // Load and return the manifest.
-        return await withCheckedContinuation { continuation in
-            self.loadManifest(
-                packageIdentity: managedDependency.packageRef.identity,
-                packageKind: packageKind,
-                packagePath: packagePath,
-                packageLocation: managedDependency.packageRef.locationString,
-                packageVersion: packageVersion,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            ) { result in
-                continuation.resume(returning: try? result.get())
-            }
-        }
+        return try? await self.loadManifest(
+            packageIdentity: managedDependency.packageRef.identity,
+            packageKind: packageKind,
+            packagePath: packagePath,
+            packageLocation: managedDependency.packageRef.locationString,
+            packageVersion: packageVersion,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
     }
 
     /// Load the manifest at a given path.
@@ -867,9 +863,8 @@ extension Workspace {
         packageLocation: String,
         packageVersion: Version? = nil,
         fileSystem: FileSystem? = nil,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Manifest {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
@@ -886,63 +881,63 @@ extension Workspace {
         }
 
         var manifestLoadingDiagnostics = [Diagnostic]()
+        defer { manifestLoadingScope.emit(manifestLoadingDiagnostics) }
 
         let start = DispatchTime.now()
-        self.manifestLoader.load(
-            packagePath: packagePath,
-            packageIdentity: packageIdentity,
-            packageKind: packageKind,
-            packageLocation: packageLocation,
-            packageVersion: packageVersion.map { (version: $0, revision: nil) },
-            currentToolsVersion: self.currentToolsVersion,
-            identityResolver: self.identityResolver,
-            dependencyMapper: self.dependencyMapper,
-            fileSystem: fileSystem,
-            observabilityScope: manifestLoadingScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
-        ) { result in
+        let manifest: Manifest
+        do {
+            manifest = try await self.manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion.map { (version: $0, revision: nil) },
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: manifestLoadingScope,
+                delegateQueue: .sharedConcurrent
+            )
+        } catch {
             let duration = start.distance(to: .now())
-            var result = result
-            switch result {
-            case .failure(let error):
-                manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: nil,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            case .success(let manifest):
-                let validator = ManifestValidator(
-                    manifest: manifest,
-                    sourceControlValidator: self.repositoryManager,
-                    fileSystem: self.fileSystem
-                )
-                let validationIssues = validator.validate()
-                if !validationIssues.isEmpty {
-                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                    result = .failure(Diagnostics.fatalError)
-                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
-                }
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: manifest,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            }
-            manifestLoadingScope.emit(manifestLoadingDiagnostics)
-            completion(result)
+            manifestLoadingDiagnostics.append(.error(error))
+            self.delegate?.didLoadManifest(
+                packageIdentity: packageIdentity,
+                packagePath: packagePath,
+                url: packageLocation,
+                version: packageVersion,
+                packageKind: packageKind,
+                manifest: nil,
+                diagnostics: manifestLoadingDiagnostics,
+                duration: duration
+            )
+            throw error
         }
+
+        let duration = start.distance(to: .now())
+        let validator = ManifestValidator(
+            manifest: manifest,
+            sourceControlValidator: self.repositoryManager,
+            fileSystem: self.fileSystem
+        )
+        let validationIssues = validator.validate()
+        if !validationIssues.isEmpty {
+            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+            manifestLoadingDiagnostics.append(contentsOf: validationIssues)
+            throw Diagnostics.fatalError
+        }
+        self.delegate?.didLoadManifest(
+            packageIdentity: packageIdentity,
+            packagePath: packagePath,
+            url: packageLocation,
+            version: packageVersion,
+            packageKind: packageKind,
+            manifest: manifest,
+            diagnostics: manifestLoadingDiagnostics,
+            duration: duration
+        )
+        return manifest
     }
 
     /// Validates that all the edited dependencies are still present in the file system.

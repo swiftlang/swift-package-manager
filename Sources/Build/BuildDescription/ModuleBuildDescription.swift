@@ -140,6 +140,14 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
+    public var diagnosticFiles: [AbsolutePath] {
+        switch self {
+        case .swift(let buildDescription):
+            buildDescription.diagnosticFiles
+        case .clang(_):
+            []
+        }
+    }
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
     public func symbolGraphExtractArguments() throws -> [String] {

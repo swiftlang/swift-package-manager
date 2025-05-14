@@ -2240,17 +2240,61 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        // WMO should always be on with Embedded
-        let plan = try await mockBuildPlan(
+        // -Xfrontend -mergeable symbols should be passed with Embedded
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
+        ))
+        result.checkTargetsCount(1)
+
+        // Compile Swift Target
+        let aCompileArguments = try result.moduleBuildDescription(for: "A").swift().compileArguments()
+        let aCompileArgumentsPattern: [StringPattern] = ["-whole-module-optimization"]
+        let aCompileArgumentsNegativePattern: [StringPattern] = ["-wmo"]
+        XCTAssertMatch(aCompileArguments, aCompileArgumentsPattern)
+        XCTAssertNoMatch(aCompileArguments, aCompileArgumentsNegativePattern)
+    }
+
+    // Workaround for: https://github.com/swiftlang/swift-package-manager/issues/8648
+    func test_mergeableSymbols_enabledInEmbedded() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString
         )
 
-        let a = try BuildPlanResult(plan: plan)
-            .moduleBuildDescription(for: "A").swift().emitCommandLine()
-        XCTAssertMatch(a, ["-whole-module-optimization"])
-        XCTAssertNoMatch(a, ["-wmo"])
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    targets: [
+                        TargetDescription(
+                            name: "A",
+                            settings: [.init(tool: .swift, kind: .enableExperimentalFeature("Embedded"))]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // -Xfrontend -mergeable symbols should be passed with Embedded
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkTargetsCount(1)
+
+        // Compile Swift Target
+        let aCompileArguments = try result.moduleBuildDescription(for: "A").swift().compileArguments()
+        let aCompileArgumentsPattern: [StringPattern] = ["-Xfrontend", "-mergeable-symbols"]
+        XCTAssertMatch(aCompileArguments, aCompileArgumentsPattern)
     }
 
     func testREPLArguments() async throws {
@@ -4667,6 +4711,104 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
     }
 
+    func testPrebuiltsFlags() async throws {
+        // Make sure the include path for the prebuilts get passed to the
+        // generated test entry point and discover targets on Linux/Windows
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let prebuiltLibrary = PrebuiltLibrary(
+            identity: .plain("swift-syntax"),
+            libraryName: "MacroSupport",
+            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
+            products: [
+                "SwiftBasicFormat",
+                "SwiftCompilerPlugin",
+                "SwiftDiagnostics",
+                "SwiftIDEUtils",
+                "SwiftOperators",
+                "SwiftParser",
+                "SwiftParserDiagnostics",
+                "SwiftRefactor",
+                "SwiftSyntax",
+                "SwiftSyntaxBuilder",
+                "SwiftSyntaxMacros",
+                "SwiftSyntaxMacroExpansion",
+                "SwiftSyntaxMacrosTestSupport",
+                "SwiftSyntaxMacrosGenericTestSupport",
+                "_SwiftCompilerPluginMessageHandling",
+                "_SwiftLibraryPluginProvider"
+            ],
+            cModules: ["_SwiftSyntaxCShims"]
+        )
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
+                "/MyPackage/Sources/MyMacros/MyMacros.swift",
+                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "MyPackage",
+                    path: "/MyPackage",
+                    targets: [
+                        TargetDescription(name: "MyMacroMacros", type: .macro),
+                        TargetDescription(
+                            name: "MyMacros",
+                            dependencies: [
+                                "MyMacroMacros",
+                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "MyMacroTests",
+                            dependencies: [
+                                "MyMacroMacros",
+                                .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                            ],
+                            type: .test
+                        )
+                    ]
+                )
+            ],
+            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                $0[$1] = prebuiltLibrary
+            }],
+            observabilityScope: observability.topScope
+        )
+
+        func checkTriple(triple: Basics.Triple) async throws {
+            let result = try await BuildPlanResult(
+                plan: mockBuildPlan(
+                    triple: triple,
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+            )
+
+#if os(Windows)
+            let modulesDir = "-I\(prebuiltLibrary.path.pathString)\\Modules"
+#else
+            let modulesDir = "-I\(prebuiltLibrary.path.pathString)/Modules"
+#endif
+            let mytest = try XCTUnwrap(result.allTargets(named: "MyMacroTests").first)
+            XCTAssert(try mytest.swift().compileArguments().contains(modulesDir))
+            let entryPoint = try XCTUnwrap(result.allTargets(named: "MyPackagePackageTests").first)
+            XCTAssert(try entryPoint.swift().compileArguments().contains(modulesDir))
+            let discovery = try XCTUnwrap(result.allTargets(named: "MyPackagePackageDiscoveredTests").first)
+            XCTAssert(try discovery.swift().compileArguments().contains(modulesDir))
+        }
+
+        try await checkTriple(triple: .x86_64Linux)
+        try await checkTriple(triple: .x86_64Windows)
+    }
+
     func testExtraBuildFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -6321,7 +6463,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ],
             binaryArtifacts: [
                 .plain("pkg"): [
-                    "MyTool": .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
+                    "MyTool": .init(kind: .artifactsArchive(types: [.executable]), originURL: nil, path: toolPath),
                 ],
             ],
             observabilityScope: observability.topScope
@@ -6555,6 +6697,44 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         for exeCompileObject in exeCompileObjects {
             XCTAssertTrue(exeProduct.objects.contains(exeCompileObject))
         }
+    }
+
+    func testNoRpathForOSNone() async throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "exe"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let toolchain = try UserToolchain.default
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: Triple("arm64-unknown-none"),
+            toolchain: toolchain,
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+
+        // Assert the objects getting linked contain all the bitcode objects
+        // built by the Swift Target
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        let exeLinkArgumentsNegativePattern: [StringPattern] = ["-rpath"]
+        XCTAssertNoMatch(exeLinkArguments, exeLinkArgumentsNegativePattern)
     }
 
     func testPackageDependencySetsUserModuleVersion() async throws {
@@ -7002,7 +7182,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let myLib = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyLib" })).swift()
         XCTAssertFalse(myLib.additionalFlags.contains(where: { $0.contains("-tool")}), "flags shouldn't contain tools items")
-        
+
         // Make sure the tests do have the include path and the module map from the lib
         let myMacroTests = try XCTUnwrap(plan.targets.first(where: { $0.module.name == "MyMacroTests" })).swift()
         let flags = myMacroTests.additionalFlags.joined(separator: " ")
