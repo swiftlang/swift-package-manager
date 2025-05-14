@@ -730,6 +730,7 @@ public struct SwiftSDK: Equatable {
         if let customDestination = customCompileDestination {
             let swiftSDKs = try SwiftSDK.decode(
                 fromFile: customDestination,
+                hostToolchainBinDir: store.hostToolchainBinDir,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
@@ -853,6 +854,7 @@ extension SwiftSDK {
     /// Load a ``SwiftSDK`` description from a JSON representation from disk.
     public static func decode(
         fromFile path: Basics.AbsolutePath,
+        hostToolchainBinDir: Basics.AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> [SwiftSDK] {
@@ -862,6 +864,7 @@ extension SwiftSDK {
             return try Self.decode(
                 semanticVersion: version,
                 fromFile: path,
+                hostToolchainBinDir: hostToolchainBinDir,
                 fileSystem: fileSystem,
                 decoder: decoder,
                 observabilityScope: observabilityScope
@@ -876,6 +879,7 @@ extension SwiftSDK {
     private static func decode(
         semanticVersion: SemanticVersionInfo,
         fromFile path: Basics.AbsolutePath,
+        hostToolchainBinDir: Basics.AbsolutePath,
         fileSystem: FileSystem,
         decoder: JSONDecoder,
         observabilityScope: ObservabilityScope
@@ -915,7 +919,7 @@ extension SwiftSDK {
                 let triple = try Triple(triple)
 
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [hostToolchainBinDir])) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),
