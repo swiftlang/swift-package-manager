@@ -884,6 +884,11 @@ extension SwiftSDK {
         decoder: JSONDecoder,
         observabilityScope: ObservabilityScope
     ) throws -> [SwiftSDK] {
+        let wasmKitProperties = Toolset.ToolProperties(
+            path: hostToolchainBinDir.appending("wasmkit"),
+            extraCLIOptions: ["run"]
+        )
+
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
             let swiftSDKs = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
@@ -893,7 +898,12 @@ extension SwiftSDK {
                 let triple = try Triple(triple)
 
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
+                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                } else {
+                    [:]
+                }
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),
@@ -918,8 +928,15 @@ extension SwiftSDK {
             return try swiftSDKs.targetTriples.map { triple, properties in
                 let triple = try Triple(triple)
 
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
+                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                } else {
+                    [:]
+                }
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [hostToolchainBinDir])) {
+                let toolset = try pathStrings.reduce(
+                    into: Toolset(knownTools: defaultTools, rootPaths: [hostToolchainBinDir])
+                ) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),

@@ -34,7 +34,7 @@ public struct Toolset: Equatable {
     /// Properties of a known tool in a ``Toolset``.
     public struct ToolProperties: Equatable {
         /// Absolute path to the tool on the filesystem. If absent, implies a default tool is used.
-        public fileprivate(set) var path: AbsolutePath?
+        public internal(set) var path: AbsolutePath?
 
         /// Command-line options to be passed to the tool when it's invoked.
         public internal(set) var extraCLIOptions: [String]
