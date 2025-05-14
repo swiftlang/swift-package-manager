@@ -194,7 +194,7 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
 }
 
 /// The backing API for `SwiftFixitCommand`.
-package struct SwiftFixIt /*: ~Copyable */ {
+package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
     private typealias DiagnosticsPerFile = [SourceFile: [SwiftDiagnostics.Diagnostic]]
 
     private let fileSystem: any FileSystem
@@ -383,8 +383,8 @@ extension SourceFile: Hashable {
     }
 }
 
-private struct DiagnosticConverter /*: ~Copyable */ {
-    private struct SourceFileCache /*: ~Copyable */ {
+private struct DiagnosticConverter: ~Copyable {
+    private struct SourceFileCache: ~Copyable {
         private let fileSystem: any FileSystem
 
         private var sourceFiles: [AbsolutePath: SourceFile]
