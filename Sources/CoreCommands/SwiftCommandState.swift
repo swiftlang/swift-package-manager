@@ -1072,7 +1072,15 @@ public final class SwiftCommandState {
             lockAcquired = true
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
-                let existingProcessPID = self.pidManipulator.readPID()
+                var existingProcessPID: Int32? = nil
+
+                // Attempt to read the PID
+                do {
+                    existingProcessPID = try self.pidManipulator.readPID()
+                } catch {
+                    self.observabilityScope.emit(debug: "Cannot read PID file: \(error)")
+                }
+
                 let pidInfo = existingProcessPID.map { "(PID: \($0)) " } ?? ""
                 if self.options.locations.ignoreLock {
                     self.outputStream
@@ -1103,7 +1111,7 @@ public final class SwiftCommandState {
             do {
                 try self.pidManipulator.writePID(pid: self.pidManipulator.getCurrentPID())
             } catch {
-                self.observabilityScope.emit(warning: "Failed to write to PID file: \(error)")
+                self.observabilityScope.emit(debug: "Failed to write to PID file: \(error)")
             }
         }
     }

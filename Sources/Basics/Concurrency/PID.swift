@@ -17,7 +17,7 @@ public protocol PIDFileHandler {
 
     init(scratchDirectory: AbsolutePath)
 
-    func readPID() -> Int32?
+    func readPID() throws -> Int32
     func deletePIDFile() throws
     func writePID(pid: Int32) throws
     func getCurrentPID() -> Int32
@@ -36,34 +36,27 @@ public struct PIDFile: PIDFileHandler {
     }
 
     /// Read the pid file
-    public func readPID() -> Int32? {
+    public func readPID() throws -> Int32 {
         // Check if the file exists
         let filePath = self.lockFilePath.pathString
         guard FileManager.default.fileExists(atPath: filePath) else {
-            print("File does not exist at path: \(filePath)")
-            return nil
+            throw PIDError.noSuchPiDFile
         }
 
-        do {
-            // Read the contents of the file
-            let pidString = try String(contentsOf: lockFilePath.asURL, encoding: .utf8)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+        let pidString = try String(contentsOf: lockFilePath.asURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-            // Check if the PID string can be converted to an Int32
-            if let pid = Int32(pidString) {
-                return pid
-            } else {
-                return nil
-            }
-        } catch {
-            // Catch any errors and print them
-            return nil
+        // Try to convert to Int32, or throw an error
+        guard let pid = Int32(pidString) else {
+            throw PIDError.invalidPIDFormat
         }
+
+        return pid
     }
 
     /// Get the current PID of the proces
     public func getCurrentPID() -> Int32 {
-        return ProcessInfo.processInfo.processIdentifier
+        ProcessInfo.processInfo.processIdentifier
     }
 
     /// Write .pid file containing PID of process currently using .build directory
@@ -80,6 +73,15 @@ public struct PIDFile: PIDFileHandler {
 
     /// Delete PID file at URL
     public func deletePIDFile() throws {
-        try FileManager.default.removeItem(at: self.lockFilePath.asURL)
+        do {
+            try FileManager.default.removeItem(at: self.lockFilePath.asURL)
+        } catch {
+            throw PIDError.noSuchPiDFile
+        }
+    }
+
+    public enum PIDError: Error {
+        case invalidPIDFormat
+        case noSuchPiDFile
     }
 }
