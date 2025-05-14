@@ -934,9 +934,7 @@ extension SwiftSDK {
                     [:]
                 }
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(
-                    into: Toolset(knownTools: defaultTools, rootPaths: [hostToolchainBinDir])
-                ) {
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),

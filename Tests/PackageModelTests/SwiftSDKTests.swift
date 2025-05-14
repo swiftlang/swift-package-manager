@@ -25,6 +25,7 @@ private let hostTriple = try! Triple("arm64-apple-darwin22.1.0")
 private let olderHostTriple = try! Triple("arm64-apple-darwin20.1.0")
 private let linuxGNUTargetTriple = try! Triple("x86_64-unknown-linux-gnu")
 private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
+private let wasiTargetTriple = try! Triple("wasm32-unknown-wasi")
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
     cxxCompilerFlags: ["-fno-exceptions"],
@@ -135,6 +136,22 @@ private let invalidToolsetDestinationV3 = (
             }
         },
         "schemaVersion": "3.0"
+    }
+    """# as SerializedJSON
+)
+
+
+private let wasiWithoutToolsetsSwiftSDKv4 = (
+    path: bundleRootPath.appending(component: "wasiSwiftSDKv4.json"),
+    json: #"""
+    {
+        "targetTriples": {
+            "\#(wasiTargetTriple.tripleString)": {
+                "sdkRootPath": "\#(sdkRootDir)",
+                "toolsetPaths": []
+            }
+        },
+        "schemaVersion": "4.0"
     }
     """# as SerializedJSON
 )
@@ -347,12 +364,13 @@ private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
     missingToolsetSwiftSDKv4,
     invalidVersionSwiftSDKv4,
     invalidToolsetSwiftSDKv4,
+    wasiWithoutToolsetsSwiftSDKv4,
     otherToolsNoRoot,
     someToolsWithRoot,
     invalidToolset,
 ]
 
-final class DestinationTests: XCTestCase {
+final class SwiftSDKTests: XCTestCase {
     func testDestinationCodable() throws {
         let fs = InMemoryFileSystem()
         try fs.createDirectory(AbsolutePath(validating: "/tools"))
@@ -367,6 +385,7 @@ final class DestinationTests: XCTestCase {
 
         let destinationV1Decoded = try SwiftSDK.decode(
             fromFile: destinationV1.path,
+            hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -389,6 +408,7 @@ final class DestinationTests: XCTestCase {
 
         let destinationV2Decoded = try SwiftSDK.decode(
             fromFile: destinationV2.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -397,6 +417,7 @@ final class DestinationTests: XCTestCase {
 
         let toolsetNoRootDestinationV3Decoded = try SwiftSDK.decode(
             fromFile: toolsetNoRootDestinationV3.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -405,6 +426,7 @@ final class DestinationTests: XCTestCase {
 
         let toolsetRootDestinationV3Decoded = try SwiftSDK.decode(
             fromFile: toolsetRootDestinationV3.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -413,6 +435,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: missingToolsetDestinationV3.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )) {
@@ -429,12 +452,14 @@ final class DestinationTests: XCTestCase {
         }
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: invalidVersionDestinationV3.path,
+            hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
             fileSystem: fs,
             observabilityScope: observability
         ))
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: invalidToolsetDestinationV3.path,
+            hostToolchainBinDir: bundleRootPath.appending(toolchainBinDir),
             fileSystem: fs,
             observabilityScope: observability
         )) {
@@ -447,6 +472,7 @@ final class DestinationTests: XCTestCase {
 
         let toolsetNoRootSwiftSDKv4Decoded = try SwiftSDK.decode(
             fromFile: toolsetNoRootSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -455,6 +481,7 @@ final class DestinationTests: XCTestCase {
 
         let toolsetRootSwiftSDKv4Decoded = try SwiftSDK.decode(
             fromFile: toolsetRootSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )
@@ -463,6 +490,7 @@ final class DestinationTests: XCTestCase {
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: missingToolsetSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )) {
@@ -479,12 +507,14 @@ final class DestinationTests: XCTestCase {
         }
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: invalidVersionSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         ))
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: invalidToolsetSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
             fileSystem: fs,
             observabilityScope: observability
         )) {
@@ -494,6 +524,23 @@ final class DestinationTests: XCTestCase {
                     .hasPrefix("Couldn't parse toolset configuration at `\(toolsetDefinition)`: ") ?? false
             )
         }
+
+        let wasiWithoutToolsetsDecoded = try SwiftSDK.decode(
+            fromFile: wasiWithoutToolsetsSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
+            fileSystem: fs,
+            observabilityScope: observability
+        )
+
+        XCTAssertEqual(wasiWithoutToolsetsDecoded.count, 1)
+
+        let wasmKitProperties = Toolset.ToolProperties(
+            path: toolchainBinAbsolutePath.appending("wasmkit"),
+            extraCLIOptions: ["run"]
+        )
+        XCTAssertEqual(wasiWithoutToolsetsDecoded[0].toolset.knownTools[.debugger], wasmKitProperties)
+
+        XCTAssertEqual(wasiWithoutToolsetsDecoded[0].toolset.knownTools[.testRunner], wasmKitProperties)
     }
 
     func testSelectDestination() throws {

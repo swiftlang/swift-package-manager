@@ -167,6 +167,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 var output = [SwiftSDKBundleStore.Output]()
                 let store = SwiftSDKBundleStore(
                     swiftSDKsDirectory: tmpDir,
+                    hostToolchainBinDir: tmpDir,
                     fileSystem: localFileSystem,
                     observabilityScope: observabilityScope,
                     outputHandler: {
@@ -208,6 +209,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -300,6 +302,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -340,6 +343,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -381,9 +385,11 @@ final class SwiftSDKBundleTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
         let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let hostToolchainBinDir = AbsolutePath("/tmp")
         let archiver = MockArchiver()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchainBinDir,
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: { _ in }
@@ -434,7 +440,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             // With a target SDK selector, SDK should be chosen from the store.
             XCTAssertEqual(targetSwiftSDK.targetTriple, targetTriple)
             // No toolset in the SDK, so it should be the same as the host SDK.
-            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, hostSwiftSDK.toolset.rootPaths)
+            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [hostToolchainBinDir] + hostSwiftSDK.toolset.rootPaths)
         }
 
         do {
@@ -447,7 +453,10 @@ final class SwiftSDKBundleTests: XCTestCase {
                 fileSystem: fileSystem
             )
             // With toolset in the target SDK, it should contain the host toolset roots at the end.
-            XCTAssertEqual(targetSwiftSDK.toolset.rootPaths, [toolsetRootPath] + hostSwiftSDK.toolset.rootPaths)
+            XCTAssertEqual(
+                targetSwiftSDK.toolset.rootPaths,
+                [toolsetRootPath, hostToolchainBinDir] + hostSwiftSDK.toolset.rootPaths
+            )
         }
 
         do {
