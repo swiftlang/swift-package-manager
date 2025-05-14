@@ -1288,7 +1288,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#"name: "client""#))
 
             let fileStructure = try fs.getDirectoryContents(sourcesFolder)
-            XCTAssertEqual(fileStructure, ["SimpleExecutable", "client"])
+            XCTAssertEqual(fileStructure.sorted(), ["SimpleExecutable", "client"].sorted())
             XCTAssertTrue(fs.isDirectory(sourcesFolder.appending("SimpleExecutable")))
             XCTAssertTrue(fs.isDirectory(sourcesFolder.appending("client")))
             XCTAssertEqual(try fs.getDirectoryContents(sourcesFolder.appending("SimpleExecutable")), ["main.swift"])
