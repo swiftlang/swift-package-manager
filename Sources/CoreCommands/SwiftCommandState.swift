@@ -923,7 +923,7 @@ public final class SwiftCommandState {
         )
     })
 
-    /// Lazily compute the target toolchain.z
+    /// Lazily compute the target toolchain.
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
