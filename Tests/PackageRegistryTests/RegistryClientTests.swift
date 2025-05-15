@@ -1190,8 +1190,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 }
 
 @Suite("Manifest Content") struct ManifestContent {
-    @Test(arguments: [ToolsVersion.v5_3, .v4, nil])
-    func getManifestContent(toolsVersion: ToolsVersion?) async throws {
+    @Test(arguments: [
+        (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
+        (toolsVersion: ToolsVersion.v4, expectedToolsVersion: ToolsVersion.v4),
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+    ])
+    func getManifestContent(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
@@ -1282,7 +1286,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 customToolsVersion: toolsVersion
             )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == toolsVersion ?? .current)
+            #expect(parsedToolsVersion == expectedToolsVersion)
         }
 
         do {
@@ -1296,12 +1300,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 ) { continuation.resume(with: $0) }
             }
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifestSync)
-            #expect(parsedToolsVersion == toolsVersion ?? .current)
+            #expect(parsedToolsVersion == expectedToolsVersion)
         }
     }
 
-    @Test(arguments: [ToolsVersion.v5_3, nil])
-    func getManifestContentWithOptionalContentVersion(toolsVersion: ToolsVersion?) async throws {
+    @Test(arguments: [
+        (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+    ])
+    func getManifestContentWithOptionalContentVersion(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
@@ -1392,12 +1399,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 customToolsVersion: toolsVersion
             )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == toolsVersion ?? .current)
+            #expect(parsedToolsVersion == expectedToolsVersion)
         }
     }
 
-    @Test(arguments: [ToolsVersion.v5_3, nil])
-    func getManifestContentMatchingChecksumInStorage(toolsVersion: ToolsVersion?) async throws {
+    @Test(arguments: [
+        (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+    ])
+    func getManifestContentMatchingChecksumInStorage(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
@@ -1507,7 +1517,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 customToolsVersion: toolsVersion
             )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == toolsVersion ?? .current)
+            #expect(parsedToolsVersion == expectedToolsVersion)
         }
     }
 
@@ -1625,8 +1635,11 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         }
     }
 
-    @Test(arguments: [ToolsVersion.v5_3, nil])
-    func getManifestContentWithNonMatchingChecksumInStorage_warn(toolsVersion: ToolsVersion?) async throws {
+    @Test(arguments: [
+        (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+    ])
+    func getManifestContentWithNonMatchingChecksumInStorage_warn(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
@@ -1742,7 +1755,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             }
 
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifest)
-            #expect(parsedToolsVersion == toolsVersion ?? .current)
+            #expect(parsedToolsVersion == expectedToolsVersion)
         }
     }
 
