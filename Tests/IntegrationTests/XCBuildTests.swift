@@ -11,6 +11,7 @@
 import TSCBasic
 import TSCTestSupport
 import _IntegrationTestSupport
+import _InternalTestSupport
 import Testing
 
 @Suite

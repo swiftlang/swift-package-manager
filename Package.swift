@@ -798,6 +798,7 @@ let package = Package(
             /** SwiftPM internal test suite support library */
             name: "_IntegrationTestSupport",
             dependencies: [
+                "_InternalTestSupport",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
             ]
         ),
@@ -1005,6 +1006,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             name: "IntegrationTests",
             dependencies: [
                 "_IntegrationTestSupport",
+                "_InternalTestSupport",
                 .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
         ]

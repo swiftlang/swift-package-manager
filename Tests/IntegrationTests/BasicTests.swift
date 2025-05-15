@@ -10,6 +10,7 @@
 
 import Foundation
 import _IntegrationTestSupport
+import _InternalTestSupport
 import Testing
 import TSCBasic
 import TSCTestSupport

@@ -10,6 +10,7 @@
 
 import Foundation
 import _IntegrationTestSupport
+import _InternalTestSupport
 import Testing
 import TSCBasic
 import TSCTestSupport
@@ -76,15 +77,6 @@ private struct SwiftPMTests {
 
     @Test(
         .requireThreadSafeWorkingDirectory,
-        arguments: [BuildSystemProvider.native]
-    )
-    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
-        try _packageInitExecutable(buildSystemProvider)
-    }
-
-    @Test(
-        .skipHostOS(.windows),
-        .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
             "[Linux] swift run using --build-system swiftbuild fails to run executable"
@@ -93,13 +85,9 @@ private struct SwiftPMTests {
             "https://github.com/swiftlang/swift-package-manager/issues/8514",
             "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
-        arguments: [BuildSystemProvider.swiftbuild]
+        arguments: BuildSystemProvider.allCases
     )
-    func packageInitExecutablSkipWindows(_ buildSystemProvider: BuildSystemProvider) throws {
-        try _packageInitExecutable(buildSystemProvider)
-    }
-
-    private func _packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
@@ -119,7 +107,7 @@ private struct SwiftPMTests {
                 #expect(!runOutput.stderr.contains("error:"))
                 #expect(runOutput.stdout.contains("Hello, world!"))
             } when: {
-                buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
+                buildSystemProvider == .swiftbuild && [OperatingSystem.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
             }
         }
     }
