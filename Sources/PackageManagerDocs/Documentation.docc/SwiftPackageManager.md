@@ -16,6 +16,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
 - <doc:GettingStarted>      <!-- tutorial or article based walk through -->
 - <doc:IntroducingPackages> <!-- content from Documentation/README -->
+- <doc:SwiftPackageCollections>
 
 <!-- ### Guides -->
 <!-- placeholder location for articles (to be written or copy/updated from existing content -->
