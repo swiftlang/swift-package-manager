@@ -636,24 +636,26 @@ public final class UserToolchain: Toolchain {
         )
 
         if triple.isMacOSX, let swiftTestingPath {
-            // swift-testing in CommandLineTools, needs extra frameworks search path
+            // Swift Testing is a framework (e.g. from CommandLineTools) so use -F.
             if swiftTestingPath.extension == "framework" {
                 swiftCompilerFlags += ["-F", swiftTestingPath.pathString]
-            }
 
-            // Otherwise we must have a custom toolchain, add overrides to find its swift-testing ahead of any in the
-            // SDK. We expect the library to be in `lib/swift/macosx/testing` and the plugin in
-            // `lib/swift/host/plugins/testing`
-            if let pluginsPath = try? AbsolutePath(
-                validating: "../../host/plugins/testing",
-                relativeTo: swiftTestingPath
-            ) {
+            // Otherwise Swift Testing is assumed to be a swiftmodule + library, so use -I and -L.
+            } else {
                 swiftCompilerFlags += [
                     "-I", swiftTestingPath.pathString,
                     "-L", swiftTestingPath.pathString,
-                    "-plugin-path", pluginsPath.pathString,
                 ]
             }
+        }
+
+        // Specify the plugin path for Swift Testing's macro plugin if such a
+        // path exists in this toolchain.
+        if let swiftTestingPluginPath = Self.deriveSwiftTestingPluginPath(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            fileSystem: fileSystem
+        ) {
+            swiftCompilerFlags += ["-plugin-path", swiftTestingPluginPath.pathString]
         }
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
@@ -1032,6 +1034,35 @@ public final class UserToolchain: Toolchain {
             if let path = binPath, fileSystem.exists(path) {
                 return path
             }
+        }
+
+        return nil
+    }
+
+    /// Derive the plugin path needed to locate the Swift Testing macro plugin,
+    /// if such a path exists in the toolchain of the specified compiler.
+    ///
+    /// - Parameters:
+    ///   - derivedSwiftCompiler: The derived path of the Swift compiler to use
+    ///       when deriving the Swift Testing plugin path.
+    ///   - fileSystem: The file system instance to use when validating the path
+    ///       to return.
+    ///
+    /// - Returns: A path to the directory containing Swift Testing's macro
+    ///     plugin, or `nil` if the path does not exist or cannot be determined.
+    ///
+    /// The path returned is a directory containing a library, suitable for
+    /// passing to a client compiler via the `-plugin-path` flag.
+    private static func deriveSwiftTestingPluginPath(
+        derivedSwiftCompiler: Basics.AbsolutePath,
+        fileSystem: any FileSystem
+    ) -> AbsolutePath? {
+        guard let toolchainLibDir = try? toolchainLibDir(swiftCompilerPath: derivedSwiftCompiler) else {
+            return nil
+        }
+
+        if let pluginsPath = try? AbsolutePath(validating: "swift/host/plugins/testing", relativeTo: toolchainLibDir), fileSystem.exists(pluginsPath) {
+            return pluginsPath
         }
 
         return nil
