@@ -621,6 +621,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
     func testPackageNameFlag() async throws {
         try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
         let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
             toolchain: UserToolchain.default,
@@ -7279,9 +7280,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
 
     override func testPackageNameFlag() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
-#if os(Windows)
-        throw XCTSkip("Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-#endif
+        try XCTSkipOnWindows(because: "Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
 #if os(Linux)
         // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
         // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
