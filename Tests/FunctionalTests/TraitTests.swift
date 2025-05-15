@@ -328,8 +328,7 @@ final class TraitTests: XCTestCase {
                         error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                         
                         """
-                XCTAssertTrue(stderr.contains(expectedErr))
-
+                XCTAssertMatch(stderr, .contains(expectedErr))
             }
         }
     }
