@@ -88,7 +88,13 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note: Alternatively use tools like [swiftly](https://www.swift.org/swiftly/documentation/swiftlydocs/) that help manage toolchains versions.
+Alternatively, there are tools like [swiftly](https://github.com/swiftlang/swiftly) that can install and manage toolchains automatically. This repository has a file called `.swift-version` that will keep swiftly at the current recommended version of the toolchain for best results. The `swiftly install` command ensures that SwiftPM's in-use toolchain is installed on your system and ready for you to do your development work with the usual swift commands.
+
+```bash
+swiftly install
+swift build
+swift test
+```
 
 ## Local Development
 
@@ -322,14 +328,15 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 2. Clone a working copy of your fork
 3. Create a new branch
 4. Make your code changes
-5. Try to keep your changes (when possible) below 200 lines of code.
-6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
-7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
-8. Push the commit / branch to your fork
-9. Make a PR from your fork / branch to `apple: main`
-10. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
-11. Reviewers are going to be automatically added to your PR
-12. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
+5. If a particular version of the Swift toolchain is needed then update the `.swift-version` file to that version (or use `swiftly use` to update it).
+6. Try to keep your changes (when possible) below 200 lines of code.
+7. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
+8. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+9. Push the commit / branch to your fork
+10. Make a PR from your fork / branch to `apple: main`
+11. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
+12. Reviewers are going to be automatically added to your PR
+13. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
 
 By submitting a pull request, you represent that you have the right to license
 your contribution to Apple and the community, and agree by submitting the patch

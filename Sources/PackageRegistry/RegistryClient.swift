@@ -2350,17 +2350,3 @@ extension Result {
         }
     }
 }
-
-extension DispatchQueue {
-    func asyncResult<T>(_ callback: @escaping (Result<T, Error>) -> Void, _ closure: @escaping () async throws -> T) {
-        let completion: (Result<T, Error>) -> Void = { result in self.async { callback(result) } }
-        Task {
-            do {
-                completion(.success(try await closure()))
-            } catch {
-                completion(.failure(error))
-            }
-        }
-    }
-}
-

@@ -179,7 +179,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             exe,
             [
                 "-enable-batch-mode", "-serialize-diagnostics", "-Onone", "-enable-testing",
-                "-j3", "-DSWIFT_PACKAGE", "-DDEBUG", "-Xcc",
+                "-j3", "-DSWIFT_PACKAGE", "-DDEBUG", "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE", "-Xcc",
                 "-fmodule-map-file=\(buildPath.appending(components: "lib.build", "module.modulemap"))",
                 "-Xcc", "-I", "-Xcc", "\(pkgPath.appending(components: "Sources", "lib", "include"))",
                 "-module-cache-path", "\(buildPath.appending(components: "ModuleCache"))", .anySequence,

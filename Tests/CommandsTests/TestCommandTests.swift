@@ -577,7 +577,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        try XCTSkipIfCI()
+        try XCTSkipIfPlatformCI()
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
         let expected = 1
@@ -632,18 +632,10 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        guard ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil else {
-            throw XCTSkip("Skipping test because SwiftBuild is not linked in.")
-        }
-
         try await super.testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation()
     }
 
     override func testListWithSkipBuildAndNoBuildArtifacts() async throws {
-        guard ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil else {
-            throw XCTSkip("Skipping test because SwiftBuild is not linked in.")
-        }
-
         try await super.testListWithSkipBuildAndNoBuildArtifacts()
     }
 

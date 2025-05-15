@@ -81,8 +81,7 @@ final class PluginInvocationTests: XCTestCase {
                     ]
                 )
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
 
         // Check the basic integrity before running plugins.

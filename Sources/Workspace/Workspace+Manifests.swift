@@ -27,7 +27,6 @@ import protocol PackageGraph.CustomPackageContainer
 import struct PackageGraph.GraphLoadingNode
 import struct PackageGraph.PackageContainerConstraint
 import struct PackageGraph.PackageGraphRoot
-import struct PackageGraph.TraitConfiguration
 import class PackageLoading.ManifestLoader
 import struct PackageLoading.ManifestValidator
 import struct PackageLoading.ToolsVersionParser
@@ -36,6 +35,7 @@ import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
+import enum PackageModel.TraitConfiguration
 import protocol TSCBasic.FileSystem
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
@@ -226,10 +226,8 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                var traits: Set<String>? = []
-                if let enabledTraits = rootEnabledTraitsMap[package.reference.identity] {
-                    traits = try package.manifest.enabledTraits(using: enabledTraits)
-                }
+                var traits: Set<String>? = rootEnabledTraitsMap[package.reference.identity] ?? []
+
                 let node = try GraphLoadingNode(
                     identity: identity,
                     manifest: package.manifest,
@@ -241,12 +239,8 @@ extension Workspace {
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    var traits: Set<String>? = []
+                    var traits: Set<String>? = rootDependenciesEnabledTraitsMap[dependency.identity] ?? []
 
-                    if let enabledTraits = rootDependenciesEnabledTraitsMap[dependency.identity] {
-                        // Recursively calculate the enabled traits of this package.
-                        traits = try manifest.enabledTraits(using: enabledTraits)
-                    }
                     return try GraphLoadingNode(
                         identity: dependency.identity,
                         manifest: manifest,
@@ -346,10 +340,9 @@ extension Workspace {
                             // Calculate all transitively enabled traits for this manifest.
 
                             var allEnabledTraits: Set<String> = []
-                            if let explicitlyEnabledTraits,
-                               let calculatedTraits = try manifest.enabledTraits(using: Set(explicitlyEnabledTraits))
+                            if let explicitlyEnabledTraits
                             {
-                                allEnabledTraits = calculatedTraits
+                                allEnabledTraits = Set(explicitlyEnabledTraits)
                             }
 
                             return try GraphLoadingNode(
@@ -431,7 +424,7 @@ extension Workspace {
                             return true
                         }
                         return !conditionTraits
-                            .intersection(workspace.configuration.traitConfiguration?.enabledTraits ?? []).isEmpty
+                            .intersection(workspace.configuration.traitConfiguration.enabledTraits ?? []).isEmpty
                     }.map(\.name) ?? []
 
                     traitMap[dependency.identity] = Set(explicitlyEnabledTraits)
@@ -599,16 +592,14 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues { manifest in
             let deps = try manifest.dependencies.filter { dep in
                 guard configuration.pruneDependencies else { return true }
-                let explicitlyEnabledTraits = try manifest.enabledTraits(
-                    using: configuration.traitConfiguration?.enabledTraits,
-                    enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false
-                )
-                let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: explicitlyEnabledTraits)
+                let enabledTraits = root.enabledTraits[manifest.packageIdentity]
+                let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
             }
 
             return Manifest(
                 displayName: manifest.displayName,
+                packageIdentity: manifest.packageIdentity,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -638,42 +629,8 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
                 guard configuration.pruneDependencies else { return true }
-                var config = configuration.traitConfiguration
-                if manifest.packageKind.isRoot {
-                    let manifestEnabledTraits = try manifest.enabledTraits(
-                        using: configuration.traitConfiguration?.enabledTraits,
-                        enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false
-                    )
-                    config = .init(enabledTraits: manifestEnabledTraits)
-                } else {
-                    let rootManifests = root.manifests.values.filter(\.packageKind.isRoot)
-
-                    // find the package dependency in each of the root manifests
-                    let packageDependencyInRoots = rootManifests
-                        .compactMap {
-                            $0.dependencies
-                                .first(where: { $0.identity.description == manifest.displayName.lowercased() })
-                        }
-
-                    // pluck out the enabled traits defined by the package dependency struct
-                    let enabledTraitsPerPackageDep = packageDependencyInRoots.map(\.traits)
-
-                    // create a union of the sets; if all are nil, then there is no config
-                    var manifestEnabledTraits: Set<String>?
-                    for enabledTraits in enabledTraitsPerPackageDep {
-                        if let enabledTraits = enabledTraits?.map(\.name) {
-                            if let resultSet = manifestEnabledTraits {
-                                manifestEnabledTraits = resultSet.union(Set(enabledTraits))
-                            } else {
-                                manifestEnabledTraits = Set(enabledTraits)
-                            }
-                        }
-                    }
-
-                    manifestEnabledTraits = try manifest.enabledTraits(using: manifestEnabledTraits)
-                    config = .init(enabledTraits: manifestEnabledTraits)
-                }
-                let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: config?.enabledTraits)
+                var enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
+                let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
             }.map(\.packageRef)
         }.flatMap(\.self)
@@ -706,7 +663,7 @@ extension Workspace {
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return try (dependenciesRequired + dependenciesGuarded).compactMap { dependency in
-                try loadedManifests[dependency.identity].flatMap {
+                try loadedManifests[dependency.identity].flatMap { manifest in
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
@@ -718,20 +675,18 @@ extension Workspace {
                         return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
                     }.map(\.name)
 
-                    var allEnabledTraits: Set<String> = []
-                    if let explicitlyEnabledTraits,
-                       let calculatedTraits = try $0.enabledTraits(using: Set(explicitlyEnabledTraits))
-                    {
-                        allEnabledTraits = calculatedTraits
-                    }
+                    let calculatedTraits = try manifest.enabledTraits(
+                        using: explicitlyEnabledTraits.flatMap { Set($0) },
+                        node.item.identity.description
+                    )
 
-                    return $0.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
+                    return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
                         try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,
-                                manifest: $0,
+                                manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: allEnabledTraits
+                                enabledTraits: calculatedTraits ?? []
                             ),
                             key: dependency.identity
                         ) :
@@ -744,13 +699,8 @@ extension Workspace {
 
         do {
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
-                // Since these represent the root manifests, can pass in the enabled traits from the trait configuration
-                // here, as that is what it represents.
                 let isRoot = manifest.packageKind.isRoot
-                let enabledTraits = isRoot ? try manifest.enabledTraits(
-                    using: configuration.traitConfiguration?.enabledTraits,
-                    enableAllTraits: configuration.traitConfiguration?.enableAllTraits ?? false
-                ) : []
+                let enabledTraits = isRoot ? root.enabledTraits[identity] : []
                 return try KeyedPair(
                     GraphLoadingNode(
                         identity: identity,
@@ -892,19 +842,15 @@ extension Workspace {
         }
 
         // Load and return the manifest.
-        return await withCheckedContinuation { continuation in
-            self.loadManifest(
-                packageIdentity: managedDependency.packageRef.identity,
-                packageKind: packageKind,
-                packagePath: packagePath,
-                packageLocation: managedDependency.packageRef.locationString,
-                packageVersion: packageVersion,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            ) { result in
-                continuation.resume(returning: try? result.get())
-            }
-        }
+        return try? await self.loadManifest(
+            packageIdentity: managedDependency.packageRef.identity,
+            packageKind: packageKind,
+            packagePath: packagePath,
+            packageLocation: managedDependency.packageRef.locationString,
+            packageVersion: packageVersion,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        )
     }
 
     /// Load the manifest at a given path.
@@ -917,9 +863,8 @@ extension Workspace {
         packageLocation: String,
         packageVersion: Version? = nil,
         fileSystem: FileSystem? = nil,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> Manifest {
         let fileSystem = fileSystem ?? self.fileSystem
 
         // Load the manifest, bracketed by the calls to the delegate callbacks.
@@ -936,63 +881,63 @@ extension Workspace {
         }
 
         var manifestLoadingDiagnostics = [Diagnostic]()
+        defer { manifestLoadingScope.emit(manifestLoadingDiagnostics) }
 
         let start = DispatchTime.now()
-        self.manifestLoader.load(
-            packagePath: packagePath,
-            packageIdentity: packageIdentity,
-            packageKind: packageKind,
-            packageLocation: packageLocation,
-            packageVersion: packageVersion.map { (version: $0, revision: nil) },
-            currentToolsVersion: self.currentToolsVersion,
-            identityResolver: self.identityResolver,
-            dependencyMapper: self.dependencyMapper,
-            fileSystem: fileSystem,
-            observabilityScope: manifestLoadingScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
-        ) { result in
+        let manifest: Manifest
+        do {
+            manifest = try await self.manifestLoader.load(
+                packagePath: packagePath,
+                packageIdentity: packageIdentity,
+                packageKind: packageKind,
+                packageLocation: packageLocation,
+                packageVersion: packageVersion.map { (version: $0, revision: nil) },
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: fileSystem,
+                observabilityScope: manifestLoadingScope,
+                delegateQueue: .sharedConcurrent
+            )
+        } catch {
             let duration = start.distance(to: .now())
-            var result = result
-            switch result {
-            case .failure(let error):
-                manifestLoadingDiagnostics.append(.error(error))
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: nil,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            case .success(let manifest):
-                let validator = ManifestValidator(
-                    manifest: manifest,
-                    sourceControlValidator: self.repositoryManager,
-                    fileSystem: self.fileSystem
-                )
-                let validationIssues = validator.validate()
-                if !validationIssues.isEmpty {
-                    // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
-                    result = .failure(Diagnostics.fatalError)
-                    manifestLoadingDiagnostics.append(contentsOf: validationIssues)
-                }
-                self.delegate?.didLoadManifest(
-                    packageIdentity: packageIdentity,
-                    packagePath: packagePath,
-                    url: packageLocation,
-                    version: packageVersion,
-                    packageKind: packageKind,
-                    manifest: manifest,
-                    diagnostics: manifestLoadingDiagnostics,
-                    duration: duration
-                )
-            }
-            manifestLoadingScope.emit(manifestLoadingDiagnostics)
-            completion(result)
+            manifestLoadingDiagnostics.append(.error(error))
+            self.delegate?.didLoadManifest(
+                packageIdentity: packageIdentity,
+                packagePath: packagePath,
+                url: packageLocation,
+                version: packageVersion,
+                packageKind: packageKind,
+                manifest: nil,
+                diagnostics: manifestLoadingDiagnostics,
+                duration: duration
+            )
+            throw error
         }
+
+        let duration = start.distance(to: .now())
+        let validator = ManifestValidator(
+            manifest: manifest,
+            sourceControlValidator: self.repositoryManager,
+            fileSystem: self.fileSystem
+        )
+        let validationIssues = validator.validate()
+        if !validationIssues.isEmpty {
+            // Diagnostics.fatalError indicates that a more specific diagnostic has already been added.
+            manifestLoadingDiagnostics.append(contentsOf: validationIssues)
+            throw Diagnostics.fatalError
+        }
+        self.delegate?.didLoadManifest(
+            packageIdentity: packageIdentity,
+            packagePath: packagePath,
+            url: packageLocation,
+            version: packageVersion,
+            packageKind: packageKind,
+            manifest: manifest,
+            diagnostics: manifestLoadingDiagnostics,
+            duration: duration
+        )
+        return manifest
     }
 
     /// Validates that all the edited dependencies are still present in the file system.

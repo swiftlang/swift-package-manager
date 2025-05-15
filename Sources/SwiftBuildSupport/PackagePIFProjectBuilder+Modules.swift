@@ -26,8 +26,6 @@ import class PackageModel.SystemLibraryModule
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
@@ -596,6 +594,20 @@ extension PackagePIFProjectBuilder {
             settings[.COREML_COMPILER_CONTAINER] = "swift-package"
         }
 
+        if sourceModule.usesSwift {
+            // Leave an explicit indicator regarding whether we are generating a Bundle.module accessor.
+            // This will be read by the #bundle macro defined in Foundation.
+            if !shouldGenerateBundleAccessor {
+                // No resources, so explicitly indicate that.
+                // #bundle will then produce an error about there being no resources.
+                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE") }
+            } else if !(resourceBundleName?.isEmpty ?? true) {
+                // We have an explicit resource bundle via Bundle.module.
+                // #bundle should call into that.
+                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
+            } // else we won't set either of those and just let #bundle point to the same bundle as the source code.
+        }
+
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
         }
@@ -870,5 +882,3 @@ extension PackagePIFProjectBuilder {
         self.builtModulesAndProducts.append(systemModule)
     }
 }
-
-#endif

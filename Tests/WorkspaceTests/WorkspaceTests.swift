@@ -38,7 +38,7 @@ final class WorkspaceTests: XCTestCase {
     //     ]
     //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
     //     if matches.count == 0 {
-    //         try skipOnWindowsAsTestCurrentlyFails()
+    //         try XCTSkipOnWindows()
     //     }
     // }
 
@@ -774,7 +774,6 @@ final class WorkspaceTests: XCTestCase {
             result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
         }
     }
-
 
     func testCanResolveWithIncompatiblePackages() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -2234,7 +2233,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-
     func testMinimumRequiredToolsVersionInDependencyResolution() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2937,6 +2935,7 @@ final class WorkspaceTests: XCTestCase {
                 displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
+                packageIdentity: manifest.packageIdentity,
                 packageLocation: manifest.packageLocation,
                 platforms: [],
                 version: manifest.version,
@@ -3887,6 +3886,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileSchemeToolsVersion() async throws {
+        let fs = InMemoryFileSystem()
+
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),
             (ToolsVersion.v5_6, ToolsVersion.v5_6),
@@ -7782,7 +7783,6 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-
     func testDownloadedArtifactNotAnArchiveError() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -8038,7 +8038,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"""
+        try XCTSkipOnWindows(because: #"""
         threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
         """#)
 
@@ -12695,27 +12695,20 @@ final class WorkspaceTests: XCTestCase {
                 dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                delegateQueue: DispatchQueue,
-                callbackQueue: DispatchQueue,
-                completion: @escaping (Result<Manifest, Error>) -> Void
-            ) {
+                delegateQueue: DispatchQueue
+            ) async throws -> Manifest {
                 if let error {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
+                    throw error
                 } else {
-                    callbackQueue.async {
-                        completion(.success(
-                            Manifest.createManifest(
-                                displayName: packageIdentity.description,
-                                path: manifestPath,
-                                packageKind: packageKind,
-                                packageLocation: packageLocation,
-                                platforms: [],
-                                toolsVersion: manifestToolsVersion
-                            )
-                        ))
-                    }
+                    return Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
             }
 
@@ -15415,6 +15408,7 @@ final class WorkspaceTests: XCTestCase {
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
                 packageKind: .registry("org.foo"),
+                packageIdentity: .plain("Foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
                 products: [
@@ -15511,7 +15505,6 @@ final class WorkspaceTests: XCTestCase {
         metadata: [String: RegistryReleaseMetadata],
         mirrors: DependencyMirrors? = nil
     ) async throws -> MockWorkspace {
-
         // let sandbox = AbsolutePath.root.appending("swiftpm-tests-can-be-deleted/tmp/ws")
         let sandbox = AbsolutePath.root.appending(components: ["swiftpm-tests-can-be-deleted", "tmp", "ws"])
         let fs = InMemoryFileSystem()
@@ -16140,6 +16133,127 @@ final class WorkspaceTests: XCTestCase {
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testInvalidTrait_WhenParentPackageEnablesTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitNotFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testInvalidTraitConfiguration_ForRootPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            // Trait configuration containing trait that isn't defined in the root package.
+            traitConfiguration: .enabledTraits(["TraitNotFound"]),
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+            }
         }
     }
 

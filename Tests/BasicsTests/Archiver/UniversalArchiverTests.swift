@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+@testable import struct Basics.TarArchiver
+@testable import struct Basics.ZipArchiver
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import _InternalTestSupport
 import XCTest
@@ -18,6 +20,22 @@ import XCTest
 import struct TSCBasic.FileSystemError
 
 final class UniversalArchiverTests: XCTestCase {
+    override func setUp() async throws {
+        let zipAchiver = ZipArchiver(fileSystem: localFileSystem)
+        #if os(Windows)
+            try XCTRequires(executable: zipAchiver.windowsTar)
+        #else
+            try XCTRequires(executable: zipAchiver.unzip)
+            try XCTRequires(executable: zipAchiver.zip)
+        #endif
+        #if os(FreeBSD)
+            try XCTRequires(executable: zipAchiver.tar)
+        #endif
+
+        let tarAchiver = TarArchiver(fileSystem: localFileSystem)
+        try XCTRequires(executable: tarAchiver.tarCommand)
+    }
+
     func testSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = UniversalArchiver(localFileSystem)

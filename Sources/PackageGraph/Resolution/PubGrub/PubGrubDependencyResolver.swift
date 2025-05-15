@@ -165,7 +165,7 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint], traitConfiguration: TraitConfiguration? = nil) async -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint], traitConfiguration: TraitConfiguration = .default) async -> Result<[DependencyResolverBinding], Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {

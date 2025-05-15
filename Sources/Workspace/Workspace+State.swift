@@ -209,7 +209,7 @@ extension WorkspaceStateStorage {
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
                 artifacts: artifacts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
-                prebuilts: prebuilts.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity }
+                prebuilts: prebuilts.map { .init($0) }.sorted { $0.identity < $1.identity }
             )
         }
 
@@ -455,14 +455,16 @@ extension WorkspaceStateStorage {
         }
 
         struct Prebuilt: Codable {
-            let packageRef: PackageReference
+            let identity: PackageIdentity
+            let version: TSCUtility.Version
             let libraryName: String
             let path: Basics.AbsolutePath
             let products: [String]
             let cModules: [String]
 
             init(_ managedPrebuilt: Workspace.ManagedPrebuilt) {
-                self.packageRef = .init(managedPrebuilt.packageRef)
+                self.identity = managedPrebuilt.identity
+                self.version = managedPrebuilt.version
                 self.libraryName = managedPrebuilt.libraryName
                 self.path = managedPrebuilt.path
                 self.products = managedPrebuilt.products
@@ -534,8 +536,9 @@ extension Workspace.ManagedArtifact {
 
 extension Workspace.ManagedPrebuilt {
     fileprivate init(_ prebuilt: WorkspaceStateStorage.V7.Prebuilt) throws {
-        try self.init(
-            packageRef: .init(prebuilt.packageRef),
+        self.init(
+            identity: prebuilt.identity,
+            version: prebuilt.version,
             libraryName: prebuilt.libraryName,
             path: prebuilt.path,
             products: prebuilt.products,

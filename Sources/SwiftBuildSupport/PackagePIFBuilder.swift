@@ -32,8 +32,6 @@ import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 typealias GUID = SwiftBuild.ProjectModel.GUID
@@ -124,7 +122,7 @@ public final class PackagePIFBuilder {
         func customSDKOptions(forPlatform: PackageModel.Platform) -> [String]
 
         /// Create additional custom PIF targets after all targets have been built.
-        func addCustomTargets(pifProject: ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct]
+        func addCustomTargets(pifProject: inout ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct]
 
         /// Should we suppresses the specific product dependency, updating the provided build settings if necessary?
         /// The specified product may be in the same package or a different one.
@@ -141,6 +139,7 @@ public final class PackagePIFBuilder {
         /// Provides additional configuration and files for the specified library product.
         func configureLibraryProduct(
             product: PackageModel.Product,
+            project: inout ProjectModel.Project,
             target: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
             additionalFiles: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
         )
@@ -474,7 +473,7 @@ public final class PackagePIFBuilder {
             }
         }
 
-        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: projectBuilder.project)
+        let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
         self._pifProject = projectBuilder.project
@@ -667,5 +666,3 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         }
     }
 }
-
-#endif

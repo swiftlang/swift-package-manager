@@ -12,10 +12,11 @@
 
 import class Basics.InMemoryFileSystem
 import SPMBuildCore
-import XCTest
+import Testing
 
-final class XCFrameworkMetadataTests: XCTestCase {
-    func testParseFramework() throws {
+struct XCFrameworkMetadataTests {
+    @Test
+    func parseFramework() throws {
         let fileSystem = InMemoryFileSystem(files: [
             "/Info.plist":  """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -62,28 +63,31 @@ final class XCFrameworkMetadataTests: XCTestCase {
         ])
 
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-        XCTAssertEqual(metadata,
-                       XCFrameworkMetadata(libraries: [
-                           XCFrameworkMetadata.Library(
-                               libraryIdentifier: "macos-x86_64",
-                               libraryPath: "MyFramework.framework",
-                               headersPath: nil,
-                               platform: "macos",
-                               architectures: ["x86_64"],
-                               variant: nil
-                           ),
-                           XCFrameworkMetadata.Library(
-                               libraryIdentifier: "ios-arm64_x86_64-simulator",
-                               libraryPath: "MyFramework.framework",
-                               headersPath: nil,
-                               platform: "ios",
-                               architectures: ["arm64", "x86_64"],
-                               variant: "simulator"
-                           ),
-                       ]))
+        let expected = XCFrameworkMetadata(
+            libraries: [
+                XCFrameworkMetadata.Library(
+                    libraryIdentifier: "macos-x86_64",
+                    libraryPath: "MyFramework.framework",
+                    headersPath: nil,
+                    platform: "macos",
+                    architectures: ["x86_64"],
+                    variant: nil
+                ),
+                XCFrameworkMetadata.Library(
+                    libraryIdentifier: "ios-arm64_x86_64-simulator",
+                    libraryPath: "MyFramework.framework",
+                    headersPath: nil,
+                    platform: "ios",
+                    architectures: ["arm64", "x86_64"],
+                    variant: "simulator"
+                ),
+            ],
+        )
+        #expect(metadata == expected)
     }
 
-    func testParseLibrary() throws {
+    @Test
+    func parseLibrary() throws {
         let fileSystem = InMemoryFileSystem(files: [
             "/Info.plist": """
             <?xml version="1.0" encoding="UTF-8"?>
@@ -117,17 +121,18 @@ final class XCFrameworkMetadataTests: XCTestCase {
         ])
 
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-        XCTAssertEqual(metadata,
-                       XCFrameworkMetadata(
-                           libraries: [
-                               XCFrameworkMetadata.Library(
-                                   libraryIdentifier: "macos-x86_64",
-                                   libraryPath: "MyLibrary.a",
-                                   headersPath: "Headers",
-                                   platform: "macos",
-                                   architectures: ["x86_64"],
-                                   variant: nil
-                               ),
-                           ]))
+        let expected = XCFrameworkMetadata(
+            libraries: [
+                XCFrameworkMetadata.Library(
+                    libraryIdentifier: "macos-x86_64",
+                    libraryPath: "MyLibrary.a",
+                    headersPath: "Headers",
+                    platform: "macos",
+                    architectures: ["x86_64"],
+                    variant: nil
+                ),
+            ],
+        )
+        #expect(metadata == expected)
     }
 }
