@@ -167,6 +167,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                 var output = [SwiftSDKBundleStore.Output]()
                 let store = SwiftSDKBundleStore(
                     swiftSDKsDirectory: tmpDir,
+                    hostToolchainBinDir: tmpDir,
                     fileSystem: localFileSystem,
                     observabilityScope: observabilityScope,
                     outputHandler: {
@@ -208,6 +209,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -300,6 +302,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -340,6 +343,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         var output = [SwiftSDKBundleStore.Output]()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: {
@@ -381,9 +385,11 @@ final class SwiftSDKBundleTests: XCTestCase {
         let system = ObservabilitySystem.makeForTesting()
         let hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: [:])
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
+        let hostToolchainBinDir = AbsolutePath("/tmp")
         let archiver = MockArchiver()
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchainBinDir,
             fileSystem: fileSystem,
             observabilityScope: system.topScope,
             outputHandler: { _ in }
@@ -474,5 +480,56 @@ final class SwiftSDKBundleTests: XCTestCase {
                 [customCompileToolchain.appending(components: ["usr", "bin"])] + hostSwiftSDK.toolset.rootPaths
             )
         }
+    }
+
+    func testMetadataJSONPaths() async throws {
+        let toolsetRootPath = AbsolutePath("/path/to/toolpath")
+        let (fileSystem, bundles, swiftSDKsDirectory) = try generateTestFileSystem(
+            bundleArtifacts: [
+                .init(
+                    id: "\(testArtifactID)1",
+                    supportedTriples: [arm64Triple],
+                    metadataPath: "metadata1.json"
+                ),
+                .init(
+                    id: "\(testArtifactID)2",
+                    supportedTriples: [i686Triple],
+                    metadataPath: "metadata2.json",
+                    toolsetRootPath: toolsetRootPath
+                ),
+            ]
+        )
+        let system = ObservabilitySystem.makeForTesting()
+        let archiver = MockArchiver()
+        
+        var output = [SwiftSDKBundleStore.Output]()
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: "/tmp",
+            fileSystem: fileSystem,
+            observabilityScope: system.topScope,
+            outputHandler: { output.append($0) }
+        )
+
+        for bundle in bundles {
+            try await store.install(bundlePathOrURL: bundle.path, archiver)
+        }
+
+        let validBundles = try store.allValidBundles
+
+        XCTAssertEqual(validBundles.count, bundles.count)
+
+        XCTAssertEqual(validBundles.sortedArtifactIDs, ["\(testArtifactID)1", "\(testArtifactID)2"])
+        XCTAssertEqual(output.count, 2)
+        XCTAssertEqual(output, [
+            .installationSuccessful(
+                bundlePathOrURL: bundles[0].path,
+                bundleName: AbsolutePath(bundles[0].path).components.last!
+            ),
+            .installationSuccessful(
+                bundlePathOrURL: bundles[1].path,
+                bundleName: AbsolutePath(bundles[1].path).components.last!
+            ),
+        ])
     }
 }
