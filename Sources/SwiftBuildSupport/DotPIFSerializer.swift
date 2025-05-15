@@ -49,7 +49,13 @@ func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) 
             case .target(let target):
                 graph.node(
                     id: target.id,
-                    label: "<target>\n\(target.id)\nproduct type: \(target.productType)\n\(target.buildPhases.summary)",
+                    label: """
+                        <target>
+                        \(target.id)
+                        name: \(target.name)
+                        product type: \(target.productType)
+                        \(target.buildPhases.summary)
+                        """,
                     shape: "box",
                     color: .gray88,
                     fontsize: 5
