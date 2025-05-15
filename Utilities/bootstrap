@@ -467,8 +467,6 @@ def test(args):
     cmd = [
         os.path.join(args.bin_dir, "swift-test")
     ]
-    # Disabling in release/6.2 due to crash
-    cmd.append("--disable-swift-testing")
     if args.parallel:
         cmd.append("--parallel")
     for arg in args.filter:
