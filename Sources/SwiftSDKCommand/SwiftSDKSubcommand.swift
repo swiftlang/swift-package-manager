@@ -30,6 +30,7 @@ protocol SwiftSDKSubcommand: AsyncParsableCommand {
     ///   - observabilityScope: observability scope used for logging.
     func run(
         hostTriple: Triple,
+        hostToolchain: UserToolchain,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws
@@ -71,7 +72,7 @@ extension SwiftSDKSubcommand {
 
         var commandError: Error? = nil
         do {
-            try await self.run(hostTriple: triple, swiftSDKsDirectory, observabilityScope)
+            try await self.run(hostTriple: triple, hostToolchain: hostToolchain, swiftSDKsDirectory, observabilityScope)
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
             }

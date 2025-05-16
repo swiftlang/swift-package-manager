@@ -34,6 +34,7 @@ package struct RemoveSwiftSDK: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
+        hostToolchain: UserToolchain,
         _ swiftSDKsDirectory: Basics.AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
@@ -47,6 +48,7 @@ package struct RemoveSwiftSDK: SwiftSDKSubcommand {
         } else {
             let bundleStore = SwiftSDKBundleStore(
                 swiftSDKsDirectory: swiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
                 fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 outputHandler: { print($0) }

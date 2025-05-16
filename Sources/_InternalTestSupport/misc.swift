@@ -559,3 +559,20 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
     guard match.count != 0 else { return 0 }
     return value.ranges(of: match).count
 }
+
+public extension String {
+    var withSwiftLineEnding: String {   
+        return replacingOccurrences(of: "\r\n", with: "\n")
+    }
+}
+
+public func executableName(_ name: String) -> String {
+#if os(Windows)
+  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
+    return name
+  }
+  return "\(name)\(ProcessInfo.exeSuffix)"
+#else
+  return name
+#endif
+}

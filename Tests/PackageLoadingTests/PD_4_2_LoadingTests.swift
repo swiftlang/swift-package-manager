@@ -673,11 +673,9 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
 
     // run this with TSAN/ASAN to detect concurrency issues
     func testConcurrencyNoWarmUp() async throws {
-#if os(Windows)
         // FIXME: does this actually trigger only on Windows or are other
         // platforms just getting lucky?  I'm feeling lucky.
-        throw XCTSkip("Foundation Process.terminationStatus race condition (apple/swift-corelibs-foundation#4589")
-#else
+        try XCTSkipOnWindows(because: "Foundation Process.terminationStatus race condition (apple/swift-corelibs-foundation#4589")
         try XCTSkipIfPlatformCI()
 
         try await testWithTemporaryDirectory { path in
@@ -731,6 +729,5 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
-#endif
     }
 }
