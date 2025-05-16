@@ -33,10 +33,14 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
     var locations: LocationOptions
 
     @Argument(help: "A local filesystem path or a URL of a Swift SDK bundle to install.")
-    var bundlePathOrURL: String
+    var bundlePathOrURL: String?
 
     @Option(help: "The checksum of the bundle generated with `swift package compute-checksum`.")
     var checksum: String? = nil
+
+    /// Alias of a Swift SDK to install, which automatically resolves installation URL based on host toolchain version.
+    @Option(help: .hidden)
+    var experimentalAlias: String? = nil
 
     @Flag(
         name: .customLong("color-diagnostics"),
