@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
-final class BasicTests: XCTestCase {
+struct BasicTests {
+    @Test
     func testNoDiagnostics() throws {
         // Edge case.
         try testAPI1File { _ in
@@ -23,6 +24,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testPrimaryDiag() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -45,6 +47,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNote() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -73,6 +76,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testMultiplePrimaryDiagsWithNotes() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -120,6 +124,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNonOverlappingCompoundFixIt() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -195,6 +200,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testOverlappingCompoundFixIt() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -224,6 +230,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testOverlappingFixIts() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -260,6 +267,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testFixItsMultipleFiles() throws {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
@@ -323,6 +331,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoteInDifferentFile() throws {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
@@ -354,8 +363,9 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testDiagNotInTheSameFileAsFixIt() {
-        do {
+        #expect(throws: Error.self) {
             try testAPI2Files { (filename1: String, filename2: String) in
                 .init(
                     edits: (
@@ -378,11 +388,6 @@ final class BasicTests: XCTestCase {
                     ]
                 )
             }
-        } catch {
-            // Expected to throw an error.
-            return
         }
-
-        XCTFail()
     }
 }

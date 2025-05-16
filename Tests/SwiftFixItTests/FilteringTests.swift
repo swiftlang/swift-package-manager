@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
-final class FilteringTests: XCTestCase {
+struct FilteringTests {
+    @Test
     func testIgnoredDiag() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -72,6 +73,7 @@ final class FilteringTests: XCTestCase {
         }
     }
 
+    @Test
     func testDiagWithNoLocation() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -154,6 +156,7 @@ final class FilteringTests: XCTestCase {
         }
     }
 
+    @Test
     func testMultipleNotesWithFixIts() throws {
         try testAPI1File { filename in
             .init(
@@ -231,6 +234,7 @@ final class FilteringTests: XCTestCase {
         }
     }
 
+    @Test
     func testDuplicatePrimaryDiag() throws {
         try testAPI1File { filename in
             .init(
@@ -322,6 +326,7 @@ final class FilteringTests: XCTestCase {
         }
     }
 
+    @Test
     func testDuplicateReplacementFixIts() throws {
         try testAPI1File { (filename: String) in
             .init(
