@@ -137,7 +137,7 @@ extension SwiftPackageCommand {
 
             print("> Updating manifest.")
             for module in modules.map(\.module) {
-                print("> Adding feature(s) to '\(module.name)'.")
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'.")
                 self.updateManifest(
                     for: module.name,
                     add: features,
@@ -198,9 +198,7 @@ extension SwiftPackageCommand {
                     settings
                 )
             } catch {
-                print(
-                    "error: Couldn't update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually."
-                )
+                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually.")
             }
         }
 
