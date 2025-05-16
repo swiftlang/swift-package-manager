@@ -29,6 +29,7 @@ import enum SwiftIDEUtils.FixItApplier
 import struct SwiftParser.Parser
 
 import struct SwiftSyntax.AbsolutePosition
+import struct SwiftSyntax.SourceEdit
 import struct SwiftSyntax.SourceFileSyntax
 import class SwiftSyntax.SourceLocationConverter
 import struct SwiftSyntax.Syntax
@@ -294,11 +295,17 @@ extension SwiftFixIt {
         for (sourceFile, diagnostics) in self.diagnosticsPerFile {
             numberOfFixItsApplied += diagnostics.count
 
-            let result = SwiftIDEUtils.FixItApplier.applyFixes(
-                from: diagnostics,
-                filterByMessages: nil,
-                to: sourceFile.syntax
-            )
+            var edits = [SwiftSyntax.SourceEdit]()
+            edits.reserveCapacity(diagnostics.count)
+            for diagnostic in diagnostics {
+                for fixIt in diagnostic.fixIts {
+                    for edit in fixIt.edits {
+                        edits.append(edit)
+                    }
+                }
+            }
+
+            let result = SwiftIDEUtils.FixItApplier.apply(edits: consume edits, to: sourceFile.syntax)
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }
