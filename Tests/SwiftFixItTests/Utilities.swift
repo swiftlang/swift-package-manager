@@ -168,8 +168,23 @@ struct SourceFileEdit {
     }
 }
 
+struct Summary {
+    let summary: SwiftFixIt.Summary
+    let locationInTest: Testing.SourceLocation
+
+    init(
+        numberOfFixItsApplied: Int,
+        numberOfFilesChanged: Int,
+        locationInTest: Testing.SourceLocation = #_sourceLocation
+    ) {
+        self.summary = .init(numberOfFixItsApplied: numberOfFixItsApplied, numberOfFilesChanged: numberOfFilesChanged)
+        self.locationInTest = locationInTest
+    }
+}
+
 struct TestCase<T> {
     let edits: T
+    let summary: Summary
     let diagnostics: [PrimaryDiagnostic]
 }
 
@@ -198,6 +213,7 @@ extension Testing.Issue {
 
 private func _testAPI(
     _ sourceFilePathsAndEdits: [(AbsolutePath, SourceFileEdit)],
+    _ expectedSummary: Summary,
     _ diagnostics: [PrimaryDiagnostic],
     _ categories: Set<String>,
 ) throws {
@@ -218,7 +234,7 @@ private func _testAPI(
         categories: categories,
         fileSystem: localFileSystem
     )
-    try swiftFixIt.applyFixIts()
+    let actualSummary = try swiftFixIt.applyFixIts()
 
     for (i, (path, edit)) in sourceFilePathsAndEdits.enumerated() {
         let actualContents = try localFileSystem.readFileContents(path) as String
@@ -232,6 +248,14 @@ private func _testAPI(
                 sourceLocation: edit.locationInTest
             )
         }
+    }
+
+    if expectedSummary.summary != actualSummary {
+        Issue.record(
+            title: "Expected/actual change summaries",
+            comparisonComponents: expectedSummary.summary, actualSummary,
+            sourceLocation: expectedSummary.locationInTest
+        )
     }
 }
 
@@ -251,6 +275,7 @@ func testAPI1File(
 
         try _testAPI(
             [(sourceFilePath, testCase.edits)],
+            testCase.summary,
             testCase.diagnostics,
             categories
         )
@@ -269,6 +294,7 @@ func testAPI2Files(
 
         try _testAPI(
             [(sourceFilePath1, testCase.edits.0), (sourceFilePath2, testCase.edits.1)],
+            testCase.summary,
             testCase.diagnostics,
             categories
         )

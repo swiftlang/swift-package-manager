@@ -2132,7 +2132,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 }
             }
 
-            _ = try await self.execute(
+            let (stdout, _) = try await self.execute(
                 ["migrate", "--to-feature", "ExistentialAny"],
                 packagePath: fixturePath
             )
@@ -2145,6 +2145,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     localFileSystem.readFileContents(fixedSourcePath)
                 )
             }
+
+            XCTAssertMatch(stdout, .contains("> Applied 3 fix-its in 1 file."))
         }
     }
 

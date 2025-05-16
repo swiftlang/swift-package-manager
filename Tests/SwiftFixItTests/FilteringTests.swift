@@ -18,6 +18,7 @@ struct FilteringTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .ignored,
@@ -78,6 +79,7 @@ struct FilteringTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -161,6 +163,7 @@ struct FilteringTests {
         try testAPI1File { filename in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
+                summary: .init(numberOfFixItsApplied: 0, numberOfFilesChanged: 0),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -239,6 +242,7 @@ struct FilteringTests {
         try testAPI1File { filename in
             .init(
                 edits: .init(input: "var x = (1, 1)", result: "let x = (22, 13)"),
+                summary: .init(numberOfFixItsApplied: 3, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -285,7 +289,7 @@ struct FilteringTests {
                                 text: "error1_note1",
                                 location: .init(filename: filename, line: 1, column: 5, offset: 0),
                                 fixIts: [
-                                    // Skipped, duplicate.
+                                    // Skipped, duplicate primary diagnostic.
                                     .init(
                                         start: .init(filename: filename, line: 1, column: 5, offset: 0),
                                         end: .init(filename: filename, line: 1, column: 6, offset: 0),
@@ -300,7 +304,7 @@ struct FilteringTests {
                         text: "warning1",
                         location: .init(filename: filename, line: 1, column: 10, offset: 0),
                         fixIts: [
-                            // Skipped, duplicate.
+                            // Skipped, duplicate primary diagnostic.
                             .init(
                                 start: .init(filename: filename, line: 1, column: 7, offset: 0),
                                 end: .init(filename: filename, line: 1, column: 8, offset: 0),
@@ -331,6 +335,11 @@ struct FilteringTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 22"),
+                summary: .init(
+                    // 4 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 4,
+                    numberOfFilesChanged: 1
+                ),
                 diagnostics: [
                     // On primary diagnostics.
                     PrimaryDiagnostic(
@@ -351,7 +360,7 @@ struct FilteringTests {
                         text: "error2",
                         location: .init(filename: filename, line: 1, column: 4, offset: 0),
                         fixIts: [
-                            // Applied.
+                            // Skipped.
                             .init(
                                 start: .init(filename: filename, line: 1, column: 1, offset: 0),
                                 end: .init(filename: filename, line: 1, column: 4, offset: 0),
@@ -388,7 +397,7 @@ struct FilteringTests {
                                 text: "error4_note1",
                                 location: .init(filename: filename, line: 1, column: 9, offset: 0),
                                 fixIts: [
-                                    // Applied.
+                                    // Skipped.
                                     .init(
                                         start: .init(filename: filename, line: 1, column: 9, offset: 0),
                                         end: .init(filename: filename, line: 1, column: 10, offset: 0),

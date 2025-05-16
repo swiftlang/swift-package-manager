@@ -264,10 +264,36 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
 
         self.diagnosticsPerFile = diagnosticsPerFile
     }
+}
 
-    package func applyFixIts() throws {
+extension SwiftFixIt {
+    package struct Summary: Equatable {
+        package var numberOfFixItsApplied: Int
+        package var numberOfFilesChanged: Int
+
+        package init(numberOfFixItsApplied: Int, numberOfFilesChanged: Int) {
+            self.numberOfFixItsApplied = numberOfFixItsApplied
+            self.numberOfFilesChanged = numberOfFilesChanged
+        }
+
+        package static func + (lhs: consuming Self, rhs: Self) -> Self {
+            lhs += rhs
+            return lhs
+        }
+
+        package static func += (lhs: inout Self, rhs: Self) {
+            lhs.numberOfFixItsApplied += rhs.numberOfFixItsApplied
+            lhs.numberOfFilesChanged += rhs.numberOfFilesChanged
+        }
+    }
+
+    package func applyFixIts() throws -> Summary {
+        var numberOfFixItsApplied = 0
+
         // Bulk-apply fix-its to each file and write the results back.
         for (sourceFile, diagnostics) in self.diagnosticsPerFile {
+            numberOfFixItsApplied += diagnostics.count
+
             let result = SwiftIDEUtils.FixItApplier.applyFixes(
                 from: diagnostics,
                 filterByMessages: nil,
@@ -276,6 +302,11 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }
+
+        return Summary(
+            numberOfFixItsApplied: numberOfFixItsApplied,
+            numberOfFilesChanged: self.diagnosticsPerFile.keys.count
+        )
     }
 }
 
