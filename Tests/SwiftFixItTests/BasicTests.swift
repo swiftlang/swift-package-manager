@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
-final class BasicTests: XCTestCase {
+struct BasicTests {
+    @Test
     func testNoDiagnostics() throws {
         // Edge case.
         try testAPI1File { _ in
@@ -23,6 +24,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testPrimaryDiag() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -45,6 +47,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNote() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -73,6 +76,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testMultiplePrimaryDiagsWithNotes() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -120,6 +124,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNonOverlappingCompoundFixIt() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -195,6 +200,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testOverlappingCompoundFixIt() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -224,6 +230,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testOverlappingFixIts() throws {
         try testAPI1File { (filename: String) in
             .init(
@@ -260,12 +267,13 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testFixItsMultipleFiles() throws {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
                 edits: (
-                    .init(input: "var x = 1", result: "let x = 1"),
-                    .init(input: "var x = 1", result: "let x = 1")
+                    .init(input: "var x = 1", result: "let _ = 1"),
+                    .init(input: "var x = 1", result: "let _ = 1")
                 ),
                 diagnostics: [
                     // filename1
@@ -284,12 +292,12 @@ final class BasicTests: XCTestCase {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename1, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename1, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename1, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
@@ -297,12 +305,12 @@ final class BasicTests: XCTestCase {
                     PrimaryDiagnostic(
                         level: .warning,
                         text: "warning2",
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename2, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename2, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename2, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename2, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename2, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
@@ -323,6 +331,7 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoteInDifferentFile() throws {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
@@ -354,8 +363,9 @@ final class BasicTests: XCTestCase {
         }
     }
 
+    @Test
     func testDiagNotInTheSameFileAsFixIt() {
-        do {
+        #expect(throws: Error.self) {
             try testAPI2Files { (filename1: String, filename2: String) in
                 .init(
                     edits: (
@@ -378,11 +388,6 @@ final class BasicTests: XCTestCase {
                     ]
                 )
             }
-        } catch {
-            // Expected to throw an error.
-            return
         }
-
-        XCTFail()
     }
 }
