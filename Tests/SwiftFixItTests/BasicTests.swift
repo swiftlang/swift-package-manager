@@ -19,6 +19,7 @@ struct BasicTests {
         try testAPI1File { _ in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
+                summary: .init(numberOfFixItsApplied: 0, numberOfFilesChanged: 0),
                 diagnostics: []
             )
         }
@@ -29,6 +30,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -52,6 +54,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -81,6 +84,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 22"),
+                summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -142,6 +146,7 @@ struct BasicTests {
                     w = fooo(1, 233)
                     """
                 ),
+                summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
                     // Different lines.
                     PrimaryDiagnostic(
@@ -205,6 +210,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -235,6 +241,11 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
+                summary: .init(
+                    // 2 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 2 /**/,
+                    numberOfFilesChanged: 1
+                ),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -275,6 +286,7 @@ struct BasicTests {
                     .init(input: "var x = 1", result: "let _ = 1"),
                     .init(input: "var x = 1", result: "let _ = 1")
                 ),
+                summary: .init(numberOfFixItsApplied: 4, numberOfFilesChanged: 2),
                 diagnostics: [
                     // filename1
                     PrimaryDiagnostic(
@@ -339,6 +351,7 @@ struct BasicTests {
                     .init(input: "var x = 1", result: "let x = 1"),
                     .init(input: "var x = 1", result: "var x = 1")
                 ),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -372,6 +385,7 @@ struct BasicTests {
                         .init(input: "var x = 1", result: "let x = 1"),
                         .init(input: "", result: "")
                     ),
+                    summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                     diagnostics: [
                         PrimaryDiagnostic(
                             level: .error,

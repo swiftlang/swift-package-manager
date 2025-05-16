@@ -124,13 +124,40 @@ extension SwiftPackageCommand {
             // files from build plan and feed them to the fix-it tool.
 
             print("> Applying fix-its.")
-            for module in modules {
-                let fixit = try SwiftFixIt(
-                    diagnosticFiles: module.diagnosticFiles,
-                    categories: Set(features.flatMap(\.categories)),
-                    fileSystem: swiftCommandState.fileSystem
+
+            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
+            let fixItDuration = try ContinuousClock().measure {
+                for module in modules {
+                    let fixit = try SwiftFixIt(
+                        diagnosticFiles: module.diagnosticFiles,
+                        categories: Set(features.flatMap(\.categories)),
+                        fileSystem: swiftCommandState.fileSystem
+                    )
+                    summary += try fixit.applyFixIts()
+                }
+            }
+
+            // Report the changes.
+            do {
+                var message = "> Applied \(summary.numberOfFixItsApplied) fix-it"
+                if summary.numberOfFixItsApplied != 1 {
+                    message += "s"
+                }
+                message += " in \(summary.numberOfFilesChanged) file"
+                if summary.numberOfFilesChanged != 1 {
+                    message += "s"
+                }
+                message += " ("
+                message += fixItDuration.formatted(
+                    .units(
+                        allowed: [.seconds],
+                        width: .narrow,
+                        fractionalPart: .init(lengthLimits: 0 ... 3, roundingRule: .up)
+                    )
                 )
-                try fixit.applyFixIts()
+                message += ")."
+
+                print(message)
             }
 
             // Once the fix-its were applied, it's time to update the
