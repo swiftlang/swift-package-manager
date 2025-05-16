@@ -33,6 +33,8 @@ import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
 import enum TSCBasic.GraphError
 import struct TSCBasic.OrderedSet
+import enum TSCBasic.ProcessEnv
+
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 
@@ -346,7 +348,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    progressAnimationConfiguration: .init()
                 )
             case .xcode:
                 return try XcodeBuildSystem(
@@ -365,7 +368,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    progressAnimationConfiguration: .init()
                 )
             }
         }

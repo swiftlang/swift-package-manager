@@ -427,7 +427,7 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
             }
         }
 
-        public var color: TerminalController.Color {
+        public var color: TSCBasic.TerminalController.Color {
             switch self {
             case .debug:
                 return .white

@@ -68,7 +68,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope)
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            progressAnimationConfiguration: self.swiftCommandState.options.progressAnimation.configuration)
     }
 }
 
@@ -114,7 +115,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
     ) throws -> any BuildSystem {
         return try SwiftBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
@@ -127,7 +128,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            progressAnimationConfiguration: .init()
         )
     }
 }

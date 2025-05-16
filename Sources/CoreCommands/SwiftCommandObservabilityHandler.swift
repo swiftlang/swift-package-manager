@@ -85,11 +85,9 @@ public struct SwiftCommandObservabilityHandler: ObservabilityHandlerProvider {
             self.logLevel = logLevel
             self.outputStream = outputStream
             self.writer = InteractiveWriter(stream: outputStream)
-            self.progressAnimation = ProgressAnimation.ninja(
-                stream: self.outputStream,
-                verbose: self.logLevel.isVerbose
-            )
             self.colorDiagnostics = colorDiagnostics
+            self.progressAnimation = NinjaProgressAnimation(
+                stream: self.outputStream)
         }
 
         func handleDiagnostic(scope: ObservabilityScope, diagnostic: Basics.Diagnostic) {

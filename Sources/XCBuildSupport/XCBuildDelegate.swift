@@ -20,7 +20,7 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCUtility.Diagnostics
 import protocol TSCUtility.ProgressAnimationProtocol
 
-public class XCBuildDelegate {
+package class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem
     private var parser: XCBuildOutputParser!
     private let observabilityScope: ObservabilityScope
@@ -38,7 +38,7 @@ public class XCBuildDelegate {
     /// True if any output was parsed.
     fileprivate(set) var didParseAnyOutput: Bool = false
 
-    public init(
+    package init(
         buildSystem: SPMBuildCore.BuildSystem,
         outputStream: OutputByteStream,
         progressAnimation: ProgressAnimationProtocol,
@@ -55,7 +55,7 @@ public class XCBuildDelegate {
         self.parser = XCBuildOutputParser(delegate: self)
     }
 
-    public func parse(bytes: [UInt8]) {
+    package func parse(bytes: [UInt8]) {
         parser.parse(bytes: bytes)
     }
 }
@@ -107,12 +107,8 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                 self.outputStream.send("\(info.data)\n")
                 self.outputStream.flush()
             }
-        case .didUpdateProgress(let info):
-            queue.async {
-                let percent = Int(info.percentComplete)
-                self.percentComplete = percent > 0 ? percent : 0
-                self.buildSystem.delegate?.buildSystem(self.buildSystem, didUpdateTaskProgress: info.message)
-            }
+        case .didUpdateProgress:
+            break
         case .buildCompleted(let info):
             queue.async {
                 switch info.result {

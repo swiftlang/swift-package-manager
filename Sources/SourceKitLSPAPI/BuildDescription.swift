@@ -244,7 +244,8 @@ public struct BuildDescription {
             outputStream: threadSafeOutput,
             logLevel: .error,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            progressAnimationConfiguration: .init()
         )
 
         let plan = try await operation.generatePlan()

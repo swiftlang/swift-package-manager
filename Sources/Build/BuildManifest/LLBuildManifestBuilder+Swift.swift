@@ -86,7 +86,6 @@ extension LLBuildManifestBuilder {
             diagnosticsOutput: .handler(self.observabilityScope.makeDiagnosticsHandler()),
             fileSystem: self.fileSystem,
             executor: executor,
-            compilerIntegratedTooling: false
         )
         try driver.checkLDPathOption(commandLine: commandLine)
 
@@ -302,7 +301,6 @@ extension LLBuildManifestBuilder {
             args: commandLine,
             fileSystem: self.fileSystem,
             executor: executor,
-            compilerIntegratedTooling: false,
             externalTargetModuleDetailsMap: dependencyModuleDetailsMap,
             interModuleDependencyOracle: dependencyOracle
         )
@@ -381,7 +379,10 @@ extension LLBuildManifestBuilder {
         let isLibrary = target.target.type == .library || target.target.type == .test
         let cmdName = target.getCommandName()
 
-        self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)
+        self.manifest.addWriteSourcesFileListCommand(
+            targetName: target.target.name,
+            sources: target.sources,
+            sourcesFileListPath: target.sourcesFileListPath)
         let outputFileMapPath = target.tempsPath.appending("output-file-map.json")
         // FIXME: Eliminate side effect.
         try target.writeOutputFileMap(to: outputFileMapPath)

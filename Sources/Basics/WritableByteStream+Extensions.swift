@@ -27,6 +27,6 @@ extension WritableByteStream {
         guard let fileStream = stream as? LocalFileOutputByteStream else {
             return false
         }
-        return TerminalController.isTTY(fileStream)
+        return TSCBasic.TerminalController.isTTY(fileStream)
     }
 }

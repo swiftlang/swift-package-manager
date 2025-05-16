@@ -277,21 +277,23 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteLinkFileListCommand(
+        targetName: String,
         objects: [Basics.AbsolutePath],
         linkFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.LinkFileList.computeInputs(objects: objects)
-        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath, description: "Writing Link File List '\(targetName)'")
         let name = linkFileListPath.pathString
         addCommand(name: name, tool: tool)
     }
 
     public mutating func addWriteSourcesFileListCommand(
+        targetName: String,
         sources: [Basics.AbsolutePath],
         sourcesFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
-        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath, description: "Writing Compilation File List '\(targetName)'")
         let name = sourcesFileListPath.pathString
         addCommand(name: name, tool: tool)
     }

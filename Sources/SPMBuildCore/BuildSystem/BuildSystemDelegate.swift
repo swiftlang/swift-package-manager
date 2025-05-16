@@ -21,6 +21,7 @@ public protocol BuildSystemDelegate: AnyObject {
     func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand)
 
     /// Called when build task did update progress.
+    @available(*, deprecated, message: "This method will never be called")
     func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String)
 
     /// Called when build command did finish.

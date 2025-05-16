@@ -198,6 +198,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    private let progressAnimationConfiguration: Basics.ProgressAnimationConfiguration
+
     public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -210,7 +212,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        progressAnimationConfiguration: Basics.ProgressAnimationConfiguration
     ) {
         self.init(
             productsBuildParameters: productsBuildParameters,
@@ -225,7 +228,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            progressAnimationConfiguration: progressAnimationConfiguration
         )
     }
 
@@ -242,7 +246,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        progressAnimationConfiguration: Basics.ProgressAnimationConfiguration
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
@@ -269,6 +274,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.progressAnimationConfiguration = progressAnimationConfiguration
     }
 
     public func getPackageGraph() async throws -> ModulesGraph {
@@ -422,7 +428,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let configuration = self.config.configuration(for: .target)
         // delegate is only available after createBuildSystem is called
-        progressTracker.buildStart(configuration: configuration)
+        progressTracker.buildStart(
+            configuration: configuration,
+            action: "Building")
 
         // Perform the build.
         let llbuildTarget = try await computeLLBuildTargetName(for: subset)
@@ -443,6 +451,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         progressTracker.buildComplete(
             success: success,
             duration: duration,
+            action: "Building",
             subsetDescriptor: subsetDescriptor
         )
         guard success else { throw Diagnostics.fatalError }
@@ -778,13 +787,19 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.current = (buildSystem, tracker)
 
         // Build the package structure target which will re-generate the llbuild manifest, if necessary.
+        let buildStartTime = DispatchTime.now()
         let buildSuccess = buildSystem.build(target: "PackageStructure")
+        let duration = buildStartTime.distance(to: .now())
 
         // If progress has been printed this will add a newline to separate it from what could be
         // the output of the command. For instance `swift test --skip-build` may print progress for
         // the Planning Build stage, followed immediately by a list of tests. Without this finialize()
         // call the first entry in the list appear on the same line as the Planning Build progress.
-        tracker.finalize(success: true)
+        tracker.buildComplete(
+            success: buildSuccess,
+            duration: duration,
+            action: "Planning",
+            subsetDescriptor: nil)
 
         return buildSuccess
     }
@@ -798,10 +813,13 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         config: LLBuildSystemConfiguration
     ) throws -> (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker) {
         // Figure out which progress bar we have to use during the build.
-        let progressAnimation = ProgressAnimation.ninja(
-            stream: config.outputStream,
-            verbose: config.logLevel.isVerbose
-        )
+        let progressAnimation = ProgressAnimation.make(
+            configuration: self.progressAnimationConfiguration,
+            environment: .current,
+            stream: self.config.outputStream,
+            verbose: self.config.logLevel.isVerbose,
+            header: "Building...")
+
         let buildExecutionContext = BuildExecutionContext(
             productsBuildParameters: config.destinationBuildParameters,
             toolsBuildParameters: config.toolsBuildParameters,
@@ -816,7 +834,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let progressTracker = LLBuildProgressTracker(
             buildSystem: self,
             buildExecutionContext: buildExecutionContext,
-            outputStream: config.outputStream,
             progressAnimation: progressAnimation,
             logLevel: config.logLevel,
             observabilityScope: config.observabilityScope,
