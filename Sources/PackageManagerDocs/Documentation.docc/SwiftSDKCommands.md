@@ -28,6 +28,5 @@ Overview of package manager commands here...
 
 ### Deprecated Commands
 - <doc:SDKConfigurationSet>
-- <doc:SDKConfigurationReset>
 - <doc:SDKConfigurationShow>
 
