@@ -1065,7 +1065,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // dependency version changes here with those projects.
         .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
         .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
+        .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0" ..< "3.13.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
         .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
