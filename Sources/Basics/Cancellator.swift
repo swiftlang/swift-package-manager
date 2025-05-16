@@ -128,7 +128,7 @@ public final class Cancellator: Cancellable, Sendable {
         self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
     }
 
-    #if !os(iOS) && !os(watchOS) && !os(tvOS)
+    #if !canImport(Darwin) || os(macOS)
     public func register(_ process: Foundation.Process) -> RegistrationKey? {
         self.register(name: "\(process.description)", handler: process.terminate(timeout:))
     }
@@ -245,7 +245,7 @@ extension AsyncProcess {
     }
 }
 
-#if !os(iOS) && !os(watchOS) && !os(tvOS)
+#if !canImport(Darwin) || os(macOS)
 extension Foundation.Process {
     fileprivate func terminate(timeout: DispatchTime) {
         guard self.isRunning else {
