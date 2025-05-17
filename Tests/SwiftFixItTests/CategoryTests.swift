@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
-final class CategoryTests: XCTestCase {
+struct CategoryTests {
+    @Test
     func testCorrectCategory() throws {
         try testAPI1File(categories: ["Other", "Test"]) { (filename: String) in
             .init(
@@ -51,6 +52,7 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testCorrectCategoryWithNotes() throws {
         try testAPI1File(categories: ["Other", "Test"]) { (filename: String) in
             .init(
@@ -130,6 +132,7 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoCategory() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
@@ -167,6 +170,7 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoCategoryWithNotes() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
@@ -238,6 +242,7 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testWrongCategory() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
@@ -276,6 +281,7 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testWrongCategoryWithNotes() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
