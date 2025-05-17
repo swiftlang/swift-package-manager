@@ -350,7 +350,9 @@ public struct SwiftSDK: Equatable {
         fileprivate init(_ properties: SwiftSDKMetadataV4.TripleProperties, swiftSDKDirectory: Basics.AbsolutePath? = nil) throws {
             if let swiftSDKDirectory {
                 self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
+                    sdkRootPath: try properties.sdkRootPath.map {
+                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                    },
                     swiftResourcesPath: try properties.swiftResourcesPath.map {
                         try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
                     },
@@ -369,7 +371,9 @@ public struct SwiftSDK: Equatable {
                 )
             } else {
                 self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
+                    sdkRootPath: try properties.sdkRootPath.map {
+                        try AbsolutePath(validating: $0)
+                    },
                     swiftResourcesPath: try properties.swiftResourcesPath.map {
                         try AbsolutePath(validating: $0)
                     },
@@ -1167,7 +1171,7 @@ struct SerializedDestinationV3: Decodable {
 struct SwiftSDKMetadataV4: Decodable {
     struct TripleProperties: Codable {
         /// Path relative to `swift-sdk.json` containing SDK root.
-        var sdkRootPath: String
+        var sdkRootPath: String?
 
         /// Path relative to `swift-sdk.json` containing Swift resources for dynamic linking.
         var swiftResourcesPath: String?
