@@ -137,14 +137,12 @@ extension SwiftPackageCommand {
 
             print("> Updating manifest.")
             for module in modules.map(\.module) {
-                print("> Adding feature(s) to '\(module.name)'.")
-                for feature in features {
-                    self.updateManifest(
-                        for: module.name,
-                        add: feature,
-                        using: swiftCommandState
-                    )
-                }
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'.")
+                self.updateManifest(
+                    for: module.name,
+                    add: features,
+                    using: swiftCommandState
+                )
             }
         }
 
@@ -179,28 +177,28 @@ extension SwiftPackageCommand {
 
         private func updateManifest(
             for target: String,
-            add feature: SwiftCompilerFeature,
+            add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
         ) {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
-            let setting: (SwiftSetting, String) = switch feature {
-            case .upcoming(name: let name, migratable: _, enabledIn: _):
-                (.upcomingFeature, "\(name)")
-            case .experimental(name: let name, migratable: _):
-                (.experimentalFeature, "\(name)")
+            let settings: [(SwiftSetting, String)] = features.map {
+                switch $0 {
+                case .upcoming(name: let name, migratable: _, enabledIn: _):
+                    (.upcomingFeature, "\(name)")
+                case .experimental(name: let name, migratable: _):
+                    (.experimentalFeature, "\(name)")
+                }
             }
 
             do {
                 try SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
-                    [setting]
+                    settings
                 )
             } catch {
-                print(
-                    "! Couldn't update manifest due to - \(error); Please add '.enable\(feature.upcoming ? "Upcoming" : "Experimental")Feature(\"\(feature.name)\")' to target '\(target)' settings manually."
-                )
+                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually.")
             }
         }
 
