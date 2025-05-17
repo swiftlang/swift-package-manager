@@ -144,6 +144,19 @@ struct EnvironmentTests {
         #expect(Environment.current[key] == nil)
     }
 
+    @Test
+    func makeCustomPathEnv() async throws {
+        let value = "TestValue"
+
+        var customEnvironment: Environment = .current
+        let origPath = customEnvironment[.path]
+
+        try Environment.makeCustom(["PATH": "/foo/bar"]) {
+            #expect(Environment.current[.path] == "/foo/bar")
+        }
+        #expect(Environment.current[.path] == origPath)
+    }
+
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
     @Test
