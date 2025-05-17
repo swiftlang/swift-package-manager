@@ -121,7 +121,7 @@ public protocol RepositoryProvider: Cancellable {
         repository: RepositorySpecifier,
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
-        editable: Bool) throws -> WorkingCheckout
+        editable: Bool) async throws -> WorkingCheckout
 
     /// Returns true if a working repository exists at `path`
     func workingCopyExists(at path: AbsolutePath) throws -> Bool
@@ -131,7 +131,7 @@ public protocol RepositoryProvider: Cancellable {
     /// - Parameters:
     ///   - path: The location of the repository on disk, at which the repository
     ///     has previously been created via `copyToWorkingDirectory`.
-    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout
+    func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout
 
     /// Copies the repository at path `from` to path `to`.
     /// - Parameters:

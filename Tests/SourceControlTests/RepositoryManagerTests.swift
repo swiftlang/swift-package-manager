@@ -53,7 +53,7 @@ final class RepositoryManagerTests: XCTestCase {
 
                 // Create a checkout of the repository.
                 let checkoutPath = path.appending("checkout")
-                _ = try! handle.createWorkingCopy(at: checkoutPath, editable: false)
+                _ = try! await handle.createWorkingCopy(at: checkoutPath, editable: false)
 
                 XCTAssertDirectoryExists(checkoutPath)
                 XCTAssertFileExists(checkoutPath.appending("README.txt"))
@@ -227,7 +227,7 @@ final class RepositoryManagerTests: XCTestCase {
 
             manager.reset(observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            
+
             XCTAssertTrue(!fs.isDirectory(repos))
             try fs.createDirectory(repos, recursive: true)
 
@@ -533,7 +533,7 @@ final class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
-            func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
+            func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) async throws -> WorkingCheckout {
                 fatalError("should not be called")
             }
 
@@ -541,7 +541,7 @@ final class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
-            func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+            func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout {
                 fatalError("should not be called")
             }
 
@@ -607,7 +607,7 @@ final class RepositoryManagerTests: XCTestCase {
                 return MockRepository()
             }
 
-            func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout {
+            func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) async throws -> WorkingCheckout {
                 fatalError("should not be called")
             }
 
@@ -615,7 +615,7 @@ final class RepositoryManagerTests: XCTestCase {
                 fatalError("should not be called")
             }
 
-            func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+            func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout {
                 fatalError("should not be called")
             }
 
@@ -763,17 +763,17 @@ private class DummyRepositoryProvider: RepositoryProvider {
         return DummyRepository(provider: self)
     }
 
-    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) throws -> WorkingCheckout  {
+    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) async throws -> WorkingCheckout  {
         try self.fileSystem.createDirectory(destinationPath)
         try self.fileSystem.writeFileContents(destinationPath.appending("README.txt"), bytes: "Hi")
-        return try self.openWorkingCopy(at: destinationPath)
+        return try await self.openWorkingCopy(at: destinationPath)
     }
 
     func workingCopyExists(at path: AbsolutePath) throws -> Bool {
         return false
     }
 
-    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout {
         return DummyWorkingCheckout(at: path)
     }
 
