@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,7 @@ import PackageModel
 import var TSCBasic.stdoutStream
 import class Workspace.Workspace
 
-struct InstallSwiftSDK: SwiftSDKSubcommand {
+struct SwiftSDKInstall: SwiftSDKSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
@@ -76,6 +76,17 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
                 )
                 .throttled(interval: .milliseconds(300))
         )
+
+        let bundlePathOrURL = if let experimentalAlias {
+            try SwiftToolchainVersion(
+                toolchain: hostToolchain,
+                fileSystem: self.fileSystem
+            ).generateURL(aliasString: experimentalAlias)
+        } else if let bundlePathOrURL {
+            bundlePathOrURL
+        } else {
+            throw InternalError("foo")
+        }
 
         try await store.install(
             bundlePathOrURL: bundlePathOrURL,

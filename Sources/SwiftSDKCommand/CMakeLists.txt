@@ -12,11 +12,11 @@ add_library(SwiftSDKCommand
   Configuration/ResetConfiguration.swift
   Configuration/SetConfiguration.swift
   Configuration/ShowConfiguration.swift
-  ConfigureSwiftSDK.swift
+  SwiftSDKConfigure.swift
   SwiftSDKSubcommand.swift
-  InstallSwiftSDK.swift
-  ListSwiftSDKs.swift
-  RemoveSwiftSDK.swift
+  SwiftSDKInstall.swift
+  SwiftSDKList.swift
+  SwiftSDKRemove.swift
   SwiftSDKCommand.swift)
 target_link_libraries(SwiftSDKCommand PUBLIC
   ArgumentParser
