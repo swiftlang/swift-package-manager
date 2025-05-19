@@ -1034,10 +1034,35 @@ public final class SwiftModuleBuildDescription {
         return arguments
     }
 
+    package var isEmbeddedSwift: Bool {
+        // If the target explicitly declares that it should build with Embedded
+        // Swift, then true.
+        let buildSettings = self.target.underlying.buildSettingsDescription
+        let swiftSettings = buildSettings.swiftSettings.map(\.kind)
+        for case .enableExperimentalFeature("Embedded") in swiftSettings {
+            return true
+        }
+
+        // Otherwise dig through flags looking for -enable-experimental-feature
+        // Embedded. This is needed to handle Embedded being set via:
+        // - unsafeFlags
+        // - swift build cli flags
+        // - toolset flags
+        let queryFlags = ["-enable-experimental-feature", "Embedded"]
+
+        let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        if toolchainFlags.contains(queryFlags) { return true }
+        
+        let generalFlags = self.buildParameters.flags.swiftCompilerFlags
+        if generalFlags.contains(queryFlags) { return true }
+
+        return false
+    }
+
     /// Whether to build Swift code with whole module optimization (WMO)
     /// enabled.
     package var useWholeModuleOptimization: Bool {
-        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+        if self.isEmbeddedSwift { return true }
 
         switch self.buildParameters.configuration {
         case .debug:
@@ -1050,7 +1075,7 @@ public final class SwiftModuleBuildDescription {
     // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
     /// Whether to build Swift code with -Xfrontend -mergeable-symbols.
     package var useMergeableSymbols: Bool {
-        return self.target.underlying.isEmbeddedSwiftTarget
+        return self.isEmbeddedSwift
     }
 }
 
