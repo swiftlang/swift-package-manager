@@ -214,7 +214,8 @@ extension SwiftPackageCommand {
                 try SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
-                    settings
+                    settings,
+                    verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
                 swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually.")

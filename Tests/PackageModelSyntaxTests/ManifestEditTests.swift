@@ -873,6 +873,50 @@ class ManifestEditTests: XCTestCase {
                 manifest: manifest
             )
         }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(
+                        name: "MyTest",
+                        dependencies: [
+                            .byName(name: "Dependency")
+                        ]
+                    ),
+                    .target(
+                        name: "Dependency"
+                    )
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(
+                        name: "MyTest",
+                        dependencies: [
+                            .byName(name: "Dependency")
+                        ]
+                    ),
+                    .target(
+                        name: "Dependency",
+                        swiftSettings: [
+                            .enableUpcomingFeature("ExistentialAny"),
+                        ]
+                    )
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.upcomingFeature(
+                to: "Dependency",
+                name: "ExistentialAny",
+                manifest: manifest
+            )
+        }
     }
 }
 /// Assert that applying the moveSingleTargetSources operation to the manifest
