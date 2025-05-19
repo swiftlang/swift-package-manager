@@ -53,4 +53,4 @@ To complicate matters further, a dependency may specify version requirements, wh
 
 The role of the package manager is to automate the process of downloading and building all of the dependencies for a project, and minimize the coordination costs associated with code reuse.
 A good package manager should be designed from the start to minimize the risk of failing to resolve dependencies, and where this is not possible, to mitigate it and provide tooling so that the user can solve the scenario with a minimum of trouble.
-Read <doc:ExploreDependencies> for more information on how the package manager resolves and records dependencies.
+Read <doc:AddingDependencies> for more information on how to add dependencies.
