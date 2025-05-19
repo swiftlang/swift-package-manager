@@ -5480,7 +5480,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             [
                 .anySequence,
                 "-emit-objc-header",
-                "-emit-objc-header-path", "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "-emit-objc-header-path",
+                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5488,7 +5489,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let barTarget = try result.moduleBuildDescription(for: "Bar").clang().basicArguments(isCXX: false)
         XCTAssertMatch(
             barTarget,
-            [.anySequence, "-fmodule-map-file=/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/module.modulemap", .anySequence]
+            [
+                .anySequence,
+                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                .anySequence,
+            ]
         )
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
@@ -5561,7 +5566,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5571,7 +5576,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
                 .anySequence,
             ]
         )
@@ -5642,6 +5647,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let dynamicLibraryPrefix = "lib"
         #endif
         let result = try BuildPlanResult(plan: plan)
+        let buildPath = result.plan.productsBuildPath
 
         let fooTarget = try result.moduleBuildDescription(for: "Foo").swift().compileArguments()
         XCTAssertMatch(
@@ -5650,7 +5656,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/Foo-Swift.h",
+                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5660,12 +5666,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/Foo.build/module.modulemap",
+                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
                 .anySequence,
             ]
         )
-
-        let buildPath = result.plan.productsBuildPath
 
         let yaml = try fs.tempDirectory.appending(components: UUID().uuidString, "debug.yaml")
         try fs.createDirectory(yaml.parentDirectory, recursive: true)
