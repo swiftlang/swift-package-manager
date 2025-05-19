@@ -792,11 +792,17 @@ public struct WorkspaceConfiguration {
     /// Whether or not to use prebuilt swift-syntax for macros
     public var usePrebuilts: Bool
 
+    /// String URL to allow override of the prebuilts download location
+    public var prebuiltsDownloadURL: String?
+
+    /// Path to root certificate used when validating the manifest signing during testing
+    public var prebuiltsRootCertPath: String?
+
     /// Whether to omit unused dependencies.
     public var pruneDependencies: Bool
 
     /// The trait configuration for the root.
-    public var traitConfiguration: TraitConfiguration?
+    public var traitConfiguration: TraitConfiguration
 
     public init(
         skipDependenciesUpdates: Bool,
@@ -812,8 +818,10 @@ public struct WorkspaceConfiguration {
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
+        prebuiltsDownloadURL: String?,
+        prebuiltsRootCertPath: String?,
         pruneDependencies: Bool,
-        traitConfiguration: TraitConfiguration?
+        traitConfiguration: TraitConfiguration
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -828,6 +836,8 @@ public struct WorkspaceConfiguration {
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
         self.usePrebuilts = usePrebuilts
+        self.prebuiltsDownloadURL = prebuiltsDownloadURL
+        self.prebuiltsRootCertPath = prebuiltsRootCertPath
         self.pruneDependencies = pruneDependencies
         self.traitConfiguration = traitConfiguration
     }
@@ -848,8 +858,10 @@ public struct WorkspaceConfiguration {
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
             usePrebuilts: false,
+            prebuiltsDownloadURL: nil,
+            prebuiltsRootCertPath: nil,
             pruneDependencies: false,
-            traitConfiguration: nil
+            traitConfiguration: .default
         )
     }
 

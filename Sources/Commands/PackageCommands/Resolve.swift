@@ -16,20 +16,20 @@ import CoreCommands
 import TSCUtility
 import Workspace
 
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {
-        @Option(help: "The version to resolve at", transform: { Version($0) })
+        @Option(help: "The version to resolve at.", transform: { Version($0) })
         var version: Version?
 
-        @Option(help: "The branch to resolve at")
+        @Option(help: "The branch to resolve at.")
         var branch: String?
 
-        @Option(help: "The revision to resolve at")
+        @Option(help: "The revision to resolve at.")
         var revision: String?
 
-        @Argument(help: "The name of the package to resolve")
+        @Argument(help: "The name of the package to resolve.")
         var packageName: String?
 
         /// Specifies the traits to build.
@@ -39,7 +39,7 @@ extension SwiftPackageCommand {
 
     struct Resolve: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Resolve package dependencies")
+            abstract: "Resolve package dependencies.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

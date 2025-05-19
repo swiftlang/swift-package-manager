@@ -223,7 +223,12 @@ extension ModulesGraph {
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
-        checkAllDependenciesAreUsed(packages: resolvedPackages, rootPackages, observabilityScope: observabilityScope)
+        checkAllDependenciesAreUsed(
+            packages: resolvedPackages,
+            rootPackages,
+            prebuilts: prebuilts,
+            observabilityScope: observabilityScope
+        )
 
         return try ModulesGraph(
             rootPackages: rootPackages,
@@ -238,6 +243,7 @@ extension ModulesGraph {
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
     _ rootPackages: [ResolvedPackage],
+    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
     observabilityScope: ObservabilityScope
 ) {
     for package in rootPackages {
@@ -315,9 +321,10 @@ private func checkAllDependenciesAreUsed(
                 let usedByPackage = productDependencies.contains { $0.name == product.name }
                 // We check if any of the products of this dependency is guarded by a trait.
                 let traitGuarded = traitGuardedProductDependencies.contains(product.name)
+                // Consider prebuilts as used
+                let prebuilt = prebuilts[dependency.identity]?.keys.contains(product.name) ?? false
 
-                // If the product is either used directly or guarded by a trait we consider it as used
-                return usedByPackage || traitGuarded
+                return usedByPackage || traitGuarded || prebuilt
             }
 
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
@@ -733,6 +740,24 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
+                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
+                    // See if we're using a prebuilt instead
+                    if moduleBuilder.module.type == .macro {
+                        continue
+                    } else if moduleBuilder.module.type == .test {
+                        // use prebuilt if this is a test that depends a macro target
+                        // these are guaranteed built for host
+                        if moduleBuilder.module.dependencies.contains(where: { dep in
+                            guard let module = dep.module else {
+                                return false
+                            }
+                            return module.type == .macro
+                        }) {
+                            continue
+                        }
+                    }
+                }
+
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
@@ -1035,7 +1060,7 @@ private func calculateEnabledTraits(
         }
     }
 
-    if let parentPackage, !(explictlyEnabledTraits == nil || areDefaultsEnabled) && manifest.traits.isEmpty {
+    if let parentPackage, !(explictlyEnabledTraits == nil || areDefaultsEnabled) && !manifest.supportsTraits {
         // We throw an error when default traits are disabled for a package without any traits
         // This allows packages to initially move new API behind traits once.
         throw ModuleError.disablingDefaultTraitsOnEmptyTraits(

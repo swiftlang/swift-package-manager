@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 @testable import Build
@@ -24,14 +25,15 @@ import _InternalBuildTestSupport
 @_spi(SwiftPMInternal)
 import _InternalTestSupport
 
-import XCTest
+import Testing
 
-final class LLBuildManifestBuilderTests: XCTestCase {
-    func testCreateProductCommand() async throws {
+struct LLBuildManifestBuilderTests {
+    @Test
+    func createProductCommand() async throws {
         let pkg = AbsolutePath("/pkg")
         let fs = InMemoryFileSystem(
             emptyFiles:
-            pkg.appending(components: "Sources", "exe", "main.swift").pathString
+                pkg.appending(components: "Sources", "exe", "main.swift").pathString
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -77,10 +79,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             "C.exe-\(plan.destinationBuildParameters.triple)-release.exe",
         ]
 
-        XCTAssertEqual(
-            llbuild.manifest.commands.map(\.key).sorted(),
-            basicReleaseCommandNames.sorted()
-        )
+        #expect(llbuild.manifest.commands.map(\.key).sorted() == basicReleaseCommandNames.sorted())
 
         // macOS, debug build
 
@@ -107,32 +106,23 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
-        XCTAssertEqual(
-            llbuild.manifest.commands.map(\.key).sorted(),
-            (basicDebugCommandNames + [
-                AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
-                entitlementsCommandName,
-            ]).sorted()
+        #expect(llbuild.manifest.commands.map(\.key).sorted() == (basicDebugCommandNames + [
+            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
+            entitlementsCommandName,
+        ]).sorted())
+
+        let entitlementsCommand = try #require(
+            llbuild.manifest.commands[entitlementsCommandName]?.tool as? ShellTool,
+            "unexpected entitlements command type"
         )
 
-        guard let entitlementsCommand = llbuild.manifest.commands[entitlementsCommandName]?.tool as? ShellTool else {
-            XCTFail("unexpected entitlements command type")
-            return
-        }
-
-        XCTAssertEqual(
-            entitlementsCommand.inputs,
-            [
-                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
-                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
-            ]
-        )
-        XCTAssertEqual(
-            entitlementsCommand.outputs,
-            [
-                .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning"),
-            ]
-        )
+        #expect(entitlementsCommand.inputs == [
+            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
+            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
+        ])
+        #expect(entitlementsCommand.outputs == [
+            .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning"),
+        ])
 
         // Linux, release build
 
@@ -158,10 +148,7 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             "C.exe-\(plan.destinationBuildParameters.triple)-release.exe",
         ]
 
-        XCTAssertEqual(
-            llbuild.manifest.commands.map(\.key).sorted(),
-            basicReleaseCommandNames.sorted()
-        )
+        #expect(llbuild.manifest.commands.map(\.key).sorted() == basicReleaseCommandNames.sorted())
 
         // Linux, debug build
 
@@ -187,14 +174,12 @@ final class LLBuildManifestBuilderTests: XCTestCase {
             "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
-        XCTAssertEqual(
-            llbuild.manifest.commands.map(\.key).sorted(),
-            basicDebugCommandNames.sorted()
-        )
+        #expect(llbuild.manifest.commands.map(\.key).sorted() == basicDebugCommandNames.sorted())
     }
-    
+
     /// Verifies that two modules with the same name but different triples don't share same build manifest keys.
-    func testToolsBuildTriple() async throws {
+    @Test
+    func toolsBuildTriple() async throws {
         let (graph, fs, scope) = try macrosPackageGraph()
         let productsTriple = Triple.x86_64MacOS
         let toolsTriple = Triple.arm64Linux
@@ -217,8 +202,8 @@ final class LLBuildManifestBuilderTests: XCTestCase {
         let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: scope)
         let manifest = try builder.generateManifest(at: "/manifest")
 
-        XCTAssertNotNil(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"])
+        #expect(manifest.commands["C.SwiftSyntax-aarch64-unknown-linux-gnu-debug-tool.module"] != nil)
         // Ensure that Objects.LinkFileList is -tool suffixed.
-        XCTAssertNotNil(manifest.commands[AbsolutePath("/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList").pathString])
+        #expect(manifest.commands[AbsolutePath("/path/to/build/aarch64-unknown-linux-gnu/debug/MMIOMacros-tool.product/Objects.LinkFileList").pathString] != nil)
     }
 }

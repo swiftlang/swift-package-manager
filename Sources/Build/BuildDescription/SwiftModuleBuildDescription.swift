@@ -490,9 +490,19 @@ public final class SwiftModuleBuildDescription {
             args += ["-v"]
         }
 
-        // Enable batch mode whenever WMO is off.
-        if !self.useWholeModuleOptimization {
-            args += ["-enable-batch-mode"]
+        if self.useWholeModuleOptimization {
+            args.append("-whole-module-optimization")
+            args.append("-num-threads")
+            args.append(String(ProcessInfo.processInfo.activeProcessorCount))
+        } else {
+            args.append("-incremental")
+            args.append("-enable-batch-mode")
+        }
+
+        // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
+        if self.useMergeableSymbols {
+            args.append("-Xfrontend")
+            args.append("-mergeable-symbols")
         }
 
         args += ["-serialize-diagnostics"]
@@ -779,14 +789,6 @@ public final class SwiftModuleBuildDescription {
             result.append(outputFileMapPath.pathString)
         }
 
-        if self.useWholeModuleOptimization {
-            result.append("-whole-module-optimization")
-            result.append("-num-threads")
-            result.append(String(ProcessInfo.processInfo.activeProcessorCount))
-        } else {
-            result.append("-incremental")
-        }
-
         result.append("-c")
         result.append(contentsOf: self.sources.map(\.pathString))
 
@@ -969,6 +971,12 @@ public final class SwiftModuleBuildDescription {
             break
         }
 
+        if bundlePath != nil {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+        } else {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+        }
+
         return compilationConditions
     }
 
@@ -1037,6 +1045,12 @@ public final class SwiftModuleBuildDescription {
         case .release:
             return true
         }
+    }
+
+    // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
+    /// Whether to build Swift code with -Xfrontend -mergeable-symbols.
+    package var useMergeableSymbols: Bool {
+        return self.target.underlying.isEmbeddedSwiftTarget
     }
 }
 

@@ -31,7 +31,7 @@ extension SwiftPackageCommand {
         var globalOptions: GlobalOptions
 
         @Argument(parsing: .captureForPassthrough,
-                  help: "Pass flag through to the swift-format tool")
+                  help: "Pass flag through to the swift-format tool.")
         var swiftFormatFlags: [String] = []
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {

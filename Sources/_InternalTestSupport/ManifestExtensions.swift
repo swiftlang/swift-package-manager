@@ -32,13 +32,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .root(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -72,13 +73,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .fileSystem(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -118,6 +120,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .localSourceControl(path),
+            packageIdentity: .plain(displayName),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -158,6 +161,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .remoteSourceControl(url),
+            packageIdentity: .plain(displayName),
             packageLocation: url.absoluteString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -197,6 +201,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .registry(identity),
+            packageIdentity: .plain(displayName),
             packageLocation: identity.description,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -218,6 +223,7 @@ extension Manifest {
         displayName: String,
         path: AbsolutePath = .root,
         packageKind: PackageReference.Kind,
+        packageIdentity: PackageIdentity,
         packageLocation: String? = nil,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -231,11 +237,12 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "defaults")],
+        traits: Set<TraitDescription> = [.init(name: "default")],
         pruneDependencies: Bool = false
     ) -> Manifest {
         return Manifest(
             displayName: displayName,
+            packageIdentity: packageIdentity,
             path: path.basename == Manifest.filename ? path : path.appending(component: Manifest.filename),
             packageKind: packageKind,
             packageLocation: packageLocation ?? path.pathString,
@@ -260,6 +267,7 @@ extension Manifest {
     public func with(location: String) -> Manifest {
         Manifest(
             displayName: self.displayName,
+            packageIdentity: self.packageIdentity,
             path: self.path,
             packageKind: self.packageKind,
             packageLocation: location,
@@ -278,6 +286,30 @@ extension Manifest {
             targets: self.targets,
             traits: self.traits,
             pruneDependencies: false
+        )
+    }
+
+    public func with(dependencies: [PackageDependency]) -> Manifest {
+        Manifest(
+            displayName: self.displayName,
+            packageIdentity: self.packageIdentity,
+            path: self.path,
+            packageKind: self.packageKind,
+            packageLocation: self.packageLocation,
+            defaultLocalization: self.defaultLocalization,
+            platforms: self.platforms,
+            version: self.version,
+            revision: self.revision,
+            toolsVersion: self.toolsVersion,
+            pkgConfig: self.pkgConfig,
+            providers: self.providers,
+            cLanguageStandard: self.cLanguageStandard,
+            cxxLanguageStandard: self.cxxLanguageStandard,
+            swiftLanguageVersions: self.swiftLanguageVersions,
+            dependencies: dependencies,
+            products: self.products,
+            targets: self.targets,
+            traits: self.traits
         )
     }
 }

@@ -59,4 +59,20 @@ extension DispatchQueue {
             }
         }
     }
+
+    package func asyncResult<T: Sendable>(_ callback: @escaping @Sendable (Result<T, Error>) -> Void, _ closure: @escaping @Sendable () async throws -> T) {
+        let completion: @Sendable (Result<T, Error>) -> Void = {
+            result in self.async {
+                callback(result)
+            }
+        }
+
+        Task {
+            do {
+                completion(.success(try await closure()))
+            } catch {
+                completion(.failure(error))
+            }
+        }
+    }
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -27,20 +27,26 @@ private let targetTriple = try! Triple("aarch64-unknown-linux")
 private let jsonEncoder = JSONEncoder()
 
 private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteString)] {
-    try [
+    return try [
         (
             "\(bundle.path)/info.json",
             ByteString(json: """
             {
                 "artifacts" : {
                     \(bundle.artifacts.map {
-                            """
+                            let path = if let metadataPath = $0.metadataPath {
+                                metadataPath.pathString
+                            } else {
+                                "\($0.id)/\(targetTriple.triple)"
+                            }
+
+                            return """
                             "\($0.id)" : {
                                 "type" : "swiftSDK",
                                 "version" : "0.0.1",
                                 "variants" : [
                                     {
-                                        "path" : "\($0.id)/\(targetTriple.triple)",
+                                        "path" : "\(path)",
                                         "supportedTriples" : \($0.supportedTriples.map(\.tripleString))
                                     }
                                 ]
@@ -55,14 +61,25 @@ private func generateBundleFiles(bundle: MockBundle) throws -> [(String, ByteStr
         ),
 
     ] + bundle.artifacts.map {
-        (
-            "\(bundle.path)/\($0.id)/\(targetTriple.tripleString)/swift-sdk.json",
+        let path = if let metadataPath = $0.metadataPath {
+            "\(bundle.path)/\(metadataPath.pathString)"
+        } else {
+            "\(bundle.path)/\($0.id)/\(targetTriple.triple)/swift-sdk.json"
+        }
+
+        return (
+            path,
             ByteString(json: try generateSwiftSDKMetadata(jsonEncoder, createToolset: $0.toolsetRootPath != nil))
         )
     } + bundle.artifacts.compactMap { artifact in
-        artifact.toolsetRootPath.map { path in
+        let toolsetPath = if artifact.metadataPath != nil {
+            "\(bundle.path)/toolset.json"
+        } else {
+            "\(bundle.path)/\(artifact.id)/\(targetTriple.triple)/toolset.json"
+        }
+        return artifact.toolsetRootPath.map { path in
             (
-                "\(bundle.path)/\(artifact.id)/\(targetTriple.tripleString)/toolset.json",
+                "\(toolsetPath)",
                 ByteString(json: """
                 {
                     "schemaVersion": "1.0",
@@ -101,15 +118,17 @@ private struct MockBundle {
 private struct MockArtifact {
     let id: String
     let supportedTriples: [Triple]
+    var metadataPath: RelativePath?
     var toolsetRootPath: AbsolutePath?
 }
 
-private func generateTestFileSystem(bundleArtifacts: [MockArtifact]) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
+private func generateTestFileSystem(
+    bundleArtifacts: [MockArtifact]
+) throws -> (some FileSystem, [MockBundle], AbsolutePath) {
     let bundles = bundleArtifacts.enumerated().map { (i, artifacts) in
         let bundleName = "test\(i).\(artifactBundleExtension)"
         return MockBundle(name: "test\(i).\(artifactBundleExtension)", path: "/\(bundleName)", artifacts: [artifacts])
     }
-
 
     let fileSystem = try InMemoryFileSystem(
         files: Dictionary(

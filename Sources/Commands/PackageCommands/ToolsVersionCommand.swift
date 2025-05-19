@@ -21,15 +21,15 @@ import Workspace
 struct ToolsVersionCommand: SwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "tools-version",
-        abstract: "Manipulate tools version of the current package")
+        abstract: "Manipulate tools version of the current package.")
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    @Flag(help: "Set tools version of package to the current tools version in use")
+    @Flag(help: "Set tools version of package to the current tools version in use.")
     var setCurrent: Bool = false
 
-    @Option(help: "Set tools version of package to the given value")
+    @Option(help: "Set tools version of package to the given value.")
     var set: String?
 
     enum ToolsVersionMode {

@@ -23,7 +23,7 @@ import SPMBuildCore
 extension SwiftPackageCommand {
     struct Init: SwiftCommand {
         public static let configuration = CommandConfiguration(
-            abstract: "Initialize a new package")
+            abstract: "Initialize a new package.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -47,7 +47,7 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var testLibraryOptions: TestLibraryOptions
 
-        @Option(name: .customLong("name"), help: "Provide custom package name")
+        @Option(name: .customLong("name"), help: "Provide custom package name.")
         var packageName: String?
 
         // This command should support creating the supplied --package-path if it isn't created.

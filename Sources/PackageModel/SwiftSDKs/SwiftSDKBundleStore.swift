@@ -375,9 +375,13 @@ public final class SwiftSDKBundleStore {
             var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let variantConfigurationPath = bundlePath
+                var variantConfigurationPath = bundlePath
                     .appending(variantMetadata.path)
-                    .appending("swift-sdk.json")
+
+                if variantConfigurationPath.extension != ".json" &&
+                        self.fileSystem.isDirectory(variantConfigurationPath) {
+                    variantConfigurationPath = variantConfigurationPath.appending("swift-sdk.json")
+                }
 
                 guard self.fileSystem.exists(variantConfigurationPath) else {
                     self.observabilityScope.emit(

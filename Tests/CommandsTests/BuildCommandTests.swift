@@ -860,6 +860,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 
     override func testParseableInterfaces() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
+
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
             do {
                 let result = try await build(["--enable-parseable-module-interfaces"], packagePath: fixturePath)
@@ -940,10 +941,6 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 
     override func testBuildSystemDefaultSettings() async throws {
         try XCTSkipIfWorkingDirectoryUnsupported()
-
-        if ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] != nil {
-            throw XCTSkip("SWIFTPM_NO_SWBUILD_DEPENDENCY is set so skipping because SwiftPM doesn't have the swift-build capability built inside.")
-        }
 
         try await super.testBuildSystemDefaultSettings()
     }

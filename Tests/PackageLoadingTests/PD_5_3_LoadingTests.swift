@@ -158,7 +158,38 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
-            XCTAssertEqual(error.localizedDescription, "target 'Foo' contains a value for disallowed property 'settings'")
+            XCTAssertEqual(error.localizedDescription,
+                "target 'Foo' is assigned a property 'settings' which is not accepted for the binary target type. " +
+                "The current property value has the following representation: " +
+                "[PackageModel.TargetBuildSettingDescription.Setting(" +
+                "tool: PackageModel.TargetBuildSettingDescription.Tool.linker, " +
+                "kind: PackageModel.TargetBuildSettingDescription.Kind.linkedFramework(\"AVFoundation\"), " +
+                "condition: nil)].")
+        }
+    }
+
+    func testBinaryTargetRequiresPathOrUrl() async throws {
+        let content = """
+        import PackageDescription
+        var fwBinaryTarget = Target.binaryTarget(
+            name: "nickel",
+            url: "https://example.com/foo.git",
+            checksum: "bee"
+        )
+        fwBinaryTarget.url = nil
+        let package = Package(name: "foo", targets: [fwBinaryTarget])
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await XCTAssertAsyncThrowsError(
+            try await loadAndValidateManifest(
+                content, observabilityScope: observability.topScope
+            ), "expected error"
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "binary target 'nickel' must define either path or URL for its artifacts"
+            )
         }
     }
 

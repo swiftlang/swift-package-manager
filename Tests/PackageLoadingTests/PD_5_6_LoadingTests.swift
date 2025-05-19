@@ -98,6 +98,30 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
     }
 
+    func testPluginTargetRequiresPluginCapability() async throws {
+        let content = """
+        import PackageDescription
+        var fwPluginTarget = Target.plugin(
+            name: "quarter",
+            capability: .buildTool
+        )
+        fwPluginTarget.pluginCapability = nil
+        let package = Package(name: "foo", targets: [fwPluginTarget])
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await XCTAssertAsyncThrowsError(
+            try await loadAndValidateManifest(
+                content, observabilityScope: observability.topScope
+            ), "expected error"
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "plugin target 'quarter' must define a plugin capability"
+            )
+        }
+    }
+
     func testPluginTargetCustomization() async throws {
         let content = """
             import PackageDescription

@@ -63,8 +63,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -92,8 +91,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -233,7 +231,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
 
         let manifestContents = """
             // swift-tools-version:5.3
@@ -519,6 +517,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
             packageKind: .root("/tmp/MyLibrary"),
+            packageIdentity: .plain("MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -795,7 +794,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testStrictMemorySafety() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "compilation error:  type 'SwiftSetting' has no member 'strictMemorySafety'")
+        try XCTSkipIfCompilerLessThan6_2()
 
         let manifestContents = """
             // swift-tools-version:6.2
@@ -864,7 +863,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testDefaultIsolation() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "there are compilation errors")
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",

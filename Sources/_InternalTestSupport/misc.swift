@@ -40,6 +40,18 @@ import enum TSCUtility.Git
 @_exported import enum TSCTestSupport.StringPattern
 
 public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+
+public let isRealSigningIdentyEcLabelEnvVarSet =
+    ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] != nil
+
+public let isRealSigningIdentitTestDefined = {
+    #if ENABLE_REAL_SIGNING_IDENTITY_TEST
+        return true
+    #else
+        return false
+    #endif
+}()
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
@@ -288,18 +300,6 @@ public func executeSwiftBuild(
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
 }
 
-public func skipOnWindowsAsTestCurrentlyFails(because reason: String? = nil) throws {
-    #if os(Windows)
-    let failureCause: String
-    if let reason {
-        failureCause = " because \(reason.description)"
-    } else {
-        failureCause = ""
-    }
-    throw XCTSkip("Skipping tests on windows\(failureCause)")
-    #endif
-}
-
 @discardableResult
 public func executeSwiftRun(
     _ packagePath: AbsolutePath?,
@@ -433,7 +433,7 @@ public func loadPackageGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration?
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     try loadModulesGraph(
         identityResolver: identityResolver,

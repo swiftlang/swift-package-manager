@@ -62,11 +62,11 @@ struct RunCommandOptions: ParsableArguments {
         static func help(for value: RunCommandOptions.RunMode) -> ArgumentHelp? {
             switch value {
             case .repl:
-                return "Launch Swift REPL for the package"
+                return "Launch Swift REPL for the package."
             case .debugger:
-                return "Launch the executable in a debugger session"
+                return "Launch the executable in a debugger session."
             case .run:
-                return "Launch the executable with the provided arguments"
+                return "Launch the executable with the provided arguments."
             }
         }
     }
@@ -75,17 +75,17 @@ struct RunCommandOptions: ParsableArguments {
     @Flag var mode: RunMode = .run
 
     /// If the executable product should be built before running.
-    @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
+    @Flag(name: .customLong("skip-build"), help: "Skip building the executable product.")
     var shouldSkipBuild: Bool = false
 
     var shouldBuild: Bool { !shouldSkipBuild }
 
     /// If the test should be built.
-    @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
+    @Flag(name: .customLong("build-tests"), help: "Build both source and test targets.")
     var shouldBuildTests: Bool = false
 
     /// The executable product to run.
-    @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
+    @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
     /// Specifies the traits to build the product with.
@@ -94,7 +94,7 @@ struct RunCommandOptions: ParsableArguments {
 
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
-              help: "The arguments to pass to the executable")
+              help: "The arguments to pass to the executable.")
     var arguments: [String] = []
 }
 
@@ -103,7 +103,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
-        abstract: "Build and run an executable product",
+        abstract: "Build and run an executable product.",
         discussion: "SEE ALSO: swift build, swift package, swift test",
         version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
