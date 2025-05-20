@@ -94,7 +94,7 @@ extension SwiftPackageCommand {
             // Next, let's build all of the individual targets or the
             // whole project to get diagnostic files.
 
-            print("> Starting the build.")
+            print("> Starting the build")
             if let targets = self.options.targets {
                 for target in targets {
                     try await buildSystem.build(subset: .target(target))
@@ -123,7 +123,7 @@ extension SwiftPackageCommand {
             // If the build suceeded, let's extract all of the diagnostic
             // files from build plan and feed them to the fix-it tool.
 
-            print("> Applying fix-its.")
+            print("> Applying fix-its")
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
             let fixItDuration = try ContinuousClock().measure {
@@ -155,7 +155,7 @@ extension SwiftPackageCommand {
                         fractionalPart: .init(lengthLimits: 0 ... 3, roundingRule: .up)
                     )
                 )
-                message += ")."
+                message += ")"
 
                 print(message)
             }
@@ -163,9 +163,9 @@ extension SwiftPackageCommand {
             // Once the fix-its were applied, it's time to update the
             // manifest with newly adopted feature settings.
 
-            print("> Updating manifest.")
+            print("> Updating manifest")
             for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'.")
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
                 try self.updateManifest(
                     for: module.name,
                     add: features,
@@ -235,7 +235,15 @@ extension SwiftPackageCommand {
                     verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(try features.map { try $0.swiftSettingDescription }.joined(separator: ", "))' features manually.")
+                try swiftCommandState.observabilityScope.emit(
+                    error: """
+                    Could not update manifest for '\(target)' (\(error)). \
+                    Please enable '\(
+                        features.map { try $0.swiftSettingDescription }
+                            .joined(separator: ", ")
+                    )' features manually
+                    """
+                )
             }
         }
 
