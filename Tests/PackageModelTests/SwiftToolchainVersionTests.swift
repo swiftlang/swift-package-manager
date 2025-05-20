@@ -23,9 +23,10 @@ struct SwiftToolchainVersionTests {
     let toolchain = MockToolchain()
     let versionFilePath: AbsolutePath
     let mockFileSystem: InMemoryFileSystem
+    let version: SwiftToolchainVersion
 
-    init() {
-        self.versionFilePath = toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(
+    init() throws {
+        self.versionFilePath = self.toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(
             RelativePath("lib/swift/version.json")
         )
 
@@ -33,21 +34,24 @@ struct SwiftToolchainVersionTests {
            files: [self.versionFilePath.pathString: ByteString(encodingAsUTF8: """
            {
                "tag": "swift-6.1-RELEASE",
-               "branch": "swift-6.1-branch",
+               "branch": "swift-6.1-release",
                "architecture": "aarch64",
                "platform": "ubuntu2004"
            }
            """)]
-       )
+        )
+
+        self.version = try SwiftToolchainVersion(
+            toolchain: self.toolchain,
+            fileSystem: self.mockFileSystem
+        )
     }
 
     @Test
     func versionDecoding() throws {
-        let version = try SwiftToolchainVersion(toolchain: self.toolchain, fileSystem: self.mockFileSystem)
-
-        #expect(version == SwiftToolchainVersion(
+        #expect(self.version == SwiftToolchainVersion(
             tag: "swift-6.1-RELEASE",
-            branch: "swift-6.1-branch",
+            branch: "swift-6.1-release",
             architecture: .aarch64,
             platform: .ubuntu2004
         ))
@@ -61,26 +65,42 @@ struct SwiftToolchainVersionTests {
     }
 
     @Test
-    func urlGeneration() throws {
-        let version = try SwiftToolchainVersion(toolchain: self.toolchain, fileSystem: self.mockFileSystem)
-
+    func idForSwiftSDKGeneration() throws {
         #expect(throws: SwiftToolchainVersion.Error.unknownSwiftSDKAlias("foo")) {
-            try version.generateURL(aliasString: "foo")
+            try self.version.idForSwiftSDK(aliasString: "foo")
         }
 
-        #expect(try version.generateURL(aliasString: "wasi") == """
-            https://download.swift.org/swift-6.1-release/swift-6.1-RELEASE/swift-6.1-RELEASE_wasi-0.0.1.artifactbundle.tar.gz
+        var id = try self.version.idForSwiftSDK(aliasString: "wasi")
+        #expect(id == "6.1-RELEASE-wasm32-wasi")
+
+        id = try self.version.idForSwiftSDK(aliasString: "embedded-wasi")
+        #expect(id == "6.1-RELEASE-wasm32-embedded-wasi")
+
+        id = try self.version.idForSwiftSDK(aliasString: "static-linux")
+        #expect(id == "swift-6.1-RELEASE_static-linux-0.0.1")
+    }
+
+    @Test
+    func urlForSwiftSDKGeneration() throws {
+        #expect(throws: SwiftToolchainVersion.Error.unknownSwiftSDKAlias("foo")) {
+            try self.version.urlForSwiftSDK(aliasString: "foo")
+        }
+
+        var url = try self.version.urlForSwiftSDK(aliasString: "wasi")
+        #expect(url == """
+            https://download.swift.org/swift-6.1-release/wasi/swift-6.1-RELEASE/swift-6.1-RELEASE_wasi-0.0.1.artifactbundle.tar.gz
             """
         )
 
-        #expect(try version.generateURL(aliasString: "wasi-embedded") == """
-            https://download.swift.org/swift-6.1-release/swift-6.1-RELEASE/swift-6.1-RELEASE_wasi-0.0.1.artifactbundle.tar.gz
+        url = try self.version.urlForSwiftSDK(aliasString: "embedded-wasi")
+        #expect(url == """
+            https://download.swift.org/swift-6.1-release/wasi/swift-6.1-RELEASE/swift-6.1-RELEASE_wasi-0.0.1.artifactbundle.tar.gz
             """
         )
-        
-        #expect(try version.generateURL(aliasString: "static-linux") == """
+
+        url = try version.urlForSwiftSDK(aliasString: "static-linux")
+        #expect(url == """
             https://download.swift.org/swift-6.1-release/static-sdk/swift-6.1-RELEASE/swift-6.1-RELEASE_static-linux-0.0.1.artifactbundle.tar.gz
-            https://download.swift.org/swift-6.1-branch/swift-6.1-RELEASE/swift-6.1-RELEASE_wasi-0.0.1.artifactbundle.tar.gz
             """
         )
     }

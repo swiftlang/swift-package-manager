@@ -118,22 +118,6 @@ package struct SwiftToolchainVersion: Equatable, Decodable {
     /// Platform identifier on which this toolchain runs.
     package let platform: Platform
 
-    package func generateURL(aliasString: String) throws -> String {
-        guard let swiftSDKAlias = SwiftSDKAlias(aliasString) else {
-            throw Error.unknownSwiftSDKAlias(aliasString)
-        }
-
-        return """
-            https://download.swift.org/\(
-                self.branch
-            )/\(
-                self.tag
-            )/\(
-                self.tag
-            )_\(swiftSDKAlias.urlFileComponent).artifactbundle.tar.gz
-            """
-    }
-
     package init(toolchain: some Toolchain, fileSystem: any FileSystem) throws {
         let versionMetadataPath = try toolchain.swiftCompilerPath.parentDirectory.parentDirectory.appending(
             RelativePath(validating: "lib/swift/version.json")
@@ -150,35 +134,3 @@ package struct SwiftToolchainVersion: Equatable, Decodable {
     }
 }
 
-package struct SwiftSDKAlias {
-    init?(_ string: String) {
-        guard let kind = Kind(rawValue: string) else { return nil }
-        self.kind = kind
-    }
-    
-    enum Kind: String {
-        case staticLinux  = "static-linux"
-        case wasi         = "wasi"
-        case wasiEmbedded = "wasi-embedded"
-
-        var urlFileComponent: String {
-            switch self {
-            case .staticLinux, .wasi:
-                return self.rawValue
-            case .wasiEmbedded:
-                return Self.wasi.rawValue
-            }
-        }
-    }
-
-    struct Version {
-        let rawValue = "0.0.1"
-    }
-
-    let kind: Kind
-    let defaultVersion = Version()
-
-    var urlFileComponent: String {
-        "\(self.kind.urlFileComponent)-\(self.defaultVersion.rawValue)"
-    }
-}

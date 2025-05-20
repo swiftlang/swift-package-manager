@@ -81,7 +81,7 @@ struct SwiftSDKInstall: SwiftSDKSubcommand {
             try SwiftToolchainVersion(
                 toolchain: hostToolchain,
                 fileSystem: self.fileSystem
-            ).generateURL(aliasString: experimentalAlias)
+            ).urlForSwiftSDK(aliasString: experimentalAlias)
         } else if let bundlePathOrURL {
             bundlePathOrURL
         } else {
