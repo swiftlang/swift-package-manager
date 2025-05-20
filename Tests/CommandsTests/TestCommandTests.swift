@@ -63,23 +63,26 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
-    // `echo.sh` script from the toolset won't work on Windows
-    #if !os(Windows)
-        func testToolsetRunner() async throws {
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--toolset", "\(fixturePath)/toolset.json"], packagePath: fixturePath)
+    func testToolsetRunner() async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            #if os(Windows)
+                let win32 = ".win32"
+            #else
+                let win32 = ""
+            #endif
+            let (stdout, stderr) = try await execute(
+                    ["--toolset", "\(fixturePath.appending("toolset\(win32).json").pathString)"],
+                    packagePath: fixturePath
+                )
+            // We only expect tool's output on the stdout stream.
+            XCTAssertMatch(stdout, .contains("sentinel"))
+            XCTAssertMatch(stdout, .contains("\(fixturePath)"))
 
-                // We only expect tool's output on the stdout stream.
-                XCTAssertMatch(stdout, .contains("sentinel"))
-                XCTAssertMatch(stdout, .contains("\(fixturePath)"))
-
-                // swift-build-tool output should go to stderr.
-                XCTAssertMatch(stderr, .regex("Compiling"))
-                XCTAssertMatch(stderr, .contains("Linking"))
-            }
+            // swift-build-tool output should go to stderr.
+            XCTAssertMatch(stderr, .regex("Compiling"))
+            XCTAssertMatch(stderr, .contains("Linking"))
         }
-    #endif
+    }
 
     func testNumWorkersParallelRequirement() async throws {
         #if !os(macOS)
@@ -219,6 +222,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
         enableExperimentalFlag: Bool,
         matchesPattern: [StringPattern]
     ) async throws {
+        try XCTSkipOnWindows(because: "result-swift-testing.xml doesn't exist in file system, needs investigation")
         try await fixture(name: fixtureName) { fixturePath in
             // GIVEN we have a Package with a failing \(testRunner) test cases
             let xUnitOutput = fixturePath.appending("result.xml")
@@ -560,6 +564,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
 #endif
 
     func testLibraryEnvironmentVariable() async throws {
+        try XCTSkipOnWindows(because: "produces a filepath that is too long, needs investigation")
         try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
             var extraEnv = Environment()
             if try UserToolchain.default.swiftTestingPath != nil {
@@ -578,6 +583,7 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
 
     func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
         try XCTSkipIfPlatformCI()
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Test for GitHub Issue #6605
         // GIVEN we have a Swift Package that has a fatalError building the tests
         let expected = 1

@@ -91,9 +91,9 @@ extension SwiftPM {
             packagePath: packagePath,
             env: env
         )
-        
-        let stdout = try result.utf8Output()
-        let stderr = try result.utf8stderrOutput()
+        //Remove /r from stdout/stderr so that tests do not have to deal with them
+        let stdout = try String(decoding: result.output.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
+        let stderr = try String(decoding: result.stderrOutput.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
         
         let returnValue = (stdout: stdout, stderr: stderr)
         if (!throwIfCommandFails) { return returnValue }

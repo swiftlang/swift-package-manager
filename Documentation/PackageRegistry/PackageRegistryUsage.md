@@ -137,7 +137,7 @@ Here is an example of a source control dependency:
 
 ```swift
 dependencies: [
-    .package(id: "https://github.com/mona/LinkedList", .upToNextMajor(from: "1.0.0")),
+    .package(url: "https://github.com/mona/LinkedList", .upToNextMajor(from: "1.0.0")),
 ],
 ```
 

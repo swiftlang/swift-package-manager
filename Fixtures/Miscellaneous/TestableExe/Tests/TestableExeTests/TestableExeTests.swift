@@ -5,6 +5,13 @@ import XCTest
 import class Foundation.Bundle
 
 final class TestableExeTests: XCTestCase {
+
+  #if os(Windows)
+      let eol = "\r\n"
+#else
+      let eol = "\n"
+#endif
+
     func testExample() throws {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
@@ -30,7 +37,7 @@ final class TestableExeTests: XCTestCase {
         process.waitUntilExit()
         var data = pipe.fileHandleForReading.readDataToEndOfFile()
         var output = String(data: data, encoding: .utf8)
-        XCTAssertEqual(output, "Hello, world!\n")
+        XCTAssertEqual(output, "Hello, world!\(eol)")
 
         execPath = productsDirectory.appendingPathComponent("TestableExe2")
         process = Process()
@@ -41,7 +48,7 @@ final class TestableExeTests: XCTestCase {
         process.waitUntilExit()
         data = pipe.fileHandleForReading.readDataToEndOfFile()
         output = String(data: data, encoding: .utf8)
-        XCTAssertEqual(output, "Hello, planet!\n")
+        XCTAssertEqual(output, "Hello, planet!\(eol)")
 
         execPath = productsDirectory.appendingPathComponent("TestableExe3")
         process = Process()
@@ -52,7 +59,7 @@ final class TestableExeTests: XCTestCase {
         process.waitUntilExit()
         data = pipe.fileHandleForReading.readDataToEndOfFile()
         output = String(data: data, encoding: .utf8)
-        XCTAssertEqual(output, "Hello, universe!\n")
+        XCTAssertEqual(output, "Hello, universe!\(eol)")
     }
 
     /// Returns path to the built products directory.

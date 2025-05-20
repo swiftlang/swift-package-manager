@@ -144,11 +144,13 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testFindExecutable() throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: Assertion failure when trying to find ls executable")
-
         try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
+            #if os(Windows)
+            XCTAssertTrue(AsyncProcess.findExecutable("cmd.exe") != nil)
+            #else
             XCTAssertTrue(AsyncProcess.findExecutable("ls") != nil)
+            #endif
 
             XCTAssertEqual(AsyncProcess.findExecutable("nonExistantProgram"), nil)
             XCTAssertEqual(AsyncProcess.findExecutable(""), nil)

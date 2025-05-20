@@ -153,267 +153,267 @@ package-collection add <collection-url> [--order=<order>] [--trust-unsigned] [--
 
 ## Command Options
 
-- term **collection-url:**
+- term **collection-url**:
 
 *URL of the collection to add.*
 
 
-- term **--order=\<order\>:**
+- term **--order=\<order\>**:
 
 *Sort order for the added collection.*
 
 
-- term **--trust-unsigned:**
+- term **--trust-unsigned**:
 
 *Trust the collection even if it is unsigned.*
 
 
-- term **--skip-signature-check:**
+- term **--skip-signature-check**:
 
 *Skip signature check if the collection is signed.*
 
 
-- term **--package-path=\<package-path\>:**
+- term **--package-path=\<package-path\>**:
 
 *Specify the package path to operate on (default current directory). This changes the working directory before any other operation.*
 
 
-- term **--cache-path=\<cache-path\>:**
+- term **--cache-path=\<cache-path\>**:
 
 *Specify the shared cache directory path.*
 
 
-- term **--config-path=\<config-path\>:**
+- term **--config-path=\<config-path\>**:
 
 *Specify the shared configuration directory path.*
 
 
-- term **--security-path=\<security-path\>:**
+- term **--security-path=\<security-path\>**:
 
 *Specify the shared security directory path.*
 
 
-- term **--scratch-path=\<scratch-path\>:**
+- term **--scratch-path=\<scratch-path\>**:
 
 *Specify a custom scratch directory path. (default .build)*
 
 
-- term **--swift-sdks-path=\<swift-sdks-path\>:**
+- term **--swift-sdks-path=\<swift-sdks-path\>**:
 
 *Path to the directory containing installed Swift SDKs.*
 
 
-- term **--toolset=\<toolset\>:**
+- term **--toolset=\<toolset\>**:
 
 *Specify a toolset JSON file to use when building for the target platform. Use the option multiple times to specify more than one toolset. Toolsets will be merged in the order they're specified into a single final toolset for the current build.*
 
 
-- term **--pkg-config-path=\<pkg-config-path\>:**
+- term **--pkg-config-path=\<pkg-config-path\>**:
 
 *Specify alternative path to search for pkg-config `.pc` files. Use the option multiple times to
 specify more than one path.*
 
 
-- term **--enable-dependency-cache|disable-dependency-cache:**
+- term **--enable-dependency-cache|disable-dependency-cache**:
 
 *Use a shared cache when fetching dependencies.*
 
 
-- term **--enable-build-manifest-caching|disable-build-manifest-caching:**
+- term **--enable-build-manifest-caching|disable-build-manifest-caching**:
 
 
-- term **--manifest-cache=\<manifest-cache\>:**
+- term **--manifest-cache=\<manifest-cache\>**:
 
 *Caching mode of Package.swift manifests. Valid values are: (shared: shared cache, local: package's build directory, none: disabled)*
 
 
-- term **--enable-experimental-prebuilts|disable-experimental-prebuilts:**
+- term **--enable-experimental-prebuilts|disable-experimental-prebuilts**:
 
 *Whether to use prebuilt swift-syntax libraries for macros.*
 
 
-- term **--verbose:**
+- term **--verbose**:
 
 *Increase verbosity to include informational output.*
 
 
-- term **--very-verbose|vv:**
+- term **--very-verbose|vv**:
 
 *Increase verbosity to include debug output.*
 
 
-- term **--quiet:**
+- term **--quiet**:
 
 *Decrease verbosity to only include error output.*
 
 
-- term **--color-diagnostics|no-color-diagnostics:**
+- term **--color-diagnostics|no-color-diagnostics**:
 
 *Enables or disables color diagnostics when printing to a TTY. 
 By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.*
 
 
-- term **--disable-sandbox:**
+- term **--disable-sandbox**:
 
 *Disable using the sandbox when executing subprocesses.*
 
 
-- term **--netrc:**
+- term **--netrc**:
 
 *Use netrc file even in cases where other credential stores are preferred.*
 
 
-- term **--enable-netrc|disable-netrc:**
+- term **--enable-netrc|disable-netrc**:
 
 *Load credentials from a netrc file.*
 
 
-- term **--netrc-file=\<netrc-file\>:**
+- term **--netrc-file=\<netrc-file\>**:
 
 *Specify the netrc file path.*
 
 
-- term **--enable-keychain|disable-keychain:**
+- term **--enable-keychain|disable-keychain**:
 
 *Search credentials in macOS keychain.*
 
 
-- term **--resolver-fingerprint-checking=\<resolver-fingerprint-checking\>:**
+- term **--resolver-fingerprint-checking=\<resolver-fingerprint-checking\>**:
 
 
-- term **--resolver-signing-entity-checking=\<resolver-signing-entity-checking\>:**
+- term **--resolver-signing-entity-checking=\<resolver-signing-entity-checking\>**:
 
 
-- term **--enable-signature-validation|disable-signature-validation:**
+- term **--enable-signature-validation|disable-signature-validation**:
 
 *Validate signature of a signed package release downloaded from registry.*
 
 
-- term **--enable-prefetching|disable-prefetching:**
+- term **--enable-prefetching|disable-prefetching**:
 
 
-- term **--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file:**
+- term **--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file**:
 
 *Only use versions from the Package.resolved file and fail resolution if it is out-of-date.*
 
 
-- term **--skip-update:**
+- term **--skip-update**:
 
 *Skip updating dependencies from their remote during a resolution.*
 
 
-- term **--disable-scm-to-registry-transformation:**
+- term **--disable-scm-to-registry-transformation**:
 
 *Disable source control to registry transformation.*
 
 
-- term **--use-registry-identity-for-scm:**
+- term **--use-registry-identity-for-scm**:
 
 *Look up source control dependencies in the registry and use their registry identity when possible to help deduplicate across the two origins.*
 
 
-- term **--replace-scm-with-registry:**
+- term **--replace-scm-with-registry**:
 
 *Look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible.*
 
 
-- term **--default-registry-url=\<default-registry-url\>:**
+- term **--default-registry-url=\<default-registry-url\>**:
 
 *Default registry URL to use, instead of the registries.json configuration file.*
 
 
-- term **--configuration=\<configuration\>:**
+- term **--configuration=\<configuration\>**:
 
 *Build with configuration*
 
 
-- term **--=\<Xcc\>:**
+- term **--=\<Xcc\>**:
 
 *Pass flag through to all C compiler invocations.*
 
 
-- term **--=\<Xswiftc\>:**
+- term **--=\<Xswiftc\>**:
 
 *Pass flag through to all Swift compiler invocations.*
 
 
-- term **--=\<Xlinker\>:**
+- term **--=\<Xlinker\>**:
 
 *Pass flag through to all linker invocations.*
 
 
-- term **--=\<Xcxx\>:**
+- term **--=\<Xcxx\>**:
 
 *Pass flag through to all C++ compiler invocations.*
 
 
-- term **--triple=\<triple\>:**
+- term **--triple=\<triple\>**:
 
 
-- term **--sdk=\<sdk\>:**
+- term **--sdk=\<sdk\>**:
 
 
-- term **--toolchain=\<toolchain\>:**
+- term **--toolchain=\<toolchain\>**:
 
 
-- term **--swift-sdk=\<swift-sdk\>:**
+- term **--swift-sdk=\<swift-sdk\>**:
 
 *Filter for selecting a specific Swift SDK to build with.*
 
 
-- term **--sanitize=\<sanitize\>:**
+- term **--sanitize=\<sanitize\>**:
 
 *Turn on runtime checks for erroneous behavior, possible values: address, thread, undefined, scudo.*
 
 
-- term **--auto-index-store|enable-index-store|disable-index-store:**
+- term **--auto-index-store|enable-index-store|disable-index-store**:
 
 *Enable or disable indexing-while-building feature.*
 
 
-- term **--enable-parseable-module-interfaces:**
+- term **--enable-parseable-module-interfaces**:
 
 
-- term **--jobs=\<jobs\>:**
+- term **--jobs=\<jobs\>**:
 
 *The number of jobs to spawn in parallel during the build process.*
 
 
-- term **--use-integrated-swift-driver:**
+- term **--use-integrated-swift-driver**:
 
 
-- term **--explicit-target-dependency-import-check=\<explicit-target-dependency-import-check\>:**
+- term **--explicit-target-dependency-import-check=\<explicit-target-dependency-import-check\>**:
 
 *A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.*
 
 
-- term **--experimental-explicit-module-build:**
+- term **--experimental-explicit-module-build**:
 
 
-- term **--build-system=\<build-system\>:**
+- term **--build-system=\<build-system\>**:
 
 
-- term **--=\<debug-info-format\>:**
+- term **--=\<debug-info-format\>**:
 
 *The Debug Information Format to use.*
 
 
-- term **--enable-dead-strip|disable-dead-strip:**
+- term **--enable-dead-strip|disable-dead-strip**:
 
 *Disable/enable dead code stripping by the linker.*
 
 
-- term **--disable-local-rpath:**
+- term **--disable-local-rpath**:
 
 *Disable adding $ORIGIN/@loader_path to the rpath by default.*
 
 
-- term **--version:**
+- term **--version**:
 
 *Show the version.*
 
 
-- term **--help:**
+- term **--help**:
 
 *Show help information.*
 

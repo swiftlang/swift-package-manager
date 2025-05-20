@@ -45,6 +45,7 @@ protocol ConfigurationSubcommand: SwiftSDKSubcommand {
 extension ConfigurationSubcommand {
     func run(
         hostTriple: Triple,
+        hostToolchain: UserToolchain,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
@@ -52,6 +53,7 @@ extension ConfigurationSubcommand {
 
         let bundleStore = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0) }
