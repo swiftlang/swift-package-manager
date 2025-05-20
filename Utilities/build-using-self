@@ -224,7 +224,6 @@ def main() -> None:
                     *global_args,
                     "--configuration",
                     args.config,
-                    "--parallel",
                     swift_testing_arg,
                     xctest_arg,
                     "--scratch-path",
@@ -255,7 +254,6 @@ def main() -> None:
                     *global_args,
                     "--package-path",
                     integration_test_dir,
-                    "--parallel",
                     *ignore_args,
                 ]
             )
