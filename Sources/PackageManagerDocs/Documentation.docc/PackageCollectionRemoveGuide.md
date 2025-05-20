@@ -1,5 +1,7 @@
 # Removing a package
 
+Learn how to remove a package from a collection.
+
 ## Overview
 
 This subcommand removes a collection from the user's list of configured collections:

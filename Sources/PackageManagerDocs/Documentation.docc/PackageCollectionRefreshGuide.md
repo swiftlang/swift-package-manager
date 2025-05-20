@@ -1,5 +1,7 @@
 # Refresh
 
+Learn how to refresh package collections.
+
 ## Overview
 
 The [`refresh` subcommand](<doc:PackageCollectionRefresh>) refreshes any cached data manually:

@@ -30,21 +30,15 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 - <doc:PackageCollectionConfigurationFileGuide>
 - <doc:PackageCollectionPublishingGuide>
 
-### Adding a package collection 
+### Modifying package collections 
 - <doc:PackageCollectionAddGuide>
-
-### Finding package collections
-- <doc:PackageCollectionSearchGuide>
-
-### Updating package collections
+- <doc:PackageCollectionRemoveGuide>
 - <doc:PackageCollectionRefreshGuide>
 
 ### Inspecting package collections
+- <doc:PackageCollectionSearchGuide>
 - <doc:PackageCollectionDescribeGuide>
 - <doc:PackageCollectionListGuide>
-
-### Removing package collections
-- <doc:PackageCollectionRemoveGuide>
 
 ### Protecting package collections 
 - <doc:PackageCollectionSigning>

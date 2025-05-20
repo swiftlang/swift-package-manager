@@ -1,5 +1,7 @@
 # Searching for a package
 
+Learn how to query for a package in collections.
+
 ## Overview
 
 The [`search` subcommand](<doc:PackageCollectionSearch>) searches for packages by keywords or module names within imported collections. The result can optionally be returned as JSON using `--json` for

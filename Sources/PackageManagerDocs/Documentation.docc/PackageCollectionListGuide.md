@@ -1,5 +1,7 @@
 # Listing package collections
 
+Learn how to view configured collections.
+
 ## Overview
 
 List [`list` subcommand](<doc:PackageCollectionList>) lists all collections that are configured by the user:
