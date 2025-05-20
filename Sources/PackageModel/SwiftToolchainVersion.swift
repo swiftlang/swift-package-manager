@@ -15,9 +15,25 @@ import class Foundation.JSONDecoder
 import struct Foundation.URL
 
 package struct SwiftToolchainVersion: Equatable, Decodable {
-    package enum Error: Swift.Error, Equatable {
+    package enum Error: Swift.Error, Equatable, CustomStringConvertible {
         case versionMetadataNotFound(AbsolutePath)
         case unknownSwiftSDKAlias(String)
+
+        package var description: String {
+            switch self {
+            case .versionMetadataNotFound(let absolutePath):
+                """
+                Toolchain version metadata file not found at path `\(absolutePath.pathString)`. \
+                Install a newer version of the Swift toolchain that includes this file.
+                """
+            case .unknownSwiftSDKAlias(let string):
+                """
+                Unknown alias for a Swift SDK: `\(string)`. Supported aliases: \(
+                    SwiftSDKAlias.Kind.allCases.map { "`\($0.rawValue)`" }.joined(separator: ", ")
+                ).
+                """
+            }
+        }
     }
 
     package init(

@@ -16,7 +16,7 @@ package struct SwiftSDKAlias {
         self.kind = kind
     }
     
-    enum Kind: String {
+    enum Kind: String, CaseIterable {
         case staticLinux  = "static-linux"
         case wasi         = "wasi"
         case wasiEmbedded = "embedded-wasi"
