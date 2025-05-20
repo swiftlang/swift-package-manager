@@ -26,5 +26,25 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 
 ## Topics
 
-- [`Signed Package Collections`](<doc:PackageCollectionSigned>)
-- [`Unsigned package collections`](<doc:PackageCollectionsUnsigned>)
+### Configuring package collections
+- <doc:PackageCollectionConfigurationFileGuide>
+- <doc:PackageCollectionPublishingGuide>
+
+### Adding a package collection 
+- <doc:PackageCollectionAddGuide>
+
+### Finding package collections
+- <doc:PackageCollectionSearchGuide>
+
+### Updating package collections
+- <doc:PackageCollectionRefreshGuide>
+
+### Inspecting package collections
+- <doc:PackageCollectionDescribeGuide>
+- <doc:PackageCollectionListGuide>
+
+### Removing package collections
+- <doc:PackageCollectionRemoveGuide>
+
+### Protecting package collections 
+- <doc:PackageCollectionSigning>
