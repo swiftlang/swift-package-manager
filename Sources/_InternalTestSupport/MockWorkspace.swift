@@ -216,17 +216,11 @@ public final class MockWorkspace {
                         identity: PackageIdentity(url: url),
                         kind: .remoteSourceControl(url)
                     )
-                    let container = try await withCheckedThrowingContinuation { continuation in
-                        containerProvider.getContainer(
-                            for: packageRef,
-                            updateStrategy: .never,
-                            observabilityScope: observability.topScope,
-                            on: .sharedConcurrent,
-                            completion: {
-                                continuation.resume(with: $0)
-                            }
-                        )
-                    }
+                    let container = try await containerProvider.getContainer(
+                        for: packageRef,
+                        updateStrategy: .never,
+                        observabilityScope: observability.topScope
+                    )
                     guard let customContainer = container as? CustomPackageContainer else {
                         throw StringError("invalid custom container: \(container)")
                     }
