@@ -13,6 +13,7 @@
 import Basics
 import Foundation
 import TSCUtility
+import enum TSCBasic.JSON
 
 import class Basics.AsyncProcess
 
@@ -73,6 +74,9 @@ public final class UserToolchain: Toolchain {
     public var triple: Basics.Triple { targetTriple }
 
     public let targetTriple: Basics.Triple
+
+    // A version string that can be used to identify the swift compiler version
+    public let swiftCompilerVersion: String?
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
@@ -158,6 +162,73 @@ public final class UserToolchain: Toolchain {
         }
 
         return try getTool(name, binDirectories: envSearchPaths, fileSystem: fileSystem)
+    }
+
+    private static func getTargetInfo(swiftCompiler: AbsolutePath) throws -> JSON {
+        // Call the compiler to get the target info JSON.
+        let compilerOutput: String
+        do {
+            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            compilerOutput = try result.utf8Output().spm_chomp()
+        } catch {
+            throw InternalError("Failed to get target info (\(error.interpolationDescription))")
+        }
+        // Parse the compiler's JSON output.
+        do {
+            return try JSON(string: compilerOutput)
+        } catch {
+            throw InternalError(
+                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+            )
+        }
+    }
+
+    private static func getHostTriple(targetInfo: JSON) throws -> Basics.Triple {
+        // Get the triple string from the target info.
+        let tripleString: String
+        do {
+            tripleString = try targetInfo.get("target").get("triple")
+        } catch {
+            throw InternalError(
+                "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(targetInfo)"
+            )
+        }
+
+        // Parse the triple string.
+        do {
+            return try Triple(tripleString)
+        } catch {
+            throw InternalError(
+                "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
+            )
+        }
+    }
+
+    private static func computeSwiftCompilerVersion(targetInfo: JSON) -> String? {
+        // Get the compiler version from the target info
+        let compilerVersion: String
+        do {
+            compilerVersion = try targetInfo.get("compilerVersion")
+        } catch {
+            return nil
+        }
+
+        // Extract the swift version using regex from the description if available
+        do {
+            let regex = try Regex(#"\((swift(lang)?-[^ )]*)"#)
+            if let match = try regex.firstMatch(in: compilerVersion), match.count > 1, let substring = match[1].substring {
+                return String(substring)
+            }
+
+            let regex2 = try Regex(#"\(.*Swift (.*)[ )]"#)
+            if let match2 = try regex2.firstMatch(in: compilerVersion), match2.count > 1, let substring = match2[1].substring {
+                return "swift-\(substring)"
+            } else {
+                return nil
+            }
+        } catch {
+            return nil
+        }
     }
 
     // MARK: - public API
@@ -612,8 +683,14 @@ public final class UserToolchain: Toolchain {
                 default: InstalledSwiftPMConfiguration.default)
         }
 
-        // Use the triple from Swift SDK or compute the host triple using swiftc.
-        var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        // targetInfo from the compiler
+        let targetInfo = try Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+
+        // Get compiler version information from target info
+        self.swiftCompilerVersion = Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+
+        // Use the triple from Swift SDK or compute the host triple from the target info
+        var triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo)
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
