@@ -87,6 +87,7 @@ extension SwiftPackageCommand {
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
+                targets: self.options.targets,
                 features: features
             )
 
@@ -148,21 +149,35 @@ extension SwiftPackageCommand {
 
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
+            targets: Set<String>? = .none,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-            var destinationBuildParameters = try swiftCommandState.productsBuildParameters
+            let destinationBuildParameters = try swiftCommandState.productsBuildParameters
 
-            // Inject feature settings as flags. This is safe and not as invasive
-            // as trying to update manifest because in adoption mode the features
-            // can only produce warnings.
-            for feature in features {
-                destinationBuildParameters.flags.swiftCompilerFlags.append(contentsOf: [
-                    "-Xfrontend",
-                    "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
-                    "-Xfrontend",
-                    "\(feature.name):migrate",
-                ])
+            let modulesGraph = try await swiftCommandState.loadPackageGraph()
+
+            let addFeaturesToModule = { (module: ResolvedModule) in
+                for feature in features {
+                    module.underlying.buildSettings.add(.init(values: [
+                        "-Xfrontend",
+                        "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
+                        "-Xfrontend",
+                        "\(feature.name):migrate",
+                    ]), for: .OTHER_SWIFT_FLAGS)
+                }
+            }
+
+            if let targets {
+                targets.lazy.compactMap {
+                    modulesGraph.module(for: $0)
+                }.forEach(addFeaturesToModule)
+            } else {
+                for package in modulesGraph.rootPackages {
+                    package.modules.filter {
+                        $0.type != .plugin
+                    }.forEach(addFeaturesToModule)
+                }
             }
 
             return try await swiftCommandState.createBuildSystem(
@@ -171,7 +186,11 @@ extension SwiftPackageCommand {
                 toolsBuildParameters: toolsBuildParameters,
                 // command result output goes on stdout
                 // ie "swift build" should output to stdout
-                outputStream: TSCBasic.stdoutStream
+                packageGraphLoader: {
+                    modulesGraph
+                },
+                outputStream: TSCBasic.stdoutStream,
+                observabilityScope: swiftCommandState.observabilityScope
             )
         }
 
