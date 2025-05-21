@@ -5609,7 +5609,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5619,7 +5619,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -5694,7 +5694,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5704,7 +5704,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -5784,7 +5784,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5794,7 +5794,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
