@@ -6463,7 +6463,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ],
             binaryArtifacts: [
                 .plain("pkg"): [
-                    "MyTool": .init(kind: .artifactsArchive, originURL: nil, path: toolPath),
+                    "MyTool": .init(kind: .artifactsArchive(types: [.executable]), originURL: nil, path: toolPath),
                 ],
             ],
             observabilityScope: observability.topScope
