@@ -24,7 +24,7 @@ public final class BinaryModule: Module {
     
     /// The original source of the binary artifact.
     public let origin: Origin
-    
+
     /// The binary artifact path.
     public var artifactPath: AbsolutePath {
         return self.sources.root
@@ -53,9 +53,15 @@ public final class BinaryModule: Module {
         )
     }
 
-    public enum Kind: String, RawRepresentable, CaseIterable {
+    public enum Kind: CaseIterable {
+        public static var allCases: [BinaryModule.Kind] {
+            [.xcframework, .artifactsArchive(types: []), .unknown]
+        }
         case xcframework
-        case artifactsArchive
+
+        /// Artifact bundles containing static libraries.
+        case artifactsArchive(types: [ArtifactsArchiveMetadata.ArtifactType])
+
         case unknown // for non-downloaded artifacts
 
         public var fileExtension: String {
@@ -68,11 +74,26 @@ public final class BinaryModule: Module {
                 return "unknown"
             }
         }
+
+        public var isUnknown: Bool {
+            switch self {
+            case .xcframework, .artifactsArchive:
+                return false
+            case .unknown:
+                return true
+            }
+        }
     }
 
     public var containsExecutable: Bool {
-        // FIXME: needs to be revisited once libraries are supported in artifact bundles
-        return self.kind == .artifactsArchive
+        switch self.kind {
+        case .xcframework:
+            return false
+        case .artifactsArchive(let types):
+            return types.contains(.executable)
+        case .unknown:
+            return false
+        }
     }
 
     public enum Origin: Equatable {

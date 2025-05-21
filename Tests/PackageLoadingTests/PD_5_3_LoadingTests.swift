@@ -299,7 +299,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
             }
         }
 
@@ -324,7 +324,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'artifactbundleindex'", severity: .error)
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
             }
         }
 
@@ -346,7 +346,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'xcframework', 'artifactbundle'", severity: .error)
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundle', 'xcframework', 'zip'", severity: .error)
             }
         }
 
@@ -371,7 +371,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             testDiagnostics(validationDiagnostics) { result in
-                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'zip', 'artifactbundleindex'", severity: .error)
+                result.check(diagnostic: "unsupported extension for binary target 'Foo'; valid extensions are: 'artifactbundleindex', 'zip'", severity: .error)
             }
         }
 
