@@ -39,6 +39,8 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
+        /// A target that provides a Swift template
+        case template
     }
 
     /// The different types of a target's dependency on another entity.
@@ -229,6 +231,25 @@ public final class Target {
         case plugin(name: String, package: String?)
     }
 
+    public var templateInitializationOptions: TemplateInitializationOptions?
+
+    public enum TemplateType: String {
+        /// A target that contains code for the Swift package's functionality.
+        case regular
+        /// A target that contains code for an executable's main module.
+        case executable
+        /// A target that contains tests for the Swift package's other targets.
+        case test
+        /// A target that adapts a library on the system to work with Swift
+        /// packages.
+        case `macro`
+    }
+
+    @available(_PackageDescription, introduced: 5.9)
+    public enum TemplateInitializationOptions {
+        case packageInit(templateType: TemplateType, executable: Dependency, templatePermissions: [TemplatePermissions]? = nil, description: String)
+    }
+
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
     public init(
@@ -250,7 +271,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -279,7 +301,8 @@ public final class Target {
                 pkgConfig == nil &&
                 providers == nil &&
                 pluginCapability == nil &&
-                checksum == nil
+                checksum == nil &&
+                templateInitializationOptions == nil
             )
         case .system:
             precondition(
@@ -295,7 +318,8 @@ public final class Target {
                 swiftSettings == nil &&
                 linkerSettings == nil &&
                 checksum == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .binary:
             precondition(
@@ -311,7 +335,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .plugin:
             precondition(
@@ -325,7 +350,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                templateInitializationOptions == nil
             )
         case .macro:
             precondition(
@@ -336,7 +362,16 @@ public final class Target {
                 providers == nil &&
                 pluginCapability == nil &&
                 cSettings == nil &&
-                cxxSettings == nil
+                cxxSettings == nil &&
+                templateInitializationOptions == nil
+            )
+        case .template:
+            precondition(
+                url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil &&
+                checksum == nil
             )
         }
     }
@@ -1234,6 +1269,26 @@ public final class Target {
             packageAccess: packageAccess,
             pluginCapability: capability)
     }
+
+    @available(_PackageDescription, introduced: 6.0)
+    public static func template(
+        name: String,
+        templateInitializationOptions: TemplateInitializationOptions,
+        exclude: [String] = [],
+        executable: Dependency
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: nil,
+            exclude: exclude,
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .template,
+            packageAccess: false,
+            templateInitializationOptions: templateInitializationOptions
+        )
+    }
 }
 
 extension Target.Dependency {
@@ -1561,4 +1616,49 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
+
+/// The type of permission a plug-in requires.
+///
+/// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
+@available(_PackageDescription, introduced: 6.0)
+public enum TemplatePermissions {
+    /// Create a permission to make network connections.
+    ///
+    /// The command plug-in requires permission to make network connections. The `reason` string is shown
+    /// to the user at the time of request for approval, explaining why the plug-in is requesting access.
+    ///   - Parameter scope: The scope of the permission.
+    ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
+    @available(_PackageDescription, introduced: 6.0)
+    case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
+
+}
+
+/// The scope of a network permission.
+///
+/// The scope can be none, local connections only, or all connections.
+@available(_PackageDescription, introduced: 5.9)
+public enum TemplateNetworkPermissionScope {
+    /// Do not allow network access.
+    case none
+    /// Allow local network connections; can be limited to a list of allowed ports.
+    case local(ports: [Int] = [])
+    /// Allow local and outgoing network connections; can be limited to a list of allowed ports.
+    case all(ports: [Int] = [])
+    /// Allow connections to Docker through UNIX domain sockets.
+    case docker
+    /// Allow connections to any UNIX domain socket.
+    case unixDomainSocket
+
+    /// Allow local and outgoing network connections, limited to a range of allowed ports.
+    public static func all(ports: Range<Int>) -> TemplateNetworkPermissionScope {
+        return .all(ports: Array(ports))
+    }
+
+    /// Allow local network connections, limited to a range of allowed ports.
+    public static func local(ports: Range<Int>) -> TemplateNetworkPermissionScope {
+        return .local(ports: Array(ports))
+    }
+}
+
+
 

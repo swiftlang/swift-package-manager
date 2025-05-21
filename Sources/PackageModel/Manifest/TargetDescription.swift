@@ -24,6 +24,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case template
     }
 
     /// Represents a target's dependency on another entity.
@@ -194,6 +195,47 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case plugin(name: String, package: String?)
     }
 
+    public let templateInitializationOptions: TemplateInitializationOptions?
+
+    public enum TemplateInitializationOptions: Hashable, Sendable {
+        case packageInit(templateType: TemplateType, executable: Dependency, templatePermissions: [TemplatePermission]?, description: String)
+    }
+
+    public enum TemplateType: String, Hashable, Codable, Sendable {
+        /// A target that contains code for the Swift package's functionality.
+        case regular
+        /// A target that contains code for an executable's main module.
+        case executable
+        /// A target that contains tests for the Swift package's other targets.
+        case test
+        /// A target that adapts a library on the system to work with Swift
+        /// packages.
+        case `macro`
+    }
+
+    public enum TemplateNetworkPermissionScope: Hashable, Codable, Sendable {
+        case none
+        case local(ports: [Int])
+        case all(ports: [Int])
+        case docker
+        case unixDomainSocket
+
+        public init?(_ scopeString: String, ports: [Int]) {
+            switch scopeString {
+            case "none": self = .none
+            case "local": self = .local(ports: ports)
+            case "all": self = .all(ports: ports)
+            case "docker": self = .docker
+            case "unix-socket": self = .unixDomainSocket
+            default: return nil
+            }
+        }
+    }
+
+    public enum TemplatePermission: Hashable, Codable, Sendable {
+        case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
+    }
+
     public init(
         name: String,
         dependencies: [Dependency] = [],
@@ -210,7 +252,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil,
-        pluginUsages: [PluginUsage]? = nil
+        pluginUsages: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions? = nil
     ) throws {
         let targetType = String(describing: type)
         switch type {
@@ -245,6 +288,14 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "checksum",
                 value: checksum ?? "<nil>"
             ) }
+            if templateInitializationOptions != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
+
         case .system:
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -300,6 +351,13 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginUsages",
                 value: String(describing: pluginUsages!)
             ) }
+            if templateInitializationOptions != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
         case .binary:
             if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
@@ -362,6 +420,13 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginUsages",
                 value: String(describing: pluginUsages!)
             ) }
+            if templateInitializationOptions != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
         case .plugin:
             if pluginCapability == nil { throw Error.pluginTargetRequiresPluginCapability(targetName: name) }
             if url != nil { throw Error.disallowedPropertyInTarget(
@@ -406,6 +471,13 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginUsages",
                 value: String(describing: pluginUsages!)
             ) }
+            if templateInitializationOptions != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
         case .macro:
             if url != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -443,6 +515,53 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginCapability",
                 value: String(describing: pluginCapability!)
             ) }
+            if templateInitializationOptions != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
+        case .template:
+            // List forbidden properties for `.template` targets
+            if url != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "url",
+                value: url ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "checksum",
+                value: checksum ?? "<nil>"
+            ) }
+            if templateInitializationOptions == nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "templateInitializationOptions",
+                value: String(describing: templateInitializationOptions!)
+                )
+            }
+
         }
 
         self.name = name
@@ -461,6 +580,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.settings = settings
         self.checksum = checksum
         self.pluginUsages = pluginUsages
+        self.templateInitializationOptions = templateInitializationOptions
     }
 }
 
@@ -586,6 +706,44 @@ extension TargetDescription.PluginUsage: Codable {
     }
 }
 
+extension TargetDescription.TemplateInitializationOptions: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case packageInit
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .packageInit(a1, a2, a3, a4):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .packageInit)
+            try unkeyedContainer.encode(a1)
+            try unkeyedContainer.encode(a2)
+            if let permissions = a3 {
+                try unkeyedContainer.encode(a3)
+            } else {
+                try unkeyedContainer.encodeNil()
+            }
+            try unkeyedContainer.encode(a4)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let key = values.allKeys.first(where: values.contains) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Did not find a matching key"))
+        }
+        switch key {
+        case .packageInit:
+            var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
+            let templateType = try unkeyedValues.decode(TargetDescription.TemplateType.self)
+            let executable = try unkeyedValues.decode(TargetDescription.Dependency.self)
+            let templatePermissions = try unkeyedValues.decodeIfPresent([TargetDescription.TemplatePermission].self)
+            let description = try unkeyedValues.decode(String.self)
+            self = .packageInit(templateType: templateType, executable: executable, templatePermissions: templatePermissions ?? nil, description: description)
+        }
+    }
+}
+
 import protocol Foundation.LocalizedError
 
 private enum Error: LocalizedError, Equatable {
@@ -606,3 +764,5 @@ private enum Error: LocalizedError, Equatable {
         }
     }
 }
+
+

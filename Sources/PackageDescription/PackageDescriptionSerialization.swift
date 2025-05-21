@@ -180,6 +180,7 @@ enum Serialization {
         case binary
         case plugin
         case `macro`
+        case template
     }
 
     enum PluginCapability: Codable {
@@ -210,6 +211,34 @@ enum Serialization {
         case plugin(name: String, package: String?)
     }
 
+    enum TemplateInitializationOptions: Codable {
+        case packageInit(templateType: TemplateType, executable: TargetDependency, templatePermissions: [TemplatePermissions]?, description: String)
+    }
+
+    enum TemplateType: Codable {
+        /// A target that contains code for the Swift package's functionality.
+        case regular
+        /// A target that contains code for an executable's main module.
+        case executable
+        /// A target that contains tests for the Swift package's other targets.
+        case test
+        /// A target that adapts a library on the system to work with Swift
+        /// packages.
+        case `macro`
+    }
+
+    enum TemplateNetworkPermissionScope: Codable {
+        case none
+        case local(ports: [Int])
+        case all(ports: [Int])
+        case docker
+        case unixDomainSocket
+    }
+
+    enum TemplatePermissions: Codable {
+        case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
+    }
+
     struct Target: Codable {
         let name: String
         let path: String?
@@ -230,6 +259,7 @@ enum Serialization {
         let linkerSettings: [LinkerSetting]?
         let checksum: String?
         let pluginUsages: [PluginUsage]?
+        let templateInitializationOptions: TemplateInitializationOptions?
     }
 
     // MARK: - resource serialization

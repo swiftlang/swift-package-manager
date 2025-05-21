@@ -237,6 +237,7 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
+        case .template: self = .template
         }
     }
 }
@@ -295,6 +296,49 @@ extension Serialization.PluginUsage {
     }
 }
 
+extension Serialization.TemplateInitializationOptions {
+    init(_ usage: PackageDescription.Target.TemplateInitializationOptions) {
+        switch usage {
+
+        case .packageInit(let templateType, let executable, let templatePermissions, let description):
+            self = .packageInit(templateType: .init(templateType), executable: .init(executable), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
+        }
+    }
+}
+extension Serialization.TemplateType {
+    init(_ type: PackageDescription.Target.TemplateType) {
+        switch type {
+        case .regular: self = .regular
+        case .executable: self = .executable
+        case .macro: self = .macro
+        case .test: self = .test
+        }
+    }
+}
+
+extension Serialization.TemplatePermissions {
+    init(_ permission: PackageDescription.TemplatePermissions) {
+        switch permission {
+        case .allowNetworkConnections(let scope, let reason): self = .allowNetworkConnections(
+                scope: .init(scope),
+                reason: reason
+            )
+        }
+    }
+}
+
+extension Serialization.TemplateNetworkPermissionScope {
+    init(_ scope: PackageDescription.TemplateNetworkPermissionScope) {
+        switch scope {
+        case .none: self = .none
+        case .local(let ports): self = .local(ports: ports)
+        case .all(let ports): self = .all(ports: ports)
+        case .docker: self = .docker
+        case .unixDomainSocket: self = .unixDomainSocket
+        }
+    }
+}
+
 extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
@@ -316,6 +360,7 @@ extension Serialization.Target {
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
         self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
+        self.templateInitializationOptions = target.templateInitializationOptions.map { .init($0) }
     }
 }
 

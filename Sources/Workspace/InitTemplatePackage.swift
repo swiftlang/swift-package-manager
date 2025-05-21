@@ -8,30 +8,38 @@ import Basics
 import PackageModel
 import SPMBuildCore
 import TSCUtility
-@_spi(SwiftPMInternal)
 import Foundation
-import Commands
+import Basics
+import PackageModel
+import SPMBuildCore
+import TSCUtility
 
+public final class InitTemplatePackage {
 
-final class InitTemplatePackage {
-    
-    
-    
     var initMode: TemplateType
 
-    
+
+    public enum TemplateType: String, CustomStringConvertible {
+        case local = "local"
+        case git = "git"
+        case registry = "registry"
+
+        public var description: String {
+            return rawValue
+        }
+    }
+
     var packageName: String?
     
     var templatePath: AbsolutePath
 
     let fileSystem: FileSystem
 
-    init(initMode: InitPackage.PackageType, packageName: String? = nil, templatePath: AbsolutePath, fileSystem: FileSystem) {
+    public init(initMode: InitTemplatePackage.TemplateType, packageName: String? = nil, templatePath: AbsolutePath, fileSystem: FileSystem) {
         self.initMode = initMode
         self.packageName = packageName
         self.templatePath = templatePath
         self.fileSystem = fileSystem
-
     }
     
     
@@ -54,7 +62,7 @@ final class InitTemplatePackage {
         //check if it contains a template folder
         
     }
-
+/*
     func initPackage(_ swiftCommandState: SwiftCommandState) throws {
 
         //Logic here for initializing initial package (should find better way to organize this but for now)
@@ -90,7 +98,9 @@ final class InitTemplatePackage {
         }
         try initPackage.writePackageStructure()
     }
+ */
 }
+
 
 private enum TemplateError: Swift.Error {
     case invalidPath
