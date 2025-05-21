@@ -235,7 +235,7 @@ public struct PackageSearchClient {
                 return try await withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
                     let tempPath = tempDir.appending(component: url.lastPathComponent)
                     let repositorySpecifier = RepositorySpecifier(url: url)
-                    try self.repositoryProvider.fetch(
+                    try await self.repositoryProvider.fetch(
                         repository: repositorySpecifier,
                         to: tempPath,
                         progressHandler: nil

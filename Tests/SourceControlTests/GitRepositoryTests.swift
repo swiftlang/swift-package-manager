@@ -61,11 +61,11 @@ class GitRepositoryTests: XCTestCase {
     }
 
     /// Test the basic provider functions.
-    func testProvider() throws {
+    func testProvider() async throws {
         // Skipping all tests that call git on Windows.
         // We have a hang in CI when running in parallel.
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try! makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
@@ -75,7 +75,7 @@ class GitRepositoryTests: XCTestCase {
             let provider = GitRepositoryProvider()
             XCTAssertTrue(try provider.workingCopyExists(at: testRepoPath))
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testCheckoutPath)
+            try await provider.fetch(repository: repoSpec, to: testCheckoutPath)
 
             // Verify the checkout was made.
             XCTAssertDirectoryExists(testCheckoutPath)
@@ -87,18 +87,19 @@ class GitRepositoryTests: XCTestCase {
 
             let revision = try repository.resolveRevision(tag: tags.first ?? "<invalid>")
             // FIXME: It would be nice if we had a deterministic hash here...
-            XCTAssertEqual(revision.identifier,
-                try AsyncProcess.popen(
-                    args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "1.2.3").utf8Output().spm_chomp())
+            let testRepoRevParsed = try await AsyncProcess.popen(args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "1.2.3")
+                .utf8Output()
+                .spm_chomp()
+            XCTAssertEqual(revision.identifier, testRepoRevParsed)
+
             if let revision = try? repository.resolveRevision(tag: "<invalid>") {
                 XCTFail("unexpected resolution of invalid tag to \(revision)")
             }
 
             let main = try repository.resolveRevision(identifier: "main")
-
-            XCTAssertEqual(main.identifier,
-                try AsyncProcess.checkNonZeroExit(
-                    args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "main").spm_chomp())
+            let mainRevParsed = try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", testRepoPath.pathString, "rev-parse", "--verify", "main")
+                .spm_chomp()
+            XCTAssertEqual(main.identifier, mainRevParsed)
 
             // Check that git hashes resolve to themselves.
             let mainIdentifier = try repository.resolveRevision(identifier: main.identifier)
@@ -213,9 +214,9 @@ class GitRepositoryTests: XCTestCase {
     }
 
     /// Test the Git file system view.
-    func testGitFileView() throws {
+    func testGitFileView() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
-        try testWithTemporaryDirectory { path in
+        try await testWithTemporaryDirectory { path in
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath)
@@ -242,7 +243,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
             let repository = provider.open(repository: repoSpec, at: testClonePath)
 
             // Get and test the file system view.
@@ -323,7 +324,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")
@@ -363,7 +364,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
@@ -405,7 +406,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testBareRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
 
             // Clone off a checkout.
             let checkoutPath = path.appending("checkout")
@@ -614,7 +615,7 @@ class GitRepositoryTests: XCTestCase {
             try foo.tag(name: "1.0.0")
 
             // Fetch and clone repo foo.
-            try provider.fetch(repository: fooSpecifier, to: fooRepoPath)
+            try await provider.fetch(repository: fooSpecifier, to: fooRepoPath)
             _ = try await provider.createWorkingCopy(repository: fooSpecifier, sourcePath: fooRepoPath, at: fooWorkingPath, editable: false)
 
             let fooRepo = GitRepository(path: fooRepoPath, isWorkingRepo: false)
@@ -690,7 +691,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), ["1.2.3"])
 
@@ -769,7 +770,7 @@ class GitRepositoryTests: XCTestCase {
             let testClonePath = path.appending("clone")
             let provider = GitRepositoryProvider()
             let repoSpec = RepositorySpecifier(path: testRepoPath)
-            try provider.fetch(repository: repoSpec, to: testClonePath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
             let clonedRepo = provider.open(repository: repoSpec, at: testClonePath)
             XCTAssertEqual(try clonedRepo.getTags(), [])
 

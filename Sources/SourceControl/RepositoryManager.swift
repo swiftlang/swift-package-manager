@@ -327,7 +327,7 @@ public class RepositoryManager: Cancellable {
                             }
                             cacheUsed = true
                         } else {
-                            try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
+                            try await self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
                         }
                         cacheUpdated = true
                         // extra validation to defend from racy edge cases
@@ -362,14 +362,14 @@ public class RepositoryManager: Cancellable {
                     )
                     // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
                     try? self.fileSystem.removeFileTree(repositoryPath)
-                    try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+                    try await self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
                 }
             }
         } else {
             // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
             try? self.fileSystem.removeFileTree(repositoryPath)
             // fetch without populating the cache when no `cachePath` is set.
-            try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+            try await self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
         }
         return FetchDetails(fromCache: cacheUsed, updatedCache: cacheUpdated)
     }
