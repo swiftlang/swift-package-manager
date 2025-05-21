@@ -1,4 +1,4 @@
-# Signing
+# Protecting package collections
 
 Package collection publishers may sign a collection to protect its contents from being tampered with.
 
@@ -109,7 +109,7 @@ Non-expired, non-revoked Swift Package Collection certificates from [developer.a
 
 Signing can provide some degree of protection on package collections and reduce the risks of their contents being modified by malicious actors, but it doesn't
 prevent the following attack vectors:
-- **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an [unsigned collection](<doc:Unsigned-package-collections>) and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.
+- **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an [unsigned collection](<doc:Signed-package-collections#Unsigned-package-collections>) and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.
 - **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](<doc:Signed-package-collections>).
 
 To defend against these attacks, SwiftPM has certificate-pinning configuration that allows collection publishers to:
@@ -117,7 +117,7 @@ To defend against these attacks, SwiftPM has certificate-pinning configuration t
 - Restrict what certificate can be used for signing — this defends against "signature replacement".
 
 The process for collection publishers to define their certificate-pinning configuration is as follows:
-1. Edit [`PackageCollectionSourceCertificatePolicy`](../Sources/PackageCollections/PackageCollections+CertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
+1. Edit [`PackageCollectionSourceCertificatePolicy`](https://github.com/swiftlang/swift-package-manager/blob/main/Sources/PackageCollections/PackageCollections%2BCertificatePolicy.swift) and add an entry to the `defaultSourceCertPolicies` dictionary:
 
 ```swift
 private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] = [

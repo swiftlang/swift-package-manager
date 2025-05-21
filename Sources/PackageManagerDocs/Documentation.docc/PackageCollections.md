@@ -5,15 +5,22 @@ Learn to create and use Swift package collections.
 ## Overview
 
 Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are
-curated lists of packages and associated metadata that make discovery of existing packages easier. 
+curated lists of packages and associated metadata that can be imported
+by SwiftPM to make discovery of existing packages easier. 
 They are authored as static JSON documents 
 and can be published to the web or distributed to local file systems. 
 
-## Using package collections
+Educators and community influencers can publish
+package collections to go along with course materials or blog posts, removing the friction of using
+packages for the first time and the cognitive overload of deciding which packages are useful for
+a particular task. 
+Enterprises may use collections to narrow the decision space for their internal
+engineering teams, focusing them on a trusted set of vetted packages.
 
-### Command-line 
+## Using package-collection CLI
 
-With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. Contents of imported package 
+With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. 
+Contents of imported package 
 collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- TODO: to link to libSwiftPM article when available. -->
 
 `swift package-collection` has the following subcommands:
@@ -26,9 +33,14 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 
 ## Topics
 
-### Configuring package collections
-- <doc:PackageCollectionConfigurationFileGuide>
+### Getting Started
+- <doc:PackageCollectionCreationGuide>
+<!--- <doc:PackageCollectionConfigurationFileGuide>-->
 - <doc:PackageCollectionPublishingGuide>
+- <doc:PackageCollectionSigning>
+
+<!--### Protecting package collections -->
+<!--- <doc:PackageCollectionSigning>-->
 
 ### Modifying package collections 
 - <doc:PackageCollectionAddGuide>
@@ -40,5 +52,3 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 - <doc:PackageCollectionDescribeGuide>
 - <doc:PackageCollectionListGuide>
 
-### Protecting package collections 
-- <doc:PackageCollectionSigning>

@@ -1,4 +1,4 @@
-# Refresh
+# Refreshing package collections
 
 Learn how to refresh package collections.
 

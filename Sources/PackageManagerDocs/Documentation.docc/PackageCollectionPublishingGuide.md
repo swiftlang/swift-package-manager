@@ -11,14 +11,15 @@ intended for package collection publishers:
 - [`package-collection-validate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionValidator): Perform basic validations on a package collection
 - [`package-collection-diff`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionDiff): Compare two package collections to see if their contents are different 
 
+<!-- 
 ### Creating package collections
 
-All package collections must adhere to the [collection data format](../Sources/PackageCollectionsModel/Formats/v1.md) for SwiftPM to be able to consume them. The recommended way
-to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](../Sources/PackageCollectionsModel).
+All package collections must adhere to the [collection data format](<doc:PackageCollectionCreationGuide>) for SwiftPM to be able to consume them. The recommended way
+to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](https://github.com/swiftlang/swift-package-manager/tree/main/Sources/PackageCollectionsModel).
 
 ### Package collection signing (optional)
 
-Package collections can be signed to establish authenticity and protect their integrity. Doing this is optional. Users will be prompted for confirmation before they can add an [unsigned collection](#unsigned-package-collections).
+Package collections can be signed to establish authenticity and protect their integrity. Doing this is optional. Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionSigning#Unsigned-package-collections>).
 
 [`package-collection-sign`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionSigner) helps publishers sign their package 
 collections. To generate a signature one must provide:
@@ -66,7 +67,7 @@ Non-expired, non-revoked Swift Package Collection certificates from [developer.a
 
 With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
 the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with 
-the [certificate-pinning configuration](#protecting-package-collections), otherwise the [signature check](#signed-package-collections) will fail. Collection publishers should make the DER-encoded 
+the [certificate-pinning configuration](<doc:PackageCollectionSigning#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAddGuide#Signed-package-collections>) will fail. Collection publishers should make the DER-encoded 
 root certificate(s) that they use downloadable so that users can adjust their setup if needed.
 
 ### Protecting package collections
@@ -108,3 +109,4 @@ private static let defaultSourceCertPolicies: [String: CertificatePolicyConfig] 
 
 Since certificate-pinning configuration is associated with web domains, it can only be applied to signed collections hosted on the web (i.e., URL begins with  `https://`) and does 
 not cover those found on local file system (i.e., URL begins with `file://`). 
+-->

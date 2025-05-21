@@ -1,0 +1,261 @@
+# Creating a package collection
+
+Learn how to create a Swift package collection.
+
+## Overview
+
+A package collection is a JSON document that contains a list of packages and metadata per package.
+
+All package collections must adhere to the [collection data format](<doc:PackageCollectionCreationGuide>) for SwiftPM to be able to consume them. The recommended way
+to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](https://github.com/swiftlang/swift-package-manager/tree/main/Sources/PackageCollectionsModel).
+
+## Configuration File
+
+Configuration that pertains to package collections are stored in the file `~/.swiftpm/config/collections.json`. 
+It keeps track of user's list of configured collections
+and preferences such as those set by the `--trust-unsigned` and `--skip-signature-check` flags in the [`package-collection add` command](<doc:PackageCollectionAddGuide>). 
+
+This file is managed through SwiftPM commands and users are not expected to edit it by hand.
+
+## Input Format
+
+To begin, define the top-level metadata about the collection:
+
+* `name`: The name of the package collection, for display purposes only.
+* `overview`: A description of the package collection. **Optional.**
+* `keywords`: An array of keywords that the collection is associated with. **Optional.**
+* `formatVersion`: The version of the format to which the collection conforms. Currently, `1.0` is the only allowed value.
+* `revision`: The revision number of this package collection. **Optional.**
+* `generatedAt`: The ISO 8601-formatted datetime string when the package collection was generated.
+* `generatedBy`: The author of this package collection. **Optional.**
+    * `name`: The author name.
+* `packages`: A non-empty array of package objects.
+
+## Add packages to the collection
+
+Each item in the `packages` array is a package object with the following properties:
+
+* `url`: The URL of the package. Currently only Git repository URLs are supported. URL should be HTTPS and may contain `.git` suffix.
+* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) of the package if published to registry. **Optional.**
+* `summary`: A description of the package. **Optional.**
+* `keywords`: An array of keywords that the package is associated with. **Optional.**
+* `readmeURL`: The URL of the package's README. **Optional.**
+* `license`: The package's *current* license information. **Optional.**
+    * `url`: The URL of the license file.
+    * `name`: License name. [SPDX identifier](https://spdx.org/licenses/) (e.g., `Apache-2.0`, `MIT`, etc.) preferred. Omit if unknown. **Optional.**
+* `versions`: An array of version objects representing the most recent and/or relevant releases of the package.
+
+When a package is [added to a collection](<doc:PackageCollectionAddGuide>), the package object will appear in the collection's `packages` array with the properties described above.
+
+## Add versions to a package
+
+A version object has metadata extracted from `Package.swift` and optionally additional metadata from other sources:
+
+* `version`: The semantic version string.
+* `summary`: A description of the package version. **Optional.**
+* `manifests`: A non-empty map of manifests by Swift tools version. The keys are (semantic) tools version (more on this below), while the values are:
+    * `toolsVersion`: The Swift tools version specified in the manifest.
+    * `packageName`: The name of the package.
+    * `targets`: An array of the package version's targets.
+        * `name`: The target name.
+        * `moduleName`: The module name if this target can be imported as a module. **Optional.**
+    * `products`: An array of the package version's products.
+        * `name`: The product name.
+        * `type`: The product type. This must have the same JSON representation as SwiftPM's `PackageModel.ProductType`.
+        * `target`: An array of the product’s targets.
+    * `minimumPlatformVersions`: An array of the package version’s supported platforms specified in `Package.swift`. **Optional.** 
+
+```json
+{
+  "5.2": {
+    "toolsVersion": "5.2",
+    "packageName": "MyPackage",
+    "targets": [
+      {
+        "name": "MyTarget",
+        "moduleName": "MyTarget"
+      }
+    ],
+    "products": [
+      {
+        "name": "MyProduct",
+        "type": {
+          "library": ["automatic"]
+        },
+        "targets": ["MyTarget"]
+      }
+    ],
+    "minimumPlatformVersions": [
+      {
+        "name": "macOS",
+        "version": "10.15"
+      }
+    ]
+  }
+}
+```
+
+* `defaultToolsVersion`: The Swift tools version of the default manifest. The `manifests` map must contain this in its keys. 
+* `verifiedCompatibility`: An array of compatible platforms and Swift versions that has been tested and verified for. Valid platform names include `macOS`, `iOS`, `tvOS`, `watchOS`, `Linux`, `Android`, and `Windows`. Swift version should be semantic version string and as specific as possible. **Optional.**
+
+```json
+{
+  "platform": {
+    "name": "macOS"
+  },
+  "swiftVersion": "5.3.2"
+}
+```
+
+* `license`: The package version's license. **Optional.**
+    * `url`: The URL of the license file.
+    * `name`: License name. [SPDX identifier](https://spdx.org/licenses/) (e.g., `Apache-2.0`, `MIT`, etc.) preferred. Omit if unknown. **Optional.**
+* `author`: The package version's author. **Optional.**
+    * `name`: The author of the package version.
+* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) on package signing for details.
+    * `type`: The signer type. Currently the only valid value is `ADP` (Apple Developer Program).
+    * `commonName`: The common name of the signing certificate's subject.
+    * `organizationalUnitName`: The organizational unit name of the signing certificate's subject.
+    * `organizationName`: The organization name of the signing certificate's subject.           
+* `createdAt`: The ISO 8601-formatted datetime string when the package version was created. **Optional.**
+
+## Version-specific manifests
+
+Package collection generators should include data from the "default" manifest `Package.swift` as well as [version-specific manifest(s)](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-manifest-selection) <!-- TODO: to replace this link once Usage.md is ported. -->.
+
+The keys of the `manifests` map are Swift tools (semantic) versions:
+* For `Package.swift`, the tools version specified in `Package.swift` should be used.
+* For version-specific manifests, the tools version specified in the filename should be used. For example, for `Package@swift-4.2.swift` it would be `4.2`. The tools version in the manifest must match that in the filename. 
+
+## Version-specific tags
+
+[Version-specific tags](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-tag-selection) <!-- TODO: to replace this link once Usage.md is ported. --> are not
+supported by package collections.
+
+# Example
+
+```json
+{
+  "name": "Sample Package Collection",
+  "overview": "This is a sample package collection listing made-up packages.",
+  "keywords": ["sample package collection"],
+  "formatVersion": "1.0",
+  "revision": 3,
+  "generatedAt": "2020-10-22T06:03:52Z",
+  "packages": [
+    {
+      "url": "https://www.example.com/repos/RepoOne.git",
+      "summary": "Package One",
+      "readmeURL": "https://www.example.com/repos/RepoOne/README",
+      "license": {
+        "name": "Apache-2.0",
+        "url": "https://www.example.com/repos/RepoOne/LICENSE"
+      },
+      "versions": [
+        {
+          "version": "0.1.0",
+          "summary": "Fixed a few bugs",
+          "manifests": {
+            "5.1": {
+              "toolsVersion": "5.1",
+              "packageName": "PackageOne",
+              "targets": [
+                {
+                  "name": "Foo",
+                  "moduleName": "Foo"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Foo",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Foo"]
+                }
+              ]
+            }
+          },
+          "defaultToolsVersion": "5.1",
+          "verifiedCompatibility": [
+            {
+              "platform": { "name": "macOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "iOS" },
+              "swiftVersion": "5.1"
+            },
+            {
+              "platform": { "name": "Linux" },
+              "swiftVersion": "5.1"
+            }
+          ],
+          "license": {
+            "name": "Apache-2.0",
+            "url": "https://www.example.com/repos/RepoOne/LICENSE"
+          },
+          "createdAt": "2020-10-21T09:25:36Z"
+        }
+      ]
+    },
+    {
+      "url": "https://www.example.com/repos/RepoTwo.git",
+      "summary": "Package Two",
+      "readmeURL": "https://www.example.com/repos/RepoTwo/README",
+      "versions": [
+        {
+          "version": "2.1.0",
+          "manifests": {
+            "5.2": {
+              "toolsVersion": "5.2",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
+            }
+          },
+          "defaultToolsVersion": "5.2"
+        },
+        {
+          "version": "1.8.3",
+          "manifests": {
+            "5.0": {
+              "toolsVersion": "5.0",
+              "packageName": "PackageTwo",
+              "targets": [
+                {
+                  "name": "Bar",
+                  "moduleName": "Bar"
+                }
+              ],
+              "products": [
+                {
+                  "name": "Bar",
+                  "type": {
+                    "library": ["automatic"]
+                  },
+                  "targets": ["Bar"]
+                }
+              ]
+            }
+          },
+          "defaultToolsVersion": "5.0"
+        }
+      ]
+    }
+  ]
+}
+```

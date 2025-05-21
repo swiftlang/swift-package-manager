@@ -4,7 +4,7 @@ Learn how to add a package to your collection.
 
 ## Overview
 
-This [subcommand](<doc:PackageCollectionAdd>) adds a package collection hosted on the web (HTTPS required):
+The [`add` subcommand](<doc:PackageCollectionAdd>) adds a package collection hosted on the web (HTTPS required):
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json

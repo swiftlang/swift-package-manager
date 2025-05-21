@@ -16,11 +16,11 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
 - <doc:GettingStarted>      <!-- tutorial or article based walk through -->
 - <doc:IntroducingPackages>
-- <doc:PackageCollections>
 
 ### Guides
 
 - <doc:ExploreDependencies>
+- <doc:PackageCollections>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
