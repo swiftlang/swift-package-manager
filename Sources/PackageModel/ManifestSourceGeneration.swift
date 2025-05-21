@@ -338,7 +338,12 @@ fileprivate extension SourceCodeFragment {
         if let checksum = target.checksum {
             params.append(SourceCodeFragment(key: "checksum", string: checksum))
         }
-        
+
+        if let templateInitializationOptions = target.templateInitializationOptions {
+            let node = SourceCodeFragment(from: templateInitializationOptions)
+            params.append(SourceCodeFragment(key: "templateInitializationOptions", subnode: node))
+        }
+
         switch target.type {
         case .regular:
             self.init(enum: "target", subnodes: params, multiline: true)
@@ -354,6 +359,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
+        case .template:
+            self.init(enum: "template", subnodes: params, multiline: true)
         }
     }
 
@@ -533,6 +540,66 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "writeToPackageDirectory", subnodes: [param])
         }
     }
+
+    init(from templateInitializationOptions: TargetDescription.TemplateInitializationOptions) {
+        switch templateInitializationOptions {
+        case .packageInit(let templateType, let executable, let templatePermissions, let description):
+            var params: [SourceCodeFragment] = []
+
+            switch templateType {
+            case .regular:
+                self.init(enum: "target", subnodes: params, multiline: true)
+            case .executable:
+                self.init(enum: "executableTarget", subnodes: params, multiline: true)
+            case .test:
+                self.init(enum: "testTarget", subnodes: params, multiline: true)
+            case .macro:
+                self.init(enum: "macro", subnodes: params, multiline: true)
+            }
+            // Template type as an enum
+
+            // Executable fragment
+            params.append(SourceCodeFragment(key: "executable", subnode: .init(from: executable)))
+
+            // Permissions, if any
+            if let permissions = templatePermissions {
+                let permissionFragments = permissions.map { SourceCodeFragment(from:$0) }
+                params.append(SourceCodeFragment(key: "permissions", subnodes: permissionFragments))
+            }
+
+            // Description
+            params.append(SourceCodeFragment(key: "description", string: description))
+
+            self.init(enum: "packageInit", subnodes: params)
+        }
+    }
+
+    init(from permission: TargetDescription.TemplatePermission) {
+        switch permission {
+        case .allowNetworkConnections(let scope, let reason):
+            let scope = SourceCodeFragment(key: "scope", subnode: .init(from: scope))
+            let reason = SourceCodeFragment(key: "reason", string: reason)
+            self.init(enum: "allowNetworkConnections", subnodes: [scope, reason])
+        }
+    }
+
+    init(from networkPermissionScope: TargetDescription.TemplateNetworkPermissionScope) {
+        switch networkPermissionScope {
+        case .none:
+            self.init(enum: "none")
+        case .local(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "local", subnodes: [ports])
+        case .all(let ports):
+            let ports = SourceCodeFragment(key: "ports", subnodes: ports.map { SourceCodeFragment("\($0)") })
+            self.init(enum: "all", subnodes: [ports])
+        case .docker:
+            self.init(enum: "docker")
+        case .unixDomainSocket:
+            self.init(enum: "unixDomainSocket")
+        }
+    }
+
 
     /// Instantiates a SourceCodeFragment to represent a single target build setting.
     init(from setting: TargetBuildSettingDescription.Setting) {

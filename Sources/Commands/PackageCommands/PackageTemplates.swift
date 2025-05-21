@@ -19,8 +19,8 @@ import CoreCommands
 import PackageModel
 import Workspace
 import SPMBuildCore
-import Workspacex
 import TSCUtility
+
 
 
 extension SwiftPackageCommand {
@@ -40,7 +40,7 @@ extension SwiftPackageCommand {
                         - git       : Use a template from a Git repository.
                         - local     : Use a template from a local directory.
                         """))
-        var templateType: TemplateType
+        var templateType: InitTemplatePackage.TemplateType
 
         @Option(name: .customLong("package-name"), help: "Provide the name for the new package.")
         var packageName: String?
@@ -72,13 +72,6 @@ extension SwiftPackageCommand {
 
         @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
-
-
-        enum TemplateType: String, Codable, CaseIterable, ExpressibleByArgument {
-            case local
-            case git
-            case registry
-        }
         
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -91,17 +84,19 @@ extension SwiftPackageCommand {
             case .local:
                 try self.generateFromLocalTemplate(
                     packagePath: templateDirectory,
+                    swiftCommandState: swiftCommandState
                 )
             case .git:
                 try self.generateFromGitTemplate()
-            case .generateFromRegistryTemplate:
+            case .registry:
                 try self.generateFromRegistryTemplate()
             }
 
         }
         
         private func generateFromLocalTemplate(
-            packagePath: AbsolutePath
+            packagePath: AbsolutePath,
+            swiftCommandState: SwiftCommandState
         ) throws {
             
             let template = InitTemplatePackage(initMode: templateType, packageName: packageName, templatePath: templateDirectory, fileSystem: swiftCommandState.fileSystem)
@@ -121,3 +116,4 @@ extension SwiftPackageCommand {
 }
 
 
+extension InitTemplatePackage.TemplateType: ExpressibleByArgument {}

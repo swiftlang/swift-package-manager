@@ -198,6 +198,7 @@ enum ManifestJSONParser {
         try target.exclude.forEach{ _ = try RelativePath(validating: $0) }
 
         let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
+        let templateInitializationOptions = try target.templateInitializationOptions.map { try TargetDescription.TemplateInitializationOptions.init($0, identityResolver: identityResolver)}
 
         return try TargetDescription(
             name: target.name,
@@ -215,7 +216,8 @@ enum ManifestJSONParser {
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
             checksum: target.checksum,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            templateInitializationOptions: templateInitializationOptions
         )
     }
 
@@ -566,6 +568,8 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
+        case .template:
+            self = .template
         }
     }
 }
@@ -630,6 +634,58 @@ extension TargetDescription.PluginUsage {
         }
     }
 }
+
+extension TargetDescription.TemplateInitializationOptions {
+    init (_ usage: Serialization.TemplateInitializationOptions, identityResolver: IdentityResolver) throws {
+        switch usage {
+        case .packageInit(let templateType, let executable, let templatePermissions, let description):
+            self = .packageInit(templateType: .init(templateType), executable: try .init(executable, identityResolver: identityResolver), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
+        }
+    }
+}
+
+extension TargetDescription.TemplateType {
+    init(_ type: Serialization.TemplateType) {
+        switch type {
+        case .regular:
+            self = .regular
+        case .executable:
+            self = .executable
+        case .test:
+            self = .test
+        case .macro:
+            self = .macro
+        }
+    }
+}
+
+extension TargetDescription.TemplatePermission {
+    init(_ permission: Serialization.TemplatePermissions) {
+        switch permission {
+        case .allowNetworkConnections(let scope, let reason):
+            self = .allowNetworkConnections(scope: .init(scope), reason: reason)
+        }
+
+    }
+}
+
+extension TargetDescription.TemplateNetworkPermissionScope {
+    init(_ scope: Serialization.TemplateNetworkPermissionScope) {
+        switch scope {
+        case .none:
+            self = .none
+        case .local(let ports):
+            self = .local(ports: ports)
+        case .all(ports: let ports):
+            self = .all(ports: ports)
+        case .docker:
+            self = .docker
+        case .unixDomainSocket:
+            self = .unixDomainSocket
+        }
+    }
+}
+
 
 extension TSCUtility.Version {
     init(_ version: Serialization.Version) {

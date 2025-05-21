@@ -246,7 +246,6 @@ final class PluginTests: XCTestCase {
     }
 
     func testCommandPluginInvocation() async throws {
-        try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
 
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -260,7 +259,7 @@ final class PluginTests: XCTestCase {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 5.6
+                // swift-tools-version: 6.1
                 import PackageDescription
                 let package = Package(
                     name: "MyPackage",
@@ -268,6 +267,16 @@ final class PluginTests: XCTestCase {
                         .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
                     ],
                     targets: [
+                        .template(
+                                name: "GenerateStuff",
+
+                                templateInitializationOptions: .packageInit(
+                                                templateType: .executable,
+                                                executable: .target(name: "MyLibrary"),
+                                                description: "A template that generates a starter executable package"
+                                            ),
+                                     executable: .target(name: "MyLibrary"),
+                               ),
                         .target(
                             name: "MyLibrary",
                             dependencies: [
@@ -311,6 +320,16 @@ final class PluginTests: XCTestCase {
                 public func Foo() { }
                 """
             )
+
+            let templateSourceFile = packageDir.appending(components: "Sources", "GenerateStuff", "generatestuff.swift")
+            try localFileSystem.createDirectory(templateSourceFile.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                templateSourceFile,
+                string: """
+                public func Foo() { }
+                """
+            )
+
             let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
             try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
