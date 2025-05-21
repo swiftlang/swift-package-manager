@@ -898,7 +898,6 @@ public final class SwiftModuleBuildDescription {
             #"""
             module \#(self.target.c99name) {
                 header "\#(self.objCompatibilityHeaderPath.pathString)"
-                requires objc
             }
 
             """#.utf8
