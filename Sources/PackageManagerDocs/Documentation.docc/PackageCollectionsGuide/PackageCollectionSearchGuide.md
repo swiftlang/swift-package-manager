@@ -1,6 +1,6 @@
-# Searching for a package
+# Querying for Packages in Package Collections
 
-Learn how to query for a package in collections.
+Find packages in a configured Package Collection.
 
 ## Overview
 

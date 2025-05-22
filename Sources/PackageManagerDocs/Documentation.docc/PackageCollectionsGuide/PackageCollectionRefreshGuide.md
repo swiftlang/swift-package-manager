@@ -1,6 +1,6 @@
-# Refreshing package collections
+# Refreshing Package Collection Data
 
-Learn how to refresh package collections.
+Refresh the cached data for package collections.
 
 ## Overview
 

@@ -1,6 +1,6 @@
-# Protecting package collections
+# Signing and Protecting Package Collections
 
-Package collection publishers may sign a collection to protect its contents from being tampered with.
+Learn how to protect and configure a signed Package Collection.
 
 ## Overview
 
@@ -64,7 +64,7 @@ root certificate(s) that they use downloadable so that users can adjust their se
 [Signing](<doc:PackageCollectionAddGuide#Unsigned-package-collections>) can provide some degree of protection on package collections and reduce the risks of their contents being modified by malicious actors, but it doesn't
 prevent the following attack vectors:
 - **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an [unsigned collection](<doc:Signed-package-collections#Unsigned-package-collections>) and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.
-- **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](<doc:Signed-package-collections>).
+- **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](<doc:PackageCollectionAddGuide#Signed-package-collections>).
 
 To defend against these attacks, SwiftPM has certificate-pinning configuration that allows collection publishers to:
 - Require signature check on their collections — this defends against "signature stripping".

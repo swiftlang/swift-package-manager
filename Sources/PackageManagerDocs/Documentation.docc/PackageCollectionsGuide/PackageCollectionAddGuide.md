@@ -1,4 +1,4 @@
-# Add a package
+# Adding Packages
 
 Learn how to add a package to your collection.
 
@@ -27,7 +27,7 @@ Added "Sample Package Collection" to your package collections.
 
 ### Signed package collections
 
-Package collection publishers may sign a collection to protect its contents from being tampered with. 
+Package collection publishers may [sign a collection to protect its contents](<doc:PackageCollectionSigning>) from being tampered with. 
 If a collection is signed, SwiftPM will check that the 
 signature is valid before importing it and return an error if any of these fails:
 - The file's contents, signature excluded, must match what was used to generate the signature. 

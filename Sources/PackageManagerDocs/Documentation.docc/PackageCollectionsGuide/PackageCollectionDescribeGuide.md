@@ -1,6 +1,6 @@
-# Metadata of package collections
+# Showing Package Collection Metadata
 
-Learn how to fetch metadata about your package collection.
+Discover more about package collections and their packages.
 
 ## Overview
 

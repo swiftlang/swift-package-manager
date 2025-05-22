@@ -17,7 +17,7 @@ a particular task.
 Enterprises may use collections to narrow the decision space for their internal
 engineering teams, focusing them on a trusted set of vetted packages.
 
-## Using package-collection CLI
+## Using the package-collection CLI
 
 With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. 
 Contents of imported package 
@@ -35,16 +35,15 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 
 ### Getting Started
 - <doc:PackageCollectionCreationGuide>
-<!--- <doc:PackageCollectionPublishingGuide>-->
 - <doc:PackageCollectionSigning>
 
-### Modifying package collections 
+### Modifying Package Collections 
 - <doc:PackageCollectionAddGuide>
 - <doc:PackageCollectionRemoveGuide>
 - <doc:PackageCollectionRefreshGuide>
 
-### Inspecting package collections
+### Inspecting Package Collections
 - <doc:PackageCollectionSearchGuide>
-- <doc:PackageCollectionDescribeGuide>
 - <doc:PackageCollectionListGuide>
+- <doc:PackageCollectionDescribeGuide>
 
