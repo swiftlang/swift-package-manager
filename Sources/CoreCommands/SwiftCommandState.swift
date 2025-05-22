@@ -47,6 +47,7 @@ import Bionic
 import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
+import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
@@ -287,6 +288,8 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    private let targetInfo: JSON?
+
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -323,10 +326,12 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
+        targetInfo: JSON? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws {
         self.hostTriple = hostTriple
+        self.targetInfo = targetInfo
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
@@ -968,7 +973,11 @@ public final class SwiftCommandState {
         }
 
         return Result(catching: {
-            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+            try UserToolchain(
+                swiftSDK: swiftSDK,
+                environment: self.environment,
+                customTargetInfo: targetInfo,
+                fileSystem: self.fileSystem)
         })
     }()
 
@@ -983,6 +992,7 @@ public final class SwiftCommandState {
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
+            customTargetInfo: targetInfo,
             fileSystem: self.fileSystem
         )
     })
