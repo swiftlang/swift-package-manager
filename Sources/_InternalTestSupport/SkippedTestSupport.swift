@@ -68,4 +68,62 @@ extension Trait where Self == Testing.ConditionTrait {
                 .map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false
         }
     }
+
+    /// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
+    ///
+    /// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
+    ///
+    /// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
+    public static var disableIfWorkingDirectoryUnsupported: Self {
+        disabled("https://github.com/swiftlang/swift-package-manager/issues/8560: Thread-safe process working directory support is unavailable on this platform.") {
+            !workingDirectoryIsSupported()
+        }
+    }
 }
+
+extension Trait where Self == Testing.Bug {
+    public static func SWBINTTODO(_ comment: Comment) -> Self {
+        bug(nil, id: 0, comment)
+    }
+}
+extension Tag {
+    public enum TestSize {}
+    public enum Feature {}
+    @Tag public static var UserWorkflow: Tag
+}
+
+extension Tag.TestSize {
+    @Tag public static var small: Tag
+    @Tag public static var medium: Tag
+    @Tag public static var large: Tag
+}
+
+extension Tag.Feature {
+    public enum Command {}
+    public enum PackageType {}
+
+    @Tag public static var CodeCoverage: Tag
+    @Tag public static var Resource: Tag
+    @Tag public static var SpecialCharacters: Tag
+}
+
+
+extension Tag.Feature.Command {
+    public enum Package {}
+    @Tag public static var Build: Tag
+    @Tag public static var Test: Tag
+    @Tag public static var Run: Tag
+}
+
+extension Tag.Feature.Command.Package {
+    @Tag public static var Init: Tag
+}
+extension Tag.Feature.PackageType {
+    @Tag public static var Library: Tag
+     @Tag public static var Executable: Tag
+     @Tag public static var Tool: Tag
+     @Tag public static var Plugin: Tag
+     @Tag public static var BuildToolPlugin: Tag
+     @Tag public static var CommandPlugin: Tag
+     @Tag public static var Macro: Tag
+ }
