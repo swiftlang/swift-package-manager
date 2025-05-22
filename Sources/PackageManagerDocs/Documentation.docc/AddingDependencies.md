@@ -4,7 +4,7 @@ Use other swift packages, system libraries, or binary dependencies in your packa
 
 ## Overview
 
-To depend on another Swift package, define a dependency and the requirements for its version if its remote, then add a product of that dependency to one or more of your targets.
+To depend on another Swift package, define a dependency and the requirements for its version if it's remote, then add a product of that dependency to one or more of your targets.
 
 An remote dependency requires a location, represented by a URL, and a requirement on the versions that the package manager may use.
 The version requirement can be a commit hash, a branch name, a specific semantic version, or a range of possible semantic versions.
