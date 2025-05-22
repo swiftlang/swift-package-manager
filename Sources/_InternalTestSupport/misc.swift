@@ -281,7 +281,7 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -304,7 +304,7 @@ public func executeSwiftBuild(
 public func executeSwiftRun(
     _ packagePath: AbsolutePath?,
     _ executable: String?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -329,7 +329,7 @@ public func executeSwiftRun(
 @discardableResult
 public func executeSwiftPackage(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -351,7 +351,7 @@ public func executeSwiftPackage(
 @discardableResult
 public func executeSwiftPackageRegistry(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -373,7 +373,7 @@ public func executeSwiftPackageRegistry(
 @discardableResult
 public func executeSwiftTest(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -394,20 +394,14 @@ public func executeSwiftTest(
 }
 
 private func swiftArgs(
-    configuration: Configuration,
+    configuration: BuildConfiguration,
     extraArgs: [String],
     Xcc: [String],
     Xld: [String],
     Xswiftc: [String],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
-    var args = ["--configuration"]
-    switch configuration {
-    case .Debug:
-        args.append("debug")
-    case .Release:
-        args.append("release")
-    }
+    var args = ["--configuration", "\(configuration)"]
 
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }

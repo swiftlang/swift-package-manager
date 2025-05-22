@@ -646,54 +646,54 @@ class TestCommandSwiftBuildTests: TestCommandTestCase {
     }
 
     override func testList() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableTestDiscoveryDeprecation() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails due to 'error: build failed'")
     }
 
     override func testEnableDisableTestability() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails due to 'error: build failed'")
     }
 
     override func testToolsetRunner() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, as some assertions are not met")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails, as some assertions are not met")
     }
 
     override func testWithReleaseConfiguration() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
     }
 
     override func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails, further investigation is needed")
     }
 
     override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
+        try XCTSkipSwiftBuildTodo(because: "Test currently fails, further investigation is needed")
     }
 
 #if !canImport(Darwin)
     override func testGeneratedMainIsExistentialAnyClean() async throws {
-        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
+        try XCTSkipSwiftBuildTodo(because: "This is a PIF builder missing GUID problem. Further investigation is needed.")
     }
 #endif
 
 #if !canImport(Darwin)
     override func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
-        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
+        try XCTSkipSwiftBuildTodo(because: "This is a PIF builder missing GUID problem. Further investigation is needed.")
     }
 #endif
 

@@ -76,15 +76,6 @@ private struct SwiftPMTests {
 
     @Test(
         .requireThreadSafeWorkingDirectory,
-        arguments: [BuildSystemProvider.native]
-    )
-    func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
-        try _packageInitExecutable(buildSystemProvider)
-    }
-
-    @Test(
-        .skipHostOS(.windows),
-        .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
             "[Linux] swift run using --build-system swiftbuild fails to run executable"
@@ -93,13 +84,9 @@ private struct SwiftPMTests {
             "https://github.com/swiftlang/swift-package-manager/issues/8514",
             "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
-        arguments: [BuildSystemProvider.swiftbuild]
+        arguments: BuildSystemProvider.allCases
     )
-    func packageInitExecutablSkipWindows(_ buildSystemProvider: BuildSystemProvider) throws {
-        try _packageInitExecutable(buildSystemProvider)
-    }
-
-    private func _packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
+    private func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
@@ -119,16 +106,16 @@ private struct SwiftPMTests {
                 #expect(!runOutput.stderr.contains("error:"))
                 #expect(runOutput.stdout.contains("Hello, world!"))
             } when: {
-                buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
+                buildSystemProvider == .swiftbuild && (ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows)
             }
         }
     }
 
     @Test(
         .requireThreadSafeWorkingDirectory,
-        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
+        .bug(id: 0, "SwiftBuildTodo: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
-        .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
+        .bug(id: 0, "SwiftBuildTodo: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
         arguments: BuildSystemProvider.allCases
     )
     func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider) throws {

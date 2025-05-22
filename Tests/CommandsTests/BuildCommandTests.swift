@@ -852,7 +852,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testNonReachableProductsAndTargetsFunctional() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed. This needs to be investigated")
+        try XCTSkipSwiftBuildTodo(because: "Test failed. This needs to be investigated")
     }
 
     override func testParseableInterfaces() async throws {
@@ -871,7 +871,7 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
     
     override func testAutomaticParseableInterfacesWithLibraryEvolution() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed because of missing 'A.swiftmodule/*.swiftinterface' files")
+        try XCTSkipSwiftBuildTodo(because: "Test failed because of missing 'A.swiftmodule/*.swiftinterface' files")
         // TODO: We still need to override this test just like we did for `testParseableInterfaces` above.
     }
 
@@ -890,50 +890,50 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
     
     override func testGetTaskAllowEntitlement() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
+        try XCTSkipSwiftBuildTodo(because: "Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated.")
     }
 
     override func testCodeCoverage() async throws {
-        throw XCTSkip("SWBINTTODO: Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there.")
+        try XCTSkipSwiftBuildTodo(because: "Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there.")
     }
 
     override func testAtMainSupport() async throws {
         #if !os(macOS)
-        throw XCTSkip("SWBINTTODO: File not found or missing libclang errors on non-macOS platforms. This needs to be investigated")
+        try XCTSkipSwiftBuildTodo(because: "File not found or missing libclang errors on non-macOS platforms. This needs to be investigated")
         #else
         try await super.testAtMainSupport()
         #endif
     }
 
     override func testImportOfMissedDepWarning() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.")
+        try XCTSkipSwiftBuildTodo(because: "Test fails because the warning message regarding missing imports is expected to be more verbose and actionable at the SwiftPM level with mention of the involved targets. This needs to be investigated. See case targetDiagnostic(TargetDiagnosticInfo) as a message type that may help.")
     }
 
     override func testProductAndTarget() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because there isn't a clear warning message about the lib1 being an automatic product and that the default product is being built instead. This needs to be investigated")
+        try XCTSkipSwiftBuildTodo(because: "Test fails because there isn't a clear warning message about the lib1 being an automatic product and that the default product is being built instead. This needs to be investigated")
     }
 
     override func testSwiftGetVersion() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because the dummy-swiftc used in the test isn't accepted by swift-build. This needs to be investigated")
+        try XCTSkipSwiftBuildTodo(because: "Test fails because the dummy-swiftc used in the test isn't accepted by swift-build. This needs to be investigated")
     }
 
     override func testSymlink() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because of a difference in the build layout. This needs to be updated to the expected path")
+        try XCTSkipSwiftBuildTodo(because: "Test fails because of a difference in the build layout. This needs to be updated to the expected path")
     }
 
 #if os(Linux)
     override func testIgnoresLinuxMain() async throws {
-        throw XCTSkip("SWBINTTODO: Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
+        try XCTSkipSwiftBuildTodo(because: "Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation.")
     }
 #endif
 
 #if !os(macOS)
     override func testBuildStartMessage() async throws {
-        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
+        try XCTSkipSwiftBuildTodo(because: "Swift build produces an error building the fixture for this test.")
     }
 
     override func testSwiftDriverRawOutputGetsNewlines() async throws {
-        throw XCTSkip("SWBINTTODO: Swift build produces an error building the fixture for this test.")
+        try XCTSkipSwiftBuildTodo(because: "Swift build produces an error building the fixture for this test.")
     }
 #endif
 
