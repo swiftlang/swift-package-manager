@@ -29,7 +29,7 @@ extension SwiftPackageCommand {
             case experimentalFeature
             case upcomingFeature
             case languageMode
-            case strictMemorySafety
+            case strictMemorySafety = "StrictMemorySafety"
         }
 
         package static let configuration = CommandConfiguration(
