@@ -123,6 +123,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
         do {
             let bundleStore = SwiftSDKBundleStore(
                 swiftSDKsDirectory: swiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
                 fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 outputHandler: { print($0) }

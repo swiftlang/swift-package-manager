@@ -927,12 +927,6 @@ public final class SwiftCommandState {
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
-        let store = SwiftSDKBundleStore(
-            swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-            fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope,
-            outputHandler: { print($0.description) }
-        )
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
@@ -942,6 +936,15 @@ public final class SwiftCommandState {
                     warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
                 )
             }
+
+            let store = SwiftSDKBundleStore(
+                swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                outputHandler: { print($0.description) }
+            )
+
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
