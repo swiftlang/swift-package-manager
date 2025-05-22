@@ -4913,6 +4913,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fs
         )
         let commonFlags = BuildFlags(
@@ -5334,6 +5335,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fileSystem
         )
         let result = try await BuildPlanResult(plan: mockBuildPlan(

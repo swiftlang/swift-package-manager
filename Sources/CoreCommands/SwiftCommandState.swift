@@ -989,6 +989,7 @@ public final class SwiftCommandState {
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
+            customTargetInfo: targetInfo,
             fileSystem: self.fileSystem
         )
     })
