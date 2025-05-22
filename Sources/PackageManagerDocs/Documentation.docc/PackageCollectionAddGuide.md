@@ -32,7 +32,7 @@ If a collection is signed, SwiftPM will check that the
 signature is valid before importing it and return an error if any of these fails:
 - The file's contents, signature excluded, must match what was used to generate the signature. 
 In other words, this checks to see if the collection has been altered since it was signed.
-- The signing certificate must meet all the [requirements](<doc:PackageCollectionSigning>).
+- The signing certificate must meet all the [requirements](<doc:PackageCollectionSigning#Requirements-on-signing-certificate>).
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -45,7 +45,7 @@ Users may continue adding the collection despite the error or preemptively skip 
 $ swift package-collection add https://www.example.com/packages.json --skip-signature-check
 ```
 
-For package collections hosted on the web, publishers may ask SwiftPM to [enforce the signature requirement](<doc:PackageCollectionSigning>). If a package collection is
+For package collections hosted on the web, publishers may ask SwiftPM to [enforce the signature requirement](<doc:PackageCollectionSigning#Protecting-package-collections>). If a package collection is
 expected to be signed but it isn't, user will see the following error message:
 
 ```bash
@@ -62,7 +62,7 @@ Since generating a collection signature requires a certificate, part of the sign
 On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted. Users may include additional certificates to trust by placing 
 them in the `~/.swiftpm/config/trust-root-certs` directory. 
 
-On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](<doc:PackageCollectionSigning>). Only those 
+On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](<doc:PackageCollectionSigning#Protecting-package-collections>). Only those 
 found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that the signature check will always fail unless the `trust-root-certs` directory is set up:
 
 ```bash

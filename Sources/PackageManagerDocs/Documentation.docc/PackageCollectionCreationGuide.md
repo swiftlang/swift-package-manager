@@ -1,23 +1,25 @@
-# Creating a package collection
+# Creating and Publishing a Package Collection
 
-Learn how to create a Swift package collection.
+Learn how to create and publish a Swift package collection.
 
 ## Overview
 
 A package collection is a JSON document that contains a list of packages and metadata per package.
 
+Package collections can be created and published by anyone. The [swift-package-collection-generator](https://github.com/apple/swift-package-collection-generator) project provides tooling 
+intended for package collection publishers:
+- [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator): Generate a package collection given a list of package URLs
+- [`package-collection-sign`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionSigner): Sign a package collection
+- [`package-collection-validate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionValidator): Perform basic validations on a package collection
+- [`package-collection-diff`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionDiff): Compare two package collections to see if their contents are different 
+
+
+## Creating Package Collections
+
 All package collections must adhere to the [collection data format](<doc:PackageCollectionCreationGuide>) for SwiftPM to be able to consume them. The recommended way
 to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](https://github.com/swiftlang/swift-package-manager/tree/main/Sources/PackageCollectionsModel).
 
-## Configuration File
-
-Configuration that pertains to package collections are stored in the file `~/.swiftpm/config/collections.json`. 
-It keeps track of user's list of configured collections
-and preferences such as those set by the `--trust-unsigned` and `--skip-signature-check` flags in the [`package-collection add` command](<doc:PackageCollectionAddGuide>). 
-
-This file is managed through SwiftPM commands and users are not expected to edit it by hand.
-
-## Input Format
+### Input Format
 
 To begin, define the top-level metadata about the collection:
 
@@ -36,7 +38,7 @@ To begin, define the top-level metadata about the collection:
 Each item in the `packages` array is a package object with the following properties:
 
 * `url`: The URL of the package. Currently only Git repository URLs are supported. URL should be HTTPS and may contain `.git` suffix.
-* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) of the package if published to registry. **Optional.**
+* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) <!-- TODO: to replace this link once PackageRegsitry/ is ported. --> of the package if published to registry. **Optional.**
 * `summary`: A description of the package. **Optional.**
 * `keywords`: An array of keywords that the package is associated with. **Optional.**
 * `readmeURL`: The URL of the package's README. **Optional.**
@@ -112,7 +114,7 @@ A version object has metadata extracted from `Package.swift` and optionally addi
     * `name`: License name. [SPDX identifier](https://spdx.org/licenses/) (e.g., `Apache-2.0`, `MIT`, etc.) preferred. Omit if unknown. **Optional.**
 * `author`: The package version's author. **Optional.**
     * `name`: The author of the package version.
-* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) on package signing for details.
+* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) <!-- TODO: to replace this link once PackageRegistry/ is ported. --> on package signing for details.
     * `type`: The signer type. Currently the only valid value is `ADP` (Apple Developer Program).
     * `commonName`: The common name of the signing certificate's subject.
     * `organizationalUnitName`: The organizational unit name of the signing certificate's subject.
@@ -131,6 +133,14 @@ The keys of the `manifests` map are Swift tools (semantic) versions:
 
 [Version-specific tags](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-tag-selection) <!-- TODO: to replace this link once Usage.md is ported. --> are not
 supported by package collections.
+
+## Configuration File
+
+Configuration that pertains to package collections are stored in the file `~/.swiftpm/config/collections.json`. 
+It keeps track of user's list of configured collections
+and preferences such as those set by the `--trust-unsigned` and `--skip-signature-check` flags in the [`package-collection add` command](<doc:PackageCollectionAddGuide>). 
+
+> Note: This file is managed through SwiftPM commands and users are not expected to edit it by hand.
 
 # Example
 

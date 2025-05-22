@@ -35,12 +35,8 @@ collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- T
 
 ### Getting Started
 - <doc:PackageCollectionCreationGuide>
-<!--- <doc:PackageCollectionConfigurationFileGuide>-->
-- <doc:PackageCollectionPublishingGuide>
+<!--- <doc:PackageCollectionPublishingGuide>-->
 - <doc:PackageCollectionSigning>
-
-<!--### Protecting package collections -->
-<!--- <doc:PackageCollectionSigning>-->
 
 ### Modifying package collections 
 - <doc:PackageCollectionAddGuide>
