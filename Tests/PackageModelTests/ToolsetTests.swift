@@ -222,6 +222,7 @@ final class ToolsetTests: XCTestCase {
 
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: "/",
+            hostToolchainBinDir: usrBinTools[.swiftCompiler]!.parentDirectory,
             fileSystem: fileSystem,
             observabilityScope: observability.topScope,
             outputHandler: { _ in }

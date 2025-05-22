@@ -63,6 +63,9 @@ public final class SwiftSDKBundleStore {
     /// Directory in which Swift SDKs bundles are stored.
     let swiftSDKsDirectory: AbsolutePath
 
+    /// `usr/bin` directory of the "root" toolchain that includes this currently running SwiftPM instance.
+    let hostToolchainBinDir: AbsolutePath
+
     /// File system instance used for reading from and writing to SDK bundles stored on it.
     let fileSystem: any FileSystem
 
@@ -77,12 +80,14 @@ public final class SwiftSDKBundleStore {
 
     public init(
         swiftSDKsDirectory: AbsolutePath,
+        hostToolchainBinDir: AbsolutePath,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (Output) -> Void,
         downloadProgressAnimation: ProgressAnimationProtocol? = nil
     ) {
         self.swiftSDKsDirectory = swiftSDKsDirectory
+        self.hostToolchainBinDir = hostToolchainBinDir
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
@@ -394,7 +399,9 @@ public final class SwiftSDKBundleStore {
 
                 do {
                     let swiftSDKs = try SwiftSDK.decode(
-                        fromFile: variantConfigurationPath, fileSystem: fileSystem,
+                        fromFile: variantConfigurationPath,
+                        hostToolchainBinDir: self.hostToolchainBinDir,
+                        fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
 
