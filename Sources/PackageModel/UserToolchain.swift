@@ -171,7 +171,9 @@ public final class UserToolchain: Toolchain {
             let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
             compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
-            throw InternalError("Failed to get target info (\(error.interpolationDescription))")
+            throw InternalError(
+                "Failed to load target info (\(error.interpolationDescription))"
+            )
         }
         // Parse the compiler's JSON output.
         do {
@@ -641,6 +643,7 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: Environment = .current,
         searchStrategy: SearchStrategy = .default,
+        customTargetInfo: JSON? = nil,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
         fileSystem: any FileSystem = localFileSystem
@@ -684,7 +687,7 @@ public final class UserToolchain: Toolchain {
         }
 
         // targetInfo from the compiler
-        let targetInfo = try Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+        let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
 
         // Get compiler version information from target info
         self.swiftCompilerVersion = Self.computeSwiftCompilerVersion(targetInfo: targetInfo)

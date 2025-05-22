@@ -210,7 +210,7 @@ final class PrebuiltsTests: XCTestCase {
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
                     rootCertPath: rootCertPath
-                )
+                ),
             )
 
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
