@@ -5040,6 +5040,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fs
         )
 
@@ -5078,6 +5079,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: mockToolchain.targetTriple,
             toolchain: mockToolchain,
             graph: graph,
             commonFlags: .init(),
