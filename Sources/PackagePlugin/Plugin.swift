@@ -149,10 +149,11 @@ extension Plugin {
             // package is the one we'll set the context's `package` property to.
             let context: PluginContext
             let target: Target
+            let pluginWorkDirectory: URL
             do {
                 var deserializer = PluginContextDeserializer(wireInput)
                 let package = try deserializer.package(for: rootPackageId)
-                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
                     try deserializer.url(for: $0)
                 }
@@ -208,7 +209,8 @@ extension Plugin {
                         displayName: displayName,
                         executable: executable,
                         arguments: arguments,
-                        environment: environment
+                        environment: environment,
+                        workingDirectory: pluginWorkDirectory
                     )
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
@@ -222,7 +224,8 @@ extension Plugin {
                         displayName: displayName,
                         executable: executable,
                         arguments: arguments,
-                        environment: environment
+                        environment: environment,
+                        workingDirectory: pluginWorkDirectory
                     )
                     let message = PluginToHostMessage.definePrebuildCommand(
                         configuration: command,
@@ -248,6 +251,7 @@ extension Plugin {
             
             // Deserialize the context from the wire input structures, and create a record for us to pass to the XcodeProjectPlugin library.
             let record: XcodeProjectPluginInvocationRecord
+            let pluginWorkDirectory: URL
             do {
                 var deserializer = PluginContextDeserializer(wireInput)
                 let xcodeProject = try deserializer.xcodeProject(for: rootProjectId)
@@ -256,7 +260,7 @@ extension Plugin {
                     pluginGeneratedSources: try generatedSources.map { try deserializer.url(for: $0) },
                     pluginGeneratedResources: try generatedResources.map { try deserializer.url(for: $0) }
                 )
-                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
                 let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
                     try deserializer.url(for: $0)
                 }
@@ -288,7 +292,7 @@ extension Plugin {
                         executable: exec,
                         arguments: args,
                         environment: env,
-                        workingDirectory: nil)
+                        workingDirectory: pluginWorkDirectory)
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputs,
@@ -301,7 +305,7 @@ extension Plugin {
                         executable: exec,
                         arguments: args,
                         environment: env,
-                        workingDirectory: nil)
+                        workingDirectory: pluginWorkDirectory)
                     let message = PluginToHostMessage.definePrebuildCommand(
                         configuration: command,
                         outputFilesDirectory: outdir)
