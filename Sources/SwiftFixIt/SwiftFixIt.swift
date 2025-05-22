@@ -12,8 +12,6 @@
 
 import struct Basics.AbsolutePath
 import protocol Basics.FileSystem
-import var Basics.localFileSystem
-import struct Basics.SwiftVersion
 
 import struct SwiftDiagnostics.Diagnostic
 import struct SwiftDiagnostics.DiagnosticCategory
@@ -44,7 +42,7 @@ private enum Error: Swift.Error {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnySourceLocation {
+protocol AnySourceLocation: Hashable {
     var filename: String { get }
     var line: UInt64 { get }
     var column: UInt64 { get }
@@ -75,12 +73,128 @@ protocol AnyDiagnostic {
     var fixIts: [FixIt] { get }
 }
 
+extension AnyDiagnostic {
+    var isPrimary: Bool {
+        self.level != .note
+    }
+
+    var isNote: Bool {
+        !self.isPrimary
+    }
+
+    var isIgnored: Bool {
+        self.level == .ignored
+    }
+
+    var hasFixIt: Bool {
+        !self.fixIts.isEmpty
+    }
+
+    var hasNoLocation: Bool {
+        self.location == nil
+    }
+}
+
 extension SerializedDiagnostics.Diagnostic: AnyDiagnostic {}
-extension SerializedDiagnostics.SourceLocation: AnySourceLocation {}
+extension SerializedDiagnostics.SourceLocation: AnySourceLocation, @retroactive Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.filename)
+        hasher.combine(self.line)
+        hasher.combine(self.column)
+    }
+}
+
 extension SerializedDiagnostics.FixIt: AnyFixIt {}
 
+/// Encapsulates initial diagnostic skipping behavior.
+private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
+    /// A hashable type storing the minimum data necessary to uniquely identify
+    /// a diagnostic for our purposes.
+    private struct DiagnosticID: Hashable {
+        private let location: Diagnostic.SourceLocation
+        private let message: String
+        private let level: SerializedDiagnostics.Diagnostic.Level
+
+        init(diagnostic: Diagnostic) {
+            self.level = diagnostic.level
+            self.message = diagnostic.text
+            // Force the location. We should be filtering out diagnostics
+            // without a location.
+            self.location = diagnostic.location!
+        }
+    }
+
+    private var uniquePrimaryDiagnostics: Set<DiagnosticID> = []
+
+    let categories: Set<String>
+
+    init(categories: Set<String>) {
+        self.categories = categories
+    }
+
+    /// Returns a Boolean value indicating whether to skip the given primary
+    /// diagnostic and its notes.
+    mutating func shouldSkip(primaryDiagnosticWithNotes: some Collection<Diagnostic>) -> Bool {
+        let diagnostic = primaryDiagnosticWithNotes[primaryDiagnosticWithNotes.startIndex]
+        precondition(diagnostic.isPrimary)
+
+        // Skip if ignored.
+        if diagnostic.isIgnored {
+            return true
+        }
+
+        // Skip if no location.
+        if diagnostic.hasNoLocation {
+            return true
+        }
+
+        // Skip if categories are given and the diagnostic does not
+        // belong to any of them.
+        if !self.categories.isEmpty {
+            guard let category = diagnostic.category, self.categories.contains(category) else {
+                return true
+            }
+        }
+
+        let notes = primaryDiagnosticWithNotes.dropFirst()
+        precondition(notes.allSatisfy(\.isNote))
+
+        // Consider the diagnostic compromised if a note does not have a
+        // location.
+        if notes.contains(where: \.hasNoLocation) {
+            return true
+        }
+
+        switch notes.count(where: \.hasFixIt) {
+        case 0:
+            // No notes have fix-its. Skip if neither does the primary
+            // diagnostic.
+            guard diagnostic.hasFixIt else {
+                return true
+            }
+        case 1:
+            break
+        default:
+            // Skip if more than 1 note has a fix-it. These diagnostics
+            // generally require user intervention.
+            // TODO: This will have to be done lazier once we support printing them.
+            return true
+        }
+
+        // Skip if we've seen this primary diagnostic before.
+        //
+        // NB: This check is done last to prevent the set from growing without
+        // need.
+        guard self.uniquePrimaryDiagnostics.insert(.init(diagnostic: diagnostic)).inserted else {
+            return true
+        }
+
+        return false
+    }
+}
+
 /// The backing API for `SwiftFixitCommand`.
-package struct SwiftFixIt /*: ~Copyable */ {
+package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
     private typealias DiagnosticsPerFile = [SourceFile: [SwiftDiagnostics.Diagnostic]]
 
     private let fileSystem: any FileSystem
@@ -96,7 +210,7 @@ package struct SwiftFixIt /*: ~Copyable */ {
         let diagnostics = try diagnosticFiles.map { path in
             let fileContents = try fileSystem.readFileContents(path)
             return try TSCUtility.SerializedDiagnostics(bytes: fileContents).diagnostics
-        }.lazy.joined()
+        }.joined()
 
         self = try SwiftFixIt(
             diagnostics: diagnostics,
@@ -105,62 +219,50 @@ package struct SwiftFixIt /*: ~Copyable */ {
         )
     }
 
-    init(
-        diagnostics: some Collection<some AnyDiagnostic>,
-        categories: Set<String> = [],
+    init<Diagnostic: AnyDiagnostic>(
+        diagnostics: some Collection<Diagnostic>,
+        categories: Set<String>,
         fileSystem: any FileSystem
     ) throws {
         self.fileSystem = fileSystem
 
+        var filter = PrimaryDiagnosticFilter<Diagnostic>(categories: categories)
+        _ = consume categories
+
         // Build a map from source files to `SwiftDiagnostics` diagnostics.
         var diagnosticsPerFile: DiagnosticsPerFile = [:]
-
         var diagnosticConverter = DiagnosticConverter(fileSystem: fileSystem)
-        var currentPrimaryDiagnosticHasNoteWithFixIt = false
 
-        for diagnostic in diagnostics {
-            let hasFixits = !diagnostic.fixIts.isEmpty
+        var nextPrimaryIndex = diagnostics.startIndex
+        while nextPrimaryIndex != diagnostics.endIndex {
+            let currentPrimaryIndex = nextPrimaryIndex
+            precondition(diagnostics[currentPrimaryIndex].isPrimary)
 
-            if diagnostic.level == .note {
-                if hasFixits {
-                    // The Swift compiler produces parallel fix-its by attaching
-                    // them to notes, which in turn associate to a single
-                    // error/warning. Prefer the first fix-it in this case: if
-                    // the last error/warning we saw has a note with a fix-it
-                    // and so is this one, skip it.
-                    if currentPrimaryDiagnosticHasNoteWithFixIt {
-                        continue
-                    }
+            // Shift the index to the next primary diagnostic.
+            repeat {
+                diagnostics.formIndex(after: &nextPrimaryIndex)
+            } while nextPrimaryIndex != diagnostics.endIndex && diagnostics[nextPrimaryIndex].isNote
 
-                    currentPrimaryDiagnosticHasNoteWithFixIt = true
-                }
-            } else {
-                currentPrimaryDiagnosticHasNoteWithFixIt = false
-            }
+            let primaryDiagnosticWithNotes = diagnostics[currentPrimaryIndex ..< nextPrimaryIndex]
 
-            // We are only interested in diagnostics with fix-its.
-            guard hasFixits else {
+            if filter.shouldSkip(primaryDiagnosticWithNotes: primaryDiagnosticWithNotes) {
                 continue
             }
 
-            guard let (sourceFile, convertedDiagnostic) =
-                try diagnosticConverter.diagnostic(from: diagnostic)
-            else {
-                continue
-            }
-
-            if !categories.isEmpty {
-                guard let category = convertedDiagnostic.diagMessage.category?.name,
-                      categories.contains(category)
-                else {
+            for diagnostic in primaryDiagnosticWithNotes {
+                // We are only interested in diagnostics with fix-its.
+                // TODO: This will have to change once we support printing them.
+                guard diagnostic.hasFixIt else {
                     continue
                 }
-            }
 
-            diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)
+                let (sourceFile, convertedDiagnostic) = try diagnosticConverter.diagnostic(from: diagnostic)
+
+                diagnosticsPerFile[consume sourceFile, default: []].append(consume convertedDiagnostic)
+            }
         }
 
-        self.diagnosticsPerFile = consume diagnosticsPerFile
+        self.diagnosticsPerFile = diagnosticsPerFile
     }
 
     package func applyFixIts() throws {
@@ -281,8 +383,8 @@ extension SourceFile: Hashable {
     }
 }
 
-private struct DiagnosticConverter /*: ~Copyable */ {
-    private struct SourceFileCache /*: ~Copyable */ {
+private struct DiagnosticConverter: ~Copyable {
+    private struct SourceFileCache: ~Copyable {
         private let fileSystem: any FileSystem
 
         private var sourceFiles: [AbsolutePath: SourceFile]
@@ -323,7 +425,7 @@ extension DiagnosticConverter {
     // emit notes with those fix-its.
     private static func fixIt(
         from diagnostic: borrowing some AnyDiagnostic,
-        in sourceFile: /*borrowing*/ SourceFile
+        in sourceFile: /* borrowing */ SourceFile
     ) throws -> SwiftDiagnostics.FixIt {
         let changes = try diagnostic.fixIts.map { fixIt in
             let startPosition = try sourceFile.position(of: fixIt.start)
@@ -341,7 +443,7 @@ extension DiagnosticConverter {
 
     private static func highlights(
         from diagnostic: borrowing some AnyDiagnostic,
-        in sourceFile: /*borrowing*/ SourceFile
+        in sourceFile: /* borrowing */ SourceFile
     ) throws -> [Syntax] {
         try diagnostic.ranges.map { startLocation, endLocation in
             let startPosition = try sourceFile.position(of: startLocation)
@@ -376,19 +478,19 @@ extension DiagnosticConverter {
 
     mutating func diagnostic(
         from diagnostic: borrowing some AnyDiagnostic
-    ) throws -> Diagnostic? {
-        if diagnostic.fixIts.isEmpty {
+    ) throws -> Diagnostic {
+        guard !diagnostic.fixIts.isEmpty else {
             preconditionFailure("Expected diagnostic with fix-its")
         }
 
         guard let location = diagnostic.location else {
-            return nil
+            preconditionFailure("Diagnostic without location cannot be converted")
         }
 
         let message: DeserializedDiagnosticMessage
         do {
             guard let severity = SwiftDiagnostics.DiagnosticSeverity(from: diagnostic.level) else {
-                return nil
+                preconditionFailure("Diagnostic with 'ignored' severity cannot be converted")
             }
 
             let category: SwiftDiagnostics.DiagnosticCategory? =

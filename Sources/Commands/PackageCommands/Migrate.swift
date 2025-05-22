@@ -87,6 +87,7 @@ extension SwiftPackageCommand {
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
+                targets: self.options.targets,
                 features: features
             )
 
@@ -137,34 +138,46 @@ extension SwiftPackageCommand {
 
             print("> Updating manifest.")
             for module in modules.map(\.module) {
-                print("> Adding feature(s) to '\(module.name)'.")
-                for feature in features {
-                    self.updateManifest(
-                        for: module.name,
-                        add: feature,
-                        using: swiftCommandState
-                    )
-                }
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'.")
+                self.updateManifest(
+                    for: module.name,
+                    add: features,
+                    using: swiftCommandState
+                )
             }
         }
 
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
+            targets: Set<String>? = .none,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-            var destinationBuildParameters = try swiftCommandState.productsBuildParameters
+            let destinationBuildParameters = try swiftCommandState.productsBuildParameters
 
-            // Inject feature settings as flags. This is safe and not as invasive
-            // as trying to update manifest because in adoption mode the features
-            // can only produce warnings.
-            for feature in features {
-                destinationBuildParameters.flags.swiftCompilerFlags.append(contentsOf: [
-                    "-Xfrontend",
-                    "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
-                    "-Xfrontend",
-                    "\(feature.name):migrate",
-                ])
+            let modulesGraph = try await swiftCommandState.loadPackageGraph()
+
+            let addFeaturesToModule = { (module: ResolvedModule) in
+                for feature in features {
+                    module.underlying.buildSettings.add(.init(values: [
+                        "-Xfrontend",
+                        "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
+                        "-Xfrontend",
+                        "\(feature.name):migrate",
+                    ]), for: .OTHER_SWIFT_FLAGS)
+                }
+            }
+
+            if let targets {
+                targets.lazy.compactMap {
+                    modulesGraph.module(for: $0)
+                }.forEach(addFeaturesToModule)
+            } else {
+                for package in modulesGraph.rootPackages {
+                    package.modules.filter {
+                        $0.type != .plugin
+                    }.forEach(addFeaturesToModule)
+                }
             }
 
             return try await swiftCommandState.createBuildSystem(
@@ -173,34 +186,39 @@ extension SwiftPackageCommand {
                 toolsBuildParameters: toolsBuildParameters,
                 // command result output goes on stdout
                 // ie "swift build" should output to stdout
-                outputStream: TSCBasic.stdoutStream
+                packageGraphLoader: {
+                    modulesGraph
+                },
+                outputStream: TSCBasic.stdoutStream,
+                observabilityScope: swiftCommandState.observabilityScope
             )
         }
 
         private func updateManifest(
             for target: String,
-            add feature: SwiftCompilerFeature,
+            add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
         ) {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
-            let setting: (SwiftSetting, String) = switch feature {
-            case .upcoming(name: let name, migratable: _, enabledIn: _):
-                (.upcomingFeature, "\(name)")
-            case .experimental(name: let name, migratable: _):
-                (.experimentalFeature, "\(name)")
+            let settings: [(SwiftSetting, String)] = features.map {
+                switch $0 {
+                case .upcoming(name: let name, migratable: _, enabledIn: _):
+                    (.upcomingFeature, "\(name)")
+                case .experimental(name: let name, migratable: _):
+                    (.experimentalFeature, "\(name)")
+                }
             }
 
             do {
                 try SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
-                    [setting]
+                    settings,
+                    verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                print(
-                    "! Couldn't update manifest due to - \(error); Please add '.enable\(feature.upcoming ? "Upcoming" : "Experimental")Feature(\"\(feature.name)\")' to target '\(target)' settings manually."
-                )
+                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually.")
             }
         }
 
