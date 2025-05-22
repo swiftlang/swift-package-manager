@@ -77,12 +77,12 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             let binPath = try AbsolutePath(validating:
-                await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
+                await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--show-bin-path"]).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
-                _ = try await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--product", execName])
+                _ = try await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--product", execName])
 
                 try await withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {
