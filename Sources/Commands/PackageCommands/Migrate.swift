@@ -159,12 +159,7 @@ extension SwiftPackageCommand {
 
             let addFeaturesToModule = { (module: ResolvedModule) in
                 for feature in features {
-                    module.underlying.buildSettings.add(.init(values: [
-                        "-Xfrontend",
-                        "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
-                        "-Xfrontend",
-                        "\(feature.name):migrate",
-                    ]), for: .OTHER_SWIFT_FLAGS)
+                    module.underlying.buildSettings.add(.init(values: feature.migrationFlags), for: .OTHER_SWIFT_FLAGS)
                 }
             }
 

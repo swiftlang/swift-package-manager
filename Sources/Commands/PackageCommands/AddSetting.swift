@@ -150,8 +150,8 @@ extension SwiftPackageCommand {
                         manifest: manifestSyntax
                     )
                 case .strictMemorySafety:
-                    guard value.isEmpty else {
-                        throw ValidationError("'strictMemorySafety' doesn't have an argument")
+                    guard value.isEmpty || value == "StrictMemorySafety" else {
+                        throw ValidationError("'strictMemorySafety' does not support argument '\(value)'")
                     }
 
                     editResult = try AddSwiftSetting.strictMemorySafety(
