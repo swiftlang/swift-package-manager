@@ -121,6 +121,7 @@ extension LLBuildManifestBuilder {
         }
 
         self.manifest.addWriteLinkFileListCommand(
+            targetName: buildProduct.product.name,
             objects: Array(buildProduct.objects),
             linkFileListPath: buildProduct.linkFileListPath
         )
