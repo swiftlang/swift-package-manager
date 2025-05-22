@@ -1,6 +1,6 @@
-# Listing configured Package Collections
+# List existing package collections
 
-Discover user-configured Package Collections.
+Discover user-configured package collections.
 
 ## Overview
 

@@ -1,4 +1,4 @@
-# Removing Packages
+# Removing packages
 
 Learn how to remove a package from a collection.
 

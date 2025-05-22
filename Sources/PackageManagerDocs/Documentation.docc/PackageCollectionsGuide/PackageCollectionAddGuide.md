@@ -1,4 +1,4 @@
-# Adding Packages
+# Adding packages
 
 Learn how to add a package to your collection.
 

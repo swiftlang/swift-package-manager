@@ -1,4 +1,4 @@
-# Refreshing Package Collection Data
+# Refreshing package collection data
 
 Refresh the cached data for package collections.
 

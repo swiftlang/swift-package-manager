@@ -1,4 +1,4 @@
-# Creating and Publishing a Package Collection
+# Creating and publishing package collections
 
 Learn how to create and publish a Swift package collection.
 

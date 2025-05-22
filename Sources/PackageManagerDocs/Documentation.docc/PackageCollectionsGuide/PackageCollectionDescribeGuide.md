@@ -1,4 +1,4 @@
-# Showing Package Collection Metadata
+# Showing package collection metadata
 
 Discover more about package collections and their packages.
 

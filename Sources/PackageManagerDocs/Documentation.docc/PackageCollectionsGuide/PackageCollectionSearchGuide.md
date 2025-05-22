@@ -1,4 +1,4 @@
-# Querying for Packages in Package Collections
+# Querying for packages in package collections
 
 Find packages in a configured Package Collection.
 

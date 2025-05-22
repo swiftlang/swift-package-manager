@@ -1,6 +1,6 @@
-# Signing and Protecting Package Collections
+# Signing and protecting package collections
 
-Learn how to protect and configure a signed Package Collection.
+Learn how to protect and configure a signed package collection.
 
 ## Overview
 
