@@ -30,7 +30,7 @@ To provide a package that uses libarchive with xz, make a `CArchive+CXz` package
 
 ### Defining the module map
 
-The `module.modulemap` file declares the C library headers, and what parts of them, to expose in Swift. 
+The `module.modulemap` file declares the C library headers, and what parts of them, to expose as a clang module that can be imported in Swift code. 
 A `module.modulemap` file contains one or more maps. 
 Each map defining a name for the Swift module to be exposed, one or more header files to reference, a reference to the name of the C library, and one or more export lines that identify what to expose to Swift.
 
