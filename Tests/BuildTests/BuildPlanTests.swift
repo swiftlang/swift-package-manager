@@ -4914,6 +4914,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fs
         )
         let commonFlags = BuildFlags(
@@ -5040,6 +5041,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fs
         )
 
@@ -5078,6 +5080,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: mockToolchain.targetTriple,
             toolchain: mockToolchain,
             graph: graph,
             commonFlags: .init(),
@@ -5157,6 +5160,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fs
         )
 
@@ -5193,6 +5197,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: mockToolchain.targetTriple,
             toolchain: mockToolchain,
             graph: graph,
             commonFlags: .init(),
@@ -5279,7 +5284,12 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
             )
         )
-        let toolchain = try UserToolchain(swiftSDK: swiftSDK, environment: .mockEnvironment, fileSystem: fileSystem)
+        let toolchain = try UserToolchain(
+            swiftSDK: swiftSDK,
+            environment: .mockEnvironment,
+            customTargetInfo: UserToolchain.mockTargetInfo,
+            fileSystem: fileSystem
+        )
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: targetTriple,
             toolchain: toolchain,
@@ -5445,6 +5455,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fileSystem
         )
         let result = try await BuildPlanResult(plan: mockBuildPlan(

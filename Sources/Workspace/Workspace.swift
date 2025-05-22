@@ -568,7 +568,10 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform,
+           let swiftCompilerVersion = hostToolchain.swiftCompilerVersion
+        {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
                 rootCertPath = try AbsolutePath(validating: path)
@@ -579,6 +582,7 @@ public class Workspace {
             let prebuiltsManager = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
+                swiftCompilerVersion: customPrebuiltsManager?.swiftVersion ?? swiftCompilerVersion,
                 authorizationProvider: authorizationProvider,
                 scratchPath: location.prebuiltsDirectory,
                 cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,

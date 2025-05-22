@@ -21,8 +21,15 @@ import Workspace
 import XCTest
 
 import struct TSCUtility.Version
+import enum TSCBasic.JSON
 
 extension UserToolchain {
+    package static var mockTargetInfo: JSON {
+        JSON.dictionary([
+            "compilerVersion": .string("Apple Swift version 6.2-dev (LLVM 815013bbc318474, Swift 1459ecafa998782)")
+        ])
+    }
+
     package static func mockHostToolchain(
         _ fileSystem: InMemoryFileSystem,
         hostTriple: Triple = hostTriple
@@ -42,6 +49,7 @@ extension UserToolchain {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: Self.mockTargetInfo,
             fileSystem: fileSystem
         )
     }
