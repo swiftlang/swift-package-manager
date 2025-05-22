@@ -4,13 +4,14 @@ Use other swift packages, system libraries, or binary dependencies in your packa
 
 ## Overview
 
-To depend on another Swift package, define the dependency and the requirements for its version in your package, then add a product of that package to one or more of your targets.
+To depend on another Swift package, define a dependency and the requirements for its version if its remote, then add a product of that dependency to one or more of your targets.
 
-An external dependency requires a location, represented by a URL, and a requirement on the versions that the package manager may use.
+An remote dependency requires a location, represented by a URL, and a requirement on the versions that the package manager may use.
 The version requirement can be a commit hash, a branch name, a specific semantic version, or a range of possible semantic versions.
-The API reference documentation for [Package.Dependency](https://developer.apple.com/documentation/packagedescription/package/dependency) defines all the methods you can use to specify a dependency.
+The API reference documentation for [Package.Dependency](https://developer.apple.com/documentation/packagedescription/package/dependency) defines the methods you can use to specify a dependency.
 
-The following example illustrates a package that depends on [PlayingCard](https://github.com/apple/example-package-playingcard), and uses the product `PlayingCard` as a dependency for the target `MyPackage`:
+The following example illustrates a package that depends on [PlayingCard](https://github.com/apple/example-package-playingcard), using `from` to require at least version `3.0.4`, or allow any other version up to the next major version that is available.
+It then uses the product `PlayingCard` as a dependency for the target `MyPackage`:
 
 ```swift
 // swift-tools-version:6.1
@@ -34,18 +35,18 @@ let package = Package(
 )
 ```
 
-The package manager automatically resolves packages when you invoke <doc:SwiftRun> or <doc:SwiftBuild>.
+The package manager automatically resolves packages when you invoke <doc:SwiftRun> or <doc:SwiftBuild>. 
 You can explicitly resolve the packages with the command <doc:PackageResolve>.
 
 ### Local Dependencies
 
-To use a local swift package as a dependency, specify either [package(name:path:)](https://developer.apple.com/documentation/packagedescription/package/dependency/package(name:path:)) or [package(path:)](https://developer.apple.com/documentation/packagedescription/package/dependency/package(path:)) in the Package manifest, with the local path to the package.
+To use a local swift package as a dependency, use either [package(name:path:)](https://developer.apple.com/documentation/packagedescription/package/dependency/package(name:path:)) or [package(path:)](https://developer.apple.com/documentation/packagedescription/package/dependency/package(path:)) to define the dependency with the local path to the package.
 
 ### System Library Dependencies
 
 In addition to depending on Swift packages, you can also depend on system libraries or, on Apple platforms, precompiled binary dependencies.
 
-For more information on using a C library provided by the system as a dependency, see <doc:AddingSystemLibraryDependency>.
+For more information on using a library provided by the system as a dependency, see <doc:AddingSystemLibraryDependency>.
 
 ### Precomiled Binary Targets for Apple platforms
 

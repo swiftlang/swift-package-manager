@@ -4,17 +4,17 @@ Define the location for the library and provide module map to expose C headers t
 
 ## Overview
 
-You can link against system libraries using the package manager. 
+You can link against system libraries, using them as a dependency in your code, using the package manager. 
 To do so, add a `target` of type [systemLibrary](https://developer.apple.com/documentation/packagedescription/target/systemlibrary(name:path:pkgconfig:providers:)), and a `module.modulemap` for each system library you're using.
 
 ### Declaring the system library
 
 The `systemLibrary` definition informs the Swift compiler of where to find the C library.
-For building on Unix-like systems, the package manager uses `pkg-config` to look up where a library is installed. 
-Specify the name of the C library you want to look up on those systems.
-For building on Windows, omit `pkgConfig`, as the command `pkg-config` is not expected to be available.
+When building on Unix-like systems, the package manager can use `pkg-config` to look up where a library is installed.
+Specify the name of the C library you want to look up for the `pkgConfig` parameter.
+When building on Windows, omit `pkgConfig`, as the command `pkg-config` is not expected to be available.
 
-If you omit the optional pkgConfig parameter, pass the path of a directory containing the library using the `-L` flag in the command line when building your package.
+If you omit the optional `pkgConfig` parameter, pass the path of a directory containing the library using the `-L` flag in the command line when building your package.
 For example, if the library you depend on resides in `/usr/local/lib/`, the following command tells the linker to add that path when building the project:
 
 ```bash
@@ -23,10 +23,10 @@ For example, if the library you depend on resides in `/usr/local/lib/`, the foll
 
 #### System Libraries With Optional Dependencies
 
-To reference a system library with optional dependencies, you to make another module map package to represent the optional library.
+To reference a system library with optional dependencies, you need to make another module map package to represent the optional library.
 
-For example, `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it is not required. 
-To provide a package that uses libarchive with xz you must make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
+For example, the library `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it isn't required. 
+To provide a package that uses libarchive with xz, make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
 
 ### Defining the module map
 
@@ -34,7 +34,7 @@ The `module.modulemap` file declares the C library headers, and what parts of th
 A `module.modulemap` file contains one or more maps. 
 Each map defining a name for the Swift module to be exposed, one or more header files to reference, a reference to the name of the C library, and one or more export lines that identify what to expose to Swift.
 
-For example, the following 
+For example, the following module map uses the header `git2.h`, links to `libgit2`, and exports all functions defined in the header `git2.h` to Swift:
 
 ```
 module Clibgit [system] {
@@ -45,14 +45,13 @@ module Clibgit [system] {
 ```
 
 Module maps must contain absolute paths. As such, they are not cross-platform.
-Use a local header and let the linker handle the location of the binary with a pkgConfig parameter in the `systemLibrary` declaration if you can.
+Use a local header and let the linker handle the location of the binary with a `pkgConfig` parameter in the `systemLibrary` declaration if you can.
 
 For more information on the structure of module maps, see the [LLVM](https://llvm.org/) documentation: [Module Map Language](https://clang.llvm.org/docs/Modules.html#module-map-language).
 
 #### Module Map Versioning
 
-Version the module maps semantically. 
-The meaning of semantic version is less clear here, so use your best judgement. 
+Version the module maps semantically, using your best judgement. 
 Do not follow the version of the system library the module map represents; version the module map(s) independently.
 
 Follow the conventions of system packagers; for example, the Debian package for `python3` is called `python3`. 
