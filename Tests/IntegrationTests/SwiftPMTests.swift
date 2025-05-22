@@ -20,7 +20,7 @@ import struct SPMBuildCore.BuildSystemProvider
 private struct SwiftPMTests {
     @Test(.requireHostOS(.macOS))
     func binaryTargets() async throws {
-        try await withKnownIssue("error: the path does not point to a valid framework:") {
+        await withKnownIssue("error: the path does not point to a valid framework:") {
             try await binaryTargetsFixture { fixturePath in
                 do {
                     await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
@@ -85,8 +85,8 @@ private struct SwiftPMTests {
             "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
         ),
         .tags(
-            Tag.Feature.Command.package,
-            Tag.Feature.PackageType.executable,
+            Tag.Feature.Command.Package,
+            Tag.Feature.PackageType.Executable,
         ),
         arguments: BuildSystemProvider.Kind.allCases,
     )
@@ -123,8 +123,8 @@ private struct SwiftPMTests {
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
         .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
         .tags(
-            Tag.Feature.Command.package,
-            Tag.Feature.PackageType.library,
+            Tag.Feature.Command.Package,
+            Tag.Feature.PackageType.Library,
         ),
         arguments: BuildSystemProvider.Kind.allCases,
     )

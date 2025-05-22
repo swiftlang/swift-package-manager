@@ -15,6 +15,7 @@ import Basics
 import class Foundation.Bundle
 #endif
 import SPMBuildCore
+import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
 
@@ -139,7 +140,7 @@ package func XCTAssertAsyncNoThrow<T>(
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
-    configurations: Set<Configuration> = [.Debug, .Release],
+    configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -169,7 +170,7 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],

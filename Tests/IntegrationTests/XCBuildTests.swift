@@ -28,7 +28,7 @@ private struct XCBuildTests {
             #expect(localFileSystem.exists(debugPath.appending(component: "bar")))
             #expect(localFileSystem.notExists(debugPath.appending(component: "cbar")))
 
-            try await executeSwiftBuild(fooPath, configuration: .Release, buildSystem: .xcode)
+            try await executeSwiftBuild(fooPath, configuration: .release, buildSystem: .xcode)
             let releasePath = binaryPath.appending(component: "Release")
             #expect(localFileSystem.exists(releasePath.appending(component: "foo")))
             #expect(localFileSystem.exists(releasePath.appending(component: "cfoo")))
@@ -56,7 +56,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--product",
                     "foo",
@@ -90,7 +90,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--product",
                     "cfoo",
@@ -124,7 +124,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--product",
                     "bar",
@@ -158,7 +158,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--product",
                     "cbar",
@@ -196,7 +196,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 buildSystem: .xcode,
             )
             let releasePath = binaryPath.appending(component: "Release")
@@ -225,7 +225,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--build-tests",
                 ],
@@ -258,7 +258,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "FooTests",
@@ -292,7 +292,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "CFooTests",
@@ -324,7 +324,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 buildSystem: .xcode,
             )
             let releasePath = binaryPath.appending(component: "Release")
@@ -352,7 +352,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "FooLib",
@@ -384,7 +384,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "CFooLib",
@@ -416,7 +416,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "BarLib",
@@ -465,7 +465,7 @@ private struct XCBuildTests {
 
             try await executeSwiftBuild(
                 fooPath,
-                configuration: .Release,
+                configuration: .release,
                 extraArgs: [
                     "--target",
                     "foo",
@@ -484,7 +484,7 @@ private struct XCBuildTests {
         try await binaryTargetsFixture { path in
             try await executeSwiftBuild(
                 path,
-                configuration: .Debug,
+                configuration: .debug,
                 extraArgs: ["--target", "exe"],
                 buildSystem: .xcode,
             )
