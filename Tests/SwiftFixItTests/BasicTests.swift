@@ -272,8 +272,8 @@ struct BasicTests {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
                 edits: (
-                    .init(input: "var x = 1", result: "let x = 1"),
-                    .init(input: "var x = 1", result: "let x = 1")
+                    .init(input: "var x = 1", result: "let _ = 1"),
+                    .init(input: "var x = 1", result: "let _ = 1")
                 ),
                 diagnostics: [
                     // filename1
@@ -292,12 +292,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename1, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename1, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename1, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
@@ -305,12 +305,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .warning,
                         text: "warning2",
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename2, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename2, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename2, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename2, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename2, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
