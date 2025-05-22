@@ -19,6 +19,7 @@ public enum OperatingSystem: Hashable, Sendable {
     case unknown
 }
 
+
 extension ProcessInfo {
     public static var hostOperatingSystem: OperatingSystem {
         #if os(macOS)

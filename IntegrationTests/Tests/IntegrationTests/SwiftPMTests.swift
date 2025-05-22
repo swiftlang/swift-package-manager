@@ -75,7 +75,6 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .requireThreadSafeWorkingDirectory,
         arguments: [BuildSystemProvider.native]
     )
     func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider) throws {
@@ -84,7 +83,6 @@ private struct SwiftPMTests {
 
     @Test(
         .skipHostOS(.windows),
-        .requireThreadSafeWorkingDirectory,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8416",
             "[Linux] swift run using --build-system swiftbuild fails to run executable"
@@ -125,7 +123,6 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .requireThreadSafeWorkingDirectory,
         .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
         .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
