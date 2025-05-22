@@ -20,6 +20,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 ### Guides
 
 - <doc:ExploreDependencies>
+- <doc:LibSwiftPM>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->

@@ -1,4 +1,4 @@
-# SwiftPM as a Library
+# Swift Package Manager as a Library
 
 Learn about libSwiftPM.
 
@@ -23,7 +23,3 @@ $ git clone https://github.com/swiftlang/swift-package-manager
 $ cd swift-package-manager/Examples/package-info
 $ swift run
 ```
-
-### Section header
-
-<!--@START_MENU_TOKEN@-->Text<!--@END_MENU_TOKEN@-->
