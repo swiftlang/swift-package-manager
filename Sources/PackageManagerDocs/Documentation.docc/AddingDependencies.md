@@ -47,7 +47,7 @@ Constrain the version of a remote dependency when you when you declare the depen
 The package manager uses git tags interpretted as semantic versions to identify eligible versions of packages.
 
 > Note: tags for package versions should include all three components of a semantic version: major, minor, and patch. 
-> Tags that only include one or two of those components are not interpretted as semantic versions.
+> Tags that only include one or two of those components are not interpreted as semantic versions.
 
 Use the version requirement when you declare the dependency to limit what the package manager can choose.
 The version requirement can be a range of possible semantic versions, a specific semantic version, a branch name, or a commit hash.
