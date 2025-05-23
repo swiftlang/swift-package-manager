@@ -55,14 +55,14 @@ The following example provides a declaration for the `libgit2` library, installi
 
 #### System Libraries With Optional Dependencies
 
-To reference a system library with optional dependencies, you need to make another module map package to represent the optional library.
+To reference a system library with optional dependencies, you need to make another package to represent the optional library.
 
 For example, the library `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it isn't required. 
 To provide a package that uses libarchive with xz, make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
 
 <!-- (heckj) I need to verify this is still the case for combination repositories - are distinct packages still needed -->
 
-### Defining the module map
+### Authoring the module map
 
 The `module.modulemap` file declares the C library headers, and what parts of them, to expose as one or more clang modules that can be imported in Swift code.
 Each defines:

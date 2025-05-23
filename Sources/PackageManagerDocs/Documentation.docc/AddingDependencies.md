@@ -7,7 +7,7 @@ Use other swift packages, system libraries, or binary dependencies in your packa
 To depend on another Swift package, define a dependency and the requirements for its version if it's remote, then add a product of that dependency to one or more of your targets.
 
 An remote dependency requires a location, represented by a URL, and a requirement on the versions that the package manager may use.
-The version requirement can be a commit hash, a branch name, a specific semantic version, or a range of possible semantic versions.
+The version requirement can be a range of possible semantic versions, a specific semantic version, a branch name, or a commit hash.
 The API reference documentation for [Package.Dependency](https://developer.apple.com/documentation/packagedescription/package/dependency) defines the methods you can use to specify a dependency.
 
 The following example illustrates a package that depends on [PlayingCard](https://github.com/apple/example-package-playingcard), using `from` to require at least version `3.0.4`, or allow any other version up to the next major version that is available.
@@ -25,7 +25,10 @@ let package = Package(
     targets: [
         .target(
             name: "MyPackage",
-            dependencies: ["PlayingCard"]
+            dependencies: [
+                .product(name: "PlayingCard", 
+                         package: "example-package-playingcard")
+            ]
         ),
         .testTarget(
             name: "MyPackageTests",
