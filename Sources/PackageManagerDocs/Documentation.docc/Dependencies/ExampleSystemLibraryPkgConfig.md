@@ -25,27 +25,6 @@ let options = git_repository_init_options()
 print(options)
 ```
 
-### Referencing libgit2
-
-To `import Clibgit`, the package manager requires that the libgit2 library has been installed by a system packager (for example `apt`, `brew`, `yum`, `nuget`, and so on).
-
-To depend on libgit2, The Swift compiler is interested in the following files:
-
-    /usr/local/lib/libgit2.dylib      # .so on Linux
-    /usr/local/include/git2.h
-
-> Note: the system library may be located elsewhere on your system, such as:
-> 
-> - `/usr/`, or `/opt/homebrew/` if you're using Homebrew on an Apple Silicon Mac.
-> - `C:\vcpkg\installed\x64-windows\include` on Windows, if you're using `vcpkg`.
-
-On most Unix-like systems, you can use `pkg-config` to lookup where a library is installed:
-
-```bash
-example$ pkg-config --cflags libgit2
--I/opt/homebrew/Cellar/libgit2/1.9.0/include
-```
-
 ### Add a system library target
 
 Add a `systemLibrary` target to `Package.swift` that uses the `pkgConfig` parameter to look up the location of the library. 

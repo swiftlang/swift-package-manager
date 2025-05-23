@@ -2,6 +2,8 @@
 
 Create an Command-line executable package that uses jpeg as a system library dependency.
 
+<!-- CONSIDER DUMPING THIS EXAMPLE ENTIRELY - key is pkgConfig and passing parameters more than anything else. -->
+
 ## Overview
 
 The follow example uses [IJG’s JPEG library](http://www.ijg.org) from an executable, which has some caveats.
@@ -85,8 +87,10 @@ let package = Package(
 To use `swift build` to build out example, specify the location of the `jpeg` library:
 
 ```bash
-example% swift build -Xlinker -L/opt/homebrew/opt/jpeg/lib
+$ swift build -Xlinker -L/opt/homebrew/opt/jpeg/lib
 ```
+
+Use `-Xcc -I/opt/homebrew/opt/jpeg` to manually specify the include paths through to the compiler.
 
 You have to specify the path where the libjpeg is present using `-Xlinker` because there is no pkg-config file for it. 
 
