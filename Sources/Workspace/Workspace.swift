@@ -1077,7 +1077,7 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadRootManifests(
@@ -1266,7 +1266,7 @@ extension Workspace {
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
+        completion: @escaping @Sendable (Result<Package, Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadPackage(
