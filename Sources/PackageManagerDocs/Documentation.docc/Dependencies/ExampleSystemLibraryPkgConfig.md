@@ -30,15 +30,12 @@ print(options)
 Add a `systemLibrary` target to `Package.swift` that uses the `pkgConfig` parameter to look up the location of the library. 
 
 ```swift
-// swift-tools-version: 5.8
-
+// swift-tools-version:6.1
 import PackageDescription
 
 let package = Package(
     name: "example",
     targets: [
-        // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",
@@ -55,7 +52,7 @@ let package = Package(
 The above example specifies two `providers` that Swift Package Manager can use to install the dependency, if needed.
 
 > Note: For Windows-only packages `pkgConfig` should be omitted as `pkg-config` is not expected to be available. 
-> If you don't want to use the `pkgConfig` parameter you can pass the path of a directory containing the
+> If you can't or don't want to use the `pkgConfig` parameter, pass the path of a directory containing the
 > library using the `-L` flag in the command line when building your package instead.
 > 
 > ```bash
@@ -63,12 +60,11 @@ The above example specifies two `providers` that Swift Package Manager can use t
 > ```
 
 This example follows the convention of prefixing modules with `C` and using camelcase for the rest of the library, following Swift module name conventions.
-This allows another Swift module `libgit` which contains contains more idiotic Swift functions that wrap the underlying C interface.
+This allows you to create and use another module more directly named after the library that provides idiomatic Swift wrappers around the underlying C functions.
 
 ### Create a module map and local header
 
 Create a directory `Sources/Clibgit` in your `example` project, and add a `module.modulemap` in the directory:
-and the header file to it:
 
 ```
 module Clibgit [system] {
@@ -78,7 +74,7 @@ module Clibgit [system] {
 }
 ```
 
-Create the local header file, `git2.h`, that the above module map references: 
+In the same directory, create the header file, `git2.h`, that the above module map references: 
 
 ```c
 // git2.h
@@ -108,7 +104,7 @@ With the system library target fully defined, you can now use it as a dependency
 For example, in `Package.swift`:
 
 ```swift
-// swift-tools-version: 5.8
+// swift-tools-version:6.1
 import PackageDescription
 
 let package = Package(
@@ -116,14 +112,9 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "example",
-            // example executable requires "Clibgit" target as its dependency.
-            // It's a systemLibrary target defined below.
             dependencies: ["Clibgit"],
             path: "Sources"
         ),
-
-        // systemLibrary is a special type of build target that wraps a system library
-        // in a target that other targets can require as their dependency.
         .systemLibrary(
             name: "Clibgit",
             pkgConfig: "libgit2",

@@ -53,16 +53,7 @@ The following example provides a declaration for the `libgit2` library, installi
 )
 ```
 
-#### System Libraries With Optional Dependencies
-
-To reference a system library with optional dependencies, you need to make another package to represent the optional library.
-
-For example, the library `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it isn't required. 
-To provide a package that uses libarchive with xz, make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
-
-<!-- (heckj) I need to verify this is still the case for combination repositories - are distinct packages still needed -->
-
-### Authoring the module map
+### Authoring a module map
 
 The `module.modulemap` file declares the C library headers, and what parts of them, to expose as one or more clang modules that can be imported in Swift code.
 Each defines:
@@ -82,14 +73,29 @@ module Clibgit [system] {
 }
 ```
 
+Try to reference headers that reside in the same directory or as a local path to provide the greatest flexibility.
+You can use an absolute path, although that makes the declaration more brittle, as different systems install system libraries in a variety of paths.
+
+> Note: Not all libraries are easily made into modules. You may have to create additional shim headers to provide the Swift compiler with the references needed to fully compile and link the library.
+
 For more information on the structure of module maps, see the [LLVM](https://llvm.org/) documentation: [Module Map Language](https://clang.llvm.org/docs/Modules.html#module-map-language).
 
-#### Module Map Versioning
+#### Versioning Modules from system libraries
 
 When creating a module map, follow the conventions of system packagers as you name the module with version information.
 For example, the Debian package for `python3` is called `python3`.
 In Debian, there is not a single package for python; the system packagers designed it to be installed side-by-side with other versions.
 Based on that, a recommended name for a module map for `python3` on a Debian system is `CPython3`.
+
+#### System Libraries With Optional Dependencies
+
+<!-- (heckj) I need to verify this is still the case for C libraries with optional dependencies - are distinct packages still needed? -->
+
+To reference a system library with optional dependencies, you need to make another package to represent the optional library.
+
+For example, the library `libarchive` optionally depends on `xz`, which means it can be compiled with `xz` support, but it isn't required. 
+To provide a package that uses libarchive with xz, make a `CArchive+CXz` package that depends on `CXz` and provides `CArchive`.
+
 
 <!--#### Packages That Provide Multiple Libraries-->
 <!---->
@@ -126,4 +132,3 @@ Based on that, a recommended name for a module map for `python3` on a Debian sys
 ## See Also
 
 - <doc:ExampleSystemLibraryPkgConfig>
-- <doc:ExampleSystemLibraryWithoutPkgConfig>
