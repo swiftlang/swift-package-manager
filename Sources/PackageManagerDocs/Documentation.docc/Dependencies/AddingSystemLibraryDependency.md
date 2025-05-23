@@ -58,7 +58,7 @@ The following example provides a declaration for the `libgit2` library, installi
 The `module.modulemap` file declares the C library headers, and what parts of them, to expose as one or more clang modules that can be imported in Swift code.
 Each defines:
 
-- A name for the Swift module to be exposed
+- A name for the module to be exposed
 - One or more header files to reference
 - A reference to the name of the C library
 - One or more export lines that identify what to expose to Swift
