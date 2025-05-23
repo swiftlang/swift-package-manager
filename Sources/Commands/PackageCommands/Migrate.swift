@@ -227,7 +227,18 @@ fileprivate extension SwiftCompilerFeature {
         case .experimental(name: let name, migratable: _, categories: _):
             return ["-Xfrontend", "-enable-experimental-feature", "-Xfrontend", "\(name):migrate"]
         case .optional(name: _, migratable: _, categories: _, flagName: let flagName):
-            return ["\(flagName):migrate"]
+            let flags = flagName.split(separator: " ")
+            var resultFlags: [String] = []
+            for (index, flag) in flags.enumerated() {
+                resultFlags.append("-Xfrontend")
+                if index == flags.endIndex - 1 {
+                    resultFlags.append(String(flag) + ":migrate")
+                } else {
+                    resultFlags.append(String(flag))
+                }
+            }
+
+            return resultFlags
         }
     }
 

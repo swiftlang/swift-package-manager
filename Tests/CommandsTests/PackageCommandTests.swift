@@ -2112,110 +2112,46 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             "skipping because test environment compiler doesn't support `-print-supported-features`"
         )
 
-        try await fixture(name: "SwiftMigrate/ExistentialAnyMigration") { fixturePath in
-            let sourcePaths: [AbsolutePath]
-            let fixedSourcePaths: [AbsolutePath]
+        func doMigration(featureName: String) async throws {
+            try await fixture(name: "SwiftMigrate/\(featureName)Migration") { fixturePath in
+                let sourcePaths: [AbsolutePath]
+                let fixedSourcePaths: [AbsolutePath]
 
-            do {
-                let sourcesPath = fixturePath.appending(components: "Sources")
-                let fixedSourcesPath = sourcesPath.appending("Fixed")
+                do {
+                    let sourcesPath = fixturePath.appending(components: "Sources")
+                    let fixedSourcesPath = sourcesPath.appending("Fixed")
 
-                sourcePaths = try localFileSystem.getDirectoryContents(sourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    sourcesPath.appending(filename)
+                    sourcePaths = try localFileSystem.getDirectoryContents(sourcesPath).filter { filename in
+                        filename.hasSuffix(".swift")
+                    }.sorted().map { filename in
+                        sourcesPath.appending(filename)
+                    }
+                    fixedSourcePaths = try localFileSystem.getDirectoryContents(fixedSourcesPath).filter { filename in
+                        filename.hasSuffix(".swift")
+                    }.sorted().map { filename in
+                        fixedSourcesPath.appending(filename)
+                    }
                 }
-                fixedSourcePaths = try localFileSystem.getDirectoryContents(fixedSourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    fixedSourcesPath.appending(filename)
-                }
-            }
 
-            _ = try await self.execute(
-                ["migrate", "--to-feature", "ExistentialAny"],
-                packagePath: fixturePath
-            )
-
-            XCTAssertEqual(sourcePaths.count, fixedSourcePaths.count)
-
-            for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
-                try XCTAssertEqual(
-                    localFileSystem.readFileContents(sourcePath),
-                    localFileSystem.readFileContents(fixedSourcePath)
+                _ = try await self.execute(
+                    ["migrate", "--to-feature", featureName],
+                    packagePath: fixturePath
                 )
+
+                XCTAssertEqual(sourcePaths.count, fixedSourcePaths.count)
+
+                for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
+                    try XCTAssertEqual(
+                        localFileSystem.readFileContents(sourcePath),
+                        localFileSystem.readFileContents(fixedSourcePath)
+                    )
+                }
             }
         }
 
-        try await fixture(name: "SwiftMigrate/StrictMemorySafetyMigration") { fixturePath in
-            let sourcePaths: [AbsolutePath]
-            let fixedSourcePaths: [AbsolutePath]
-
-            do {
-                let sourcesPath = fixturePath.appending(components: "Sources")
-                let fixedSourcesPath = sourcesPath.appending("Fixed")
-
-                sourcePaths = try localFileSystem.getDirectoryContents(sourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    sourcesPath.appending(filename)
-                }
-                fixedSourcePaths = try localFileSystem.getDirectoryContents(fixedSourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    fixedSourcesPath.appending(filename)
-                }
-            }
-
-            _ = try await self.execute(
-                ["migrate", "--to-feature", "StrictMemorySafety"],
-                packagePath: fixturePath
-            )
-
-            XCTAssertEqual(sourcePaths.count, fixedSourcePaths.count)
-
-            for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
-                try XCTAssertEqual(
-                    localFileSystem.readFileContents(sourcePath),
-                    localFileSystem.readFileContents(fixedSourcePath)
-                )
-            }
-        }
-
-        try await fixture(name: "SwiftMigrate/InferIsolatedConformancesMigration") { fixturePath in
-            let sourcePaths: [AbsolutePath]
-            let fixedSourcePaths: [AbsolutePath]
-
-            do {
-                let sourcesPath = fixturePath.appending(components: "Sources")
-                let fixedSourcesPath = sourcesPath.appending("Fixed")
-
-                sourcePaths = try localFileSystem.getDirectoryContents(sourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    sourcesPath.appending(filename)
-                }
-                fixedSourcePaths = try localFileSystem.getDirectoryContents(fixedSourcesPath).filter { filename in
-                    filename.hasSuffix(".swift")
-                }.sorted().map { filename in
-                    fixedSourcesPath.appending(filename)
-                }
-            }
-
-            _ = try await self.execute(
-                ["migrate", "--to-feature", "InferIsolatedConformances"],
-                packagePath: fixturePath
-            )
-
-            XCTAssertEqual(sourcePaths.count, fixedSourcePaths.count)
-
-            for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
-                try XCTAssertEqual(
-                    localFileSystem.readFileContents(sourcePath),
-                    localFileSystem.readFileContents(fixedSourcePath)
-                )
-            }
-        }
+        try await doMigration(featureName: "ExistentialAny")
+        try await doMigration(featureName: "StrictMemorySafety")
+        try await doMigration(featureName: "InferIsolatedConformances")
     }
 
     func testBuildToolPlugin() async throws {
