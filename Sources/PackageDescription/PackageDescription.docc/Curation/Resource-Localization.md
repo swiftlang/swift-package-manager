@@ -19,8 +19,3 @@
 ### Creating a Value
 
 - ``init(rawValue:)``
-
-### Accessing the Raw Value
-
-- ``rawValue-swift.property``
-- ``RawValue-swift.typealias``

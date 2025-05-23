@@ -56,11 +56,10 @@
 ### Declaring Supported Languages
 
 - ``SwiftLanguageMode``
-- ``SwiftVersion``
 - ``CLanguageStandard``
 - ``CXXLanguageStandard``
 - ``Package/swiftLanguageModes``
-- ``Package/swiftLanguageVersions``
 - ``Package/cLanguageStandard``
 - ``Package/cxxLanguageStandard``
-
+- ``SwiftVersion``
+- ``Package/swiftLanguageVersions``

@@ -24,8 +24,3 @@
 
 - ``!=(_:_:)``
 
-### Accessing the Raw Value
-
-- ``rawValue-swift.property``
-- ``RawValue-swift.typealias``
-

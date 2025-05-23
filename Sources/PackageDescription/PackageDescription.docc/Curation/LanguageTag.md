@@ -22,10 +22,3 @@
 ### Operator Functions
 
 - <doc:/documentation/PackageDescription/LanguageTag/!=(_:_:)>
-
-### Identifying Related Types
-
-- ``LanguageTag/ExtendedGraphemeClusterLiteralType``
-- ``LanguageTag/RawValue-swift.typealias``
-- ``LanguageTag/StringLiteralType``
-- ``LanguageTag/UnicodeScalarLiteralType``
