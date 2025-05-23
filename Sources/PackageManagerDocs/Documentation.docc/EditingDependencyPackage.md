@@ -1,4 +1,4 @@
-# Editing a Swift package
+# Editing a dependency in a Swift package
 
 <!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
 
@@ -21,12 +21,16 @@ Editable packages are best used to do experimentation with dependency code, or t
 create and submit a patch in the dependency owner's repository (upstream).
 There are two ways to put a package in editable state:
 
-    $ swift package edit Foo --branch bugFix
+```bash
+$ swift package edit Foo --branch bugFix
+```
 
 This will create a branch called `bugFix` from the currently resolved version and
 put the dependency `Foo` in the `Packages/` directory.
 
-    $ swift package edit Foo --revision 969c6a9
+```bash
+$ swift package edit Foo --revision 969c6a9
+```
 
 This is similar to the previous version, except that the Package Manager will leave
 the dependency at a detached HEAD on the specified revision.
@@ -40,7 +44,10 @@ request to the upstream repository.
 
 You can end editing a package using `unedit` command:
 
-    $ swift package unedit Foo
+
+```bash
+$ swift package unedit Foo
+```
 
 This will remove the edited dependency from `Packages/` and put the originally
 resolved version back.
@@ -49,7 +56,9 @@ This command fails if there are uncommitted changes or changes which are not
 pushed to the remote repository. If you want to discard these changes and
 unedit, you can use the `--force` option:
 
-    $ swift package unedit Foo --force
+```bash
+$ swift package unedit Foo --force
+```
 
 ### Top of Tree Development
 
@@ -62,12 +71,16 @@ application.
 
 The command to attach (or create) a local checkout is:
 
-    $ swift package edit <package name> --path <path/to/dependency>
+```bash
+$ swift package edit <package name> --path <path/to/dependency>
+```
 
 For example, if `Foo` depends on `Bar` and you have a checkout of `Bar` at
 `/workspace/bar`:
 
-    foo$ swift package edit Bar --path /workspace/bar
+```bash
+$ swift package edit Bar --path /workspace/bar
+```
 
 A checkout of `Bar` will be created if it doesn't exist at the given path. If
 a checkout exists, package manager will validate the package name at the given
@@ -78,6 +91,8 @@ checkout path.
 
 Use unedit command to stop using the local checkout:
 
-    $ swift package unedit <package name>
-    # Example:
-    $ swift package unedit Bar
+```bash
+$ swift package unedit <package name>
+# Example:
+$ swift package unedit Bar
+```

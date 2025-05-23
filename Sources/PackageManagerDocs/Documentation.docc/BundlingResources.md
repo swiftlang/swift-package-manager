@@ -9,12 +9,15 @@ For example, Swift packages can contain asset catalogs, storyboards, and so on.
 
 ### Add resource files
 
+<!-- REVISE TO SWIFTPM FOCUS -->
+- resources are scoped to a target
 Similar to source code, Xcode scopes resources to a target. 
 Place resource files into the folder that corresponds with the target they belong to. 
 For example, any resources for the MyLibrary target need to reside in `Sources/MyLibrary`.
 However, consider using a subfolder for resources to distinguish them from source files. 
 For example, put all resource files into a directory named Resources, resulting in all of your resource files residing at `Sources/MyLibrary/Resources`.
 
+<!--
 To add resources to a Swift package, do any of the following:
 
 - Drag them into the Project navigator in Xcode.
@@ -30,6 +33,7 @@ For example, you don’t need to make changes to your package manifest for the f
 - .lproj folders you use to provide localized resources
 
 If you add a resource file that Xcode doesn’t treat as a resource by default, you must configure it in your package manifest, as described in the next section.
+-->
 
 ### Explicitly declare or exclude resources
 
@@ -69,6 +73,8 @@ targets: [
 
 In general, avoid placing files that aren’t resources in a target’s source folder. 
 If that’s not feasible, avoid excluding every file individually, place all files you want to exclude in a directory, and add the directory path to the array of excluded files.
+
+++ SwiftPM will warn you about files it doesn't recognize in the target Sources directory
 
 ### Access a resource in code
 

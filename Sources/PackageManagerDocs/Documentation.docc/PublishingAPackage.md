@@ -1,19 +1,27 @@
-# Publishing a Swift package
+# Releasing and publishing a Swift package
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Share a specific version of your package.
 
 ## Overview
 
-To publish a package, create and push a semantic version tag:
+Swift Package Manager expects a package to be remotely shared as a single Git repository, with a tag that conforms to a full semantic version, and a `Package.swift` manifest in the root of the repository.
 
-    $ git init
-    $ git add .
-    $ git remote add origin [github-URL]
-    $ git commit -m "Initial Commit"
-    $ git tag 1.0.0
-    $ git push origin master --tags
+<!-- TODO: need a reference to sharing a dependency through a swift registry -->
 
-Now other packages can depend on version 1.0.0 of this package using the github
-url.
-An example of a published package can be found here:
-https://github.com/apple/example-package-fisheryates
+To publish a package that is hosted in a Git repository, create and push a semantic version tag.
+Swift package manager expects the tag to be a full semantic version, that includes major, minor, and patch versions in the tag.
+
+The following commands illustrate adding a tag `1.0.0` and pushing those tags to the remote repository:
+
+```bash
+$ git tag 1.0.0
+$ git push origin --tags
+```
+
+> Warning: A tag in the form of `1.0` isn't recognized by Swift Package Manager as a complete semantic version.
+> Include all three integers reflecting the major, minor, and patch version information.
+
+With the tag in place, other packages can depend on the package you tagged through your source repository.
+An example of a published package can be found at [github.com/apple/example-package-playingcard](https://github.com/apple/example-package-playingcard/) with multiple releases available.
+
+To read more about adding a dependency to your package, read <doc:AddingDependency>.
