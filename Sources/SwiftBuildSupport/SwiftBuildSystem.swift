@@ -334,10 +334,28 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         return configuredTarget
                     }
 
-                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
+                    struct BuildState {
+                        private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+
+                        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
+                            if activeTasks[task.taskID] != nil {
+                                throw Diagnostics.fatalError
+                            }
+                            activeTasks[task.taskID] = task
+                        }
+
+                        mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
+                            guard let task = activeTasks[task.taskID] else {
+                                throw Diagnostics.fatalError
+                            }
+                            return task
+                        }
+                    }
+
+                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
                         switch message {
-                        case .buildCompleted:
-                            progressAnimation.complete(success: true)
+                        case .buildCompleted(let info):
+                            progressAnimation.complete(success: info.result == .ok)
                         case .didUpdateProgress(let progressInfo):
                             var step = Int(progressInfo.percentComplete)
                             if step < 0 { step = 0 }
@@ -365,15 +383,27 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             case .remark: .debug
                             }
                             self.observabilityScope.emit(severity: severity, message: message)
-                        case .taskOutput(let info):
-                            self.observabilityScope.emit(info: "\(info.data)")
+                        case .output(let info):
+                            self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
                         case .taskStarted(let info):
+                            try buildState.started(task: info)
                             if let commandLineDisplay = info.commandLineDisplayString {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
                             } else {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)")
                             }
-                        default:
+                        case .taskComplete(let info):
+                            let startedInfo = try buildState.completed(task: info)
+                            if info.result != .success {
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                            }
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+                            break
+                        case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
+                            break // deprecated
+                        case .buildOutput, .targetOutput, .taskOutput:
+                            break // deprecated
+                        @unknown default:
                             break
                         }
                     }
@@ -383,8 +413,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         delegate: PlanningOperationDelegate()
                     )
 
+                    var buildState = BuildState()
                     for try await event in try await operation.start() {
-                        try emitEvent(event)
+                        try emitEvent(event, buildState: &buildState)
                     }
 
                     await operation.waitForCompletion()
