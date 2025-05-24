@@ -474,8 +474,6 @@ public final class PackagePIFBuilder {
             }
         }
 
-        try projectBuilder.makeTestRunner(package: package)
-
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
 
