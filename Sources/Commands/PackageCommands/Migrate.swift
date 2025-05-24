@@ -127,7 +127,7 @@ extension SwiftPackageCommand {
             for module in modules {
                 let fixit = try SwiftFixIt(
                     diagnosticFiles: module.diagnosticFiles,
-                    categories: Set(features.map(\.name)),
+                    categories: Set(features.flatMap(\.categories)),
                     fileSystem: swiftCommandState.fileSystem
                 )
                 try fixit.applyFixIts()
@@ -139,7 +139,7 @@ extension SwiftPackageCommand {
             print("> Updating manifest.")
             for module in modules.map(\.module) {
                 swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'.")
-                self.updateManifest(
+                try self.updateManifest(
                     for: module.name,
                     add: features,
                     using: swiftCommandState
@@ -159,12 +159,7 @@ extension SwiftPackageCommand {
 
             let addFeaturesToModule = { (module: ResolvedModule) in
                 for feature in features {
-                    module.underlying.buildSettings.add(.init(values: [
-                        "-Xfrontend",
-                        "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
-                        "-Xfrontend",
-                        "\(feature.name):migrate",
-                    ]), for: .OTHER_SWIFT_FLAGS)
+                    module.underlying.buildSettings.add(.init(values: feature.migrationFlags), for: .OTHER_SWIFT_FLAGS)
                 }
             }
 
@@ -198,16 +193,11 @@ extension SwiftPackageCommand {
             for target: String,
             add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
-        ) {
+        ) throws {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
-            let settings: [(SwiftSetting, String)] = features.map {
-                switch $0 {
-                case .upcoming(name: let name, migratable: _, enabledIn: _):
-                    (.upcomingFeature, "\(name)")
-                case .experimental(name: let name, migratable: _):
-                    (.experimentalFeature, "\(name)")
-                }
+            let settings: [(SwiftSetting, String)] = try features.map {
+                (try $0.swiftSetting, $0.name)
             }
 
             do {
@@ -218,10 +208,68 @@ extension SwiftPackageCommand {
                     verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(features.map(\.name).joined(separator: ", "))' features manually.")
+                swiftCommandState.observabilityScope.emit(error: "Could not update manifest for '\(target)' (\(error)). Please enable '\(try features.map { try $0.swiftSettingDescription }.joined(separator: ", "))' features manually.")
             }
         }
 
         public init() {}
+    }
+}
+
+fileprivate extension SwiftCompilerFeature {
+    /// Produce the set of command-line flags to pass to the compiler to enable migration for this feature.
+    var migrationFlags: [String] {
+        precondition(migratable)
+
+        switch self {
+        case .upcoming(name: let name, migratable: _, categories: _, enabledIn: _):
+            return ["-Xfrontend", "-enable-upcoming-feature", "-Xfrontend", "\(name):migrate"]
+        case .experimental(name: let name, migratable: _, categories: _):
+            return ["-Xfrontend", "-enable-experimental-feature", "-Xfrontend", "\(name):migrate"]
+        case .optional(name: _, migratable: _, categories: _, flagName: let flagName):
+            let flags = flagName.split(separator: " ")
+            var resultFlags: [String] = []
+            for (index, flag) in flags.enumerated() {
+                resultFlags.append("-Xfrontend")
+                if index == flags.endIndex - 1 {
+                    resultFlags.append(String(flag) + ":migrate")
+                } else {
+                    resultFlags.append(String(flag))
+                }
+            }
+
+            return resultFlags
+        }
+    }
+
+    /// Produce the Swift setting corresponding to this compiler feature.
+    var swiftSetting: SwiftPackageCommand.AddSetting.SwiftSetting {
+        get throws {
+            switch self {
+            case .upcoming:
+                return .upcomingFeature
+            case .experimental:
+                return .experimentalFeature
+            case .optional(name: "StrictMemorySafety", migratable: _, categories: _, flagName: _):
+                return .strictMemorySafety
+            case .optional(name: let name, migratable: _, categories: _, flagName: _):
+                throw InternalError("Unsupported optional feature: \(name)")
+            }
+        }
+    }
+
+    var swiftSettingDescription: String {
+        get throws {
+            switch self {
+            case .upcoming(name: let name, migratable: _, categories: _, enabledIn: _):
+                return #".enableUpcomingFeature("\#(name)")"#
+            case .experimental(name: let name, migratable: _, categories: _):
+                return #".enableExperimentalFeature("\#(name)")"#
+            case .optional(name: "StrictMemorySafety", migratable: _, categories: _, flagName: _):
+                return ".strictMemorySafety()"
+            case .optional(name: let name, migratable: _, categories: _, flagName: _):
+                throw InternalError("Unsupported optional feature: \(name)")
+            }
+        }
     }
 }
