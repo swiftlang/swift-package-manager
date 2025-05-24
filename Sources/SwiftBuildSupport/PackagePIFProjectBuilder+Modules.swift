@@ -924,11 +924,9 @@ extension PackagePIFProjectBuilder {
 
         let deploymentTargets = unitTestTargets.first?.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
-        print("test runner deployment targets are \(deploymentTargets!)")
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
-        if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] {
-            //settings
-             //   .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+        if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] ?? nil {
+            settings.platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
         }
         settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets?[.tvOS] ?? nil
         settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets?[.watchOS] ?? nil
