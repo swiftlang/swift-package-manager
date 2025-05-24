@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SPMBuildCore
 import _InternalTestSupport
 import Testing
 import struct Foundation.UUID
@@ -19,19 +20,19 @@ import struct Foundation.UUID
 @Suite
 struct TestDiscoveryTests {
 
-    @Test
-    func build() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func build(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath)
+            let (stdout, _) = try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
             // in "swift build" build output goes to stdout
             #expect(stdout.contains("Build complete!"))
         }
     }
 
-    @Test
-    func discovery() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func discovery(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -39,10 +40,10 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test
-    func nonStandardName() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func nonStandardName(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/hello world") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -50,10 +51,10 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test
-    func asyncMethods() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func asyncMethods(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Async") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -61,10 +62,10 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func discovery_whenNoTests() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func discovery_whenNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // we are expecting that no warning is produced
@@ -74,14 +75,14 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func entryPointOverride() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func entryPointOverride(_ buildSystem: BuildSystemProvider.Kind) async throws {
         for name in SwiftModule.testEntryPointNames {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let random = UUID().uuidString
                 let manifestPath = fixturePath.appending(components: "Tests", name)
                 try localFileSystem.writeFileContents(manifestPath, string: "print(\"\(random)\")")
-                let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+                let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
                 // in "swift test" build output goes to stderr
                 #expect(stderr.contains("Build complete!"))
                 // in "swift test" test output goes to stdout
@@ -91,12 +92,12 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func entryPointOverrideIgnored() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func entryPointOverrideIgnored(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             let manifestPath = fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName)
             try localFileSystem.writeFileContents(manifestPath, string: "fatalError(\"should not be called\")")
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"])
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, extraArgs: ["--enable-test-discovery"], buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -104,10 +105,10 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func testExtensions() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testExtensions(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Extensions") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -122,20 +123,20 @@ struct TestDiscoveryTests {
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func deprecatedTests() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func deprecatedTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Deprecation") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" test output goes to stdout
             #expect(stdout.contains("Executed 2 tests"))
             #expect(!stderr.contains("is deprecated"))
         }
     }
 
-    @Test(.skipHostOS(.macOS))
-    func testSubclassedTestClassTests() async throws {
+    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testSubclassedTestClassTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Subclass") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
