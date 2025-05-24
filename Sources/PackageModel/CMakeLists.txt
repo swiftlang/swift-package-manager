@@ -53,9 +53,11 @@ add_library(PackageModel
   SupportedLanguageExtension.swift
   SwiftLanguageVersion.swift
   SwiftSDKs/SwiftSDK.swift
+  SwiftSDKs/SwiftSDKAlias.swift
   SwiftSDKs/SwiftSDKConfigurationStore.swift
   SwiftSDKs/SwiftSDKBundle.swift
   SwiftSDKs/SwiftSDKBundleStore.swift
+  SwiftToolchainVersion.swift
   Toolchain.swift
   ToolchainConfiguration.swift
   Toolchain+SupportedFeatures.swift

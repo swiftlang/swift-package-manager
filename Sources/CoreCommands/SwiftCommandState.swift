@@ -945,6 +945,13 @@ public final class SwiftCommandState {
                 outputHandler: { print($0.description) }
             )
 
+            let swiftSDKSelector = if let swiftSDKAliasString = self.options.build.swiftSDKAlias {
+                try SwiftToolchainVersion(toolchain: hostToolchain, fileSystem: self.fileSystem)
+                    .idForSwiftSDK(aliasString: swiftSDKAliasString)
+            } else {
+                self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector
+            }
+
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
@@ -953,7 +960,7 @@ public final class SwiftCommandState {
                 customCompileTriple: self.options.build.customCompileTriple,
                 customCompileToolchain: self.options.build.customCompileToolchain,
                 customCompileSDK: self.options.build.customCompileSDK,
-                swiftSDKSelector: self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector,
+                swiftSDKSelector: swiftSDKSelector,
                 architectures: self.options.build.architectures,
                 store: store,
                 observabilityScope: self.observabilityScope,
