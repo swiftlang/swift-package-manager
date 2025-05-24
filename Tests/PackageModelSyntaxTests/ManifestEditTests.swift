@@ -789,7 +789,7 @@ class ManifestEditTests: XCTestCase {
                         dependencies: [
                         ],
                         swiftSettings: [
-                            .strictMemorySafety,
+                            .strictMemorySafety(),
                         ]
                     ),
                 ]
