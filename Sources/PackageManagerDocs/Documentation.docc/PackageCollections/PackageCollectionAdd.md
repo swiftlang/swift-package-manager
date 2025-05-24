@@ -6,6 +6,31 @@
 
 Add a new collection.
 
+## Overview
+
+This subcommand adds a package collection hosted on the web (HTTPS required):
+
+```bash
+$ swift package-collection add https://www.example.com/packages.json
+Added "Sample Package Collection" to your package collections.
+```
+
+Or found in the local file system:
+
+```bash
+$ swift package-collection add file:///absolute/path/to/packages.json
+Added "Sample Package Collection" to your package collections.
+```
+
+The optional `order` hint can be used to order collections and may potentially influence ranking in search results:
+
+```bash
+$ swift package-collection add https://www.example.com/packages.json [--order N]
+Added "Sample Package Collection" to your package collections.
+```
+
+## Usage
+
 ```
 package-collection add <collection-url> [--order=<order>] [--trust-unsigned] [--skip-signature-check] [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [--version] [--help]
 ```
