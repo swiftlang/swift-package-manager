@@ -418,16 +418,42 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
-        // Generate the run destination parameters.
-        let runDestination = SwiftBuild.SWBRunDestinationInfo(
-            platform: self.buildParameters.triple.osNameUnversioned,
-            sdk: self.buildParameters.triple.osNameUnversioned,
-            sdkVariant: nil,
+    func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
+        let platformName: String
+        let sdkName: String
+        if self.buildParameters.triple.isAndroid() {
+            // Android triples are identified by the environment part of the triple
+            platformName = "android"
+            sdkName = platformName
+        } else if self.buildParameters.triple.isWasm {
+            // Swift Build uses webassembly instead of wasi as the platform name
+            platformName = "webassembly"
+            sdkName = platformName
+        } else {
+            platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
+            sdkName = platformName
+        }
+
+        let sdkVariant: String?
+        if self.buildParameters.triple.environment == .macabi {
+            sdkVariant = "iosmac"
+        } else {
+            sdkVariant = nil
+        }
+
+        return SwiftBuild.SWBRunDestinationInfo(
+            platform: platformName,
+            sdk: sdkName,
+            sdkVariant: sdkVariant,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: false
         )
+    }
+
+    func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
+        // Generate the run destination parameters.
+        let runDestination = makeRunDestination()
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
@@ -443,6 +469,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+
+        let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
+        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
+            let value = normalizedTriple.deploymentTargetVersion
+
+            // Only override the deployment target if a version is explicitly specified;
+            // for Apple platforms this normally comes from the package manifest and may
+            // not be set to the same value for all packages in the package graph.
+            if value != .zero {
+                settings[deploymentTargetSettingName] = value.description
+            }
+        }
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
@@ -560,5 +598,43 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
         case .unknown:
             return nil
         }
+    }
+}
+
+fileprivate extension Triple {
+    var deploymentTargetSettingName: String? {
+        switch (self.os, self.environment) {
+        case (.macosx, _):
+            return "MACOSX_DEPLOYMENT_TARGET"
+        case (.ios, _):
+            return "IPHONEOS_DEPLOYMENT_TARGET"
+        case (.tvos, _):
+            return "TVOS_DEPLOYMENT_TARGET"
+        case (.watchos, _):
+            return "WATCHOS_DEPLOYMENT_TARGET"
+        case (_, .android):
+            return "ANDROID_DEPLOYMENT_TARGET"
+        default:
+            return nil
+        }
+    }
+
+    var deploymentTargetVersion: Version {
+        if isAndroid() {
+            // Android triples store the version in the environment
+            var environmentName = self.environmentName[...]
+            if environment != nil {
+                let prefixes = ["androideabi", "android"]
+                for prefix in prefixes {
+                    if environmentName.hasPrefix(prefix) {
+                        environmentName = environmentName.dropFirst(prefix.count)
+                        break
+                    }
+                }
+            }
+
+            return Version(parse: environmentName)
+        }
+        return osVersion
     }
 }
