@@ -633,13 +633,13 @@ fileprivate func buildAggregateProject(
                         continue
                     }
                 }
-                
+
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
                     on: target.id,
                     platformFilters: [],
                     linkProduct: false
                 )
-                if target.productType != .unitTest {
+                if ![.unitTest, .swiftpmTestRunner].contains(target.productType) {
                     aggregateProject[keyPath: allExcludingTestsTargetKeyPath].common.addDependency(
                         on: target.id,
                         platformFilters: [],

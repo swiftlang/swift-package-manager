@@ -314,11 +314,26 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            let base = "\(product.name).xctest"
-            if self.triple.isDarwin() {
-                return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-            } else {
-                return try RelativePath(validating: base)
+            switch buildSystemKind {
+            case .native, .xcode:
+                let base = "\(product.name).xctest"
+                if self.triple.isDarwin() {
+                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+                } else {
+                    return try RelativePath(validating: base)
+                }
+            case .swiftbuild:
+                if self.triple.isDarwin() {
+                    let base = "\(product.name).xctest"
+                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+                } else {
+                    var base = "\(product.name)-test-runner"
+                    let ext = self.triple.executableExtension
+                    if !ext.isEmpty {
+                        base += ext
+                    }
+                    return try RelativePath(validating: base)
+                }
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS

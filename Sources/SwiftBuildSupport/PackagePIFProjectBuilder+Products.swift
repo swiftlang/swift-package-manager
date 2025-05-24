@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCBasic
 import TSCUtility
 
 import struct Basics.AbsolutePath
@@ -121,13 +122,15 @@ extension PackagePIFProjectBuilder {
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             settings[.LD_RUNPATH_SEARCH_PATHS] = [
-                "@loader_path/Frameworks",
-                "@loader_path/../Frameworks",
+                "$(RPATH_ORIGIN)/Frameworks",
+                "$(RPATH_ORIGIN)/../Frameworks",
                 "$(inherited)"
             ]
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
+            // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
+            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -502,9 +505,13 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
+
+        if moduleOrProductType == .unitTest {
+            try makeTestRunnerProduct(for: moduleOrProduct)
+        }
     }
 
     private mutating func handleProduct(
@@ -994,6 +1001,102 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets
         )
         self.builtModulesAndProducts.append(pluginProductMetadata)
+    }
+
+    // MARK: - Test Runners
+    mutating func makeTestRunnerProduct(for unitTestProduct: PackagePIFBuilder.ModuleOrProduct) throws {
+        // Only generate a test runner for root packages with tests.
+        guard pifBuilder.delegate.isRootPackage else {
+            return
+        }
+
+        guard let unitTestModuleName = unitTestProduct.moduleName else {
+            throw StringError("Unit test product '\(unitTestProduct.name)' is missing a module name")
+        }
+
+        let name = "\(unitTestProduct.name)-test-runner"
+        let moduleName = "\(unitTestModuleName)_test_runner"
+        let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
+
+        let testRunnerTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target (
+                id: guid,
+                productType: .swiftpmTestRunner,
+                name: name,
+                productName: name
+            )
+        }
+
+        var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let impartedSettings = BuildSettings()
+
+        settings[.TARGET_NAME] = name
+        settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.PRODUCT_MODULE_NAME] = moduleName
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
+            .spm_mangledToBundleIdentifier()
+        settings[.EXECUTABLE_NAME] = name
+        settings[.SKIP_INSTALL] = "NO"
+        settings[.SWIFT_VERSION] = "5.0"
+        // This should eventually be set universally for all package targets/products.
+        settings[.LINKER_DRIVER] = "swiftc"
+
+        let deploymentTargets = unitTestProduct.deploymentTargets
+        settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
+        if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] ?? nil {
+            settings.platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+        }
+        settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets?[.tvOS] ?? nil
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets?[.watchOS] ?? nil
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = deploymentTargets?[.driverKit] ?? nil
+        settings[.XROS_DEPLOYMENT_TARGET] = deploymentTargets?[.visionOS] ?? nil
+
+        // Add an empty sources phase so derived sources are compiled
+        self.project[keyPath: testRunnerTargetKeyPath].common.addSourcesBuildPhase { id in
+            ProjectModel.SourcesBuildPhase(id: id)
+        }
+
+        guard let unitTestGUID = unitTestProduct.pifTarget?.id else {
+            throw StringError("Unit test product '\(unitTestProduct.name)' is missing a PIF GUID")
+        }
+        self.project[keyPath: testRunnerTargetKeyPath].common.addDependency(
+            on: unitTestGUID,
+            platformFilters: [],
+            linkProduct: true
+        )
+
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        let testRunner = PackagePIFBuilder.ModuleOrProduct(
+            type: .unitTestRunner,
+            name: name,
+            moduleName: moduleName,
+            pifTarget: .target(self.project[keyPath: testRunnerTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets
+        )
+        self.builtModulesAndProducts.append(testRunner)
     }
 }
 
