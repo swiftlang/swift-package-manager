@@ -21,15 +21,19 @@ import struct TSCBasic.StringError
 import struct TSCUtility.SerializedDiagnostics
 
 #if os(macOS)
-private func macOSBundleRoot() throws -> AbsolutePath {
+package func macOSBundleRoot() throws -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
     }
-    fatalError()
+    if let testBundlePath = nextItem(in: ProcessInfo.processInfo.arguments, after: "--test-bundle-path") {
+        let binDir = AbsolutePath(testBundlePath).parentDirectory.parentDirectory.parentDirectory.parentDirectory
+        return binDir
+    }
+    fatalError("Unable to find macOS bundle root")
 }
 #endif
 
-private func resolveBinDir() throws -> AbsolutePath {
+package func resolveBinDir() throws -> AbsolutePath {
 #if os(macOS)
     return try macOSBundleRoot()
 #else
