@@ -1346,7 +1346,7 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try self.removeRepository(dependency: dependencyToRemove)
+            try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }
