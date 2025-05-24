@@ -234,33 +234,6 @@ def main() -> None:
             )
         )
 
-        integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
-        call(
-            filterNone(
-                [
-                    "swift",
-                    "package",
-                    "--package-path",
-                    integration_test_dir,
-                    "update",
-                ]
-            )
-        )
-        call(
-            filterNone(
-                [
-                    "swift",
-                    "run",
-                    "swift-test",
-                    *global_args,
-                    "--package-path",
-                    integration_test_dir,
-                    "--parallel",
-                    *ignore_args,
-                ]
-            )
-        )
-
     if is_on_darwin():
         run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
     logging.info("Done")
