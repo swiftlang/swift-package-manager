@@ -889,4 +889,89 @@ extension PackagePIFProjectBuilder {
         )
         self.builtModulesAndProducts.append(systemModule)
     }
+
+    // MARK: - Test Runners
+    mutating func makeTestRunner(package: ResolvedPackage) throws {
+        // Only generate a test runner for root packages with tests.
+        guard pifBuilder.delegate.isRootPackage else {
+            return
+        }
+        let unitTestTargets: [PackagePIFBuilder.ModuleOrProduct] = self.builtModulesAndProducts.compactMap {
+            guard $0.type == .unitTest else {
+                return nil
+            }
+            return $0
+        }
+        guard !unitTestTargets.isEmpty else {
+            return
+        }
+
+        let name = "\(package.name)-test-runner"
+        let moduleName = "\(package.name.spm_mangledToC99ExtendedIdentifier())_test_runner"
+        let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
+
+        let testRunnerTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target (
+                id: guid,
+                productType: .swiftpmTestRunner,
+                name: name,
+                productName: name
+            )
+        }
+
+        var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let impartedSettings = BuildSettings()
+
+        let deploymentTargets = unitTestTargets.first?.deploymentTargets
+        settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
+        print("test runner deployment targets are \(deploymentTargets!)")
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
+        if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] {
+            //settings
+             //   .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+        }
+        settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets?[.tvOS] ?? nil
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets?[.watchOS] ?? nil
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = deploymentTargets?[.driverKit] ?? nil
+        settings[.XROS_DEPLOYMENT_TARGET] = deploymentTargets?[.visionOS] ?? nil
+
+        for unitTestPIFTarget in unitTestTargets.compactMap(\.pifTarget) {
+            self.project[keyPath: testRunnerTargetKeyPath].common.addDependency(
+                on: unitTestPIFTarget.id,
+                platformFilters: [],
+                linkProduct: true
+            )
+        }
+
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        let testRunner = PackagePIFBuilder.ModuleOrProduct(
+            type: .unitTestRunner,
+            name: name,
+            moduleName: moduleName,
+            pifTarget: .target(self.project[keyPath: testRunnerTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets
+        )
+        self.builtModulesAndProducts.append(testRunner)
+    }
 }

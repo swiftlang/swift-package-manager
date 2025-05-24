@@ -128,6 +128,8 @@ extension PackagePIFProjectBuilder {
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
+            // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
+            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -502,7 +504,7 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
     }

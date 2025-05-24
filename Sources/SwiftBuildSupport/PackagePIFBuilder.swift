@@ -340,6 +340,7 @@ public final class PackagePIFBuilder {
         case framework
         case executable
         case unitTest
+        case unitTestRunner
         case bundle
         case resourceBundle
         case packageProduct
@@ -472,6 +473,8 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makeMacroModule(module)
             }
         }
+
+        try projectBuilder.makeTestRunner(package: package)
 
         let customModulesAndProducts = try delegate.addCustomTargets(pifProject: &projectBuilder.project)
         projectBuilder.builtModulesAndProducts.append(contentsOf: customModulesAndProducts)
