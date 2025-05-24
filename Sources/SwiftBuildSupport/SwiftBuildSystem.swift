@@ -59,13 +59,21 @@ func withService(
 func withSession(
     service: SWBBuildService,
     name: String,
+    toolchainPath: Basics.AbsolutePath,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    } else {
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    }
+
+    switch sessionResult {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -260,7 +268,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             )
 
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
