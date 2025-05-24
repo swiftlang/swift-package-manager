@@ -88,6 +88,15 @@ extension Toolchain {
         }
     }
 
+    public var toolchainDir: AbsolutePath {
+        get throws {
+            try resolveSymlinks(swiftCompilerPath)
+                .parentDirectory // bin
+                .parentDirectory // usr
+                .parentDirectory // <toolchain>
+        }
+    }
+
     public var toolchainLibDir: AbsolutePath {
         get throws {
             // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
