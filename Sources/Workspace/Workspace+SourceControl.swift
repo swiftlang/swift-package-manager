@@ -172,14 +172,11 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        // FIXME: this should not block
         let handle = try await self.repositoryManager.lookup(
             package: package.identity,
             repository: repository,
             updateStrategy: .never,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
 
         // Clone the repository into the checkouts.

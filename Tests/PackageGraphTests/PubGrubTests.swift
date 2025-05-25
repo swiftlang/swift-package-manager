@@ -3275,14 +3275,12 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Error>
-    ) -> Void) {
-        queue.async {
-            completion(self.containersByIdentifier[package].map{ .success($0) } ??
-                .failure(_MockLoadingError.unknownModule))
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer {
+        guard let container = self.containersByIdentifier[package] else {
+            throw _MockLoadingError.unknownModule
         }
+        return container
     }
 }
 

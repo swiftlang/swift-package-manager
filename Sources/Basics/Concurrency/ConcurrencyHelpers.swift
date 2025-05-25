@@ -76,3 +76,33 @@ extension DispatchQueue {
         }
     }
 }
+
+package actor ConcurrencyLimiter {
+    private let maxConcurrentTasks: Int
+    private var currentTasks = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    public init(limit: Int) {
+        self.maxConcurrentTasks = limit
+    }
+
+    public func acquire() async {
+        if currentTasks < maxConcurrentTasks {
+            currentTasks += 1
+            return
+        }
+
+        await withCheckedContinuation { cont in
+            waiters.append(cont)
+        }
+    }
+
+    public func release() {
+        if let cont = waiters.first {
+            waiters.removeFirst()
+            cont.resume()
+        } else {
+            currentTasks -= 1
+        }
+    }
+}

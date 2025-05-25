@@ -395,7 +395,6 @@ extension Workspace {
         at version: Version,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
-        // FIXME: this should not block
         let downloadPath = try await self.registryDownloadsManager.lookup(
             package: package.identity,
             version: version,

@@ -3886,8 +3886,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileSchemeToolsVersion() async throws {
-        let fs = InMemoryFileSystem()
-
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),
             (ToolsVersion.v5_6, ToolsVersion.v5_6),
