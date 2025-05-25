@@ -1036,13 +1036,10 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
             .spm_mangledToBundleIdentifier()
         settings[.EXECUTABLE_NAME] = name
-        settings[.LD_RUNPATH_SEARCH_PATHS] = [
-            "@loader_path/Frameworks",
-            "@loader_path/../Frameworks",
-            "$(inherited)"
-        ]
         settings[.SKIP_INSTALL] = "NO"
         settings[.SWIFT_VERSION] = "5.0"
+        // This should eventually be set universally for all package targets/products.
+        settings[.LINKER_DRIVER] = "swiftc"
 
         let deploymentTargets = unitTestProduct.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
