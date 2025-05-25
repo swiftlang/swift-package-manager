@@ -77,32 +77,54 @@ extension DispatchQueue {
     }
 }
 
-package actor ConcurrencyLimiter {
-    private let maxConcurrentTasks: Int
-    private var currentTasks = 0
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+// This implementation is based on the one in swift-build:
+// https://github.com/swiftlang/swift-build/blob/054f2300ad83fd1633f1b50a06b82eea9e7c6901/Sources/SWBUtil/AsyncOperationQueue.swift#L13
+public actor AsyncOperationQueue {
+    private let concurrentTasks: Int
+    private var activeTasks: Int = 0
+    private var waitingTasks: [CheckedContinuation<Void, Never>] = []
 
-    public init(limit: Int) {
-        self.maxConcurrentTasks = limit
+    public init(concurrentTasks: Int) {
+        self.concurrentTasks = concurrentTasks
     }
 
-    public func acquire() async {
-        if currentTasks < maxConcurrentTasks {
-            currentTasks += 1
-            return
-        }
-
-        await withCheckedContinuation { cont in
-            waiters.append(cont)
+    deinit {
+        if !waitingTasks.isEmpty {
+            preconditionFailure("Deallocated with waiting tasks")
         }
     }
 
-    public func release() {
-        if let cont = waiters.first {
-            waiters.removeFirst()
-            cont.resume()
-        } else {
-            currentTasks -= 1
+    public func withOperation<ReturnValue>(
+        _ operation: @Sendable () async -> sending ReturnValue
+    ) async -> ReturnValue {
+        await waitIfNeeded()
+        defer { signalCompletion() }
+        return await operation()
+    }
+
+    public func withOperation<ReturnValue>(
+        _ operation: @Sendable () async throws -> sending ReturnValue
+    ) async throws -> ReturnValue {
+        await waitIfNeeded()
+        defer { signalCompletion() }
+        return try await operation()
+    }
+
+    private func waitIfNeeded() async {
+        if activeTasks >= concurrentTasks {
+            await withCheckedContinuation { continuation in
+                waitingTasks.append(continuation)
+            }
+        }
+
+        activeTasks += 1
+    }
+
+    private func signalCompletion() {
+        activeTasks -= 1
+
+        if let continuation = waitingTasks.popLast() {
+            continuation.resume()
         }
     }
 }

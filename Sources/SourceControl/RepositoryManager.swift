@@ -44,7 +44,7 @@ public class RepositoryManager: Cancellable {
     private var pendingLookupsLock = NSLock()
 
     // Limits how many concurrent operations can be performed at once.
-    private let concurrencyLimiter: ConcurrencyLimiter
+    private let asyncOperationQueue: AsyncOperationQueue
 
     private var emitNoConnectivityWarning = ThreadSafeBox<Bool>(true)
 
@@ -81,7 +81,7 @@ public class RepositoryManager: Cancellable {
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
         let maxConcurrentOperations = max(1, maxConcurrentOperations ?? (3 * Concurrency.maxOperations / 4))
-        self.concurrencyLimiter = ConcurrencyLimiter(limit: maxConcurrentOperations)
+        self.asyncOperationQueue = AsyncOperationQueue(concurrentTasks: maxConcurrentOperations)
     }
 
     /// Get a handle to a repository.
@@ -126,67 +126,65 @@ public class RepositoryManager: Cancellable {
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
-        await self.concurrencyLimiter.acquire()
+        return try await self.asyncOperationQueue.withOperation {
+            let task = await withCheckedContinuation { continuation in
+                self.pendingLookupsLock.lock()
+                defer { self.pendingLookupsLock.unlock() }
 
-        let task = await withCheckedContinuation { continuation in
-            self.pendingLookupsLock.lock()
-            defer { self.pendingLookupsLock.unlock() }
+                let lookupTask: Task<RepositoryManager.RepositoryHandle, any Error>
+                if let inFlight = self.pendingLookups[repositorySpecifier] {
+                    lookupTask = Task {
+                        // Let the existing in-flight task finish before queuing up the new one
+                        let _ = try await inFlight.value
 
-            let lookupTask: Task<RepositoryManager.RepositoryHandle, any Error>
-            if let inFlight = self.pendingLookups[repositorySpecifier] {
-                lookupTask = Task {
-                    // Let the existing in-flight task finish before queuing up the new one
-                    let _ = try await inFlight.value
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
 
-                    if Task.isCancelled {
-                        throw CancellationError()
+                        let result = try await self.performLookup(
+                            package: package,
+                            repository: repositorySpecifier,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
+
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        return result
                     }
+                } else {
+                    lookupTask = Task {
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
 
-                    let result = try await self.performLookup(
-                        package: package,
-                        repository: repositorySpecifier,
-                        updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope
-                    )
+                        let result = try await self.performLookup(
+                            package: package,
+                            repository: repositorySpecifier,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
 
-                    if Task.isCancelled {
-                        throw CancellationError()
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        return result
                     }
-
-                    return result
                 }
-            } else {
-                lookupTask = Task {
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
 
-                    let result = try await self.performLookup(
-                        package: package,
-                        repository: repositorySpecifier,
-                        updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope
-                    )
-
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
-
-                    return result
-                }
+                self.pendingLookups[repositorySpecifier] = lookupTask
+                continuation.resume(returning: lookupTask)
             }
 
-            self.pendingLookups[repositorySpecifier] = lookupTask
-            continuation.resume(returning: lookupTask)
-        }
-
-        do {
-            let result = try await task.value
-            await self.concurrencyLimiter.release()
-            return result
-        } catch {
-            await self.concurrencyLimiter.release()
-            throw error
+            do {
+                let result = try await task.value
+                return result
+            } catch {
+                throw error
+            }
         }
     }
 
