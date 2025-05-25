@@ -327,7 +327,11 @@ public struct BuildParameters: Encodable {
                     let base = "\(product.name).xctest"
                     return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
                 } else {
-                    let base = "\(product.name)-test-runner"
+                    var base = "\(product.name)-test-runner"
+                    let ext = self.triple.executableExtension
+                    if !ext.isEmpty {
+                        base += ".\(ext)"
+                    }
                     return try RelativePath(validating: base)
                 }
             }
