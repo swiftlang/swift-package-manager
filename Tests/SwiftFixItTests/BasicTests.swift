@@ -19,6 +19,7 @@ struct BasicTests {
         try testAPI1File { _ in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 1"),
+                summary: .init(numberOfFixItsApplied: 0, numberOfFilesChanged: 0),
                 diagnostics: []
             )
         }
@@ -29,6 +30,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -52,6 +54,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -81,6 +84,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 22"),
+                summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -142,6 +146,7 @@ struct BasicTests {
                     w = fooo(1, 233)
                     """
                 ),
+                summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
                     // Different lines.
                     PrimaryDiagnostic(
@@ -205,6 +210,7 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -235,6 +241,11 @@ struct BasicTests {
         try testAPI1File { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
+                summary: .init(
+                    // 2 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 2 /**/,
+                    numberOfFilesChanged: 1
+                ),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -272,9 +283,10 @@ struct BasicTests {
         try testAPI2Files { (filename1: String, filename2: String) in
             .init(
                 edits: (
-                    .init(input: "var x = 1", result: "let x = 1"),
-                    .init(input: "var x = 1", result: "let x = 1")
+                    .init(input: "var x = 1", result: "let _ = 1"),
+                    .init(input: "var x = 1", result: "let _ = 1")
                 ),
+                summary: .init(numberOfFixItsApplied: 4, numberOfFilesChanged: 2),
                 diagnostics: [
                     // filename1
                     PrimaryDiagnostic(
@@ -292,12 +304,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename1, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename1, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename1, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
@@ -305,12 +317,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .warning,
                         text: "warning2",
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        location: .init(filename: filename2, line: 1, column: 5, offset: 0),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename2, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename2, line: 1, column: 4, offset: 0),
-                                text: "let"
+                                start: .init(filename: filename2, line: 1, column: 5, offset: 0),
+                                end: .init(filename: filename2, line: 1, column: 6, offset: 0),
+                                text: "_"
                             ),
                         ]
                     ),
@@ -339,6 +351,7 @@ struct BasicTests {
                     .init(input: "var x = 1", result: "let x = 1"),
                     .init(input: "var x = 1", result: "var x = 1")
                 ),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -372,6 +385,7 @@ struct BasicTests {
                         .init(input: "var x = 1", result: "let x = 1"),
                         .init(input: "", result: "")
                     ),
+                    summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                     diagnostics: [
                         PrimaryDiagnostic(
                             level: .error,

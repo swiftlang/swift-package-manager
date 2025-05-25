@@ -2112,7 +2112,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             "skipping because test environment compiler doesn't support `-print-supported-features`"
         )
 
-        func doMigration(featureName: String) async throws {
+      func doMigration(featureName: String, expectedSummary: String) async throws {
             try await fixture(name: "SwiftMigrate/\(featureName)Migration") { fixturePath in
                 let sourcePaths: [AbsolutePath]
                 let fixedSourcePaths: [AbsolutePath]
@@ -2133,7 +2133,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     }
                 }
 
-                _ = try await self.execute(
+                let (stdout, _) = try await self.execute(
                     ["migrate", "--to-feature", featureName],
                     packagePath: fixturePath
                 )
@@ -2146,12 +2146,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                         localFileSystem.readFileContents(fixedSourcePath)
                     )
                 }
+
+                XCTAssertMatch(stdout, .regex("> \(expectedSummary)" + #" \([0-9]\.[0-9]{1,3}s\)"#))
             }
         }
 
-        try await doMigration(featureName: "ExistentialAny")
-        try await doMigration(featureName: "StrictMemorySafety")
-        try await doMigration(featureName: "InferIsolatedConformances")
+        try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 3 fix-its in 1 file")
+        try await doMigration(featureName: "StrictMemorySafety", expectedSummary: "Applied 1 fix-it in 1 file")
+        try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 1 fix-it in 1 file")
     }
 
     func testBuildToolPlugin() async throws {
