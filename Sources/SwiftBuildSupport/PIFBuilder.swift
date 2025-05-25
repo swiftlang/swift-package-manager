@@ -362,20 +362,20 @@ fileprivate func buildAggregateProject(
                     // conflicts with those from "PACKAGE-TARGET:Foo-dynamic".
                     continue
                 }
-
+/*
                 if let resolvedModule = modulesGraph.module(for: target.name) {
                     guard modulesGraph.isInRootPackages(resolvedModule, satisfying: buildParameters.buildEnvironment) else {
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }
                 }
-                
+                */
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
                     on: target.id,
                     platformFilters: [],
                     linkProduct: false
                 )
-                if target.productType != .unitTest {
+                if ![.unitTest, .swiftpmTestRunner].contains(target.productType) {
                     aggregateProject[keyPath: allExcludingTestsTargetKeyPath].common.addDependency(
                         on: target.id,
                         platformFilters: [],

@@ -340,6 +340,7 @@ public final class PackagePIFBuilder {
         case framework
         case executable
         case unitTest
+        case unitTestRunner
         case bundle
         case resourceBundle
         case packageProduct
@@ -363,6 +364,7 @@ public final class PackagePIFBuilder {
             case .framework: .framework
             case .executable: .executable
             case .unitTest: .unitTest
+            case .swiftpmTestRunner: .unitTestRunner
             case .bundle: .bundle
             case .packageProduct: .packageProduct
             case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
@@ -498,7 +500,15 @@ public final class PackagePIFBuilder {
         settings[.WATCHOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.watchOS] ?? nil
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
         settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
-        settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
+
+        for machoPlatform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
+            settings.platformSpecificSettings[machoPlatform]![.DYLIB_INSTALL_NAME_BASE]! = ["@rpath"]
+        }
+        for elfPlatform in [ProjectModel.BuildSettings.Platform.linux, .android] {
+            // FIXME: Treating $ORIGIN as part of the soname is not really the right thing to do here
+            settings.platformSpecificSettings[elfPlatform]![.DYLIB_INSTALL_NAME_BASE]! = ["$ORIGIN"]
+        }
+
         settings[.USE_HEADERMAP] = "NO"
         settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("-DXcode") }
 
