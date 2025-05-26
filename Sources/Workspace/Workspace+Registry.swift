@@ -398,8 +398,7 @@ extension Workspace {
         let downloadPath = try await self.registryDownloadsManager.lookup(
             package: package.identity,
             version: version,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
 
         // Record the new state.
