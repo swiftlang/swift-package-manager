@@ -21,7 +21,7 @@ engineering teams, focusing them on a trusted set of vetted packages.
 
 With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. 
 Contents of imported package 
-collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- TODO: to link to libSwiftPM article when available. -->
+collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- TODO bp: to link to libSwiftPM article when available. -->f 
 
 `swift package-collection` has the following subcommands:
 - [`add`](<doc:PackageCollectionAdd>): Add a new collection
@@ -64,7 +64,7 @@ To begin, define the top-level metadata about the collection:
 Each item in the `packages` array is a package object with the following properties:
 
 * `url`: The URL of the package. Currently only Git repository URLs are supported. URL should be HTTPS and may contain `.git` suffix.
-* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) <!-- TODO: to replace this link once PackageRegsitry/ is ported. --> of the package if published to registry. **Optional.**
+* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) <!-- TODO bp: to replace this link once PackageRegsitry/ is ported. --> of the package if published to registry. **Optional.**
 * `summary`: A description of the package. **Optional.**
 * `keywords`: An array of keywords that the package is associated with. **Optional.**
 * `readmeURL`: The URL of the package's README. **Optional.**
@@ -140,7 +140,7 @@ A version object has metadata extracted from `Package.swift` and optionally addi
     * `name`: License name. [SPDX identifier](https://spdx.org/licenses/) (e.g., `Apache-2.0`, `MIT`, etc.) preferred. Omit if unknown. **Optional.**
 * `author`: The package version's author. **Optional.**
     * `name`: The author of the package version.
-* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) <!-- TODO: to replace this link once PackageRegistry/ is ported. --> on package signing for details.
+* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) <!-- TODO bp: to replace this link once PackageRegistry/ is ported. --> on package signing for details.
     * `type`: The signer type. Currently the only valid value is `ADP` (Apple Developer Program).
     * `commonName`: The common name of the signing certificate's subject.
     * `organizationalUnitName`: The organizational unit name of the signing certificate's subject.
@@ -149,7 +149,7 @@ A version object has metadata extracted from `Package.swift` and optionally addi
 
 ### Version-specific manifests
 
-Package collection generators should include data from the "default" manifest `Package.swift` as well as [version-specific manifest(s)](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-manifest-selection) <!-- TODO: to replace this link once Usage.md is ported. -->.
+Package collection generators should include data from the "default" manifest `Package.swift` as well as [version-specific manifest(s)](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-manifest-selection) <!-- TODO bp: to replace this link once Usage.md is ported. -->.
 
 The keys of the `manifests` map are Swift tools (semantic) versions:
 * For `Package.swift`, the tools version specified in `Package.swift` should be used.
@@ -157,7 +157,7 @@ The keys of the `manifests` map are Swift tools (semantic) versions:
 
 ### Version-specific tags
 
- [Version-specific tags](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-tag-selection) <!-- TODO: to replace this link once Usage.md is ported. --> are not
+ [Version-specific tags](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-tag-selection) <!-- TODO bp: to replace this link once Usage.md is ported. --> are not
  supported by package collections.
 
 ### Configuration File
