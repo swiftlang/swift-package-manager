@@ -19,6 +19,7 @@ import class Foundation.NSArray
 import class Foundation.NSDictionary
 import PackageGraph
 import PackageModel
+import PackageLoading
 
 @_spi(SwiftPMInternal)
 import SPMBuildCore
@@ -153,6 +154,27 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
+public struct PluginConfiguration {
+    /// Entity responsible for compiling and running plugin scripts.
+    let scriptRunner: PluginScriptRunner
+
+    /// Directory where plugin intermediate files are stored.
+    let workDirectory: Basics.AbsolutePath
+
+    /// Whether to sandbox commands from build tool plugins.
+    let disableSandbox: Bool
+
+    public init(
+        scriptRunner: PluginScriptRunner,
+        workDirectory: Basics.AbsolutePath,
+        disableSandbox: Bool
+    ) {
+        self.scriptRunner = scriptRunner
+        self.workDirectory = workDirectory
+        self.disableSandbox = disableSandbox
+    }
+}
+
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -168,6 +190,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
+
+    private let pluginConfiguration: PluginConfiguration
+
+    private let additionalFileRules: [FileRuleDescription]
+    private let pkgConfigDirectories: [Basics.AbsolutePath]
 
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
@@ -208,18 +235,24 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         packageManagerResourcesDirectory: Basics.AbsolutePath?,
+        additionalFileRules: [FileRuleDescription],
+        pkgConfigDirectories: [Basics.AbsolutePath],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        pluginConfiguration: PluginConfiguration
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
         self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
+        self.additionalFileRules = additionalFileRules
+        self.pkgConfigDirectories = pkgConfigDirectories
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
+        self.pluginConfiguration = pluginConfiguration
     }
 
     private func supportedSwiftVersions() throws -> [SwiftLanguageVersion] {
@@ -233,16 +266,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let pifBuilder = try await getPIFBuilder()
-        let pif = try pifBuilder.generatePIF(
+        let pif = try await pifBuilder.generatePIF(
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters
+            buildParameters: buildParameters,
         )
 
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
-
-       
     }
 
     private func startSWBuildOperation(pifTargetName: String) async throws {
@@ -498,7 +529,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 graph: graph,
                 parameters: .init(buildParameters, supportedSwiftVersions: supportedSwiftVersions()),
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
+                pluginScriptRunner: self.pluginConfiguration.scriptRunner,
+                pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
+                pkgConfigDirectories: pkgConfigDirectories,
+                additionalFileRules: additionalFileRules
             )
             return pifBuilder
         }
