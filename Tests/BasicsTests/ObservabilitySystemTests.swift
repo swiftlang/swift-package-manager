@@ -75,7 +75,7 @@ struct ObservabilitySystemTest {
             #expect(diagnostic2_metadata.testKey3 == mergedMetadata2.testKey3)
 
             let diagnostic2_5 = try #require(result.check(diagnostic: "error 2.5", severity: .error))
-            let diagnostic2_5_metadata = try #require(diagnostic2.metadata)
+            let diagnostic2_5_metadata = try #require(diagnostic2_5.metadata)
             #expect(diagnostic2_5_metadata.testKey1 == mergedMetadata2.testKey1)
             #expect(diagnostic2_5_metadata.testKey2 == mergedMetadata2.testKey2)
             #expect(diagnostic2_5_metadata.testKey3 == mergedMetadata2.testKey3)
