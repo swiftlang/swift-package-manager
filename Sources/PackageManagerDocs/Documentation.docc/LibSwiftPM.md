@@ -1,4 +1,4 @@
-# Swift Package Manager as a Library
+# Swift Package Manager as a library
 
 Learn about libSwiftPM.
 
