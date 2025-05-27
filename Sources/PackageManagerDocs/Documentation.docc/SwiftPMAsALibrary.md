@@ -1,6 +1,6 @@
-# Swift Package Manager as a library
+# SwiftPM as a library
 
-Learn about libSwiftPM.
+Include Swift Package Manager as a dependency in your Swift package.
 
 ## Overview
 
