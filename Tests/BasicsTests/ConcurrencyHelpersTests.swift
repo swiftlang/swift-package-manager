@@ -169,8 +169,11 @@ struct ConcurrencyHelpersTest {
             let totalTasks = 20
             let tracker = ResultsTracker()
 
-            await #expect(throws: CancellationError.self) {
+            await #expect(throws: _Concurrency.CancellationError.self) {
                 try await withThrowingTaskGroup(of: Void.self) { group in
+                    // Cancel the task group immediately
+                    group.cancelAll()
+
                     for index in 0..<totalTasks {
                         group.addTask {
                             try await queue.withOperation {
@@ -178,14 +181,12 @@ struct ConcurrencyHelpersTest {
                                 // sleep for a long time to ensure cancellation can occur.
                                 // If this is too short the cancellation may be triggered after
                                 // all tasks have completed.
-                                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                                try await Task.sleep(nanoseconds: 10_000_000_000)
                                 await tracker.decrementConcurrent()
                                 await tracker.appendResult(index)
                             }
                         }
                     }
-                    // Cancel the task group before it finishes
-                    group.cancelAll()
                     try await group.waitForAll()
                 }
             }
@@ -203,7 +204,7 @@ struct ConcurrencyHelpersTest {
             let totalTasks = 20
             let tracker = ResultsTracker()
 
-            await #expect(throws: CancellationError.self) {
+            await #expect(throws: _Concurrency.CancellationError.self) {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     for index in 0..<totalTasks {
                         group.addTask {

@@ -81,16 +81,37 @@ extension DispatchQueue {
 /// A queue for running async operations with a limit on the number of concurrent tasks.
 public final class AsyncOperationQueue: @unchecked Sendable {
 
-    // This implementation is adapted from the one in swift-build,
-    // modified to respect cancellation of the parent Task.
-    // https://github.com/swiftlang/swift-build/blob/054f2300ad83fd1633f1b50a06b82eea9e7c6901/Sources/SWBUtil/AsyncOperationQueue.swift#L13
+    // This implementation is identical to the AsyncOperationQueue in swift-build.
+    // Any modifications made here should also be made there.
+    // https://github.com/swiftlang/swift-build/blob/main/Sources/SWBUtil/AsyncOperationQueue.swift#L13
 
-    typealias ID = UUID
+    fileprivate typealias ID = UUID
+    fileprivate typealias WaitingContinuation = CheckedContinuation<Void, any Error>
 
     private let concurrentTasks: Int
     private var activeTasks: Int = 0
-    private var waitingTasks: [(ID, CheckedContinuation<Void, any Error>)] = []
+    private var waitingTasks: [WaitingTask] = []
     private let waitingTasksLock = NSLock()
+
+    fileprivate enum WaitingTask {
+        case creating(ID)
+        case waiting(ID, WaitingContinuation)
+        case cancelled(ID)
+
+        var id: ID {
+            switch self {
+            case .creating(let id), .waiting(let id, _), .cancelled(let id):
+                return id
+            }
+        }
+
+        var continuation: WaitingContinuation? {
+            guard case .waiting(_, let continuation) = self else {
+                return nil
+            }
+            return continuation
+        }
+    }
 
     /// Creates an `AsyncOperationQueue` with a specified number of concurrent tasks.
     /// - Parameter concurrentTasks: The maximum number of concurrent tasks that can be executed concurrently.
@@ -100,7 +121,7 @@ public final class AsyncOperationQueue: @unchecked Sendable {
 
     deinit {
         waitingTasksLock.withLock {
-            if !waitingTasks.isEmpty {
+            if !waitingTasks.filter({ $0.continuation != nil }).isEmpty {
                 preconditionFailure("Deallocated with waiting tasks")
             }
         }
@@ -120,42 +141,77 @@ public final class AsyncOperationQueue: @unchecked Sendable {
     }
 
     private func waitIfNeeded() async throws {
-        let shouldWait = waitingTasksLock.withLock {
+        guard waitingTasksLock.withLock({
             let shouldWait = activeTasks >= concurrentTasks
             activeTasks += 1
             return shouldWait
+        }) else {
+            return // Less tasks are in flight than the limit.
         }
 
-        if shouldWait {
-            let taskId = ID()
+        let taskId = ID()
+        waitingTasksLock.withLock {
+            waitingTasks.append(.creating(taskId))
+        }
 
-            try await withTaskCancellationHandler {
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-                    if !Task.isCancelled {
-                        waitingTasksLock.withLock {
-                            waitingTasks.append((taskId, continuation))
-                        }
-                    } else {
-                        continuation.resume(throwing: CancellationError())
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: WaitingContinuation) -> Void in
+                let continuation: WaitingContinuation? = waitingTasksLock.withLock {
+                    guard let index = waitingTasks.firstIndex(where: { $0.id == taskId }) else {
+                        // If the task was cancelled in onCancelled it will have been removed from the waiting tasks list.
+                        return continuation
                     }
+
+                    // If the task was cancelled in between creating the task cancellation handler and aquiring the lock,
+                    // we should resume the continuation with a `CancellationError`.
+                    if case .cancelled = waitingTasks[index] {
+                        return continuation
+                    }
+
+                    // Otherwise add the task to the waiting tasks list so it can be dequeued in order as tasks complete.
+                    waitingTasks[index] = .waiting(taskId, continuation)
+                    return nil
                 }
-            } onCancel: {
-                // If the parent task is cancelled then we need to manually handle resuming the
-                // continuation for the waiting task with a `CancellationError`.
-                self.waitingTasksLock.withLock {
-                    if let taskIndex = self.waitingTasks.firstIndex(where: { $0.0 == taskId }) {
-                        let task = self.waitingTasks.remove(at: taskIndex)
-                        task.1.resume(throwing: CancellationError())
-                    }
+                continuation?.resume(throwing: _Concurrency.CancellationError())
+            }
+        } onCancel: {
+            let continuation: WaitingContinuation? = self.waitingTasksLock.withLock {
+                guard let taskIndex = self.waitingTasks.firstIndex(where: { $0.id == taskId }) else {
+                    return nil
+                }
+
+                switch self.waitingTasks[taskIndex] {
+                    case .waiting(_, let continuation):
+                        self.waitingTasks.remove(at: taskIndex)
+
+                        // If the parent task is cancelled then we need to manually handle resuming the
+                        // continuation for the waiting task with a `CancellationError`. Return the continuation
+                        // here so it can be resumed once the `waitingTasksLock` is released.
+                        return continuation
+                    case .creating:
+                        // If the task was still being created, mark it as cancelled in the queue so that
+                        // withCheckedThrowingContinuation can immediately cancel it.
+                        self.waitingTasks[taskIndex] = .cancelled(taskId)
+                        return nil
+                    case .cancelled:
+                        preconditionFailure("Attempting to cancel a task that was already cancelled")
                 }
             }
+
+            continuation?.resume(throwing: _Concurrency.CancellationError())
         }
     }
 
     private func signalCompletion() {
         let continuationToResume = waitingTasksLock.withLock {
-            activeTasks -= 1
-            return waitingTasks.popLast()?.1
+            // popLast until we find a continuation that is not nil, or we run out of tasks.
+            while let task = waitingTasks.popLast() {
+                activeTasks -= 1
+                if task.continuation != nil {
+                    return task.continuation
+                }
+            }
+            return nil
         }
 
         continuationToResume?.resume()
