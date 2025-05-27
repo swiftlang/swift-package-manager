@@ -43,7 +43,7 @@ private enum Error: Swift.Error {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnySourceLocation: Hashable {
+protocol AnySourceLocation {
     var filename: String { get }
     var line: UInt64 { get }
     var column: UInt64 { get }
@@ -76,11 +76,11 @@ protocol AnyDiagnostic {
 
 extension AnyDiagnostic {
     var isPrimary: Bool {
-        self.level != .note
+        !self.isNote
     }
 
     var isNote: Bool {
-        !self.isPrimary
+        self.level == .note
     }
 
     var isIgnored: Bool {
@@ -97,13 +97,7 @@ extension AnyDiagnostic {
 }
 
 extension SerializedDiagnostics.Diagnostic: AnyDiagnostic {}
-extension SerializedDiagnostics.SourceLocation: AnySourceLocation, @retroactive Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.filename)
-        hasher.combine(self.line)
-        hasher.combine(self.column)
-    }
-}
+extension SerializedDiagnostics.SourceLocation: AnySourceLocation {}
 
 extension SerializedDiagnostics.FixIt: AnyFixIt {}
 
@@ -112,8 +106,9 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
     /// A hashable type storing the minimum data necessary to uniquely identify
     /// a diagnostic for our purposes.
     private struct DiagnosticID: Hashable {
-        private let location: Diagnostic.SourceLocation
         private let message: String
+        private let filename: String
+        private let utf8Offset: UInt64
         private let level: SerializedDiagnostics.Diagnostic.Level
 
         init(diagnostic: Diagnostic) {
@@ -121,7 +116,8 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
             self.message = diagnostic.text
             // Force the location. We should be filtering out diagnostics
             // without a location.
-            self.location = diagnostic.location!
+            self.filename = diagnostic.location!.filename
+            self.utf8Offset = diagnostic.location!.offset
         }
     }
 
@@ -379,17 +375,10 @@ private struct SourceFile {
             throw Error.failedToResolveSourceLocation
         }
 
-        guard location.offset == 0 else {
-            return AbsolutePosition(utf8Offset: Int(location.offset))
-        }
-
-        return self.sourceLocationConverter.position(
-            ofLine: Int(location.line),
-            column: Int(location.column)
-        )
+        return AbsolutePosition(utf8Offset: Int(location.offset))
     }
 
-    func node(at location: some AnySourceLocation) throws -> Syntax {
+    func node(at location: borrowing some AnySourceLocation) throws -> Syntax {
         let position = try position(of: location)
 
         if let token = syntax.token(at: position) {
