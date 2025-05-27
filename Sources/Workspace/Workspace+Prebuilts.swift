@@ -127,6 +127,7 @@ extension Workspace {
 
     /// For simplified init in tests
     public struct CustomPrebuiltsManager {
+        let swiftVersion: String
         let httpClient: HTTPClient?
         let archiver: Archiver?
         let useCache: Bool?
@@ -134,12 +135,14 @@ extension Workspace {
         let rootCertPath: AbsolutePath?
 
         public init(
+            swiftVersion: String,
             httpClient: HTTPClient? = .none,
             archiver: Archiver? = .none,
             useCache: Bool? = .none,
             hostPlatform: PrebuiltsManifest.Platform? = nil,
             rootCertPath: AbsolutePath? = nil
         ) {
+            self.swiftVersion = swiftVersion
             self.httpClient = httpClient
             self.archiver = archiver
             self.useCache = useCache
@@ -153,6 +156,7 @@ extension Workspace {
         public typealias Delegate = PrebuiltsManagerDelegate
 
         private let fileSystem: FileSystem
+        private let swiftVersion: String
         private let authorizationProvider: AuthorizationProvider?
         private let httpClient: HTTPClient
         private let archiver: Archiver
@@ -167,6 +171,7 @@ extension Workspace {
         init(
             fileSystem: FileSystem,
             hostPlatform: PrebuiltsManifest.Platform,
+            swiftCompilerVersion: String,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
             cachePath: AbsolutePath?,
@@ -178,6 +183,7 @@ extension Workspace {
         ) {
             self.fileSystem = fileSystem
             self.hostPlatform = hostPlatform
+            self.swiftVersion = swiftCompilerVersion
             self.authorizationProvider = authorizationProvider
             self.httpClient = customHTTPClient ?? HTTPClient()
 
@@ -221,9 +227,6 @@ extension Workspace {
         }
 
         private let prebuiltPackages: [PrebuiltPackage]
-
-        // Version of the compiler we're building against
-        private let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 
         fileprivate func findPrebuilts(packages: [PackageReference]) -> [PrebuiltPackage] {
             var prebuilts: [PrebuiltPackage] = []
@@ -308,6 +311,11 @@ extension Workspace {
                     try fileSystem.removeFileTree(destination)
                     return nil
                 }
+            }
+
+            // Skip prebuilts if this file exists.
+            if let cachePath, fileSystem.exists(cachePath.appending("noprebuilts")) {
+                return nil
             }
 
             if fileSystem.exists(destination), let manifest = try? await loadManifest() {

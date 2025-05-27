@@ -13,10 +13,11 @@
 import _InternalTestSupport
 import struct Basics.AbsolutePath
 import var Basics.localFileSystem
+import struct Foundation.UUID
 @testable
 import SwiftFixIt
+import Testing
 import struct TSCUtility.SerializedDiagnostics
-import XCTest
 
 struct SourceLocation: AnySourceLocation {
     let filename: String
@@ -154,15 +155,65 @@ private struct _TestDiagnostic: AnyDiagnostic {
 struct SourceFileEdit {
     let input: String
     let result: String
+    let locationInTest: Testing.SourceLocation
+
+    init(
+        input: String,
+        result: String,
+        locationInTest: Testing.SourceLocation = #_sourceLocation
+    ) {
+        self.input = input
+        self.result = result
+        self.locationInTest = locationInTest
+    }
+}
+
+struct Summary {
+    let summary: SwiftFixIt.Summary
+    let locationInTest: Testing.SourceLocation
+
+    init(
+        numberOfFixItsApplied: Int,
+        numberOfFilesChanged: Int,
+        locationInTest: Testing.SourceLocation = #_sourceLocation
+    ) {
+        self.summary = .init(numberOfFixItsApplied: numberOfFixItsApplied, numberOfFilesChanged: numberOfFilesChanged)
+        self.locationInTest = locationInTest
+    }
 }
 
 struct TestCase<T> {
     let edits: T
+    let summary: Summary
     let diagnostics: [PrimaryDiagnostic]
+}
+
+extension Testing.Issue {
+    fileprivate static func record<T>(
+        title: String,
+        comparisonComponents components: T...,
+        sourceLocation: Testing.SourceLocation
+    ) {
+        let messageDelimiter = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        let componentSeparator = "────────────────────────────────────────────"
+
+        var message = "\n\(messageDelimiter)\n\(title)\n\(messageDelimiter)\n"
+        for component in components {
+            message += "\(component)\n"
+            break
+        }
+        for component in components.dropFirst() {
+            message += "\(componentSeparator)\n\(component)\n"
+        }
+        message += messageDelimiter
+
+        Issue.record(.init(rawValue: message), sourceLocation: sourceLocation)
+    }
 }
 
 private func _testAPI(
     _ sourceFilePathsAndEdits: [(AbsolutePath, SourceFileEdit)],
+    _ expectedSummary: Summary,
     _ diagnostics: [PrimaryDiagnostic],
     _ categories: Set<String>,
 ) throws {
@@ -183,26 +234,28 @@ private func _testAPI(
         categories: categories,
         fileSystem: localFileSystem
     )
-    try swiftFixIt.applyFixIts()
+    let actualSummary = try swiftFixIt.applyFixIts()
 
     for (i, (path, edit)) in sourceFilePathsAndEdits.enumerated() {
-        let actual = try localFileSystem.readFileContents(path) as String
-        let expected = edit.result
-        guard expected == actual else {
-            XCTFail(
-                """
-                ===================================>
-                File #\(i + 1) (expected/actual contents)
-                ====================================
-                \(expected)
-                ====================================
-                \(actual)
-                <===================================
-                """
-            )
+        let actualContents = try localFileSystem.readFileContents(path) as String
+        let expectedContents = edit.result
+        let originalContents = edit.input
 
-            continue
+        if expectedContents != actualContents {
+            Issue.record(
+                title: "File #\(i + 1) (original/expected/actual contents)",
+                comparisonComponents: originalContents, expectedContents, actualContents,
+                sourceLocation: edit.locationInTest
+            )
         }
+    }
+
+    if expectedSummary.summary != actualSummary {
+        Issue.record(
+            title: "Expected/actual change summaries",
+            comparisonComponents: expectedSummary.summary, actualSummary,
+            sourceLocation: expectedSummary.locationInTest
+        )
     }
 }
 
@@ -222,6 +275,7 @@ func testAPI1File(
 
         try _testAPI(
             [(sourceFilePath, testCase.edits)],
+            testCase.summary,
             testCase.diagnostics,
             categories
         )
@@ -240,6 +294,7 @@ func testAPI2Files(
 
         try _testAPI(
             [(sourceFilePath1, testCase.edits.0), (sourceFilePath2, testCase.edits.1)],
+            testCase.summary,
             testCase.diagnostics,
             categories
         )

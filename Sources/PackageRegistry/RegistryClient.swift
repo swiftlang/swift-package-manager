@@ -217,7 +217,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageMetadata, Error>) -> Void
+        completion: @escaping @Sendable (Result<PackageMetadata, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getPackageMetadata(
@@ -377,7 +377,7 @@ public final class RegistryClient: AsyncCancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PackageVersionMetadata, Error>) -> Void
+        completion: @escaping @Sendable (Result<PackageVersionMetadata, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getPackageVersionMetadata(
@@ -620,7 +620,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
+        completion: @escaping @Sendable (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getAvailableManifests(
@@ -775,7 +775,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
+        completion: @escaping @Sendable (Result<String, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getManifestContent(
@@ -997,7 +997,7 @@ public final class RegistryClient: AsyncCancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.downloadSourceArchive(
@@ -1084,7 +1084,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
+        completion: @escaping @Sendable (Result<Set<PackageIdentity>, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.lookupIdentities(
@@ -1133,7 +1133,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.login(
@@ -1158,7 +1158,7 @@ public final class RegistryClient: AsyncCancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<PublishResult, Error>) -> Void
+        completion: @escaping @Sendable (Result<PublishResult, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.publish(
@@ -1342,7 +1342,7 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<AvailabilityStatus, Error>) -> Void
+        completion: @escaping @Sendable (Result<AvailabilityStatus, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.checkAvailability(

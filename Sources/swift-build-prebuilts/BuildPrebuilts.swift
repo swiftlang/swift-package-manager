@@ -19,6 +19,7 @@
 import ArgumentParser
 import Basics
 import Foundation
+import PackageModel
 import struct TSCBasic.ByteString
 import struct TSCBasic.SHA256
 import Workspace
@@ -168,7 +169,6 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
     ),
 ]
 
-let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 let dockerImageRoot = "swiftlang/swift:nightly-6.1-"
 
 @main
@@ -216,6 +216,21 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
     }
 
+    func computeSwiftVersion() throws -> String? {
+        let fileSystem = localFileSystem
+
+        let environment = Environment.current
+        let hostToolchain = try UserToolchain(
+            swiftSDK: SwiftSDK.hostSwiftSDK(
+                environment: environment,
+                fileSystem: fileSystem
+            ),
+            environment: environment
+        )
+
+        return hostToolchain.swiftCompilerVersion
+    }
+
     mutating func run() async throws {
         if build {
             try await build()
@@ -230,6 +245,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let fileSystem = localFileSystem
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
+
+        guard let swiftVersion = try computeSwiftVersion() else {
+            print("Unable to determine swift compiler version")
+            return
+        }
 
         print("Stage directory: \(stageDir)")
 
@@ -378,6 +398,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let decoder = JSONDecoder()
+
+        guard let swiftVersion = try computeSwiftVersion() else {
+            print("Unable to determine swift compiler version")
+            return
+        }
 
         for repo in prebuiltRepos.values {
             let prebuiltDir = stageDir.appending(repo.url.lastPathComponent)

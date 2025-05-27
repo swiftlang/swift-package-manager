@@ -566,6 +566,7 @@ extension SwiftCommandState {
             },
             createPackagePath: createPackagePath,
             hostTriple: .arm64Linux,
+            targetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fileSystem,
             environment: environment
         )
