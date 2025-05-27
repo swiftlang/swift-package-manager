@@ -1,6 +1,6 @@
 # Package Security
 
-This document provides an overview of security features that SwiftPM implements.
+Learn about the security features that SwiftPM implements.
 
 ## Trust on First Use
 
@@ -13,7 +13,7 @@ package version to have the same fingerprint.
 If the fingerprint changes, it might be an indicator that the package has been
 compromised and SwiftPM will either warn or return an error.
 
-Depending on where a package version is downloaded from, different value is
+Depending on where a package version is downloaded from, a different value is
 used as its fingerprint:
                              
 | Package Version Origin | Fingerprint |
@@ -33,7 +33,7 @@ When a package version is downloaded from Git repository or registry for
 the first time, SwiftPM simply saves the fingerprint to the designated
 file in the `~/.swiftpm/security/fingerprints` directory.
                                     
-Otherwise, SwiftPM compares fingerprint of the downloaded package version
+Otherwise, SwiftPM compares the fingerprint of the downloaded package version
 with that saved from previous download.
 The two fingerprint values must match or else SwiftPM will throw an error.
 This can be tuned down to warning by setting the build option `--resolver-fingerprint-checking` 
