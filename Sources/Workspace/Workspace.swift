@@ -568,7 +568,10 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform,
+           let swiftCompilerVersion = hostToolchain.swiftCompilerVersion
+        {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
                 rootCertPath = try AbsolutePath(validating: path)
@@ -579,6 +582,7 @@ public class Workspace {
             let prebuiltsManager = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
+                swiftCompilerVersion: customPrebuiltsManager?.swiftVersion ?? swiftCompilerVersion,
                 authorizationProvider: authorizationProvider,
                 scratchPath: location.prebuiltsDirectory,
                 cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
@@ -1077,7 +1081,7 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadRootManifests(
@@ -1266,7 +1270,7 @@ extension Workspace {
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
+        completion: @escaping @Sendable (Result<Package, Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadPackage(
@@ -1342,7 +1346,7 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try self.removeRepository(dependency: dependencyToRemove)
+            try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }

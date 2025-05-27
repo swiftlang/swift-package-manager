@@ -204,7 +204,7 @@ public protocol PackageContainerProvider {
         updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Error>) -> Void
+        completion: @escaping @Sendable (Result<PackageContainer, Error>) -> Void
     )
 }
 

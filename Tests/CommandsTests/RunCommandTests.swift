@@ -142,8 +142,8 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "fails due to possible timing issues, need investigation")
+        try XCTSkipIfPlatformCI(because: "This seems to be flaky in CI")
+        try XCTSkipIfselfHostedCI(because: "This seems to be flaky in CI")
         try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
             try localFileSystem.removeFileTree(mainFilePath)

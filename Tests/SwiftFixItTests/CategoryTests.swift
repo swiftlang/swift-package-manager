@@ -10,13 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
-final class CategoryTests: XCTestCase {
+struct CategoryTests {
+    @Test
     func testCorrectCategory() throws {
         try testAPI1File(categories: ["Other", "Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let _ = 1"),
+                summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -51,10 +53,12 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testCorrectCategoryWithNotes() throws {
         try testAPI1File(categories: ["Other", "Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "let _ = 22"),
+                summary: .init(numberOfFixItsApplied: 3, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -130,10 +134,12 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoCategory() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -167,10 +173,12 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testNoCategoryWithNotes() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -238,10 +246,12 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testWrongCategory() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,
@@ -276,10 +286,12 @@ final class CategoryTests: XCTestCase {
         }
     }
 
+    @Test
     func testWrongCategoryWithNotes() throws {
         try testAPI1File(categories: ["Test"]) { (filename: String) in
             .init(
                 edits: .init(input: "var x = 1", result: "var x = 22"),
+                summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
                 diagnostics: [
                     PrimaryDiagnostic(
                         level: .error,

@@ -29,6 +29,7 @@ import enum SwiftIDEUtils.FixItApplier
 import struct SwiftParser.Parser
 
 import struct SwiftSyntax.AbsolutePosition
+import struct SwiftSyntax.SourceEdit
 import struct SwiftSyntax.SourceFileSyntax
 import class SwiftSyntax.SourceLocationConverter
 import struct SwiftSyntax.Syntax
@@ -264,18 +265,55 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
 
         self.diagnosticsPerFile = diagnosticsPerFile
     }
+}
 
-    package func applyFixIts() throws {
+extension SwiftFixIt {
+    package struct Summary: Equatable {
+        package var numberOfFixItsApplied: Int
+        package var numberOfFilesChanged: Int
+
+        package init(numberOfFixItsApplied: Int, numberOfFilesChanged: Int) {
+            self.numberOfFixItsApplied = numberOfFixItsApplied
+            self.numberOfFilesChanged = numberOfFilesChanged
+        }
+
+        package static func + (lhs: consuming Self, rhs: Self) -> Self {
+            lhs += rhs
+            return lhs
+        }
+
+        package static func += (lhs: inout Self, rhs: Self) {
+            lhs.numberOfFixItsApplied += rhs.numberOfFixItsApplied
+            lhs.numberOfFilesChanged += rhs.numberOfFilesChanged
+        }
+    }
+
+    package func applyFixIts() throws -> Summary {
+        var numberOfFixItsApplied = 0
+
         // Bulk-apply fix-its to each file and write the results back.
         for (sourceFile, diagnostics) in self.diagnosticsPerFile {
-            let result = SwiftIDEUtils.FixItApplier.applyFixes(
-                from: diagnostics,
-                filterByMessages: nil,
-                to: sourceFile.syntax
-            )
+            numberOfFixItsApplied += diagnostics.count
+
+            var edits = [SwiftSyntax.SourceEdit]()
+            edits.reserveCapacity(diagnostics.count)
+            for diagnostic in diagnostics {
+                for fixIt in diagnostic.fixIts {
+                    for edit in fixIt.edits {
+                        edits.append(edit)
+                    }
+                }
+            }
+
+            let result = SwiftIDEUtils.FixItApplier.apply(edits: consume edits, to: sourceFile.syntax)
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }
+
+        return Summary(
+            numberOfFixItsApplied: numberOfFixItsApplied,
+            numberOfFilesChanged: self.diagnosticsPerFile.keys.count
+        )
     }
 }
 

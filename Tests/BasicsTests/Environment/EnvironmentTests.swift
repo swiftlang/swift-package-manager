@@ -16,6 +16,7 @@ import Foundation
 import Basics
 
 import Testing
+import _InternalTestSupport
 
 struct EnvironmentTests {
     @Test
@@ -142,6 +143,19 @@ struct EnvironmentTests {
             #expect(Environment.current[key] == value)
         }
         #expect(Environment.current[key] == nil)
+    }
+
+    /// Important: This test is inherently race-prone, if it is proven to be
+    /// flaky, it should run in a singled threaded environment/removed entirely.
+    @Test(.disabled(if: isInCiEnvironment, "This test can disrupt other tests running in parallel."))
+    func makeCustomPathEnv() async throws {
+        let customEnvironment: Environment = .current
+        let origPath = customEnvironment[.path]
+
+        try Environment.makeCustom(["PATH": "/foo/bar"]) {
+            #expect(Environment.current[.path] == "/foo/bar")
+        }
+        #expect(Environment.current[.path] == origPath)
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be
