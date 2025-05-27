@@ -1,4 +1,4 @@
-# Exploring your package's dependencies
+# Resolving package dependency failures
 
 Understand dependency failure scenarios.
 

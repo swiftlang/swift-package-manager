@@ -329,7 +329,7 @@ public class RepositoryManager: Cancellable {
                 }
             }
         }
-        
+
         // We are expecting handle.repository.url to always be a resolved absolute path.
         let shouldCacheLocalPackages = Environment.current["SWIFTPM_TESTS_PACKAGECACHE"] == "1" || cacheLocalPackages
 
@@ -409,8 +409,8 @@ public class RepositoryManager: Cancellable {
     }
 
     /// Open a working copy checkout at a path
-    public func openWorkingCopy(at path: Basics.AbsolutePath) throws -> WorkingCheckout {
-        try self.provider.openWorkingCopy(at: path)
+    public func openWorkingCopy(at path: Basics.AbsolutePath) async throws -> WorkingCheckout {
+        try await self.provider.openWorkingCopy(at: path)
     }
 
     /// Validate a working copy check is aligned with its repository setup
@@ -433,8 +433,8 @@ public class RepositoryManager: Cancellable {
         _ handle: RepositoryHandle,
         at destinationPath: Basics.AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
-        try self.provider.createWorkingCopy(
+    ) async throws -> WorkingCheckout {
+        try await self.provider.createWorkingCopy(
             repository: handle.repository,
             sourcePath: self.path.appending(handle.subpath),
             at: destinationPath,
@@ -548,8 +548,8 @@ extension RepositoryManager {
         ///           expected to be non-existent when called.
         ///
         ///   - editable: The clone is expected to be edited by user.
-        public func createWorkingCopy(at path: Basics.AbsolutePath, editable: Bool) throws -> WorkingCheckout {
-            return try self.manager.createWorkingCopy(self, at: path, editable: editable)
+        public func createWorkingCopy(at path: Basics.AbsolutePath, editable: Bool) async throws -> WorkingCheckout {
+            return try await self.manager.createWorkingCopy(self, at: path, editable: editable)
         }
     }
 }

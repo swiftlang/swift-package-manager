@@ -231,7 +231,7 @@ public class Module {
     public let others: [AbsolutePath]
 
     /// The build settings assignments of this module.
-    public let buildSettings: BuildSettings.AssignmentTable
+    public package(set) var buildSettings: BuildSettings.AssignmentTable
 
     @_spi(SwiftPMInternal)
     public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]

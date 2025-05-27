@@ -73,7 +73,7 @@ public enum AddSwiftSetting {
         manifest: SourceFileSyntax
     ) throws -> PackageEditResult {
         try self.addToTarget(
-            target, name: "strictMemorySafety",
+            target, name: "strictMemorySafety()",
             value: String?.none,
             firstIntroduced: .v6_2,
             manifest: manifest
@@ -99,15 +99,23 @@ public enum AddSwiftSetting {
             throw ManifestEditError.cannotFindTargets
         }
 
-        guard let targetCall = FunctionCallExprSyntax.findFirst(in: targetArray, matching: {
-            if let nameArgument = $0.findArgument(labeled: "name"),
-               let nameLiteral = nameArgument.expression.as(StringLiteralExprSyntax.self),
-               nameLiteral.representedLiteralValue == target
-            {
-                return true
+        let targetCall = targetArray
+            .elements
+            .lazy
+            .compactMap {
+                $0.expression.as(FunctionCallExprSyntax.self)
+            }.first { targetCall in
+                if let nameArgument = targetCall.findArgument(labeled: "name"),
+                   let nameLiteral = nameArgument.expression.as(StringLiteralExprSyntax.self),
+                   nameLiteral.representedLiteralValue == target
+                {
+                    return true
+                }
+
+                return false
             }
-            return false
-        }) else {
+
+        guard let targetCall else {
             throw ManifestEditError.cannotFindTarget(targetName: target)
         }
 
