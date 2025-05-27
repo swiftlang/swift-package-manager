@@ -124,7 +124,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
-            additionalFileRules: FileRuleDescription.swiftpmFileTypes,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes + FileRuleDescription.xcbuildFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,

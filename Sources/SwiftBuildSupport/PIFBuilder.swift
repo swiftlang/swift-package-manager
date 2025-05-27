@@ -343,23 +343,20 @@ public final class PIFBuilder {
                             observabilityScope: observabilityScope
                         )
 
-                        // FIXME
-                        /*if surfaceDiagnostics {
-                            let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
-                                var metadata = ObservabilityMetadata()
-                                metadata.moduleName = module.name
-                                metadata.pluginName = result.plugin.name
-                                return metadata
-                            }
+                        let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
+                            var metadata = ObservabilityMetadata()
+                            metadata.moduleName = module.name
+                            metadata.pluginName = result.plugin.name
+                            return metadata
+                        }
 
-                            for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
-                                diagnosticsEmitter.emit(info: line)
-                            }
+                        for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
+                            diagnosticsEmitter.emit(info: line)
+                        }
 
-                            for diag in result.diagnostics {
-                                diagnosticsEmitter.emit(diag)
-                            }
-                        }*/
+                        for diag in result.diagnostics {
+                            diagnosticsEmitter.emit(diag)
+                        }
 
                         let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
                             prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
