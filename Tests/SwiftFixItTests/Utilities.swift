@@ -16,35 +16,74 @@ import var Basics.localFileSystem
 import struct Foundation.UUID
 @testable
 import SwiftFixIt
+import class SwiftSyntax.SourceLocationConverter
 import Testing
 import struct TSCUtility.SerializedDiagnostics
 
 struct SourceLocation: AnySourceLocation {
-    let filename: String
-    let line: UInt64
-    let column: UInt64
-    let offset: UInt64
+    var path: AbsolutePath
+    var line: UInt64
+    var column: UInt64
+    var offset: UInt64
+
+    var filename: String {
+        self.path.pathString
+    }
+
+    init(path: AbsolutePath, line: UInt64, column: UInt64) {
+        self.path = path
+        self.line = line
+        self.column = column
+        self.offset = 0
+    }
+
+    fileprivate mutating func computeOffset(
+        using converters: [AbsolutePath: SourceLocationConverter]
+    ) {
+        guard let converter = converters[self.path] else {
+            return
+        }
+        self.offset = UInt64(converter.position(ofLine: Int(self.line), column: Int(self.column)).utf8Offset)
+    }
 }
 
 struct FixIt: AnyFixIt {
-    let start: SourceLocation
-    let end: SourceLocation
-    let text: String
+    var start: SourceLocation
+    var end: SourceLocation
+    var text: String
 }
 
-private struct CommonDiagnosticData {
-    let level: SerializedDiagnostics.Diagnostic.Level
-    let text: String
-    let location: SourceLocation?
-    let category: String?
-    let categoryURL: String?
-    let flag: String?
-    let ranges: [(SourceLocation, SourceLocation)]
-    let fixIts: [FixIt]
+private struct Diagnostic: AnyDiagnostic {
+    var level: SerializedDiagnostics.Diagnostic.Level
+    var text: String
+    var location: SourceLocation?
+    var category: String?
+    var categoryURL: String?
+    var flag: String?
+    var ranges: [(SourceLocation, SourceLocation)]
+    var fixIts: [FixIt]
+
+    fileprivate func withSourceLocationOffsets(
+        using converters: [AbsolutePath: SourceLocationConverter]
+    ) -> Self {
+        var copy = self
+
+        copy.location?.computeOffset(using: converters)
+        for i in self.ranges.indices {
+            copy.ranges[i].0.computeOffset(using: converters)
+            copy.ranges[i].1.computeOffset(using: converters)
+        }
+        for i in self.fixIts.indices {
+            copy.fixIts[i].start.computeOffset(using: converters)
+            copy.fixIts[i].end.computeOffset(using: converters)
+        }
+
+        return copy
+    }
 }
 
 struct Note {
-    fileprivate let data: CommonDiagnosticData
+    fileprivate var diagnostic: Diagnostic
 
     init(
         text: String,
@@ -55,7 +94,7 @@ struct Note {
         ranges: [(SourceLocation, SourceLocation)] = [],
         fixIts: [FixIt] = [],
     ) {
-        self.data = .init(
+        self.diagnostic = .init(
             level: .note,
             text: text,
             location: location,
@@ -73,7 +112,7 @@ struct PrimaryDiagnostic {
         case ignored, warning, error, fatal, remark
     }
 
-    fileprivate let data: CommonDiagnosticData
+    fileprivate var diagnostic: Diagnostic
     let notes: [Note]
 
     init(
@@ -94,7 +133,7 @@ struct PrimaryDiagnostic {
         case .fatal: .fatal
         case .remark: .remark
         }
-        self.data = .init(
+        self.diagnostic = .init(
             level: level,
             text: text,
             location: location,
@@ -108,54 +147,10 @@ struct PrimaryDiagnostic {
     }
 }
 
-private struct _TestDiagnostic: AnyDiagnostic {
-    let data: CommonDiagnosticData
-
-    var level: SerializedDiagnostics.Diagnostic.Level {
-        self.data.level
-    }
-
-    var text: String {
-        self.data.text
-    }
-
-    var location: SourceLocation? {
-        self.data.location
-    }
-
-    var category: String? {
-        self.data.category
-    }
-
-    var categoryURL: String? {
-        self.data.categoryURL
-    }
-
-    var flag: String? {
-        self.data.flag
-    }
-
-    var ranges: [(SourceLocation, SourceLocation)] {
-        self.data.ranges
-    }
-
-    var fixIts: [FixIt] {
-        self.data.fixIts
-    }
-
-    init(note: Note) {
-        self.data = note.data
-    }
-
-    init(primaryDiagnostic: PrimaryDiagnostic) {
-        self.data = primaryDiagnostic.data
-    }
-}
-
 struct SourceFileEdit {
     let input: String
     let result: String
-    let locationInTest: Testing.SourceLocation
+    fileprivate let locationInTest: Testing.SourceLocation
 
     init(
         input: String,
@@ -170,7 +165,7 @@ struct SourceFileEdit {
 
 struct Summary {
     let summary: SwiftFixIt.Summary
-    let locationInTest: Testing.SourceLocation
+    fileprivate let locationInTest: Testing.SourceLocation
 
     init(
         numberOfFixItsApplied: Int,
@@ -221,16 +216,22 @@ private func _testAPI(
         try localFileSystem.writeFileContents(path, string: edit.input)
     }
 
-    var testDiagnostics: [_TestDiagnostic] = []
-    for diagnostic in diagnostics {
-        testDiagnostics.append(.init(primaryDiagnostic: diagnostic))
-        for note in diagnostic.notes {
-            testDiagnostics.append(.init(note: note))
+    let flatDiagnostics: [Diagnostic]
+    do {
+        let converters = Dictionary(uniqueKeysWithValues: sourceFilePathsAndEdits.map { path, edit in
+            (path, SourceLocationConverter(file: path.pathString, source: edit.input))
+        })
+
+        flatDiagnostics = diagnostics.reduce(into: Array()) { partialResult, primaryDiagnostic in
+            partialResult.append(primaryDiagnostic.diagnostic.withSourceLocationOffsets(using: converters))
+            for note in primaryDiagnostic.notes {
+                partialResult.append(note.diagnostic.withSourceLocationOffsets(using: converters))
+            }
         }
     }
 
     let swiftFixIt = try SwiftFixIt(
-        diagnostics: testDiagnostics,
+        diagnostics: flatDiagnostics,
         categories: categories,
         fileSystem: localFileSystem
     )
@@ -266,12 +267,12 @@ private func uniqueSwiftFileName() -> String {
 // Cannot use variadic generics: crashes.
 func testAPI1File(
     categories: Set<String> = [],
-    _ getTestCase: (String) -> TestCase<SourceFileEdit>
+    _ getTestCase: (AbsolutePath) -> TestCase<SourceFileEdit>
 ) throws {
     try testWithTemporaryDirectory { fixturePath in
         let sourceFilePath = fixturePath.appending(uniqueSwiftFileName())
 
-        let testCase = getTestCase(sourceFilePath.pathString)
+        let testCase = getTestCase(sourceFilePath)
 
         try _testAPI(
             [(sourceFilePath, testCase.edits)],
@@ -284,13 +285,13 @@ func testAPI1File(
 
 func testAPI2Files(
     categories: Set<String> = [],
-    _ getTestCase: (String, String) -> TestCase<(SourceFileEdit, SourceFileEdit)>,
+    _ getTestCase: (AbsolutePath, AbsolutePath) -> TestCase<(SourceFileEdit, SourceFileEdit)>,
 ) throws {
     try testWithTemporaryDirectory { fixturePath in
         let sourceFilePath1 = fixturePath.appending(uniqueSwiftFileName())
         let sourceFilePath2 = fixturePath.appending(uniqueSwiftFileName())
 
-        let testCase = getTestCase(sourceFilePath1.pathString, sourceFilePath2.pathString)
+        let testCase = getTestCase(sourceFilePath1, sourceFilePath2)
 
         try _testAPI(
             [(sourceFilePath1, testCase.edits.0), (sourceFilePath2, testCase.edits.1)],
