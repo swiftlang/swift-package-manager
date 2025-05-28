@@ -154,25 +154,46 @@ public final class AsyncOperationQueue: @unchecked Sendable {
             waitingTasks.append(.creating(taskId))
         }
 
+        enum TaskAction {
+            case start(WaitingContinuation)
+            case cancel(WaitingContinuation)
+        }
+
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: WaitingContinuation) -> Void in
-                let continuation: WaitingContinuation? = waitingTasksLock.withLock {
+                let action: TaskAction? = waitingTasksLock.withLock {
                     guard let index = waitingTasks.firstIndex(where: { $0.id == taskId }) else {
                         // If the task was cancelled in onCancelled it will have been removed from the waiting tasks list.
-                        return continuation
+                        return .cancel(continuation)
                     }
 
                     // If the task was cancelled in between creating the task cancellation handler and aquiring the lock,
                     // we should resume the continuation with a `CancellationError`.
                     if case .cancelled = waitingTasks[index] {
-                        return continuation
+                        return .cancel(continuation)
                     }
 
-                    // Otherwise add the task to the waiting tasks list so it can be dequeued in order as tasks complete.
-                    waitingTasks[index] = .waiting(taskId, continuation)
-                    return nil
+                    // A task may have completed since we iniitally checked if we should wait. Check again in this locked
+                    // section and if we can start it, remove it from the waiting tasks and start it immediately.
+                    let shouldWait = activeTasks >= concurrentTasks
+                    if shouldWait {
+                        waitingTasks[index] = .waiting(taskId, continuation)
+                        return nil
+                    } else {
+                        waitingTasks.remove(at: index)
+                        return .start(continuation)
+                    }
                 }
-                continuation?.resume(throwing: _Concurrency.CancellationError())
+
+                switch action {
+                    case .some(.cancel(let continuation)):
+                        continuation.resume(throwing: _Concurrency.CancellationError())
+                    case .some(.start(let continuation)):
+                        continuation.resume()
+                    case .none:
+                        return
+                }
+
             }
         } onCancel: {
             let continuation: WaitingContinuation? = self.waitingTasksLock.withLock {
@@ -204,11 +225,21 @@ public final class AsyncOperationQueue: @unchecked Sendable {
 
     private func signalCompletion() {
         let continuationToResume = waitingTasksLock.withLock {
-            // popLast until we find a continuation that is not nil, or we run out of tasks.
-            while let task = waitingTasks.popLast() {
-                activeTasks -= 1
-                if task.continuation != nil {
-                    return task.continuation
+            while let lastTask = waitingTasks.first {
+                switch lastTask {
+                case .creating:
+                    // If the next task is in the process of being created, let the
+                    return Optional<WaitingContinuation>.none
+                case .waiting:
+                    activeTasks -= 1
+                    // Begin the next waiting task
+                    return waitingTasks.remove(at: 0).continuation
+                case .cancelled:
+                    activeTasks -= 1
+                    // If the next task is cancelled, continue removing cancelled
+                    // tasks until we find one that hasn't run yet or we run out.
+                    _ = waitingTasks.remove(at: 0)
+                    continue
                 }
             }
             return nil
