@@ -614,27 +614,17 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
             }
         }
     }
-
 }
 
-class TestCommandNativeTests: TestCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+final class TestCommandNativeTests: TestCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
 }
 
-
-class TestCommandSwiftBuildTests: TestCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
+final class TestCommandSwiftBuildTests: TestCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 
     override func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {

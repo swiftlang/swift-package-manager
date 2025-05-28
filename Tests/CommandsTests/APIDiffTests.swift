@@ -455,25 +455,14 @@ class APIDiffTestCase: CommandsBuildProviderTestCase {
     }
 }
 
-class APIDiffNativeTests: APIDiffTestCase {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
+final class APIDiffNativeTests: APIDiffTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
-
-    override func skipIfApiDigesterUnsupportedOrUnset() throws {
-        try super.skipIfApiDigesterUnsupportedOrUnset()
-    }
-
 }
 
-class APIDiffSwiftBuildTests: APIDiffTestCase {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func skipIfApiDigesterUnsupportedOrUnset() throws {
-        try super.skipIfApiDigesterUnsupportedOrUnset()
+final class APIDiffSwiftBuildTests: APIDiffTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 }

@@ -4048,26 +4048,15 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
     }
 }
 
-
-class PackageCommandNativeTests: PackageCommandTestCase {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testNoParameters() async throws {
-        try await super.testNoParameters()
+final class PackageCommandNativeTests: PackageCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .native
     }
 }
 
-class PackageCommandSwiftBuildTests: PackageCommandTestCase {
-
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func testNoParameters() async throws {
-        try await super.testNoParameters()
+final class PackageCommandSwiftBuildTests: PackageCommandTestCase {
+    override public var buildSystemProvider: BuildSystemProvider.Kind {
+        .swiftbuild
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {
