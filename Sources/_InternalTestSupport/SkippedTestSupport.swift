@@ -11,6 +11,7 @@
 
 import class Foundation.FileManager
 import class Foundation.ProcessInfo
+import Basics
 import Testing
 
 extension Trait where Self == Testing.ConditionTrait {
