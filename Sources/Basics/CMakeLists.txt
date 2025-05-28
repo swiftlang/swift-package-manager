@@ -60,6 +60,7 @@ add_library(Basics
   Netrc.swift
   Observability.swift
   OSSignpost.swift
+  Process.swift
   ProgressAnimation/NinjaProgressAnimation.swift
   ProgressAnimation/PercentProgressAnimation.swift
   ProgressAnimation/ProgressAnimationProtocol.swift
