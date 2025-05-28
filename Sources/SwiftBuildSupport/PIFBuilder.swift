@@ -202,7 +202,8 @@ public final class PIFBuilder {
 
     private var cachedPIF: PIF.TopLevelObject?
 
-    private func buildPluginTools(
+    /// Compute the available build tools, and their destination build path for host for each plugin.
+    private func availableBuildPluginTools(
         graph: ModulesGraph,
         buildParameters: BuildParameters,
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
@@ -219,7 +220,6 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    //return buildParameters.binaryPath(for: graph.product(for: name))
                     return buildParameters.buildPath.appending(path)
                 }
 
@@ -239,7 +239,7 @@ public final class PIFBuilder {
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
         )
 
-        let pluginTools = try await buildPluginTools(
+        let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
             buildParameters: buildParameters,
             pluginsPerModule: pluginsPerModule,
@@ -273,7 +273,7 @@ public final class PIFBuilder {
 
                         // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
                         // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
-                        guard let accessibleTools = pluginTools[plugin.id] else {
+                        guard let accessibleTools = availablePluginTools[plugin.id] else {
                             throw InternalError("No tools found for plugin \(plugin.name)")
                         }
 
