@@ -41,6 +41,7 @@ add_library(Commands
   Snippets/Card.swift
   Snippets/Colorful.swift
   SwiftBuildCommand.swift
+  SwiftFixItCommand.swift
   SwiftRunCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
