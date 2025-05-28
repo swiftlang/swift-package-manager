@@ -411,4 +411,126 @@ struct FilteringTests {
             )
         }
     }
+
+    @Test
+    func testDuplicateInsertionFixIts() throws {
+        withKnownIssue("FIXME: Filter out duplicate insertion fix-its") {
+            try self._testDuplicateInsertionFixIts()
+        }
+    }
+
+    func _testDuplicateInsertionFixIts() throws {
+        try testAPI1File { path in
+            .init(
+                edits: .init(input: "var x = 1", result: "@W var yx = 21"),
+                summary: .init(
+                    // 4 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 6,
+                    numberOfFilesChanged: 1
+                ),
+                diagnostics: [
+                    // Duplicate fix-it pairs:
+                    // - on primary + on primary.
+                    // - on note + on note.
+                    // - on primary + on note.
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error1_fixit1",
+                        location: .init(path: path, line: 1, column: 1),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 1),
+                                text: "@W "
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error2_fixit2",
+                        location: .init(path: path, line: 1, column: 2),
+                        notes: [
+                            Note(
+                                text: "error2_note1",
+                                location: .init(path: path, line: 1, column: 9),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(path: path, line: 1, column: 9),
+                                        end: .init(path: path, line: 1, column: 9),
+                                        text: "2"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error3_fixit1",
+                        location: .init(path: path, line: 1, column: 3),
+                        fixIts: [
+                            // FIXME: Should be skipped.
+                            .init(
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 1),
+                                text: "@W "
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error4_fixit3",
+                        location: .init(path: path, line: 1, column: 4),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(path: path, line: 1, column: 5),
+                                end: .init(path: path, line: 1, column: 5),
+                                text: "y"
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error5_fixit2",
+                        location: .init(path: path, line: 1, column: 5),
+                        notes: [
+                            Note(
+                                text: "error5_note1",
+                                location: .init(path: path, line: 1, column: 9),
+                                fixIts: [
+                                    // FIXME: Should be skipped.
+                                    .init(
+                                        start: .init(path: path, line: 1, column: 9),
+                                        end: .init(path: path, line: 1, column: 9),
+                                        text: "2"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error6_fixit3",
+                        location: .init(path: path, line: 1, column: 6),
+                        notes: [
+                            Note(
+                                text: "error6_note1",
+                                location: .init(path: path, line: 1, column: 5),
+                                fixIts: [
+                                    // FIXME: Should be skipped.
+                                    .init(
+                                        start: .init(path: path, line: 1, column: 5),
+                                        end: .init(path: path, line: 1, column: 5),
+                                        text: "y"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+    }
 }
