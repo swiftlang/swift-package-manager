@@ -1263,24 +1263,6 @@ extension Workspace {
         return try builder.construct()
     }
 
-    /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading
-    /// in a longer-lived program, like an IDE.
-    @available(*, noasync, message: "Use the async alternative")
-    public func loadPackage(
-        with identity: PackageIdentity,
-        packageGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping @Sendable (Result<Package, Error>) -> Void
-    ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
-            try await self.loadPackage(
-                with: identity,
-                packageGraph: packageGraph,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     public func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,

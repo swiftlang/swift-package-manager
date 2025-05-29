@@ -97,8 +97,7 @@ public class RepositoryManager: Cancellable {
         repository: RepositorySpecifier,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue
+        delegateQueue: DispatchQueue
     ) async throws -> RepositoryHandle {
         try await withCheckedThrowingContinuation { continuation in
             self.lookup(
@@ -107,7 +106,7 @@ public class RepositoryManager: Cancellable {
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope,
                 delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue,
+                callbackQueue: .sharedConcurrent,
                 completion: { continuation.resume(with: $0) }
             )
         }

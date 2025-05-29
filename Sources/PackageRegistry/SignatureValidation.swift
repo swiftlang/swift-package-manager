@@ -350,36 +350,6 @@ struct SignatureValidation {
         return signingEntity;
     }
 
-
-    @available(*, noasync, message: "Use the async alternative")
-    func validate(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        toolsVersion: ToolsVersion?,
-        manifestContent: String,
-        configuration: RegistryConfiguration.Security.Signing,
-        timeout: DispatchTimeInterval?,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping @Sendable (Result<SigningEntity?, Error>) -> Void
-    ) {
-        callbackQueue.asyncResult(completion) {
-            try await self.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                toolsVersion: toolsVersion,
-                manifestContent: manifestContent,
-                configuration: configuration,
-                timeout: timeout,
-                fileSystem: fileSystem,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     private func getAndValidateManifestSignature(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,

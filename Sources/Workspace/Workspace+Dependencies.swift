@@ -19,7 +19,6 @@ import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
 import class Basics.ThreadSafeKeyValueStore
-import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
 import struct PackageGraph.Assignment

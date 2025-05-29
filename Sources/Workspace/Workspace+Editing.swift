@@ -105,8 +105,7 @@ extension Workspace {
                 repository: repository,
                 updateStrategy: .never,
                 observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
             let repo = try handle.open()
 
