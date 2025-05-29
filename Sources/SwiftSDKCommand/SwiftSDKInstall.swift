@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -20,7 +20,18 @@ import PackageModel
 import var TSCBasic.stdoutStream
 import class Workspace.Workspace
 
-struct InstallSwiftSDK: SwiftSDKSubcommand {
+struct SwiftSDKInstall: SwiftSDKSubcommand {
+    enum Error: Swift.Error, CustomStringConvertible {
+        case swiftSDKNotSpecified
+
+        var description: String {
+            switch self {
+            case .swiftSDKNotSpecified:
+                "Specify either a URL or a local path to a Swift SDK bundle as a positional argument."
+            }
+        }
+    }
+
     static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
@@ -33,10 +44,14 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
     var locations: LocationOptions
 
     @Argument(help: "A local filesystem path or a URL of a Swift SDK bundle to install.")
-    var bundlePathOrURL: String
+    var bundlePathOrURL: String?
 
     @Option(help: "The checksum of the bundle generated with `swift package compute-checksum`.")
     var checksum: String? = nil
+
+    /// Alias of a Swift SDK to install, which automatically resolves installation URL based on host toolchain version.
+    @Option(help: .hidden)
+    var experimentalAlias: String? = nil
 
     @Flag(
         name: .customLong("color-diagnostics"),
@@ -72,6 +87,17 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
                 )
                 .throttled(interval: .milliseconds(300))
         )
+
+        let bundlePathOrURL = if let experimentalAlias {
+            try SwiftToolchainVersion(
+                toolchain: hostToolchain,
+                fileSystem: self.fileSystem
+            ).urlForSwiftSDK(aliasString: experimentalAlias)
+        } else if let bundlePathOrURL {
+            bundlePathOrURL
+        } else {
+            throw Error.swiftSDKNotSpecified
+        }
 
         try await store.install(
             bundlePathOrURL: bundlePathOrURL,
