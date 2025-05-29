@@ -27,7 +27,7 @@ struct BasicTests {
 
     @Test
     func testPrimaryDiag() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
@@ -35,11 +35,11 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 4),
                                 text: "let"
                             ),
                         ]
@@ -51,7 +51,7 @@ struct BasicTests {
 
     @Test
     func testNote() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 1"),
                 summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
@@ -59,15 +59,15 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         notes: [
                             Note(
                                 text: "note",
-                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                location: .init(path: path, line: 1, column: 1),
                                 fixIts: [
                                     .init(
-                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        start: .init(path: path, line: 1, column: 1),
+                                        end: .init(path: path, line: 1, column: 4),
                                         text: "let"
                                     ),
                                 ]
@@ -81,7 +81,7 @@ struct BasicTests {
 
     @Test
     func testMultiplePrimaryDiagsWithNotes() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "let x = 22"),
                 summary: .init(numberOfFixItsApplied: 2, numberOfFilesChanged: 1),
@@ -89,15 +89,15 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         notes: [
                             Note(
                                 text: "error1_note1",
-                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                location: .init(path: path, line: 1, column: 1),
                                 fixIts: [
                                     .init(
-                                        start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                        end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                        start: .init(path: path, line: 1, column: 1),
+                                        end: .init(path: path, line: 1, column: 4),
                                         text: "let"
                                     ),
                                 ]
@@ -107,16 +107,16 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error2",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         notes: [
                             Note(
                                 text: "error2_note1",
-                                location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                                location: .init(path: path, line: 1, column: 1),
                                 fixIts: [
                                     // Make sure we apply this fix-it.
                                     .init(
-                                        start: .init(filename: filename, line: 1, column: 9, offset: 0),
-                                        end: .init(filename: filename, line: 1, column: 10, offset: 0),
+                                        start: .init(path: path, line: 1, column: 9),
+                                        end: .init(path: path, line: 1, column: 10),
                                         text: "22"
                                     ),
                                 ]
@@ -130,7 +130,7 @@ struct BasicTests {
 
     @Test
     func testNonOverlappingCompoundFixIt() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(
                     input: """
@@ -152,24 +152,24 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         fixIts: [
                             // Replacement.
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 4),
                                 text: "let"
                             ),
                             // Addition.
                             .init(
-                                start: .init(filename: filename, line: 2, column: 10, offset: 0),
-                                end: .init(filename: filename, line: 2, column: 10, offset: 0),
+                                start: .init(path: path, line: 2, column: 10),
+                                end: .init(path: path, line: 2, column: 10),
                                 text: "44"
                             ),
                             // Deletion.
                             .init(
-                                start: .init(filename: filename, line: 3, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 3, column: 5, offset: 0),
+                                start: .init(path: path, line: 3, column: 1),
+                                end: .init(path: path, line: 3, column: 5),
                                 text: ""
                             ),
                         ]
@@ -178,24 +178,24 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error2",
-                        location: .init(filename: filename, line: 4, column: 1, offset: 0),
+                        location: .init(path: path, line: 4, column: 1),
                         fixIts: [
                             // Replacement.
                             .init(
-                                start: .init(filename: filename, line: 4, column: 9, offset: 0),
-                                end: .init(filename: filename, line: 4, column: 12, offset: 0),
+                                start: .init(path: path, line: 4, column: 9),
+                                end: .init(path: path, line: 4, column: 12),
                                 text: "fooo"
                             ),
                             // Addition.
                             .init(
-                                start: .init(filename: filename, line: 4, column: 17, offset: 0),
-                                end: .init(filename: filename, line: 4, column: 17, offset: 0),
+                                start: .init(path: path, line: 4, column: 17),
+                                end: .init(path: path, line: 4, column: 17),
                                 text: "33"
                             ),
                             // Deletion.
                             .init(
-                                start: .init(filename: filename, line: 4, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 4, column: 5, offset: 0),
+                                start: .init(path: path, line: 4, column: 1),
+                                end: .init(path: path, line: 4, column: 5),
                                 text: ""
                             ),
                         ]
@@ -207,7 +207,7 @@ struct BasicTests {
 
     @Test
     func testOverlappingCompoundFixIt() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
                 summary: .init(numberOfFixItsApplied: 1, numberOfFilesChanged: 1),
@@ -215,18 +215,18 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         fixIts: [
                             // Applied.
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 6, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 6),
                                 text: "_"
                             ),
                             // Skipped, overlaps with previous fix-it.
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 4),
                                 text: "let"
                             ),
                         ]
@@ -238,7 +238,7 @@ struct BasicTests {
 
     @Test
     func testOverlappingFixIts() throws {
-        try testAPI1File { (filename: String) in
+        try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "_ = 1"),
                 summary: .init(
@@ -250,12 +250,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         fixIts: [
                             // Applied.
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 6, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 6),
                                 text: "_"
                             ),
                         ]
@@ -263,12 +263,12 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error2",
-                        location: .init(filename: filename, line: 1, column: 1, offset: 0),
+                        location: .init(path: path, line: 1, column: 1),
                         fixIts: [
                             // Skipped, overlaps with previous fix-it.
                             .init(
-                                start: .init(filename: filename, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename, line: 1, column: 4, offset: 0),
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 4),
                                 text: "let"
                             ),
                         ]
@@ -280,7 +280,7 @@ struct BasicTests {
 
     @Test
     func testFixItsMultipleFiles() throws {
-        try testAPI2Files { (filename1: String, filename2: String) in
+        try testAPI2Files { path1, path2 in
             .init(
                 edits: (
                     .init(input: "var x = 1", result: "let _ = 1"),
@@ -288,15 +288,15 @@ struct BasicTests {
                 ),
                 summary: .init(numberOfFixItsApplied: 4, numberOfFilesChanged: 2),
                 diagnostics: [
-                    // filename1
+                    // path1
                     PrimaryDiagnostic(
                         level: .warning,
                         text: "warning1",
-                        location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                        location: .init(path: path1, line: 1, column: 1),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 4, offset: 0),
+                                start: .init(path: path1, line: 1, column: 1),
+                                end: .init(path: path1, line: 1, column: 4),
                                 text: "let"
                             ),
                         ]
@@ -304,24 +304,24 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error1",
-                        location: .init(filename: filename1, line: 1, column: 5, offset: 0),
+                        location: .init(path: path1, line: 1, column: 5),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename1, line: 1, column: 5, offset: 0),
-                                end: .init(filename: filename1, line: 1, column: 6, offset: 0),
+                                start: .init(path: path1, line: 1, column: 5),
+                                end: .init(path: path1, line: 1, column: 6),
                                 text: "_"
                             ),
                         ]
                     ),
-                    // filename2
+                    // path2
                     PrimaryDiagnostic(
                         level: .warning,
                         text: "warning2",
-                        location: .init(filename: filename2, line: 1, column: 5, offset: 0),
+                        location: .init(path: path2, line: 1, column: 5),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename2, line: 1, column: 5, offset: 0),
-                                end: .init(filename: filename2, line: 1, column: 6, offset: 0),
+                                start: .init(path: path2, line: 1, column: 5),
+                                end: .init(path: path2, line: 1, column: 6),
                                 text: "_"
                             ),
                         ]
@@ -329,11 +329,11 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error2",
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        location: .init(path: path2, line: 1, column: 1),
                         fixIts: [
                             .init(
-                                start: .init(filename: filename2, line: 1, column: 1, offset: 0),
-                                end: .init(filename: filename2, line: 1, column: 4, offset: 0),
+                                start: .init(path: path2, line: 1, column: 1),
+                                end: .init(path: path2, line: 1, column: 4),
                                 text: "let"
                             ),
                         ]
@@ -345,7 +345,7 @@ struct BasicTests {
 
     @Test
     func testNoteInDifferentFile() throws {
-        try testAPI2Files { (filename1: String, filename2: String) in
+        try testAPI2Files { path1, path2 in
             .init(
                 edits: (
                     .init(input: "var x = 1", result: "let x = 1"),
@@ -356,15 +356,15 @@ struct BasicTests {
                     PrimaryDiagnostic(
                         level: .error,
                         text: "error",
-                        location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                        location: .init(path: path2, line: 1, column: 1),
                         notes: [
                             Note(
                                 text: "note",
-                                location: .init(filename: filename1, line: 1, column: 1, offset: 0),
+                                location: .init(path: path1, line: 1, column: 1),
                                 fixIts: [
                                     .init(
-                                        start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                        end: .init(filename: filename1, line: 1, column: 4, offset: 0),
+                                        start: .init(path: path1, line: 1, column: 1),
+                                        end: .init(path: path1, line: 1, column: 4),
                                         text: "let"
                                     ),
                                 ]
@@ -379,7 +379,7 @@ struct BasicTests {
     @Test
     func testDiagNotInTheSameFileAsFixIt() {
         #expect(throws: Error.self) {
-            try testAPI2Files { (filename1: String, filename2: String) in
+            try testAPI2Files { path1, path2 in
                 .init(
                     edits: (
                         .init(input: "var x = 1", result: "let x = 1"),
@@ -390,11 +390,11 @@ struct BasicTests {
                         PrimaryDiagnostic(
                             level: .error,
                             text: "error",
-                            location: .init(filename: filename2, line: 1, column: 1, offset: 0),
+                            location: .init(path: path2, line: 1, column: 1),
                             fixIts: [
                                 .init(
-                                    start: .init(filename: filename1, line: 1, column: 1, offset: 0),
-                                    end: .init(filename: filename1, line: 1, column: 4, offset: 0),
+                                    start: .init(path: path1, line: 1, column: 1),
+                                    end: .init(path: path1, line: 1, column: 4),
                                     text: "let"
                                 ),
                             ]
