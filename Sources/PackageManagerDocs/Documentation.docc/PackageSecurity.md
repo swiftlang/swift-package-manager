@@ -1,17 +1,17 @@
 # Package Security
 
-Learn about the security features that SwiftPM implements.
+Learn about the security features that the package manager implements.
 
 ## Trust on First Use
 
-SwiftPM records **fingerprints** of downloaded package versions so that
+The package manager records **fingerprints** of downloaded package versions so that
 it can perform [trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)
 (TOFU). 
-That is, when a package version is downloaded for the first time, SwiftPM trusts that 
+That is, when a package version is downloaded for the first time, the package manager trusts that 
 it has downloaded the correct contents and requires subsequent downloads of the same 
 package version to have the same fingerprint. 
 If the fingerprint changes, it might be an indicator that the package has been
-compromised and SwiftPM will either warn or return an error.
+compromised and the package manager either warns or returns an error.
 
 Depending on where a package version is downloaded from, a different value is
 used as its fingerprint:
@@ -21,30 +21,12 @@ used as its fingerprint:
 | Git repository         | Git hash of the revision |
 | Package registry       | Checksum of the source archive |
 
-All version fingerprints of a package are kept in a single file
+The package manager keeps version fingerprints for each package in a single file
 under the `~/.swiftpm/security/fingerprints` directory.
-  - For a Git repository package, the fingerprint filename takes the form of `{PACKAGE_NAME}-{REPOSITORY_URL_HASH}.json` (e.g., `LinkedList-5ddbcf15.json`).
-  - For a registry package, the fingerprint filename takes the form of `{PACKAGE_ID}.json` (e.g., `mona.LinkedList.json`).
+  - For a Git repository package, the fingerprint filename takes the form of `{PACKAGE_NAME}-{REPOSITORY_URL_HASH}.json` (such as `LinkedList-5ddbcf15.json`).
+  - For a registry package, the fingerprint filename takes the form of `{PACKAGE_ID}.json` (such as `mona.LinkedList.json`).
 
-
-### Using fingerprints for TOFU
-
-When a package version is downloaded from Git repository or registry for
-the first time, SwiftPM simply saves the fingerprint to the designated
-file in the `~/.swiftpm/security/fingerprints` directory.
-                                    
-Otherwise, SwiftPM compares the fingerprint of the downloaded package version
-with that saved from previous download.
-The two fingerprint values must match or else SwiftPM will throw an error.
-This can be tuned down to warning by setting the build option `--resolver-fingerprint-checking` 
-to `warn` (default is `strict`).                                
-                                                                              
-Note that in case of registry packages, a package version's fingerprint
-must be consistent across registries or else there will be a TOFU failure.
-As an example, suppose a package version was originally downloaded from
-registry A and the source archive checksum was saved as the fingerprint.
-Later the package version is downloaded again but from registry B and has a different
-fingerprint.
-This would trigger a TOFU failure since the fingerprint should be consistent across
-the registries.
-
+For packages retrieved from a registry, the package manager expects all registries to provide consistent fingerprints for packages they host.
+If registries have conflicting fingerprints, package manager reports that as an error.
+This can be tuned down to warning by setting the [build](<doc:SwiftBuild>) option `--resolver-fingerprint-checking` 
+to `warn` (default is `strict`).
