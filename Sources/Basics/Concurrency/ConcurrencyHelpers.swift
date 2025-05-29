@@ -121,7 +121,7 @@ public final class AsyncOperationQueue: @unchecked Sendable {
 
     deinit {
         waitingTasksLock.withLock {
-            if !waitingTasks.filter({ $0.continuation != nil }).isEmpty {
+            if !waitingTasks.isEmpty {
                 preconditionFailure("Deallocated with waiting tasks")
             }
         }
@@ -170,6 +170,7 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                     // If the task was cancelled in between creating the task cancellation handler and aquiring the lock,
                     // we should resume the continuation with a `CancellationError`.
                     if case .cancelled = waitingTasks[index] {
+                        waitingTasks.remove(at: index)
                         return .cancel(continuation)
                     }
 
