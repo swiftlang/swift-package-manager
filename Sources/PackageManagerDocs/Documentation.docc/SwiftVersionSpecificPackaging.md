@@ -35,7 +35,7 @@ When using Swift 5.10, it picka `Package@swift-5.10.swift`.
 Otherwise, when using Swift 5.9 it picks `Package@swift-5.9.swift`, and this is the minimum tools version this package may be used with.
 
 A package may have versioned manifest files which specify newer tools versions than its unversioned `Package.swift` file.
-In this scenario, the package manager uses tge manifest corresponding to the newest-compatible tools version.
+In this scenario, the package manager uses the manifest corresponding to the newest-compatible tools version.
 
 > Note: Support for having a versioned manifest file with a _newer_ tools version was required when the feature was first introduced, because prior versions of the package manager were not aware of the concept and only knew to look for the unversioned `Package.swift`. This is still supported, but there have been many Swift releases since the feature was introduced. It is a best practice to have `Package.swift` declare the newest-supported tools version and for versioned manifest files to only specifer older versions.
 
