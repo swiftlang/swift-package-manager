@@ -33,7 +33,7 @@ targets: [
 ```
 
 The example above uses  [process(_:localization:)](https://developer.apple.com/documentation/PackageDescription/Resource/process(_:localization:)) to identify the resource.
-When you explicitly declare a resource, choose a rules to determine how Swift treats the resource file.
+When you explicitly declare a resource, choose a rule to determine how Swift treats the resource file.
 The options include:
 
 - term Process rule: For most use cases, use [process(_:localization:)](https://developer.apple.com/documentation/PackageDescription/Resource/process(_:localization:)). This requests the compiler to apply any processing known for the type of resource, according to the platform you’re building the package for. 
