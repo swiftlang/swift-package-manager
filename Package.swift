@@ -956,6 +956,10 @@ let package = Package(
             dependencies: ["SwiftFixIt", "_InternalTestSupport"]
         ),
         .testTarget(
+            name: "BinarySymbolsTests",
+            dependencies: ["BinarySymbols", "_InternalTestSupport"]
+        ),
+        .testTarget(
             name: "XCBuildSupportTests",
             dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
