@@ -6,6 +6,237 @@
 
 Log in to a registry.
 
+## Overview
+
+SwiftPM will verify the credentials using the registry service's login API. If it returns a successful response, credentials will be persisted to the operating system's credential store if supported, or the user-level netrc file otherwise. The user-level configuration file located at ~/.swiftpm/configuration/registries.json will also be updated.
+
+```bash
+SYNOPSIS
+    swift package-registry login <url> [options]
+OPTIONS:  
+  --username     Username
+  --password     Password
+  
+  --token        Access token
+
+  --no-confirm   Allow writing to netrc file without confirmation
+  --netrc-file   Specify the netrc file path
+  --netrc        Use netrc file even in cases where other credential stores are preferred
+```
+
+`url` should be the registry's base URL (e.g., `https://example-registry.com`). In case the location of the login API is something other than /login (e.g., `https://example-registry.com/api/v1/login`), provide the full URL.
+
+The URL must be HTTPS.
+
+The table below shows the supported authentication types and their required option(s):
+
+Authentication Method    Required Option(s)
+Basic    --username, --password
+Token    --token
+The tool will analyze the provided options to determine the authentication type and prompt (i.e., interactive mode) for the password/token if it is missing. For example, if only --username is present, the tool assumes basic authentication and prompts for the password.
+
+For non-interactive mode, simply provide the --password or --token option as required or make sure the secret is present in credential storage.
+
+If the operating system's credential store is not supported, the tool will prompt user for confirmation before writing credentials to the less secured netrc file. Use --no-confirm to disable this confirmation.
+
+To force usage of netrc file instead of the operating system's credential store, pass the --netrc flag.
+
+### Example: basic authentication (macOS, interactive)
+
+```bash
+> swift package-registry login https://example-registry.com \
+    --username jappleseed
+Enter password for 'jappleseed':
+
+Login successful.
+Credentials have been saved to the operating system's secure credential store.
+```
+
+An entry for `example-registry.com` would be added to Keychain.
+
+`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "basic"
+    },
+    ...
+  },
+  ...
+}
+
+### Example: basic authentication (operating system's credential store not supported, interactive)
+
+```bash
+> swift package-registry login https://example-registry.com \
+    --username jappleseed
+Enter password for 'jappleseed':
+
+Login successful.
+
+WARNING: Secure credential store is not supported on this platform.
+Your credentials will be written out to netrc file.
+Continue? (Yes/No): Yes
+
+Credentials have been saved to netrc file.
+```
+An entry for `example-registry.com` would be added to the netrc file:
+
+```bash
+machine example-registry.com
+login jappleseed
+password alpine
+```
+
+`registries.json` would be updated to indicate that example-registry.com requires basic authentication:
+
+```json
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "basic"
+    },
+    ...
+  },
+  ...
+}
+```
+
+### Example: basic authentication (use netrc file instead of operating system's credential store, interactive)
+
+```bash
+> swift package-registry login https://example-registry.com \
+    --username jappleseed
+    --netrc
+Enter password for 'jappleseed':
+
+Login successful.
+
+WARNING: You choose to use netrc file instead of the operating system's secure credential store. 
+Your credentials will be written out to netrc file.
+Continue? (Yes/No): Yes
+
+Credentials have been saved to netrc file.
+```
+
+An entry for `example-registry.com` would be added to the netrc file:
+
+```bash
+machine example-registry.com
+login jappleseed
+password alpine
+```
+
+`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+
+```json
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "basic"
+    },
+    ...
+  },
+  ...
+}
+```
+
+### Example: basic authentication (operating system's credential store not supported, non-interactive)
+
+```bash
+> swift package-registry login https://example-registry.com \
+    --username jappleseed \
+    --password alpine \
+    --no-confirm
+    
+Login successful.
+Credentials have been saved to netrc file.
+```
+
+An entry for `example-registry.com` would be added to the netrc file:
+
+```bash
+machine example-registry.com
+login jappleseed
+password alpine
+```
+`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+
+```json
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "basic"
+    },
+    ...
+  },
+  ...
+}
+```
+
+### Example: basic authentication (operating system's credential store not supported, non-interactive, non-default login URL)
+
+```bash
+> swift package-registry login https://example-registry.com/api/v1/login \
+    --username jappleseed \
+    --password alpine \
+    --no-confirm
+    
+Login successful.
+Credentials have been saved to netrc file.
+```
+An entry for `example-registry.com` would be added to the netrc file:
+
+```bash
+machine example-registry.com
+login jappleseed
+password alpine
+```
+`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+
+```json
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "basic",
+      "loginAPIPath": "/api/v1/login"
+    },
+    ...
+  },
+  ...
+}
+```
+
+### Example: token authentication
+
+```bash
+> swift package-registry login https://example-registry.com \
+    --token jappleseedstoken
+```
+An entry for `example-registry.com` would be added to the operating system's credential store if supported, or the user-level netrc file otherwise:
+
+```bash
+machine example-registry.com
+login token
+password jappleseedstoken
+```
+`registries.json` would be updated to indicate that `example-registry.com` requires token authentication:
+
+```json
+{
+  "authentication": {
+    "example-registry.com": {
+      "type": "token"
+    },
+    ...
+  },
+  ...
+}
+```
+
+### Usage
+
 ```
 package-registry login [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [<url>] [--username=<username>] [--password=<password>] [--token=<token>] [--token-file=<token-file>] [--no-confirm] [--version] [--help]
 ```

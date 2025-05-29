@@ -22,6 +22,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:AddingDependencies>
 - <doc:ResolvingPackageVersions>
 - <doc:CreatingCLanguageTargets>
+- <doc:UsingSwiftPackageRegistry>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
@@ -31,6 +32,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
  ### Reference
 - <doc:PackageDescription> <!-- redirect page to PackageDescription API reference docc -->
+- <doc:RegistryServerSpecification>
 <!-- link to Command API reference docc - the DocC Plugin API (PackagePlugin) -->
 
 <!-- reference content for the CLI commands `swift ...` -->

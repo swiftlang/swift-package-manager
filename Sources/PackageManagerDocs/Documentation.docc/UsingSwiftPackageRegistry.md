@@ -1,12 +1,12 @@
-# Using the Swift Package Registry
+# Using a Swift Package Registry
 
-Discover how to configure and use a package registry for SwiftPM.
+Configure and use a package registry for SwiftPM.
 
 ## Overview
 
 SwiftPM supports downloading dependencies from any package registry that implements 
 [SE-0292](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md)
-and the corresponding [service specification](Registry.md). <!-- TODO bp: fix article link once Registry.md is ported.-->
+and the corresponding [service specification](<doc:RegistryServerSpecification>).
 
 In a registry, packages are identified by [package identifier](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md#package-identity)
 in the form of `scope.package-name`.
@@ -18,7 +18,7 @@ A registry can be configured in SwiftPM at two levels:
  - Project: the registry will be used for packages within the project. Settings are stored in `.swiftpm/configuration/registries.json`.
  - User: the registry will be used for all projects for the user. Settings are stored in `~/.swiftpm/configuration/registries.json`.
 
-One could use the [`swift package-registry set` subcommand](<doc:#swift-package-registry-set-subcommand>) 
+One could use the [`swift package-registry set` subcommand](<doc:PackageRegistrySet>) 
 to assign a registry URL:
 
 ```bash
@@ -68,7 +68,8 @@ resolve and download the appropriate release version.
 ### Registry authentication
 
 If a registry requires authentication, it can be set up by using the 
-[`swift package-registry login` subcommand](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#new-login-subcommand)
+<!--[`swift package-registry login` subcommand](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#new-login-subcommand) -->
+ [`swift package-registry login` subcommand](<doc:PackageRegistryLogin>)
 introduced by SE-0378:
 
 ```bash
@@ -103,8 +104,8 @@ and apply them automatically when making registry API requests.
 ### Dependency Resolution Using Registry
 
 Resolving a registry dependency involves these steps:
-1. Fetch a package's available versions by calling the [list package releases](Registry.md#41-list-package-releases) <!-- TODO bp: fix article link once Registry.md is ported.--> API.
-2. Compute the dependency graph by [fetching manifest(s) for a package release](Registry.md#43-fetch-manifest-for-a-package-release) <!-- TODO bp: fix article link once Registry.md is ported.-->.
+1. Fetch a package's available versions by calling the [list package releases](<doc:RegistryServerSpecification#41-list-package-releases>) API.
+2. Compute the dependency graph by [fetching manifest(s) for a package release](<doc:RegistryServerSpecification#43-fetch-manifest-for-a-package-release>).
 3. Pinpoint the package version to use.
 
 #### Using registry for source control dependencies
@@ -127,7 +128,7 @@ they are considered different even though they are the same package,
 and would result in symbol clashes.
 
 SwiftPM can deduplicate packages by performing a 
-[lookup on the source control URL](Registry.md#endpoint-5) <!-- TODO bp: fix article link once Registry.md is ported.-->
+[lookup on the source control URL](<doc:RegistryServerSpecification#endpoint-5>)
 (e.g., `https://github.com/mona/LinkedList`) to see if it is associated with 
 any package identifier (e.g., `mona.LinkedList`).
 
@@ -140,7 +141,7 @@ source control dependencies by setting one of these flags:
 ### Dependency Download From Registry
 
 After a registry dependency is resolved, SwiftPM can
-[download source archive](Registry.md#endpoint-4) <!-- TODO bp: fix article link once Registry.md is ported.-->
+[download source archive](<doc:RegistryServerSpecification#endpoint-4>)
 of the computed package version from the registry.
 
 #### Checksum TOFU
@@ -149,7 +150,7 @@ As a [security feature](<doc:PackageSecurity>), SwiftPM performs checksum TOFU
 ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) 
 on the downloaded source archive. If the archive is downloaded
 for the first time, SwiftPM 
-[fetches metadata of the package release](Registry.md#endpoint-2) <!-- TODO bp: fix article link once Registry.md is ported.-->
+[fetches metadata of the package release](<doc:RegistryServerSpecification#endpoint-2>)
 to obtain the expected checksum. Otherwise, SwiftPM
 compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`)
 saved from previous download.
@@ -249,7 +250,7 @@ Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
   
  The command creates source archive for the package release,
  optionally signs the package release, and 
- [publishes the package release](Registry.md#endpoint-6) <!-- TODO bp: fix article link once Registry.md is ported.-->
+ [publishes the package release](<doc:RegistryServerSpecification#endpoint-6>)
  to the registry.
 
  If authentication is required for package publication, 
@@ -260,7 +261,7 @@ Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
 
 Package author can specify a custom location of the package 
 release metadata file by setting the `--metadata-path` option 
-of the `publish` subcommand. Otherwise, by default SwiftPM 
+of the [`publish` subcommand](<doc:PackageRegistryPublish>. Otherwise, by default SwiftPM 
 looks for a file named `package-metadata.json` in the 
 package directory.
 
@@ -398,41 +399,41 @@ For example, given the following configuration files:
 
 ##### `swift package-registry set` subcommand
 
-```bash
-$ swift package-registry set 
-OVERVIEW: Set a custom registry
-
-USAGE: swift package-registry set [--global] [--scope <scope>] <url>
-
-ARGUMENTS:
-  <url>                   The registry URL
-
-OPTIONS:
-  --global                Apply settings to all projects for this user
-  --scope <scope>         Associate the registry with a given scope
-```
-
-This subcommand is used to assign registry at project or user-level:
-
-```bash
-# project-level
-$ swift package-registry set https://packages.example.com 
-
-# user-level
-$ swift package-registry set --global https://global.example.com 
-```
-
-For a specific scope:
-
-```bash
-# project-level
-$ swift package-registry set --scope foo https://local.example.com
-
-# user-level
-$ swift package-registry set --scope foo --global https://global.example.com  
-```
-
-To remove a registry assignment, use the `swift package-registry unset` subcommand.
+<!--```bash-->
+<!--$ swift package-registry set -->
+<!--OVERVIEW: Set a custom registry-->
+<!---->
+<!--USAGE: swift package-registry set [--global] [--scope <scope>] <url>-->
+<!---->
+<!--ARGUMENTS:-->
+<!--  <url>                   The registry URL-->
+<!---->
+<!--OPTIONS:-->
+<!--  --global                Apply settings to all projects for this user-->
+<!--  --scope <scope>         Associate the registry with a given scope-->
+<!--```-->
+<!---->
+<!--This subcommand is used to assign registry at project or user-level:-->
+<!---->
+<!--```bash-->
+<!--# project-level-->
+<!--$ swift package-registry set https://packages.example.com -->
+<!---->
+<!--# user-level-->
+<!--$ swift package-registry set --global https://global.example.com -->
+<!--```-->
+<!---->
+<!--For a specific scope:-->
+<!---->
+<!--```bash-->
+<!--# project-level-->
+<!--$ swift package-registry set --scope foo https://local.example.com-->
+<!---->
+<!--# user-level-->
+<!--$ swift package-registry set --scope foo --global https://global.example.com  -->
+<!--```-->
+<!---->
+<!--To remove a registry assignment, use the `swift package-registry unset` subcommand.-->
   
 #### Security configuration
 
