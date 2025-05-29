@@ -155,10 +155,10 @@ to obtain the expected checksum. Otherwise, SwiftPM
 compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`)
 saved from previous download.
 
-If checksum of the downloaded archive doesn't match the expected
-or previous value, SwiftPM will fail the build. This can be
-tuned down from error to warning by setting the build option 
-`--resolver-fingerprint-checking` to `warn` (default is `strict`).
+<!--If checksum of the downloaded archive doesn't match the expected-->
+<!--or previous value, SwiftPM will fail the build. This can be-->
+<!--tuned down from error to warning by setting the build option -->
+<!--`--resolver-fingerprint-checking` to `warn` (default is `strict`).-->
 
 Checksum TOFU is also done for manifests downloaded from registry. 
 
@@ -220,33 +220,33 @@ Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
 ### Publishing to Registry
 
  [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand)
- is an all-in-one command for publishing a package release to registry:
+ is an all-in-one command for publishing a package release to registry.
 
- ```bash
- OVERVIEW: Publish to a registry
-
- USAGE: swift package-registry publish <package-id> <package-version> [--url <url>] [--scratch-directory <scratch-directory>] [--metadata-path <metadata-path>] [--signing-identity <signing-identity>] [--private-key-path <private-key-path>] [--cert-chain-paths <cert-chain-paths> ...] [--dry-run]
-
- ARGUMENTS:
-   <package-id>            The package identifier.
-   <package-version>       The package release version being created.
-
- OPTIONS:
-   --url, --registry-url <url>
-                           The registry URL.
-   --scratch-directory <scratch-directory>
-                           The path of the directory where working file(s) will be written.
-   --metadata-path <metadata-path>
-                           The path to the package metadata JSON file if it is not 'package-metadata.json' in the package directory.
-   --signing-identity <signing-identity>
-                           The label of the signing identity to be retrieved from the system's identity store if supported.
-   --private-key-path <private-key-path>
-                           The path to the certificate's PKCS#8 private key (DER-encoded).
-   --cert-chain-paths <cert-chain-paths>
-                           Path(s) to the signing certificate (DER-encoded) and optionally the rest of the certificate chain. Certificates
-                           should be ordered with the leaf first and the root last.
-   --dry-run               Dry run only; prepare the archive and sign it but do not publish to the registry.
- ```
+<!-- ```bash-->
+<!-- OVERVIEW: Publish to a registry-->
+<!---->
+<!-- USAGE: swift package-registry publish <package-id> <package-version> [--url <url>] [--scratch-directory <scratch-directory>] [--metadata-path <metadata-path>] [--signing-identity <signing-identity>] [--private-key-path <private-key-path>] [--cert-chain-paths <cert-chain-paths> ...] [--dry-run]-->
+<!---->
+<!-- ARGUMENTS:-->
+<!--   <package-id>            The package identifier.-->
+<!--   <package-version>       The package release version being created.-->
+<!---->
+<!-- OPTIONS:-->
+<!--   --url, --registry-url <url>-->
+<!--                           The registry URL.-->
+<!--   --scratch-directory <scratch-directory>-->
+<!--                           The path of the directory where working file(s) will be written.-->
+<!--   --metadata-path <metadata-path>-->
+<!--                           The path to the package metadata JSON file if it is not 'package-metadata.json' in the package directory.-->
+<!--   --signing-identity <signing-identity>-->
+<!--                           The label of the signing identity to be retrieved from the system's identity store if supported.-->
+<!--   --private-key-path <private-key-path>-->
+<!--                           The path to the certificate's PKCS#8 private key (DER-encoded).-->
+<!--   --cert-chain-paths <cert-chain-paths>-->
+<!--                           Path(s) to the signing certificate (DER-encoded) and optionally the rest of the certificate chain. Certificates-->
+<!--                           should be ordered with the leaf first and the root last.-->
+<!--   --dry-run               Dry run only; prepare the archive and sign it but do not publish to the registry.-->
+<!-- ```-->
   
  The command creates source archive for the package release,
  optionally signs the package release, and 
@@ -396,44 +396,6 @@ For example, given the following configuration files:
 
 - For package `foo.LinkedList`, the registry at `https://local.example.com` is used. (Local configuration has higher precedence than user-level configuration.)
 - For package `bar.LinkedList`, the registry at `https://global.example.com` is used. (No mapping for scope `bar` is found, so `[default]` is used.)
-
-##### `swift package-registry set` subcommand
-
-<!--```bash-->
-<!--$ swift package-registry set -->
-<!--OVERVIEW: Set a custom registry-->
-<!---->
-<!--USAGE: swift package-registry set [--global] [--scope <scope>] <url>-->
-<!---->
-<!--ARGUMENTS:-->
-<!--  <url>                   The registry URL-->
-<!---->
-<!--OPTIONS:-->
-<!--  --global                Apply settings to all projects for this user-->
-<!--  --scope <scope>         Associate the registry with a given scope-->
-<!--```-->
-<!---->
-<!--This subcommand is used to assign registry at project or user-level:-->
-<!---->
-<!--```bash-->
-<!--# project-level-->
-<!--$ swift package-registry set https://packages.example.com -->
-<!---->
-<!--# user-level-->
-<!--$ swift package-registry set --global https://global.example.com -->
-<!--```-->
-<!---->
-<!--For a specific scope:-->
-<!---->
-<!--```bash-->
-<!--# project-level-->
-<!--$ swift package-registry set --scope foo https://local.example.com-->
-<!---->
-<!--# user-level-->
-<!--$ swift package-registry set --scope foo --global https://global.example.com  -->
-<!--```-->
-<!---->
-<!--To remove a registry assignment, use the `swift package-registry unset` subcommand.-->
   
 #### Security configuration
 
