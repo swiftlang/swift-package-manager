@@ -770,7 +770,7 @@ extension Workspace.BinaryArtifactsManager {
         return results
     }
 
-    private static func deriveBinaryArtifactKind(
+    package static func deriveBinaryArtifactKind(
         fileSystem: FileSystem,
         path: AbsolutePath,
         observabilityScope: ObservabilityScope
