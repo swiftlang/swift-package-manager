@@ -21,6 +21,17 @@ import var TSCBasic.stdoutStream
 import class Workspace.Workspace
 
 struct SwiftSDKInstall: SwiftSDKSubcommand {
+    enum Error: Swift.Error, CustomStringConvertible {
+        case swiftSDKNotSpecified
+
+        var description: String {
+            switch self {
+            case .swiftSDKNotSpecified:
+                "Specify either a URL or a local path to a Swift SDK bundle as a positional argument."
+            }
+        }
+    }
+
     static let configuration = CommandConfiguration(
         commandName: "install",
         abstract: """
@@ -85,7 +96,7 @@ struct SwiftSDKInstall: SwiftSDKSubcommand {
         } else if let bundlePathOrURL {
             bundlePathOrURL
         } else {
-            throw InternalError("foo")
+            throw Error.swiftSDKNotSpecified
         }
 
         try await store.install(
