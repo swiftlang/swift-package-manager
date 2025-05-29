@@ -407,8 +407,8 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         let encoder = JSONEncoder.makeWithDefaults()
         // Include build parameters and process env in the signature.
         var hash = Data()
-        hash += try! encoder.encode(self.context.productsBuildParameters)
-        hash += try! encoder.encode(self.context.toolsBuildParameters)
+        hash += try! encoder.encode(normalizeBuildParameters(self.context.productsBuildParameters))
+        hash += try! encoder.encode(normalizeBuildParameters(self.context.toolsBuildParameters))
         hash += try! encoder.encode(Environment.current)
         return [UInt8](hash)
     }
@@ -420,6 +420,20 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         unsafe_await {
             await self.context.packageStructureDelegate.packageStructureChanged()
         }
+    }
+
+    /// Normalize any build parameters whose modifications do not need to cause a recompilation.
+    /// For instance, building with or without `--verbose` should not cause a full rebuild.
+    private func normalizeBuildParameters(
+        _ buildParameters: BuildParameters
+    ) -> BuildParameters {
+        var buildParameters = buildParameters
+        buildParameters.outputParameters = BuildParameters.Output(
+            isColorized: false,
+            isVerbose: false
+        )
+        buildParameters.workers = 1
+        return buildParameters
     }
 }
 
