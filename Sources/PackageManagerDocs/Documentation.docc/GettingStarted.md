@@ -1,6 +1,6 @@
 # Getting Started
 
-Learn to create and use a Swift packages.
+Learn to create and use Swift packages.
 
 ## Overview
 
