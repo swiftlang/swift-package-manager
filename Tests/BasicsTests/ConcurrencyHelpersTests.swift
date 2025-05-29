@@ -164,6 +164,35 @@ struct ConcurrencyHelpersTest {
         }
 
         @Test
+        func passesThroughWhenUnderConcurrencyLimit() async throws {
+            let queue = AsyncOperationQueue(concurrentTasks: 5)
+
+            let totalTasks = 5
+            let tracker = ResultsTracker()
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0..<totalTasks {
+                    group.addTask {
+                        try await queue.withOperation {
+                            await tracker.incrementConcurrent()
+                            try? await Task.sleep(nanoseconds: 5_000_000)
+                            await tracker.decrementConcurrent()
+                            await tracker.appendResult(index)
+                        }
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            let maxConcurrent = await tracker.maxConcurrent
+            let results = await tracker.results
+
+            // Check that we never exceeded the concurrency limit
+            #expect(maxConcurrent <= 5)
+            #expect(results.count == totalTasks)
+        }
+
+        @Test
         func handlesImmediateCancellation() async throws {
             let queue = AsyncOperationQueue(concurrentTasks: 5)
             let totalTasks = 20
@@ -177,6 +206,9 @@ struct ConcurrencyHelpersTest {
                     for index in 0..<totalTasks {
                         group.addTask {
                             try await queue.withOperation {
+                                if Task.isCancelled {
+                                    throw _Concurrency.CancellationError()
+                                }
                                 await tracker.incrementConcurrent()
                                 // sleep for a long time to ensure cancellation can occur.
                                 // If this is too short the cancellation may be triggered after
@@ -209,6 +241,9 @@ struct ConcurrencyHelpersTest {
                     for index in 0..<totalTasks {
                         group.addTask {
                             try await queue.withOperation {
+                                if Task.isCancelled {
+                                    throw _Concurrency.CancellationError()
+                                }
                                 await tracker.incrementConcurrent()
                                 try? await Task.sleep(nanoseconds: 5_000_000)
                                 await tracker.decrementConcurrent()

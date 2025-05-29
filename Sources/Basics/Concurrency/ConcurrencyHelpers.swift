@@ -181,6 +181,10 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                         return nil
                     } else {
                         waitingTasks.remove(at: index)
+
+                        // activeTasks isn't decremented in the `signalCompletion` method
+                        // when the next task to start is .creating, so we decrement it here.
+                        activeTasks -= 1
                         return .start(continuation)
                     }
                 }
@@ -213,6 +217,7 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                         // If the task was still being created, mark it as cancelled in the queue so that
                         // withCheckedThrowingContinuation can immediately cancel it.
                         self.waitingTasks[taskIndex] = .cancelled(taskId)
+                        activeTasks -= 1
                         return nil
                     case .cancelled:
                         preconditionFailure("Attempting to cancel a task that was already cancelled")
@@ -224,7 +229,12 @@ public final class AsyncOperationQueue: @unchecked Sendable {
     }
 
     private func signalCompletion() {
-        let continuationToResume = waitingTasksLock.withLock {
+        let continuationToResume = waitingTasksLock.withLock { () -> WaitingContinuation? in
+            guard !waitingTasks.isEmpty else {
+                activeTasks -= 1
+                return nil
+            }
+
             while let lastTask = waitingTasks.first {
                 switch lastTask {
                 case .creating:
@@ -235,7 +245,6 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                     // Begin the next waiting task
                     return waitingTasks.remove(at: 0).continuation
                 case .cancelled:
-                    activeTasks -= 1
                     // If the next task is cancelled, continue removing cancelled
                     // tasks until we find one that hasn't run yet or we run out.
                     _ = waitingTasks.remove(at: 0)
