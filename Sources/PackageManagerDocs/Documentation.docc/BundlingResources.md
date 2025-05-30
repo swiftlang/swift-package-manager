@@ -4,7 +4,7 @@ Add resource files to your Swift package and access them in your code.
 
 ## Overview
 
-If you declare a Swift tools version of 5.3 or later in your package manifest, you can bundle resources alongside your source code in Swift packages.
+If you declare `// swift-tools-version: 5.3` or later in your `Package.swift` file, you can bundle resources alongside your source code in Swift packages.
 For example, Swift packages can contain asset catalogs, test fixtures, and so on.
 
 ### Add resource files
