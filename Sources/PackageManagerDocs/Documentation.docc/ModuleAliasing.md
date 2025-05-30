@@ -1,5 +1,9 @@
 # Module Aliasing
 
+@Metadata {
+    @Available("Swift", introduced: "5.7")
+}
+
 Create aliased names for modules to avoid collisions between targets in your package or its dependencies.
 
 ## Overview
