@@ -22,6 +22,7 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:AddingDependencies>
 - <doc:ResolvingPackageVersions>
 - <doc:CreatingCLanguageTargets>
+- <doc:UsingSwiftPackageRegistry>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
@@ -45,3 +46,5 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:SwiftRun>
 
 ### Design
+
+- <doc:RegistryServerSpecification>
