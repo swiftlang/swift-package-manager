@@ -4,7 +4,7 @@ Customize your shell to automatically complete swift package commands.
 
 ## Overview
 
-Package manager ships with completion scripts for Bash, ZSH, and Fish.
+Package manager ships with completion scripts for Bash, Zsh, and Fish.
 Generate completion lists for your shell in order to use it.
 
 ### Bash
