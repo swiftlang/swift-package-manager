@@ -1206,11 +1206,12 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+    public func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         self.append("downloading package prebuilt: \(url)")
     }
 
     public func didDownloadPrebuilt(
+        package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
@@ -1218,7 +1219,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("finished downloading package prebuilt: \(url)")
     }
 
-    public func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    public func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 

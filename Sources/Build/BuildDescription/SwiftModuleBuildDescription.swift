@@ -801,7 +801,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.triple.isDarwin() && self.target.type == .library
+        self.target.type == .library
     }
 
     func writeOutputFileMap(to path: AbsolutePath) throws {

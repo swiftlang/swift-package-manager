@@ -22,15 +22,21 @@ import struct TSCUtility.Version
 /// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
 public protocol PrebuiltsManagerDelegate {
     /// The workspace has started downloading a binary artifact.
-    func willDownloadPrebuilt(from url: String, fromCache: Bool)
+    func willDownloadPrebuilt(
+        for package: PackageIdentity,
+        from url: String,
+        fromCache: Bool
+    )
     /// The workspace has finished downloading a binary artifact.
     func didDownloadPrebuilt(
+        for package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
     func downloadingPrebuilt(
+        for package: PackageIdentity,
         from url: String,
         bytesDownloaded: Int64,
         totalBytesToDownload: Int64?
@@ -446,8 +452,14 @@ extension Workspace {
                     if artifactURL.scheme == "file" {
                         let artifactPath = try AbsolutePath(validating: artifactURL.path)
                         if fileSystem.exists(artifactPath) {
+                            self.delegate?.willDownloadPrebuilt(
+                                for: package.identity,
+                                from: artifactURL.absoluteString,
+                                fromCache: true
+                            )
                             try fileSystem.copy(from: artifactPath, to: destination)
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .success((destination, false)),
                                 duration: fetchStart.distance(to: .now())
@@ -473,6 +485,7 @@ extension Workspace {
                         request.options.validResponseCodes = [200]
 
                         self.delegate?.willDownloadPrebuilt(
+                            for: package.identity,
                             from: artifactURL.absoluteString,
                             fromCache: false
                         )
@@ -481,6 +494,7 @@ extension Workspace {
                                 bytesDownloaded,
                                 totalBytesToDownload in
                                 self.delegate?.downloadingPrebuilt(
+                                    for: package.identity,
                                     from: artifactURL.absoluteString,
                                     bytesDownloaded: bytesDownloaded,
                                     totalBytesToDownload: totalBytesToDownload
@@ -492,6 +506,7 @@ extension Workspace {
                                 underlyingError: error
                             )
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .failure(error),
                                 duration: fetchStart.distance(to: .now())
@@ -505,6 +520,7 @@ extension Workspace {
                                 "Prebuilt artifact \(artifactFile) checksum mismatch"
                             observabilityScope.emit(info: errorString)
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .failure(StringError(errorString)),
                                 duration: fetchStart.distance(to: .now())
@@ -513,6 +529,7 @@ extension Workspace {
                         }
 
                         self.delegate?.didDownloadPrebuilt(
+                            for: package.identity,
                             from: artifactURL.absoluteString,
                             result: .success((destination, false)),
                             duration: fetchStart.distance(to: .now())
@@ -592,7 +609,7 @@ extension Workspace {
                             artifact: artifact,
                             observabilityScope: observabilityScope
                         )
-                    {   
+                    {
                         // Add to workspace state
                         let managedPrebuilt = ManagedPrebuilt(
                             identity: prebuilt.identity,

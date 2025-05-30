@@ -15,19 +15,24 @@ public enum OperatingSystem: Hashable, Sendable {
     case windows
     case linux
     case android
+    case freebsd
     case unknown
 }
 
 extension ProcessInfo {
-    #if os(macOS)
-    public static let hostOperatingSystem = OperatingSystem.macOS
-    #elseif os(Linux)
-    public static let hostOperatingSystem = OperatingSystem.linux
-    #elseif os(Windows)
-    public static let hostOperatingSystem = OperatingSystem.windows
-    #else
-    public static let hostOperatingSystem = OperatingSystem.unknown
-    #endif
+    public static var hostOperatingSystem: OperatingSystem {
+        #if os(macOS)
+        .macOS
+        #elseif os(Linux)
+        .linux
+        #elseif os(Windows)
+        .windows
+        #elseif os(FreeBSD)
+        .freebsd
+        #else
+        .unknown
+        #endif
+    }
 
     #if os(Windows)
     public static let EOL = "\r\n"

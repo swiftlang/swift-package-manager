@@ -183,7 +183,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The workspace has started downloading a binary artifact.
-    func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+    func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         if fromCache {
             self.outputHandler("Fetching package prebuilt \(url) from cache", false)
         } else {
@@ -193,6 +193,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
 
     /// The workspace has finished downloading a binary artifact.
     func didDownloadPrebuilt(
+        package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
@@ -209,7 +210,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The workspace is downloading a binary artifact.
-    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
 
     }
 
