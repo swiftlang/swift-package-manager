@@ -21,7 +21,7 @@ engineering teams, focusing them on a trusted set of vetted packages.
 
 With the `swift package-collection` command-line interface, SwiftPM users can subscribe to package collections. 
 Contents of imported package 
-collections are accessible to any clients of [libSwiftPM](libSwiftPM.md). <!-- TODO bp: to link to libSwiftPM article when available. -->
+collections are accessible to any clients of [libSwiftPM](<doc:SwiftPMAsALibrary>).
 
 `swift package-collection` has the following subcommands:
 - [`add`](<doc:PackageCollectionAdd>): Add a new collection
