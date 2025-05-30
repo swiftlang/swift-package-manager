@@ -12,7 +12,7 @@ To provide a more complete look at what the Swift Package Manager can do, the fo
 
 ### Creating a Library Package
 
-We’ll start by creating a target representing a playing card in a standard 52-card deck. 
+We'll start by creating a target representing a playing card in a standard 52-card deck. 
 The [PlayingCard](https://github.com/apple/example-package-playingcard) target defines the PlayingCard type, which consists of a Suit enumeration value (Clubs, Diamonds, Hearts, Spades) and a Rank enumeration value (Ace, Two, Three, …, Jack, Queen, King).
 
 ```swift
