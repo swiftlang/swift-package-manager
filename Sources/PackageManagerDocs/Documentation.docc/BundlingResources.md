@@ -58,7 +58,7 @@ targets: [
 ```
 
 In general, avoid placing files that aren’t resources in a target's source folder. 
-If that’s not feasible, avoid excluding every file individually, place all files you want to exclude in a directory, and add the directory path to the array of excluded files.
+If that's not feasible, avoid excluding every file individually, place all files you want to exclude in a directory, and add the directory path to the array of excluded files.
 Swift Package Manager warns you about files it doesn't recognize in a target's `Sources` directory.
 
 ### Access a resource in code
