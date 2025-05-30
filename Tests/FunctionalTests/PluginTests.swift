@@ -91,6 +91,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testUseOfPluginWithInternalExecutable() async throws {
@@ -128,6 +135,14 @@ final class PluginTests: XCTestCase {
                 )
             }
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable"
+) { error in
+            }
+        }
+#endif
     }
     
     func testLocalBuildToolPluginUsingRemoteExecutable() async throws {
@@ -188,6 +203,16 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+/*
+FIXME: Determine the cause of the compile error.
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
+*/
     }
 
     func testPluginScriptSandbox() async throws {
@@ -1170,7 +1195,7 @@ final class PluginTests: XCTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        for buildSystem in ["native"/*, "swiftbuild"*/] { // FIXME: the sandboxing doesn't seem to be working with Swift Build
+        for buildSystem in ["native"] { // FIXME: enable swiftbuild testing once pre-build plugins are working
             // Check that the build fails with a sandbox violation by default.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
                 await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem])) { error in
@@ -1180,7 +1205,7 @@ final class PluginTests: XCTestCase {
 
             // Check that the build succeeds if we disable the sandbox.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"])
+                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem, "--disable-sandbox"])
                 XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
             }
         }
@@ -1217,6 +1242,16 @@ final class PluginTests: XCTestCase {
                 XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
+            }
+        }
+#endif
     }
 
     func testPluginCanBeReferencedByProductName() async throws {
@@ -1259,6 +1294,19 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath.appending(component: "MySourceGenPlugin"),
+                configuration: .Debug,
+                extraArgs: ["-v", "--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE", "--build-system", "swiftbuild"]
+            )
+            XCTAssert(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+            XCTAssert(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+        }
+#endif
     }
 
     func testURLBasedPluginAPI() async throws {
