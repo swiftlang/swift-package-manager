@@ -26,9 +26,9 @@ if [ -n "`which swift`" ]; then
 fi
 ```
 
-### ZSH
+### Zsh
 
-Use the following commands to install the ZSH completions to `~/.zsh/_swift`.
+Use the following commands to install the Zsh completions to `~/.zsh/_swift`.
 You can chose a different folder, but the filename should be `_swift`.
 This will also add `~/.zsh` to your `$fpath` using your `~/.zshrc` file.
 
