@@ -10,29 +10,29 @@
 //
 //===----------------------------------------------------------------------===//
 
-import XCTest
+import Testing
 
 @testable import PackageCollections
 
-class TrieTests: XCTestCase {
-    func testContains() {
+@Suite struct TrieTests {
+    @Test func testContains() {
         let trie = Trie<Int>()
 
         let doc1 = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"
         self.indexDocument(id: 1, contents: doc1, trie: trie)
 
         // Whole word match
-        XCTAssertTrue(trie.contains(word: "brown", prefixMatch: false))
-        XCTAssertTrue(trie.contains(word: "Fox", prefixMatch: false))
-        XCTAssertFalse(trie.contains(word: "foobar", prefixMatch: false))
+        #expect(trie.contains(word: "brown", prefixMatch: false))
+        #expect(trie.contains(word: "Fox", prefixMatch: false))
+        #expect(!trie.contains(word: "foobar", prefixMatch: false))
 
         // Prefix match
-        XCTAssertTrue(trie.contains(word: "d", prefixMatch: true))
-        XCTAssertTrue(trie.contains(word: "Do", prefixMatch: true))
-        XCTAssertFalse(trie.contains(word: "doo", prefixMatch: true))
+        #expect(trie.contains(word: "d", prefixMatch: true))
+        #expect(trie.contains(word: "Do", prefixMatch: true))
+        #expect(!trie.contains(word: "doo", prefixMatch: true))
     }
 
-    func testFind() {
+    @Test func testFind() throws {
         let trie = Trie<Int>()
 
         let doc1 = "the quick brown fox jumps over the lazy dog and the dog does not notice the fox jumps over it"
@@ -40,14 +40,14 @@ class TrieTests: XCTestCase {
         self.indexDocument(id: 1, contents: doc1, trie: trie)
         self.indexDocument(id: 2, contents: doc2, trie: trie)
 
-        XCTAssertEqual(try trie.find(word: "brown"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "blocked"), [2])
-        XCTAssertThrowsError(try trie.find(word: "fo"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "brown") == [1, 2])
+        #expect(try trie.find(word: "blocked") == [2])
+        #expect(throws:NotFoundError.self) {
+            try trie.find(word: "fo")
         }
     }
 
-    func testFindWithPrefix() {
+    func testFindWithPrefix() throws {
         let trie = Trie<Int>()
 
         let doc1 = "the quick brown fox jumps over the lazy dog and the dog does not notice the fox jumps over it"
@@ -55,15 +55,15 @@ class TrieTests: XCTestCase {
         self.indexDocument(id: 1, contents: doc1, trie: trie)
         self.indexDocument(id: 2, contents: doc2, trie: trie)
 
-        XCTAssertEqual(try trie.findWithPrefix("f"), ["fox": [1, 2], "for": [2], "far": [2]])
-        XCTAssertEqual(try trie.findWithPrefix("fo"), ["fox": [1, 2], "for": [2]])
-        XCTAssertEqual(try trie.findWithPrefix("far"), ["far": [2]])
-        XCTAssertThrowsError(try trie.findWithPrefix("foo"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.findWithPrefix("f") == ["fox": [1, 2], "for": [2], "far": [2]])
+        #expect(try trie.findWithPrefix("fo") == ["fox": [1, 2], "for": [2]])
+        #expect(try trie.findWithPrefix("far") == ["far": [2]])
+        #expect(throws: NotFoundError.self) {
+            try trie.findWithPrefix("foo")
         }
     }
 
-    func testRemoveDocument() {
+    @Test func testRemoveDocument() throws {
         let trie = Trie<Int>()
 
         let doc1 = "the quick brown fox jumps over the lazy dog"
@@ -73,60 +73,60 @@ class TrieTests: XCTestCase {
         self.indexDocument(id: 2, contents: doc2, trie: trie)
         self.indexDocument(id: 3, contents: doc3, trie: trie)
 
-        XCTAssertEqual(try trie.find(word: "fox"), [1, 2, 3])
-        XCTAssertEqual(try trie.find(word: "dog"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "it"), [2, 3])
-        XCTAssertEqual(try trie.find(word: "lazy"), [1])
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertEqual(try trie.find(word: "blocked"), [3])
+        #expect(try trie.find(word: "fox") == [1, 2, 3])
+        #expect(try trie.find(word: "dog") == [1, 2])
+        #expect(try trie.find(word: "it") == [2, 3])
+        #expect(try trie.find(word: "lazy") == [1])
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(try trie.find(word: "blocked") == [3])
 
         trie.remove(document: 3)
 
-        XCTAssertEqual(try trie.find(word: "fox"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "dog"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "it"), [2])
-        XCTAssertEqual(try trie.find(word: "lazy"), [1])
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "fox") == [1, 2])
+        #expect(try trie.find(word: "dog") == [1, 2])
+        #expect(try trie.find(word: "it") == [2])
+        #expect(try trie.find(word: "lazy") == [1])
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
 
         trie.remove(document: 1)
 
-        XCTAssertEqual(try trie.find(word: "fox"), [2])
-        XCTAssertEqual(try trie.find(word: "dog"), [2])
-        XCTAssertEqual(try trie.find(word: "it"), [2])
-        XCTAssertThrowsError(try trie.find(word: "lazy"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "fox") == [2])
+        #expect(try trie.find(word: "dog") == [2])
+        #expect(try trie.find(word: "it") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "lazy")
         }
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
 
         trie.remove(document: 2)
 
-        XCTAssertThrowsError(try trie.find(word: "fox"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "fox")
         }
-        XCTAssertThrowsError(try trie.find(word: "dog"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "dog")
         }
-        XCTAssertThrowsError(try trie.find(word: "it"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "it")
         }
-        XCTAssertThrowsError(try trie.find(word: "lazy"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "lazy")
         }
-        XCTAssertThrowsError(try trie.find(word: "notice"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "notice")
         }
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
     }
 
-    func testRemoveDocumentsWithPredicate() {
+    func testRemoveDocumentsWithPredicate() throws {
         let trie = Trie<Int>()
 
         let doc1 = "the quick brown fox jumps over the lazy dog"
@@ -136,56 +136,56 @@ class TrieTests: XCTestCase {
         self.indexDocument(id: 2, contents: doc2, trie: trie)
         self.indexDocument(id: 3, contents: doc3, trie: trie)
 
-        XCTAssertEqual(try trie.find(word: "fox"), [1, 2, 3])
-        XCTAssertEqual(try trie.find(word: "dog"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "it"), [2, 3])
-        XCTAssertEqual(try trie.find(word: "lazy"), [1])
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertEqual(try trie.find(word: "blocked"), [3])
+        #expect(try trie.find(word: "fox") == [1, 2, 3])
+        #expect(try trie.find(word: "dog") == [1, 2])
+        #expect(try trie.find(word: "it") == [2, 3])
+        #expect(try trie.find(word: "lazy") == [1])
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(try trie.find(word: "blocked") == [3])
 
         trie.remove { $0 == 3 }
 
-        XCTAssertEqual(try trie.find(word: "fox"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "dog"), [1, 2])
-        XCTAssertEqual(try trie.find(word: "it"), [2])
-        XCTAssertEqual(try trie.find(word: "lazy"), [1])
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "fox") == [1, 2])
+        #expect(try trie.find(word: "dog") == [1, 2])
+        #expect(try trie.find(word: "it") == [2])
+        #expect(try trie.find(word: "lazy") == [1])
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
 
         trie.remove { $0 == 1 }
 
-        XCTAssertEqual(try trie.find(word: "fox"), [2])
-        XCTAssertEqual(try trie.find(word: "dog"), [2])
-        XCTAssertEqual(try trie.find(word: "it"), [2])
-        XCTAssertThrowsError(try trie.find(word: "lazy"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "fox") == [2])
+        #expect(try trie.find(word: "dog") == [2])
+        #expect(try trie.find(word: "it") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "lazy")
         }
-        XCTAssertEqual(try trie.find(word: "notice"), [2])
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(try trie.find(word: "notice") == [2])
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
 
         trie.remove { $0 == 2 }
 
-        XCTAssertThrowsError(try trie.find(word: "fox"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "fox")
         }
-        XCTAssertThrowsError(try trie.find(word: "dog"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "dog")
         }
-        XCTAssertThrowsError(try trie.find(word: "it"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "it")
         }
-        XCTAssertThrowsError(try trie.find(word: "lazy"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "lazy")
         }
-        XCTAssertThrowsError(try trie.find(word: "notice"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "notice")
         }
-        XCTAssertThrowsError(try trie.find(word: "blocked"), "expected error") { error in
-            XCTAssert(error is NotFoundError)
+        #expect(throws: NotFoundError.self) {
+            try trie.find(word: "blocked")
         }
     }
 
@@ -196,33 +196,25 @@ class TrieTests: XCTestCase {
         }
     }
 
-    func testThreadSafe() {
-        let queue = DispatchQueue(label: "TrieTests", attributes: .concurrent)
+    @Test func testThreadSafe() async throws {
         let trie = Trie<Int>()
+
         let docCount = 100
-
-        for _ in 0 ..< 100 {
-            let sync = DispatchGroup()
-
+        await withTaskGroup { group in
             for i in 0 ..< docCount {
-                queue.async(group: sync) {
-                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
+                group.addTask {
+                    try? await Task.sleep(for: .milliseconds(Double.random(in: 100...300)))
 
                     trie.remove { $0 == i }
                     trie.insert(word: "word-\(i)", foundIn: i)
                     trie.insert(word: "test", foundIn: i)
                 }
             }
-
-            switch sync.wait(timeout: .now() + 1) {
-            case .timedOut:
-                XCTFail("timeout")
-            case .success:
-                for doc in 0 ..< docCount {
-                    XCTAssertEqual(try trie.find(word: "word-\(doc)"), [doc])
-                    XCTAssertEqual(try trie.find(word: "test").count, docCount)
-                }
-            }
+            await group.waitForAll()
+        }
+        for doc in 0 ..< docCount {
+            #expect(try trie.find(word: "word-\(doc)") == [doc])
+            #expect(try trie.find(word: "test").count == docCount)
         }
     }
 }
