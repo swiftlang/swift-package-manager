@@ -12,7 +12,7 @@ For example, Swift packages can contain asset catalogs, test fixtures, and so on
 Package manager treats non-source files found in the target's sources directory as assets, scoped to that target.
 For example, any resources for the `MyLibrary` target reside by default in `Sources/MyLibrary`.
 To easily distinguish resources from source files, create and use a subfolder for the resources. 
-For example, put all resource files into a directory named Resources, resulting in all of your resource files residing at `Sources/MyLibrary/Resources`.
+For example, put all resource files into a directory named `Resources`, resulting in all of your resource files residing at `Sources/MyLibrary/Resources`.
 
 ### Explicitly declare or exclude resources
 
