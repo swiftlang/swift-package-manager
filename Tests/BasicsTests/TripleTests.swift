@@ -49,7 +49,7 @@ struct TripleTests {
         ],
     )
     func isAppleIsDarwin(_ tripleName: String, _ isApple: Bool, _ isDarwin: Bool) throws {
-        let triple = try #require(try Triple(tripleName), "Unknown triple '\(tripleName)'.")
+        let triple = try Triple(tripleName)
         #expect(
             isApple == triple.isApple(),
             """
@@ -160,7 +160,7 @@ struct TripleTests {
     func tripleStringForPlatformVersion(
         tripleName: String, version: String, expectedTriple: String
     ) throws {
-        let triple = try #require(try Triple(tripleName), "Unknown triple '\(tripleName)'.")
+        let triple = try Triple(tripleName)
         let actualTriple = triple.tripleString(forPlatformVersion: version)
         #expect(
             actualTriple == expectedTriple,
@@ -252,8 +252,7 @@ struct TripleTests {
     func knownTripleParsing(
         data: DataKnownTripleParsing,
     ) throws {
-        let triple = try #require(
-            try Triple(data.tripleName), "Unknown triple '\(data.tripleName)'.")
+        let triple = try Triple(data.tripleName)
         #expect(triple.arch == data.expectedArch, "Actual arch not as expected")
         #expect(triple.subArch == data.expectedSubArch, "Actual subarch is not as expected")
         #expect(triple.vendor == data.expectedVendor, "Actual Vendor is not as expected")
@@ -263,31 +262,27 @@ struct TripleTests {
     }
 
     @Test
-    func triple() {
-        let linux = try? Triple("x86_64-unknown-linux-gnu")
-        #expect(linux != nil)
-        #expect(linux!.os == .linux)
-        #expect(linux!.osVersion == Triple.Version.zero)
-        #expect(linux!.environment == .gnu)
+    func triple() throws {
+        let linux = try Triple("x86_64-unknown-linux-gnu")
+        #expect(linux.os == .linux)
+        #expect(linux.osVersion == Triple.Version.zero)
+        #expect(linux.environment == .gnu)
 
-        let macos = try? Triple("x86_64-apple-macosx10.15")
-        #expect(macos! != nil)
-        #expect(macos!.osVersion == .init(parse: "10.15"))
+        let macos = try Triple("x86_64-apple-macosx10.15")
+        #expect(macos.osVersion == .init(parse: "10.15"))
         let newVersion = "10.12"
-        let tripleString = macos!.tripleString(forPlatformVersion: newVersion)
+        let tripleString = macos.tripleString(forPlatformVersion: newVersion)
         #expect(tripleString == "x86_64-apple-macosx10.12")
-        let macosNoX = try? Triple("x86_64-apple-macos12.2")
-        #expect(macosNoX! != nil)
-        #expect(macosNoX!.os == .macosx)
-        #expect(macosNoX!.osVersion == .init(parse: "12.2"))
+        let macosNoX = try Triple("x86_64-apple-macos12.2")
+        #expect(macosNoX.os == .macosx)
+        #expect(macosNoX.osVersion == .init(parse: "12.2"))
 
-        let android = try? Triple("aarch64-unknown-linux-android24")
-        #expect(android != nil)
-        #expect(android!.os == .linux)
-        #expect(android!.environment == .android)
+        let android = try Triple("aarch64-unknown-linux-android24")
+        #expect(android.os == .linux)
+        #expect(android.environment == .android)
 
-        let linuxWithABIVersion = try? Triple("x86_64-unknown-linux-gnu42")
-        #expect(linuxWithABIVersion!.environment == .gnu)
+        let linuxWithABIVersion = try Triple("x86_64-unknown-linux-gnu42")
+        #expect(linuxWithABIVersion.environment == .gnu)
     }
 
     @Test
