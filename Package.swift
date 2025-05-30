@@ -744,7 +744,8 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Workspace",
-            ]
+            ],
+            exclude: ["config.json"]
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
