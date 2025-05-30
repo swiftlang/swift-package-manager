@@ -151,7 +151,7 @@ let package = Package(
 
 ```
 
-Swift requires that a source file import the modules for any types that are referenced in code.
+Swift requires that a source file imports the modules for any types that are referenced in code.
 In the Dealer module’s `Deal.swift` file, the code imports `DeckOfPlayingCards` and `PlayingCard` to use types from each.
 
 ```swift
