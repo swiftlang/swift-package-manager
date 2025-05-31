@@ -360,8 +360,7 @@ final class RepositoryManagerTests: XCTestCase {
                             repository: dummyRepo,
                             updateStrategy: .always,
                             observabilityScope: observability.topScope,
-                            delegateQueue: .sharedConcurrent,
-                            callbackQueue: .sharedConcurrent
+                            delegateQueue: .sharedConcurrent
                         )
                     }
                 }
@@ -434,7 +433,7 @@ final class RepositoryManagerTests: XCTestCase {
         }
     }
 
-    func testCancel() throws {
+    func testCancel() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
@@ -524,7 +523,7 @@ final class RepositoryManagerTests: XCTestCase {
                     defer { self.outstandingGroup.leave() }
                     print("\(repository) waiting to be cancelled")
                     XCTAssertEqual(.success, self.terminatedGroup.wait(timeout: .now() + 5), "timeout waiting on terminated signal")
-                    throw StringError("\(repository) should be cancelled")
+                    throw CancellationError()
                 }
                 print("\(repository) okay")
             }
@@ -698,19 +697,13 @@ extension RepositoryManager {
         updateStrategy: RepositoryUpdateStrategy = .always,
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
-        return try await withCheckedThrowingContinuation { continuation in
-            self.lookup(
-                package: .init(url: SourceControlURL(repository.url)),
-                repository: repository,
-                updateStrategy: updateStrategy,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
+        return try await self.lookup(
+            package: .init(url: SourceControlURL(repository.url)),
+            repository: repository,
+            updateStrategy: updateStrategy,
+            observabilityScope: observabilityScope,
+            delegateQueue: .sharedConcurrent
+        )
     }
 }
 
