@@ -35,6 +35,12 @@ extension BuildPlan {
         // Compute the product's dependency.
         let dependencies = try computeDependencies(of: buildProduct)
 
+        var isEmbeddedSwift = false
+        for module in dependencies.staticTargets {
+            guard case .swift(let module) = module else { continue }
+            isEmbeddedSwift = isEmbeddedSwift || module.isEmbeddedSwift
+        }
+
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
             guard case let target as SystemLibraryModule = systemModule.underlying else {
@@ -58,7 +64,7 @@ extension BuildPlan {
         // Don't link libc++ or libstd++ when building for Embedded Swift.
         // Users can still link it manually for embedded platforms when needed,
         // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
-        if !buildProduct.product.modules.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+        if !isEmbeddedSwift {
             // Link C++ if needed.
             // Note: This will come from build settings in future.
             for description in dependencies.staticTargets {
