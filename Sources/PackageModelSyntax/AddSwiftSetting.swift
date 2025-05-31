@@ -73,7 +73,7 @@ public enum AddSwiftSetting {
         manifest: SourceFileSyntax
     ) throws -> PackageEditResult {
         try self.addToTarget(
-            target, name: "strictMemorySafety",
+            target, name: "strictMemorySafety()",
             value: String?.none,
             firstIntroduced: .v6_2,
             manifest: manifest
