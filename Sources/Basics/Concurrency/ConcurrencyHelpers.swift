@@ -141,17 +141,17 @@ public final class AsyncOperationQueue: @unchecked Sendable {
     }
 
     private func waitIfNeeded() async throws {
-        guard waitingTasksLock.withLock({
+        guard let taskId = waitingTasksLock.withLock({ () -> ID? in
             let shouldWait = activeTasks >= concurrentTasks
             activeTasks += 1
-            return shouldWait
+            guard shouldWait else {
+                return nil
+            }
+            let taskId = ID()
+            waitingTasks.append(.creating(taskId))
+            return taskId
         }) else {
             return // Less tasks are in flight than the limit.
-        }
-
-        let taskId = ID()
-        waitingTasksLock.withLock {
-            waitingTasks.append(.creating(taskId))
         }
 
         enum TaskAction {
