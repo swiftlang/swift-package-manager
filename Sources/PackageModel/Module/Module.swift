@@ -274,15 +274,6 @@ public class Module {
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
     }
-
-    @_spi(SwiftPMInternal)
-    public var isEmbeddedSwiftTarget: Bool {
-        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
-            return true
-        }
-
-        return false
-    }
 }
 
 extension Module: Hashable {
