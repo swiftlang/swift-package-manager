@@ -5,13 +5,23 @@ let package = Package(
     name: "TestableExe",
     targets: [
         .executableTarget(
-            name: "TestableExe1"
+            name: "TestableExe1",
+            linkerSettings: [
+                .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
+            ]
         ),
         .executableTarget(
-            name: "TestableExe2"
+            name: "TestableExe2",
+            linkerSettings: [
+                .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
+            ]
+
         ),
         .executableTarget(
-            name: "TestableExe3"
+            name: "TestableExe3",
+            linkerSettings: [
+                .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
+            ]
         ),
         .testTarget(
             name: "TestableExeTests",

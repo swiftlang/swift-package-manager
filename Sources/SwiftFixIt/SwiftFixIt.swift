@@ -29,6 +29,7 @@ import enum SwiftIDEUtils.FixItApplier
 import struct SwiftParser.Parser
 
 import struct SwiftSyntax.AbsolutePosition
+import struct SwiftSyntax.SourceEdit
 import struct SwiftSyntax.SourceFileSyntax
 import class SwiftSyntax.SourceLocationConverter
 import struct SwiftSyntax.Syntax
@@ -42,7 +43,7 @@ private enum Error: Swift.Error {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnySourceLocation: Hashable {
+protocol AnySourceLocation {
     var filename: String { get }
     var line: UInt64 { get }
     var column: UInt64 { get }
@@ -75,11 +76,11 @@ protocol AnyDiagnostic {
 
 extension AnyDiagnostic {
     var isPrimary: Bool {
-        self.level != .note
+        !self.isNote
     }
 
     var isNote: Bool {
-        !self.isPrimary
+        self.level == .note
     }
 
     var isIgnored: Bool {
@@ -96,13 +97,7 @@ extension AnyDiagnostic {
 }
 
 extension SerializedDiagnostics.Diagnostic: AnyDiagnostic {}
-extension SerializedDiagnostics.SourceLocation: AnySourceLocation, @retroactive Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.filename)
-        hasher.combine(self.line)
-        hasher.combine(self.column)
-    }
-}
+extension SerializedDiagnostics.SourceLocation: AnySourceLocation {}
 
 extension SerializedDiagnostics.FixIt: AnyFixIt {}
 
@@ -111,8 +106,9 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
     /// A hashable type storing the minimum data necessary to uniquely identify
     /// a diagnostic for our purposes.
     private struct DiagnosticID: Hashable {
-        private let location: Diagnostic.SourceLocation
         private let message: String
+        private let filename: String
+        private let utf8Offset: UInt64
         private let level: SerializedDiagnostics.Diagnostic.Level
 
         init(diagnostic: Diagnostic) {
@@ -120,7 +116,8 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
             self.message = diagnostic.text
             // Force the location. We should be filtering out diagnostics
             // without a location.
-            self.location = diagnostic.location!
+            self.filename = diagnostic.location!.filename
+            self.utf8Offset = diagnostic.location!.offset
         }
     }
 
@@ -264,18 +261,55 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
 
         self.diagnosticsPerFile = diagnosticsPerFile
     }
+}
 
-    package func applyFixIts() throws {
+extension SwiftFixIt {
+    package struct Summary: Equatable {
+        package var numberOfFixItsApplied: Int
+        package var numberOfFilesChanged: Int
+
+        package init(numberOfFixItsApplied: Int, numberOfFilesChanged: Int) {
+            self.numberOfFixItsApplied = numberOfFixItsApplied
+            self.numberOfFilesChanged = numberOfFilesChanged
+        }
+
+        package static func + (lhs: consuming Self, rhs: Self) -> Self {
+            lhs += rhs
+            return lhs
+        }
+
+        package static func += (lhs: inout Self, rhs: Self) {
+            lhs.numberOfFixItsApplied += rhs.numberOfFixItsApplied
+            lhs.numberOfFilesChanged += rhs.numberOfFilesChanged
+        }
+    }
+
+    package func applyFixIts() throws -> Summary {
+        var numberOfFixItsApplied = 0
+
         // Bulk-apply fix-its to each file and write the results back.
         for (sourceFile, diagnostics) in self.diagnosticsPerFile {
-            let result = SwiftIDEUtils.FixItApplier.applyFixes(
-                from: diagnostics,
-                filterByMessages: nil,
-                to: sourceFile.syntax
-            )
+            numberOfFixItsApplied += diagnostics.count
+
+            var edits = [SwiftSyntax.SourceEdit]()
+            edits.reserveCapacity(diagnostics.count)
+            for diagnostic in diagnostics {
+                for fixIt in diagnostic.fixIts {
+                    for edit in fixIt.edits {
+                        edits.append(edit)
+                    }
+                }
+            }
+
+            let result = SwiftIDEUtils.FixItApplier.apply(edits: consume edits, to: sourceFile.syntax)
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }
+
+        return Summary(
+            numberOfFixItsApplied: numberOfFixItsApplied,
+            numberOfFilesChanged: self.diagnosticsPerFile.keys.count
+        )
     }
 }
 
@@ -341,17 +375,10 @@ private struct SourceFile {
             throw Error.failedToResolveSourceLocation
         }
 
-        guard location.offset == 0 else {
-            return AbsolutePosition(utf8Offset: Int(location.offset))
-        }
-
-        return self.sourceLocationConverter.position(
-            ofLine: Int(location.line),
-            column: Int(location.column)
-        )
+        return AbsolutePosition(utf8Offset: Int(location.offset))
     }
 
-    func node(at location: some AnySourceLocation) throws -> Syntax {
+    func node(at location: borrowing some AnySourceLocation) throws -> Syntax {
         let position = try position(of: location)
 
         if let token = syntax.token(at: position) {

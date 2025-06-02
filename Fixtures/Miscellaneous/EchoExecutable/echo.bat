@@ -1,0 +1,2 @@
+echo sentinel
+echo %*

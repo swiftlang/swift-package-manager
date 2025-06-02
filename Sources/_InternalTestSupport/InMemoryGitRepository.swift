@@ -281,7 +281,7 @@ extension InMemoryGitRepository: FileSystem {
             try self.head.fileSystem.createDirectory(path, recursive: recursive)
         }
     }
-    
+
     public func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
@@ -458,7 +458,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
+    ) async throws -> WorkingCheckout {
         guard let checkout = fetchedMap[sourcePath] else {
             throw InternalError("unknown checkout at \(sourcePath)")
         }
@@ -471,7 +471,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return checkoutsMap.contains(path)
     }
 
-    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout {
         guard let checkout = checkoutsMap[path] else {
             throw InternalError("unknown checkout at \(path)")
         }

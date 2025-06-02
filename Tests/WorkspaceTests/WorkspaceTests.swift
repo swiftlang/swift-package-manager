@@ -2448,7 +2448,7 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "bar", at: .edited(barPath))
         }
-        let barRepo = try workspace.repositoryProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
+        let barRepo = try await workspace.repositoryProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
@@ -3886,8 +3886,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileSchemeToolsVersion() async throws {
-        let fs = InMemoryFileSystem()
-
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),
             (ToolsVersion.v5_6, ToolsVersion.v5_6),

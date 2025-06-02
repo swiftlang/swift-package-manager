@@ -76,7 +76,7 @@ struct PackageVersionChecksumTOFU {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.validateSourceArchive(

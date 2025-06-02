@@ -20,7 +20,6 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.Format
 import class TSCBasic.Thread
 import func TSCBasic.withTemporaryFile
-import func TSCTestSupport.withCustomEnv
 
 #if os(Windows)
 let catExecutable = "type"
@@ -148,7 +147,11 @@ final class AsyncProcessTests: XCTestCase {
 
         try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
+            #if os(Windows)
+            XCTAssertTrue(AsyncProcess.findExecutable("cmd.exe") != nil)
+            #else
             XCTAssertTrue(AsyncProcess.findExecutable("ls") != nil)
+            #endif
 
             XCTAssertEqual(AsyncProcess.findExecutable("nonExistantProgram"), nil)
             XCTAssertEqual(AsyncProcess.findExecutable(""), nil)
@@ -166,7 +169,7 @@ final class AsyncProcessTests: XCTestCase {
             #endif
             try localFileSystem.writeFileContents(tempExecutable, bytes: exitScriptContent)
 
-            try withCustomEnv(["PATH": tmpdir.pathString]) {
+            try Environment.makeCustom(["PATH": tmpdir.pathString]) {
                 XCTAssertEqual(AsyncProcess.findExecutable("nonExecutableProgram"), nil)
             }
         }
@@ -182,7 +185,7 @@ final class AsyncProcessTests: XCTestCase {
 
             """)
 
-            try withCustomEnv(["PATH": tmpdir.pathString]) {
+            try Environment.makeCustom(["PATH": tmpdir.pathString]) {
                 do {
                     let process = AsyncProcess(args: "nonExecutableProgram")
                     try process.launch()

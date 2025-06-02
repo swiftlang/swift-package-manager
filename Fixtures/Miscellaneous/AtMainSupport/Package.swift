@@ -9,7 +9,10 @@ let package = Package(
         .executable(name: "SwiftExecMultiFile", targets: ["SwiftExecMultiFile"]),
     ],
     targets: [
-        .executableTarget(name: "ClangExecSingleFile"),
+        .executableTarget(name: "ClangExecSingleFile",
+        linkerSettings: [
+                .linkedLibrary("swiftCore", .when(platforms: [.windows])), // for swift_addNewDSOImage
+            ]),
         .executableTarget(name: "SwiftExecSingleFile"),
         .executableTarget(name: "SwiftExecMultiFile"),
     ]
