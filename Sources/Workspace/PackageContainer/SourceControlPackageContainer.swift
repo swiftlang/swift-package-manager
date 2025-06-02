@@ -397,26 +397,19 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) async throws -> Manifest {
         // Load the manifest.
-        // FIXME: this should not block
-        return try await withCheckedThrowingContinuation { continuation in
-            self.manifestLoader.load(
-                packagePath: .root,
-                packageIdentity: self.package.identity,
-                packageKind: self.package.kind,
-                packageLocation: self.package.locationString,
-                packageVersion: (version: version, revision: revision),
-                currentToolsVersion: self.currentToolsVersion,
-                identityResolver: self.identityResolver,
-                dependencyMapper: self.dependencyMapper,
-                fileSystem: fileSystem,
-                observabilityScope: self.observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
+        return try await self.manifestLoader.load(
+            packagePath: .root,
+            packageIdentity: self.package.identity,
+            packageKind: self.package.kind,
+            packageLocation: self.package.locationString,
+            packageVersion: (version: version, revision: revision),
+            currentToolsVersion: self.currentToolsVersion,
+            identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
+            fileSystem: fileSystem,
+            observabilityScope: self.observabilityScope,
+            delegateQueue: .sharedConcurrent
+        )
     }
 
     public func getEnabledTraits(traitConfiguration: TraitConfiguration, at revision: String?, version: Version?) async throws -> Set<String> {

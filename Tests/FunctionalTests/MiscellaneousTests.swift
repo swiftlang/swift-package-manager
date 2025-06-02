@@ -18,6 +18,7 @@ import Workspace
 import XCTest
 
 import class Basics.AsyncProcess
+import enum TSCUtility.Git
 
 typealias ProcessID = AsyncProcess.ProcessID
 
@@ -49,7 +50,7 @@ final class MiscellaneousTestCase: XCTestCase {
         try await fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
             await XCTAssertBuilds(fixturePath.appending("app"))
             let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            XCTAssertFileExists(buildDir.appending("FooExec"))
+            XCTAssertFileExists(buildDir.appending(executableName("FooExec")))
             XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib2.swiftmodule"))
         }
@@ -107,7 +108,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
             await XCTAssertBuilds(fixturePath)
             var output = try await AsyncProcess.checkNonZeroExit(args: execpath)
-            XCTAssertEqual(output, "Hello\n")
+            XCTAssertEqual(output, "Hello\(ProcessInfo.EOL)")
 
             // we need to sleep at least one second otherwise
             // llbuild does not realize the file has changed
@@ -117,7 +118,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
             await XCTAssertBuilds(fixturePath)
             output = try await AsyncProcess.checkNonZeroExit(args: execpath)
-            XCTAssertEqual(output, "Goodbye\n")
+            XCTAssertEqual(output, "Goodbye\(ProcessInfo.EOL)")
         }
     }
 
@@ -131,7 +132,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
             let packageRoot = fixturePath.appending("app")
             await XCTAssertBuilds(packageRoot)
-            var output = try await AsyncProcess.checkNonZeroExit(args: execpath)
+            var output = try await AsyncProcess.checkNonZeroExit(args: execpath).withSwiftLineEnding
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
 
             // we need to sleep at least one second otherwise
@@ -143,7 +144,7 @@ final class MiscellaneousTestCase: XCTestCase {
             try localFileSystem.writeFileContents(path.appending(components: "src", "Fisher-Yates_Shuffle.swift"), bytes: "public extension Collection{ func shuffle() -> [Iterator.Element] {return []} }\n\npublic extension MutableCollection where Index == Int { mutating func shuffleInPlace() { for (i, _) in enumerated() { self[i] = self[0] } }}\n\npublic let shuffle = true")
 
             await XCTAssertBuilds(fixturePath.appending("app"))
-            output = try await AsyncProcess.checkNonZeroExit(args: execpath)
+            output = try await AsyncProcess.checkNonZeroExit(args: execpath).withSwiftLineEnding
             XCTAssertEqual(output, "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
     }
@@ -159,7 +160,7 @@ final class MiscellaneousTestCase: XCTestCase {
             let packageRoot = fixturePath.appending("root")
             await XCTAssertBuilds(fixturePath.appending("root"))
             var output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
-            XCTAssertEqual(output, "Hello\n")
+            XCTAssertEqual(output, "Hello\(ProcessInfo.EOL)")
 
             // we need to sleep at least one second otherwise
             // llbuild does not realize the file has changed
@@ -171,7 +172,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
             await XCTAssertBuilds(fixturePath.appending("root"))
             output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
-            XCTAssertEqual(output, "Goodbye\n")
+            XCTAssertEqual(output, "Goodbye\(ProcessInfo.EOL)")
         }
     }
 
@@ -206,13 +207,14 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testPkgConfigCFamilyTargets() async throws {
+        try XCTSkipOnWindows(because: "fails to build on windows (maybe not be supported?)")
         try await fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
             let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let triple = try UserToolchain.default.targetTriple
             let output =  systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
+            try systemQuietly([executableName("clang"), "-shared", input.pathString, "-o", output.pathString])
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
@@ -315,7 +317,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("does not exist"), "Error from git was not propagated to process output: \(stderr)")
+                XCTAssert(stderr.contains("error: Failed to clone repository"), "Error from git was not propagated to process output: \(stderr)")
             }
         }
     }
@@ -358,6 +360,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testUnicode() async throws {
+        try XCTSkipOnWindows(because: "Filepath too long error")
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         try await fixture(name: "Miscellaneous/Unicode") { fixturePath in
             // See the fixture manifest for an explanation of this string.
@@ -477,17 +480,17 @@ final class MiscellaneousTestCase: XCTestCase {
             // prepare the dependencies as git repos
             for directory in ["Foo", "Bar"] {
                 let path = fixturePath.appending(component: directory)
-                _ = try await AsyncProcess.checkNonZeroExit(args: "git", "-C", path.pathString, "init")
+                _ = try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", path.pathString, "init")
             }
 
             do {
                 // make sure it builds
                 let output = try await executeSwiftBuild(appPath)
                 // package resolution output goes to stderr
-                XCTAssertTrue(output.stderr.contains("Fetching \(prefix)/Foo"), output.stderr)
-                XCTAssertTrue(output.stderr.contains("Creating working copy for \(prefix)/Foo"), output.stderr)
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Foo"))"))
+                XCTAssertMatch(output.stderr, .contains("Creating working copy for \(prefix.appending("Foo"))"))
                 // in "swift build" build output goes to stdout
-                XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
+                XCTAssertMatch(output.stdout, .contains("Build complete!"))
             }
 
             // put foo into edit mode
@@ -497,14 +500,14 @@ final class MiscellaneousTestCase: XCTestCase {
             do {
                 // build again in edit mode
                 let output = try await executeSwiftBuild(appPath)
-                XCTAssertTrue(output.stdout.contains("Build complete!"))
+                XCTAssertMatch(output.stdout, .contains("Build complete!"))
             }
 
             do {
                 // take foo out of edit mode
                 let output = try await executeSwiftPackage(appPath, extraArgs: ["unedit", "Foo"])
                 // package resolution output goes to stderr
-                XCTAssertTrue(output.stderr.contains("Creating working copy for \(prefix)/Foo"), output.stderr)
+                XCTAssertMatch(output.stderr, .contains("Creating working copy for \(prefix.appending("Foo"))"))
                 XCTAssertNoSuchPath(appPath.appending(components: ["Packages", "Foo"]))
             }
 
@@ -512,7 +515,7 @@ final class MiscellaneousTestCase: XCTestCase {
             do {
                 let output = try await executeSwiftBuild(appPath)
                 // in "swift build" build output goes to stdout
-                XCTAssertTrue(output.stdout.contains("Build complete!"), output.stdout)
+                XCTAssertMatch(output.stdout, .contains("Build complete!"))
             }
         }
     }
@@ -667,6 +670,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testRootPackageWithConditionalsSwiftBuild() async throws {
+        try XCTSkipOnWindows(because: "produces a filename that is too long, needs investigation")
 #if os(Linux)
         if FileManager.default.contents(atPath: "/etc/system-release").map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false {
             throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")

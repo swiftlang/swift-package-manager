@@ -23,7 +23,7 @@ import XCTest
 public struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
-    #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+    #elseif canImport(Darwin)
     public let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
     public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")

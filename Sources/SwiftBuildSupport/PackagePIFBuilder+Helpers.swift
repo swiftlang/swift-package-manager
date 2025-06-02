@@ -61,8 +61,6 @@ func targetName(forProductName name: String, suffix: String? = nil) -> String {
     return "\(name)\(suffix)-product"
 }
 
-#if canImport(SwiftBuild)
-
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -904,6 +902,9 @@ extension ProjectModel.BuildSettings {
 
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
+            // Allow staging in new cases
+            default:
+                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
             }
         } else {
             switch setting {
@@ -923,6 +924,9 @@ extension ProjectModel.BuildSettings {
 
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
+            // Allow staging in new cases
+            default:
+                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
             }
         }
     }
@@ -951,6 +955,9 @@ extension ProjectModel.BuildSettings.MultipleValueSetting {
             self = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
         case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SWIFT_VERSION:
             return nil
+        // Allow staging in new cases
+        default:
+            fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
         }
     }
 }
@@ -1216,4 +1223,3 @@ extension UserDefaults {
     }
 }
 
-#endif

@@ -22,7 +22,7 @@
 - ``url``
 - ``checksum``
 
-### Creating a System Target
+### Creating a System Library Target
 
 - ``systemLibrary(name:path:pkgConfig:providers:)``
 - ``pkgConfig``
@@ -53,11 +53,11 @@
 ### Creating a Plugin Target
 
 - ``plugin(name:capability:dependencies:path:exclude:sources:packageAccess:)``
-- ``plugin(name:capability:dependencies:path:exclude:sources:)``
 - ``pluginCapability-swift.property``
 - ``PluginCapability-swift.enum``
 - ``PluginCommandIntent``
 - ``PluginPermission``
+- ``plugin(name:capability:dependencies:path:exclude:sources:)``
 
 ### Declaring a Dependency Target
 

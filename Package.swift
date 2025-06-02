@@ -1,4 +1,4 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.1
 
 //===----------------------------------------------------------------------===//
 //
@@ -138,7 +138,7 @@ let package = Package(
             type: .dynamic,
             targets: ["AppleProductTypes"]
         ),
-        
+
         .library(
             name: "PackagePlugin",
             type: .dynamic,
@@ -588,6 +588,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SwiftFixIt",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -823,7 +824,11 @@ let package = Package(
 
         .testTarget(
             name: "BasicsTests",
-            dependencies: ["Basics", "_InternalTestSupport", "tsan_utils"],
+            dependencies: [
+                "Basics",
+                "_InternalTestSupport",
+                "tsan_utils",
+            ],
             exclude: [
                 "Archiver/Inputs/archive.tar.gz",
                 "Archiver/Inputs/archive.zip",
@@ -940,6 +945,13 @@ let package = Package(
             dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
         ),
+        .testTarget(
+            name: "FunctionalPerformanceTests",
+            dependencies: [
+                "swift-package-manager",
+                "_InternalTestSupport",
+            ]
+        ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
             name: "package-info",
@@ -947,7 +959,7 @@ let package = Package(
             path: "Examples/package-info/Sources/package-info"
         )
     ],
-    swiftLanguageVersions: [.v5]
+    swiftLanguageModes: [.v5]
 )
 
 #if canImport(Darwin)
@@ -957,19 +969,6 @@ package.targets.append(contentsOf: [
     )
 ])
 #endif
-
-// Workaround SwiftPM's attempt to link in executables which does not work on all
-// platforms.
-#if !os(Windows)
-package.targets.append(contentsOf: [
-    .testTarget(
-        name: "FunctionalPerformanceTests",
-        dependencies: [
-            "swift-package-manager",
-            "_InternalTestSupport",
-        ]
-    ),
-])
 
 // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out
 // disable them all until we know what is going on
@@ -983,7 +982,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
             ]
         ),
-
         .executableTarget(
             name: "dummy-swiftc",
             dependencies: [
@@ -1014,7 +1012,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
         ),
     ])
 }
-#endif
 
 
 func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
@@ -1098,8 +1095,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil &&
-    ProcessInfo.processInfo.environment["SWIFTPM_NO_SWBUILD_DEPENDENCY"] == nil {
+if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [

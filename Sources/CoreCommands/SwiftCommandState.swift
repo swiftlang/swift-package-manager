@@ -47,6 +47,7 @@ import Bionic
 import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
+import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
@@ -287,6 +288,8 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    private let targetInfo: JSON?
+
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -323,10 +326,12 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
+        targetInfo: JSON? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws {
         self.hostTriple = hostTriple
+        self.targetInfo = targetInfo
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
@@ -508,6 +513,8 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.options.caching.usePrebuilts,
+                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
+                prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: traitConfiguration
             ),
@@ -921,16 +928,10 @@ public final class SwiftCommandState {
         )
     })
 
-    /// Lazily compute the target toolchain.z
+    /// Lazily compute the target toolchain.
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
-        let store = SwiftSDKBundleStore(
-            swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-            fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope,
-            outputHandler: { print($0.description) }
-        )
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
@@ -940,6 +941,15 @@ public final class SwiftCommandState {
                     warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
                 )
             }
+
+            let store = SwiftSDKBundleStore(
+                swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                outputHandler: { print($0.description) }
+            )
+
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
@@ -963,7 +973,11 @@ public final class SwiftCommandState {
         }
 
         return Result(catching: {
-            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+            try UserToolchain(
+                swiftSDK: swiftSDK,
+                environment: self.environment,
+                customTargetInfo: targetInfo,
+                fileSystem: self.fileSystem)
         })
     }()
 
@@ -978,6 +992,7 @@ public final class SwiftCommandState {
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
+            customTargetInfo: targetInfo,
             fileSystem: self.fileSystem
         )
     })
@@ -1055,29 +1070,38 @@ public final class SwiftCommandState {
         self.workspaceLockState = .locked
 
         let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
+        let lockFile = self.scratchDirectory.appending(".lock").pathString
 
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
+            let pid = ProcessInfo.processInfo.processIdentifier
+            try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
+                let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
+                let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
+                
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
                                 .utf8
                         )
                     self.outputStream.flush()
                 } else {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
                                 .utf8
                         )
                     self.outputStream.flush()
 
                     // Only if we fail because there's an existing lock we need to acquire again as blocking.
                     try workspaceLock.lock(type: .exclusive, blocking: true)
+
+                    let pid = ProcessInfo.processInfo.processIdentifier
+                    try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
                 }
             }
         }

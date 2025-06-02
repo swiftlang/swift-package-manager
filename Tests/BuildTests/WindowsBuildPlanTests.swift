@@ -9,8 +9,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
-import XCTest
+import Testing
 
 import Basics
 @testable import Build
@@ -20,12 +21,19 @@ import _InternalTestSupport
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
 
-final class WindowsBuildPlanTests: XCTestCase {
+struct WindowsBuildPlanTests {
     // Tests that our build plan is build correctly to handle separation
     // of object files that export symbols and ones that don't and to ensure
     // DLL products pick up the right ones.
 
-    func doTest(triple: Triple) async throws {
+    @Test(
+        arguments: [
+            (triple: Triple.x86_64Windows, label: "x86_64-unknown-windows-msvc"),
+            (triple: Triple.x86_64MacOS, label: "x86_64-apple-macosx"),
+            (triple: Triple.x86_64Linux, label: "x86_64-unknown-linux-gnu"),
+        ]
+    )
+    func validateTriple(triple: Triple, label: String) async throws {
         let fs = InMemoryFileSystem(emptyFiles: [
             "/libPkg/Sources/coreLib/coreLib.swift",
             "/libPkg/Sources/dllLib/dllLib.swift",
@@ -70,18 +78,6 @@ final class WindowsBuildPlanTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        let label: String
-        switch triple {
-        case Triple.x86_64Windows:
-            label = "x86_64-unknown-windows-msvc"
-        case Triple.x86_64MacOS:
-            label = "x86_64-apple-macosx"
-        case Triple.x86_64Linux:
-            label = "x86_64-unknown-linux-gnu"
-        default:
-            label = "fixme"
-        }
-
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
@@ -105,28 +101,14 @@ final class WindowsBuildPlanTests: XCTestCase {
         let commands = llbuild.manifest.commands
 
         func hasStatic(_ name: String) throws -> Bool {
-            let tool = try XCTUnwrap(commands[name]?.tool as? SwiftCompilerTool)
+            let tool = try #require(commands[name]?.tool as? SwiftCompilerTool)
             return tool.otherArguments.contains("-static")
         }
 
-        XCTAssertEqual(try hasStatic("C.coreLib-\(label)-debug.module"), triple.isWindows(), label)
-        XCTAssertEqual(try hasStatic("C.dllLib-\(label)-debug.module"), false, label)
-        XCTAssertEqual(try hasStatic("C.staticLib-\(label)-debug.module"), triple.isWindows(), label)
-        XCTAssertEqual(try hasStatic("C.objectLib-\(label)-debug.module"), triple.isWindows(), label)
-        XCTAssertEqual(try hasStatic("C.exe-\(label)-debug.module"), triple.isWindows(), label)
-    }
-
-    func testWindows() async throws {
-        try await doTest(triple: .x86_64Windows)
-    }
-
-    // Make sure we didn't mess up macOS
-    func testMacOS() async throws {
-        try await doTest(triple: .x86_64MacOS)
-    }
-
-    // Make sure we didn't mess up linux
-    func testLinux() async throws {
-        try await doTest(triple: .x86_64Linux)
+        #expect(try hasStatic("C.coreLib-\(label)-debug.module") == triple.isWindows(), "\(label)")
+        #expect(try hasStatic("C.dllLib-\(label)-debug.module") == false, "\(label)")
+        #expect(try hasStatic("C.staticLib-\(label)-debug.module") == triple.isWindows(), "\(label)")
+        #expect(try hasStatic("C.objectLib-\(label)-debug.module") == triple.isWindows(), "\(label)")
+        #expect(try hasStatic("C.exe-\(label)-debug.module") == triple.isWindows(), "\(label)")
     }
 }

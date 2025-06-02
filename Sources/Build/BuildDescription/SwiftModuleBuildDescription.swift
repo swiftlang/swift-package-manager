@@ -490,9 +490,19 @@ public final class SwiftModuleBuildDescription {
             args += ["-v"]
         }
 
-        // Enable batch mode whenever WMO is off.
-        if !self.useWholeModuleOptimization {
-            args += ["-enable-batch-mode"]
+        if self.useWholeModuleOptimization {
+            args.append("-whole-module-optimization")
+            args.append("-num-threads")
+            args.append(String(ProcessInfo.processInfo.activeProcessorCount))
+        } else {
+            args.append("-incremental")
+            args.append("-enable-batch-mode")
+        }
+
+        // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
+        if self.useMergeableSymbols {
+            args.append("-Xfrontend")
+            args.append("-mergeable-symbols")
         }
 
         args += ["-serialize-diagnostics"]
@@ -779,14 +789,6 @@ public final class SwiftModuleBuildDescription {
             result.append(outputFileMapPath.pathString)
         }
 
-        if self.useWholeModuleOptimization {
-            result.append("-whole-module-optimization")
-            result.append("-num-threads")
-            result.append(String(ProcessInfo.processInfo.activeProcessorCount))
-        } else {
-            result.append("-incremental")
-        }
-
         result.append("-c")
         result.append(contentsOf: self.sources.map(\.pathString))
 
@@ -799,7 +801,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.triple.isDarwin() && self.target.type == .library
+        self.target.type == .library
     }
 
     func writeOutputFileMap(to path: AbsolutePath) throws {
@@ -1032,10 +1034,35 @@ public final class SwiftModuleBuildDescription {
         return arguments
     }
 
+    package var isEmbeddedSwift: Bool {
+        // If the target explicitly declares that it should build with Embedded
+        // Swift, then true.
+        let buildSettings = self.target.underlying.buildSettingsDescription
+        let swiftSettings = buildSettings.swiftSettings.map(\.kind)
+        for case .enableExperimentalFeature("Embedded") in swiftSettings {
+            return true
+        }
+
+        // Otherwise dig through flags looking for -enable-experimental-feature
+        // Embedded. This is needed to handle Embedded being set via:
+        // - unsafeFlags
+        // - swift build cli flags
+        // - toolset flags
+        let queryFlags = ["-enable-experimental-feature", "Embedded"]
+
+        let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        if toolchainFlags.contains(queryFlags) { return true }
+        
+        let generalFlags = self.buildParameters.flags.swiftCompilerFlags
+        if generalFlags.contains(queryFlags) { return true }
+
+        return false
+    }
+
     /// Whether to build Swift code with whole module optimization (WMO)
     /// enabled.
     package var useWholeModuleOptimization: Bool {
-        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+        if self.isEmbeddedSwift { return true }
 
         switch self.buildParameters.configuration {
         case .debug:
@@ -1043,6 +1070,12 @@ public final class SwiftModuleBuildDescription {
         case .release:
             return true
         }
+    }
+
+    // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
+    /// Whether to build Swift code with -Xfrontend -mergeable-symbols.
+    package var useMergeableSymbols: Bool {
+        return self.isEmbeddedSwift
     }
 }
 

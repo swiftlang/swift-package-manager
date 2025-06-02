@@ -19,6 +19,7 @@ import class Foundation.NSArray
 import class Foundation.NSDictionary
 import PackageGraph
 import PackageModel
+import PackageLoading
 
 @_spi(SwiftPMInternal)
 import SPMBuildCore
@@ -30,13 +31,10 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
-#if canImport(SwiftBuild)
 import Foundation
 import SWBBuildService
 import SwiftBuild
-#endif
 
-#if canImport(SwiftBuild)
 
 struct SessionFailedError: Error {
     var error: Error
@@ -62,13 +60,21 @@ func withService(
 func withSession(
     service: SWBBuildService,
     name: String,
+    toolchainPath: Basics.AbsolutePath,
     packageManagerResourcesDirectory: Basics.AbsolutePath?,
     body: @escaping (
         _ session: SWBBuildServiceSession,
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    switch await service.createSession(name: name, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil) {
+    // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    } else {
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    }
+
+    switch sessionResult {
     case (.success(let session), let diagnostics):
         do {
             try await body(session, diagnostics)
@@ -155,7 +161,27 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
         .deferred
     }
 }
-#endif
+
+public struct PluginConfiguration {
+    /// Entity responsible for compiling and running plugin scripts.
+    let scriptRunner: PluginScriptRunner
+
+    /// Directory where plugin intermediate files are stored.
+    let workDirectory: Basics.AbsolutePath
+
+    /// Whether to sandbox commands from build tool plugins.
+    let disableSandbox: Bool
+
+    public init(
+        scriptRunner: PluginScriptRunner,
+        workDirectory: Basics.AbsolutePath,
+        disableSandbox: Bool
+    ) {
+        self.scriptRunner = scriptRunner
+        self.workDirectory = workDirectory
+        self.disableSandbox = disableSandbox
+    }
+}
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
@@ -172,6 +198,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
+
+    /// Configuration for building and invoking plugins.
+    private let pluginConfiguration: PluginConfiguration
+
+    /// Additional rules for different file types generated from plugins.
+    private let additionalFileRules: [FileRuleDescription]
 
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
@@ -212,18 +244,22 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         packageManagerResourcesDirectory: Basics.AbsolutePath?,
+        additionalFileRules: [FileRuleDescription],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        pluginConfiguration: PluginConfiguration
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
         self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
+        self.additionalFileRules = additionalFileRules
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
+        self.pluginConfiguration = pluginConfiguration
     }
 
     private func supportedSwiftVersions() throws -> [SwiftLanguageVersion] {
@@ -232,27 +268,21 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset) async throws {
-        #if canImport(SwiftBuild)
         guard !buildParameters.shouldSkipBuilding else {
             return
         }
 
         let pifBuilder = try await getPIFBuilder()
-        let pif = try pifBuilder.generatePIF(
+        let pif = try await pifBuilder.generatePIF(
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters
+            buildParameters: buildParameters,
         )
 
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
-
-        #else
-        fatalError("Swift Build support is not linked in.")
-        #endif
     }
 
-    #if canImport(SwiftBuild)
     private func startSWBuildOperation(pifTargetName: String) async throws {
         let buildStartTime = ContinuousClock.Instant.now
 
@@ -268,7 +298,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             )
 
             do {
-                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -342,10 +372,28 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         return configuredTarget
                     }
 
-                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
+                    struct BuildState {
+                        private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+
+                        mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
+                            if activeTasks[task.taskID] != nil {
+                                throw Diagnostics.fatalError
+                            }
+                            activeTasks[task.taskID] = task
+                        }
+
+                        mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
+                            guard let task = activeTasks[task.taskID] else {
+                                throw Diagnostics.fatalError
+                            }
+                            return task
+                        }
+                    }
+
+                    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
                         switch message {
-                        case .buildCompleted:
-                            progressAnimation.complete(success: true)
+                        case .buildCompleted(let info):
+                            progressAnimation.complete(success: info.result == .ok)
                         case .didUpdateProgress(let progressInfo):
                             var step = Int(progressInfo.percentComplete)
                             if step < 0 { step = 0 }
@@ -356,32 +404,52 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             progressAnimation.update(step: step, total: 100, text: message)
                         case .diagnostic(let info):
-                            let fixItsDescription = if info.fixIts.hasContent {
-                                ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
-                            } else {
-                                ""
+                            func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
+                                let fixItsDescription = if info.fixIts.hasContent {
+                                    ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+                                } else {
+                                    ""
+                                }
+                                let message = if let locationDescription = info.location.userDescription {
+                                    "\(locationDescription) \(info.message)\(fixItsDescription)"
+                                } else {
+                                    "\(info.message)\(fixItsDescription)"
+                                }
+                                let severity: Diagnostic.Severity = switch info.kind {
+                                case .error: .error
+                                case .warning: .warning
+                                case .note: .info
+                                case .remark: .debug
+                                }
+                                self.observabilityScope.emit(severity: severity, message: message)
+
+                                for childDiagnostic in info.childDiagnostics {
+                                    emitInfoAsDiagnostic(info: childDiagnostic)
+                                }
                             }
-                            let message = if let locationDescription = info.location.userDescription {
-                                "\(locationDescription) \(info.message)\(fixItsDescription)"
-                            } else {
-                                "\(info.message)\(fixItsDescription)"
-                            }
-                            let severity: Diagnostic.Severity = switch info.kind {
-                            case .error: .error
-                            case .warning: .warning
-                            case .note: .info
-                            case .remark: .debug
-                            }
-                            self.observabilityScope.emit(severity: severity, message: message)
-                        case .taskOutput(let info):
-                            self.observabilityScope.emit(info: "\(info.data)")
+
+                            emitInfoAsDiagnostic(info: info)
+                        case .output(let info):
+                            self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
                         case .taskStarted(let info):
+                            try buildState.started(task: info)
                             if let commandLineDisplay = info.commandLineDisplayString {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
                             } else {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)")
                             }
-                        default:
+                        case .taskComplete(let info):
+                            let startedInfo = try buildState.completed(task: info)
+                            if info.result != .success {
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                            }
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+                            break
+                        case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
+                            break // deprecated
+                        case .buildOutput, .targetOutput, .taskOutput:
+                            break // deprecated
+                        @unknown default:
                             break
                         }
                     }
@@ -391,8 +459,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         delegate: PlanningOperationDelegate()
                     )
 
+                    var buildState = BuildState()
                     for try await event in try await operation.start() {
-                        try emitEvent(event)
+                        try emitEvent(event, buildState: &buildState)
                     }
 
                     await operation.waitForCompletion()
@@ -426,16 +495,42 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
-        // Generate the run destination parameters.
-        let runDestination = SwiftBuild.SWBRunDestinationInfo(
-            platform: self.buildParameters.triple.osNameUnversioned,
-            sdk: self.buildParameters.triple.osNameUnversioned,
-            sdkVariant: nil,
+    func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
+        let platformName: String
+        let sdkName: String
+        if self.buildParameters.triple.isAndroid() {
+            // Android triples are identified by the environment part of the triple
+            platformName = "android"
+            sdkName = platformName
+        } else if self.buildParameters.triple.isWasm {
+            // Swift Build uses webassembly instead of wasi as the platform name
+            platformName = "webassembly"
+            sdkName = platformName
+        } else {
+            platformName = self.buildParameters.triple.darwinPlatform?.platformName ?? self.buildParameters.triple.osNameUnversioned
+            sdkName = platformName
+        }
+
+        let sdkVariant: String?
+        if self.buildParameters.triple.environment == .macabi {
+            sdkVariant = "iosmac"
+        } else {
+            sdkVariant = nil
+        }
+
+        return SwiftBuild.SWBRunDestinationInfo(
+            platform: platformName,
+            sdk: sdkName,
+            sdkVariant: sdkVariant,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
             disableOnlyActiveArch: false
         )
+    }
+
+    func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
+        // Generate the run destination parameters.
+        let runDestination = makeRunDestination()
 
         var verboseFlag: [String] = []
         if self.logLevel == .debug {
@@ -451,6 +546,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+
+        let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
+        if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
+            let value = normalizedTriple.deploymentTargetVersion
+
+            // Only override the deployment target if a version is explicitly specified;
+            // for Apple platforms this normally comes from the package manifest and may
+            // not be set to the same value for all packages in the package graph.
+            if value != .zero {
+                settings[deploymentTargetSettingName] = value.description
+            }
+        }
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
@@ -504,14 +611,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let graph = try await getPackageGraph()
             let pifBuilder = try PIFBuilder(
                 graph: graph,
-                parameters: .init(buildParameters, supportedSwiftVersions: supportedSwiftVersions()),
+                parameters: .init(
+                    buildParameters,
+                    supportedSwiftVersions: supportedSwiftVersions(),
+                    pluginScriptRunner: self.pluginConfiguration.scriptRunner,
+                    disableSandbox: self.pluginConfiguration.disableSandbox,
+                    pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
+                    additionalFileRules: additionalFileRules
+                ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope
             )
             return pifBuilder
         }
     }
-    #endif
 
     public func cancel(deadline: DispatchTime) throws {}
 
@@ -539,28 +652,11 @@ extension String {
     }
 }
 
-extension PIFBuilderParameters {
-    public init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
-        self.init(
-            triple: buildParameters.triple,
-            isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
-            enableTestability: buildParameters.enableTestability,
-            shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
-            toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
-            pkgConfigDirectories: buildParameters.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.sdkRootPath,
-            supportedSwiftVersions: supportedSwiftVersions
-        )
-    }
-}
-
 extension Basics.Diagnostic.Severity {
     var isVerbose: Bool {
         self <= .info
     }
 }
-
-#if canImport(SwiftBuild)
 
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {
@@ -589,4 +685,40 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     }
 }
 
-#endif
+fileprivate extension Triple {
+    var deploymentTargetSettingName: String? {
+        switch (self.os, self.environment) {
+        case (.macosx, _):
+            return "MACOSX_DEPLOYMENT_TARGET"
+        case (.ios, _):
+            return "IPHONEOS_DEPLOYMENT_TARGET"
+        case (.tvos, _):
+            return "TVOS_DEPLOYMENT_TARGET"
+        case (.watchos, _):
+            return "WATCHOS_DEPLOYMENT_TARGET"
+        case (_, .android):
+            return "ANDROID_DEPLOYMENT_TARGET"
+        default:
+            return nil
+        }
+    }
+
+    var deploymentTargetVersion: Version {
+        if isAndroid() {
+            // Android triples store the version in the environment
+            var environmentName = self.environmentName[...]
+            if environment != nil {
+                let prefixes = ["androideabi", "android"]
+                for prefix in prefixes {
+                    if environmentName.hasPrefix(prefix) {
+                        environmentName = environmentName.dropFirst(prefix.count)
+                        break
+                    }
+                }
+            }
+
+            return Version(parse: environmentName)
+        }
+        return osVersion
+    }
+}

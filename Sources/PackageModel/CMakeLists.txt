@@ -58,6 +58,7 @@ add_library(PackageModel
   SwiftSDKs/SwiftSDKBundleStore.swift
   Toolchain.swift
   ToolchainConfiguration.swift
+  Toolchain+SupportedFeatures.swift
   Toolset.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift

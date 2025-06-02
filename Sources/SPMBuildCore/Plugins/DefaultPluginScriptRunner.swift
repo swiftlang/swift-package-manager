@@ -433,7 +433,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         delegate: PluginScriptRunnerDelegate,
         completion: @escaping (Result<Int32, Error>) -> Void
     ) {
-#if os(iOS) || os(watchOS) || os(tvOS)
+#if canImport(Darwin) && !os(macOS)
         callbackQueue.async {
             completion(.failure(DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")))
         }

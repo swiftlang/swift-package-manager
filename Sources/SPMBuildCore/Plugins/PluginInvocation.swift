@@ -242,7 +242,7 @@ extension PluginModule {
                     context: wireInput,
                     rootPackageId: rootPackageId,
                     arguments: arguments)
-                
+
             case .performXcodeProjectCommand(let xcodeProject, let arguments):
                 let rootProjectId = try serializer.serialize(xcodeProject: xcodeProject)
                 let wireInput = WireInput(
@@ -516,7 +516,7 @@ extension PluginModule {
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
-        
+
         let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(
@@ -686,8 +686,14 @@ fileprivate func collectAccessibleTools(
         // For a binary target we create a `vendedTool`.
         if let module = executableOrBinaryModule as? BinaryModule {
             // TODO: Memoize this result for the host triple
-            let execInfos = try module.parseExecutables(for: hostTriple, fileSystem: fileSystem)
-            return try execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: try $0.supportedTriples.map{ try $0.withoutVersion().tripleString }) }
+            let execInfos = try module.parseExecutableArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+            return try execInfos.map {
+                .vendedTool(
+                    name: $0.name,
+                    path: $0.executablePath,
+                    supportedTriples: try $0.supportedTriples.map { try $0.withoutVersion().tripleString }
+                )
+            }
         }
         // For an executable target we create a `builtTool`.
         else if executableOrBinaryModule.type == .executable {

@@ -21,8 +21,15 @@ import Workspace
 import XCTest
 
 import struct TSCUtility.Version
+import enum TSCBasic.JSON
 
 extension UserToolchain {
+    package static var mockTargetInfo: JSON {
+        JSON.dictionary([
+            "compilerVersion": .string("Apple Swift version 6.2-dev (LLVM 815013bbc318474, Swift 1459ecafa998782)")
+        ])
+    }
+
     package static func mockHostToolchain(
         _ fileSystem: InMemoryFileSystem,
         hostTriple: Triple = hostTriple
@@ -42,6 +49,7 @@ extension UserToolchain {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: Self.mockTargetInfo,
             fileSystem: fileSystem
         )
     }
@@ -403,6 +411,8 @@ public final class MockWorkspace {
                 defaultRegistry: self.defaultRegistry,
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.customPrebuiltsManager != nil,
+                prebuiltsDownloadURL: nil,
+                prebuiltsRootCertPath: nil,
                 pruneDependencies: self.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
@@ -1196,11 +1206,12 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+    public func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         self.append("downloading package prebuilt: \(url)")
     }
 
     public func didDownloadPrebuilt(
+        package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
@@ -1208,7 +1219,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("finished downloading package prebuilt: \(url)")
     }
 
-    public func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    public func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 

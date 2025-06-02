@@ -66,19 +66,13 @@ extension Workspace {
         // If there is something present at the destination, we confirm it has
         // a valid manifest with name canonical location as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            // FIXME: this should not block
-            let manifest = try await withCheckedThrowingContinuation { continuation in
-                self.loadManifest(
-                    packageIdentity: dependency.packageRef.identity,
-                    packageKind: .fileSystem(destination),
-                    packagePath: destination,
-                    packageLocation: dependency.packageRef.locationString,
-                    observabilityScope: observabilityScope,
-                    completion: {
-                      continuation.resume(with: $0)
-                    }
-                )
-            }
+            let manifest = try await self.loadManifest(
+                packageIdentity: dependency.packageRef.identity,
+                packageKind: .fileSystem(destination),
+                packagePath: destination,
+                packageLocation: dependency.packageRef.locationString,
+                observabilityScope: observabilityScope
+            )
 
             guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
                 return observabilityScope
@@ -124,7 +118,7 @@ extension Workspace {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
-            let workingCopy = try handle.createWorkingCopy(at: destination, editable: true)
+            let workingCopy = try await handle.createWorkingCopy(at: destination, editable: true)
             try workingCopy.checkout(revision: revision ?? checkoutState.revision)
 
             // Checkout to the new branch if provided.
@@ -193,7 +187,7 @@ extension Workspace {
         let path = self.location.editSubdirectory(for: dependency)
         // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingCopy = try repositoryManager.openWorkingCopy(at: path)
+            let workingCopy = try await repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }

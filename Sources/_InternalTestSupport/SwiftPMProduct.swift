@@ -57,15 +57,11 @@ extension SwiftPM {
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
-        #if canImport(Darwin)
-        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
+        do {
+            return try resolveBinDir().appending(executableName)
+        } catch {
+            fatalError("Unable to determine xctestBinaryPath")
         }
-        fatalError()
-        #else
-        return try! AbsolutePath(validating: CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
-            .parentDirectory.appending(executableName)
-        #endif
     }
 }
 
@@ -91,9 +87,9 @@ extension SwiftPM {
             packagePath: packagePath,
             env: env
         )
-        
-        let stdout = try result.utf8Output()
-        let stderr = try result.utf8stderrOutput()
+        //Remove /r from stdout/stderr so that tests do not have to deal with them
+        let stdout = try String(decoding: result.output.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
+        let stderr = try String(decoding: result.stderrOutput.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
         
         let returnValue = (stdout: stdout, stderr: stderr)
         if (!throwIfCommandFails) { return returnValue }

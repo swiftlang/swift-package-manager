@@ -20,3 +20,4 @@ Package.resolved
 .vscode
 Utilities/InstalledSwiftPMConfiguration/config.json
 .devcontainer
+Fixtures/BinaryLibraries/Static/Package1/Simple.artifactbundle/build

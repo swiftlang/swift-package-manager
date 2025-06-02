@@ -24,6 +24,9 @@
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-Sources/XCBuildSupport/* @jakepetroules
+* @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123
 
-* @bnbarham @MaxDesiatov @jakepetroules @xedin @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123
+Sources/XCBuildSupport/* @jakepetroules
+Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123
+Sources/SwiftFixIt/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123
+Tests/SwiftFixItTests/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123

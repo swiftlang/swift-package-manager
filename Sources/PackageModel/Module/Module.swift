@@ -231,7 +231,7 @@ public class Module {
     public let others: [AbsolutePath]
 
     /// The build settings assignments of this module.
-    public let buildSettings: BuildSettings.AssignmentTable
+    public package(set) var buildSettings: BuildSettings.AssignmentTable
 
     @_spi(SwiftPMInternal)
     public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
@@ -273,15 +273,6 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
-    }
-
-    @_spi(SwiftPMInternal)
-    public var isEmbeddedSwiftTarget: Bool {
-        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
-            return true
-        }
-
-        return false
     }
 }
 

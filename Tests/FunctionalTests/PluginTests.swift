@@ -24,6 +24,7 @@ import XCTest
 
 final class PluginTests: XCTestCase {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -34,18 +35,30 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool", "--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testUseOfBuildToolPluginTargetNoPreBuildCommands() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (_, stderr) = try await executeSwiftTest(fixturePath.appending("MySourceGenPluginNoPreBuildCommands"))
             XCTAssertTrue(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
         }
+
+        // FIXME develop a test for this warning with the Swift Build build system
     }
 
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed,https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -56,9 +69,18 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -69,9 +91,17 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testUseOfPluginWithInternalExecutable() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -84,6 +114,14 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking RootTarget"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ClientOfPluginWithInternalExecutable"), extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testInternalExecutableAvailableOnlyToPlugin() async throws {
@@ -97,9 +135,18 @@ final class PluginTests: XCTestCase {
                 )
             }
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable"
+) { error in
+            }
+        }
+#endif
     }
     
     func testLocalBuildToolPluginUsingRemoteExecutable() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -111,9 +158,18 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling MyLibrary generated.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"), extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
     
     func testBuildToolPluginDependencies() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -125,9 +181,18 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling MyLocalTool foo.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBuildToolPluginDependencies"), extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testContrivedTestCases() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -138,6 +203,16 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+/*
+FIXME: Determine the cause of the compile error.
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
+*/
     }
 
     func testPluginScriptSandbox() async throws {
@@ -150,6 +225,12 @@ final class PluginTests: XCTestCase {
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+        }
+
+        // Try again with Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
 
@@ -180,6 +261,7 @@ final class PluginTests: XCTestCase {
     }
 
     func testBuildToolWithoutOutputs() async throws {
+        try XCTSkipOnWindows(because: "build planning stopped due to build-tool plugin failures, needs investigating")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -656,6 +738,8 @@ final class PluginTests: XCTestCase {
     }
 
     func testCommandPluginCancellation() async throws {
+        try XCTSkipOnWindows(because: "This hangs intermittently on windows in CI", skipSelfHostedCI: true)
+
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         
@@ -1076,6 +1160,14 @@ final class PluginTests: XCTestCase {
             let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
+            XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
+#endif
     }
 
     func testIncorrectDependencies() async throws {
@@ -1085,6 +1177,14 @@ final class PluginTests: XCTestCase {
             let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-tests"])
             XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
+            XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
+        }
+#endif
     }
 
     func testSandboxViolatingBuildToolPluginCommands() async throws {
@@ -1095,19 +1195,20 @@ final class PluginTests: XCTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        // Check that the build fails with a sandbox violation by default.
-        try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-            await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug)) { error in
-                XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+        for buildSystem in ["native"] { // FIXME: enable swiftbuild testing once pre-build plugins are working
+            // Check that the build fails with a sandbox violation by default.
+            try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem])) { error in
+                    XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+                }
+            }
+
+            // Check that the build succeeds if we disable the sandbox.
+            try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
+                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem, "--disable-sandbox"])
+                XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
             }
         }
-
-        // Check that the build succeeds if we disable the sandbox.
-        try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-            let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"])
-            XCTAssert(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
-        }
-
     }
 
     func testTransitivePluginOnlyDependency() async throws {
@@ -1120,6 +1221,14 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling Library Library.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("TransitivePluginOnlyDependency"), extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testMissingPlugin() async throws {
@@ -1133,6 +1242,16 @@ final class PluginTests: XCTestCase {
                 XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
+            }
+        }
+#endif
     }
 
     func testPluginCanBeReferencedByProductName() async throws {
@@ -1145,9 +1264,18 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("PluginCanBeReferencedByProductName"), extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testPluginCanBeAffectedByXBuildToolsParameters() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the
         // plugin APIs require).
         try XCTSkipIf(
@@ -1166,9 +1294,23 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath.appending(component: "MySourceGenPlugin"),
+                configuration: .Debug,
+                extraArgs: ["-v", "--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE", "--build-system", "swiftbuild"]
+            )
+            XCTAssert(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+            XCTAssert(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+        }
+#endif
     }
 
     func testURLBasedPluginAPI() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
@@ -1176,6 +1318,14 @@ final class PluginTests: XCTestCase {
             let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug)
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 
     func testDependentPlugins() async throws {

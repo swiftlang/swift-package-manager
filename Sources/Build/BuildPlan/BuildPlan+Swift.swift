@@ -45,16 +45,30 @@ extension BuildPlan {
             case let target as BinaryModule:
                 switch target.kind {
                 case .artifactsArchive:
-                    let libraries = try self.parseLibraries(in: target, triple: swiftTarget.buildParameters.triple)
-                    for library in libraries {
-                        library.headersPaths.forEach {
-                            swiftTarget.additionalFlags += ["-I", $0.pathString]
+                    let dynamicLibraries = try self.parseLibraries(in: target, triple: swiftTarget.buildParameters.triple)
+                    for library in dynamicLibraries {
+                        for header in library.headersPaths {
+                            swiftTarget.additionalFlags += ["-I", header.pathString]
                         }
                         // This is not strictly necessary to build the target, but it tells the
                         // build system to copy the library to the build directory, which
                         // makes executables that depend on it runnable by default instead of
                         // requiring the user to configure LD_LIBRARY_PATH (as they would in
                         // production)
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+
+                    let staticLibraries = try self.parseLibraryArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
+                    for library in staticLibraries {
+                        for header in library.headersPaths {
+                            swiftTarget.additionalFlags += ["-I", header.pathString, "-Xcc", "-I", "-Xcc", header.pathString]
+                        }
+                        if let moduleMapPath = library.moduleMapPath {
+                            // We need to pass the module map if there is one. If there is none Swift cannot import it but
+                            // this might still be valid
+                            swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"]
+                        }
+
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
 
@@ -67,7 +81,7 @@ extension BuildPlan {
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
 
-                default:
+                case .unknown:
                     break
                 }
             default:
