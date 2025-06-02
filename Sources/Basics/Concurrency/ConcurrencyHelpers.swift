@@ -235,7 +235,8 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                 waitingTasks.remove(at: taskIndex)
             }
 
-            // This could be simplified if `waitingTasks` could be an `OrderedDictionary` from swift-collections.
+            // We cannot remove elements from `waitingTasks` while iterating over it, so we make
+            // a pass to collect operations and then apply them after the loop.
             func createTaskListOperations() -> (CollectionDifference<WorkTask>?, WaitingContinuation?) {
                 var changes: [CollectionDifference<WorkTask>.Change] = []
                 for (index, task) in waitingTasks.enumerated() {
