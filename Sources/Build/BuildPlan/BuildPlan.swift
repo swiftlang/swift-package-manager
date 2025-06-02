@@ -705,7 +705,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Extracts the information about executables in an Artifact Bundle, with caching.
     func parseExecutables(in binaryTarget: BinaryModule, triple: Basics.Triple) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: binaryTarget) {
-            let execInfos = try binaryTarget.parseExecutables(for: triple, fileSystem: self.fileSystem)
+            let execInfos = try binaryTarget.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter { !$0.supportedTriples.isEmpty }
         }
     }
@@ -1275,7 +1275,7 @@ extension BuildPlan {
                         guard product.type != .plugin else {
                             return
                         }
-                        
+
                         guard product.type != .macro || parentModule.type == .test else {
                             return
                         }
@@ -1285,7 +1285,7 @@ extension BuildPlan {
                         guard childModule.type != .plugin else {
                             return
                         }
-                        
+
                         guard childModule.type != .macro || parentModule.type == .test else {
                             return
                         }
