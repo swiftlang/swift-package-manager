@@ -461,23 +461,26 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
             self.derivedTestTargetsMap[item.product.id] = derivedTestTargets
         }
 
-        // Plan the derived playground targets, if necessary.
-        let derivedPlaygroundTargets = try Self.makeDerivedPlaygroundTargets(
-            playgroundProducts: productMap.filter {
-                $0.product.name.hasSuffix(Product.replProductSuffix)
-            },
-            destinationBuildParameters: destinationBuildParameters,
-            toolsBuildParameters: toolsBuildParameters,
-            shouldDisableSandbox: self.shouldDisableSandbox,
-            self.fileSystem,
-            self.observabilityScope
-        )
-        for item in derivedPlaygroundTargets {
-            targetMap.insert(.swift(
-                item.entryPointTargetBuildDescription
-            ))
+        // Plan the derived playground runner targets, if necessary.
+        if let playgroundRunnerBuildDescription = productMap.first (where: {
+            $0.product.underlying.isPlaygroundRunner
+        }) {
+            let derivedPlaygroundRunnerTargets = try Self.makeDerivedPlaygroundRunnerTargets(
+                playgroundRunnerProductBuildDescription: playgroundRunnerBuildDescription,
+                destinationBuildParameters: destinationBuildParameters,
+                toolsBuildParameters: toolsBuildParameters,
+                shouldDisableSandbox: self.shouldDisableSandbox,
+                self.fileSystem,
+                self.observabilityScope
+            )
 
-            self.derivedPlaygroundTargetsMap[item.product.id] = [item.entryPointTargetBuildDescription.target]
+            // Replace the placeholder target added by the PackageBuilder with the new derived target
+            let placeholderPlaygroundRunnerTargets = targetMap.filter { $0.module.underlying.isPlaygroundRunner }
+            targetMap = targetMap.subtracting(placeholderPlaygroundRunnerTargets)
+            for item in derivedPlaygroundRunnerTargets {
+                targetMap.insert(.swift(item.playgroundRunnerTargetBuildDescription))
+                self.derivedPlaygroundTargetsMap[item.product.id] = [item.playgroundRunnerTargetBuildDescription.target]
+            }
         }
 
         self.buildToolPluginInvocationResults = buildToolPluginInvocationResults

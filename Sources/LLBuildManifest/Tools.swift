@@ -73,8 +73,8 @@ public struct TestEntryPointTool: ToolProtocol {
     }
 }
 
-public struct PlaygroundEntryPointTool: ToolProtocol {
-    public static let name: String = "playground-entry-point-tool"
+public struct PlaygroundRunnerTool: ToolProtocol {
+    public static let name: String = "playground-runner-tool"
 
     public var inputs: [Node]
     public var outputs: [Node]

@@ -1051,15 +1051,6 @@ package.targets.append(contentsOf: [
 ])
 #endif
 
-#if !os(Windows)
-package.targets.append(contentsOf: [
-    .executableTarget(
-        /** Helper tool to host #Playground execution */
-        name: "swiftpm-playground-helper"
-    )
-])
-#endif
-
 // rdar://101868275 "error: cannot find 'XCTAssertEqual' in scope" can affect almost any functional test, so we flat out
 // disable them all until we know what is going on
 if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil {

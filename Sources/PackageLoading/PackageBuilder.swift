@@ -320,6 +320,9 @@ public final class PackageBuilder {
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
+    /// Create the special Playground product for this package.
+    private let createPlaygroundProduct: Bool
+
     /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
@@ -366,6 +369,7 @@ public final class PackageBuilder {
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
+        createPlaygroundProduct: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         enabledTraits: EnabledTraits
@@ -379,6 +383,7 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
+        self.createPlaygroundProduct = createPlaygroundProduct
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
@@ -655,7 +660,21 @@ public final class PackageBuilder {
             snippetTargets = []
         }
 
-        return targets + snippetTargets
+        var playgroundTargets: [Module] = []
+
+        if createPlaygroundProduct {
+            // Get list of original targets that the playground runner will depend on
+            let productTargetNames = Set(manifest.products.flatMap(\.targets))
+            let playgroundDependencies = targets
+                .filter { $0.type == .library && productTargetNames.contains($0.name) }
+                .map { Module.Dependency.module($0, conditions: []) }
+
+            // Create a new playground runner (executable) target
+            let playgroundRunnerModule = try createPlaygroundRunnerModule(dependencies: playgroundDependencies)
+            playgroundTargets.append(playgroundRunnerModule)
+        }
+
+        return targets + snippetTargets + playgroundTargets
     }
 
     // Create targets from the provided potential targets.
@@ -1653,12 +1672,27 @@ public final class PackageBuilder {
             } else {
                 if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(module.name) {
                     // Generate an implicit product for the executable target
+                    let productName: String
+
+                    // Custom product name for playground runner
+                    if module.isPlaygroundRunner {
+                        guard module.type == .executable else {
+                            self.observabilityScope.emit(.invalidModuleTypeForPlaygroundRunner(moduleType: String(describing: module.type)))
+                            continue
+                        }
+                        productName = self.manifest.displayName + Product.playgroundRunnerProductSuffix
+                    }
+                    else {
+                        productName = module.name
+                    }
+
                     let product = try Product(
                         package: self.identity,
-                        name: module.name,
+                        name: productName,
                         type: .executable,
                         modules: [module],
-                        isImplicit: true
+                        isImplicit: true,
+                        isPlaygroundRunner: module.isPlaygroundRunner
                     )
                     append(product)
                 }
@@ -1919,6 +1953,48 @@ extension PackageBuilder {
                     implicit: true
                 )
             }
+    }
+}
+
+// MARK: - Playgrounds
+
+extension PackageBuilder {
+    private func createPlaygroundRunnerModule(dependencies: [Module.Dependency]) throws -> Module {
+        let moduleName = self.identity.description + Product.playgroundRunnerProductSuffix
+
+        let targetDescriptionDependencies = dependencies
+            .map {
+                TargetDescription.Dependency.target(name: $0.name)
+            }
+
+        let targetDescription = try TargetDescription(
+            name: moduleName,
+            dependencies: targetDescriptionDependencies,
+            path: nil,
+            sources: [],
+            type: .executable,
+            packageAccess: true
+        )
+
+        let buildSettings = try self.buildSettings(
+            for: targetDescription,
+            targetRoot: self.packagePath,
+            toolsSwiftVersion: self.toolsSwiftVersion()
+        )
+
+        return SwiftModule(
+            name: moduleName,
+            type: .executable,
+            path: .root,
+            sources: Sources(paths: [], root: self.packagePath),
+            dependencies: dependencies,
+            packageAccess: false,
+            buildSettings: buildSettings,
+            buildSettingsDescription: targetDescription.settings,
+            usesUnsafeFlags: false,
+            implicit: true,
+            isPlaygroundRunner: true
+        )
     }
 }
 

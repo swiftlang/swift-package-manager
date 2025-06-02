@@ -260,12 +260,12 @@ public struct LLBuildManifest {
         addCommand(name: name, tool: tool)
     }
 
-    public mutating func addPlaygroundEntryPointCmd(
+    public mutating func addPlaygroundRunnerCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
     ) {
-        let tool = PlaygroundEntryPointTool(inputs: inputs, outputs: outputs)
+        let tool = PlaygroundRunnerTool(inputs: inputs, outputs: outputs)
         addCommand(name: name, tool: tool)
     }
 

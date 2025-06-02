@@ -482,18 +482,18 @@ final class CopyCommand: CustomLLBuildCommand {
     }
 }
 
-extension PlaygroundEntryPointTool {
+extension PlaygroundRunnerTool {
     public static var mainFileName: String {
-        "playground_runner.swift"
+        "PlaygroundRunner.swift"
     }
 }
 
-final class PlaygroundEntryPointCommand: CustomLLBuildCommand {
-    private func execute(fileSystem: Basics.FileSystem, tool: PlaygroundEntryPointTool) throws {
+final class PlaygroundRunnerCommand: CustomLLBuildCommand {
+    private func execute(fileSystem: Basics.FileSystem, tool: PlaygroundRunnerTool) throws {
         let outputs = tool.outputs.compactMap { try? AbsolutePath(validating: $0.name) }
 
         // Find the main output file
-        let mainFileName = PlaygroundEntryPointTool.mainFileName
+        let mainFileName = PlaygroundRunnerTool.mainFileName
         guard let mainFile = outputs.first(where: { path in
             path.basename == mainFileName
         }) else {
@@ -505,20 +505,14 @@ final class PlaygroundEntryPointCommand: CustomLLBuildCommand {
 
         stream.send(
             #"""
+            import Foundation
             import Playgrounds
 
-            @_cdecl("_playground_main")
-            public func _playground_main(_ argc: CInt, _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>) -> CInt {
-                let count = Int(argc)
-                var args: [String]  = []
-                for i in 0..<count {
-                    let cStringPtr = argv[i]
-                    if let cStringPtr {
-                        args.append(String(cString: cStringPtr))
-                    }
+            @main
+            struct Runner {
+                static func main() async {
+                    await Playgrounds.__swiftPlayEntryPoint(CommandLine.arguments)
                 }
-
-                return __swiftPMEntryPoint(args)
             }
             """#
         )
@@ -535,7 +529,7 @@ final class PlaygroundEntryPointCommand: CustomLLBuildCommand {
             guard let buildDescription = self.context.buildDescription else {
                 throw InternalError("unknown build description")
             }
-            guard let tool = buildDescription.playgroundEntryPointCommands[command.name] else {
+            guard let tool = buildDescription.playgroundRunnerCommands[command.name] else {
                 throw InternalError("command \(command.name) not registered")
             }
             try self.execute(fileSystem: self.context.fileSystem, tool: tool)
