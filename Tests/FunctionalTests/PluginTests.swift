@@ -204,15 +204,12 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
-/*
-FIXME: Determine the cause of the compile error.
 #if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 #endif
-*/
     }
 
     func testPluginScriptSandbox() async throws {
