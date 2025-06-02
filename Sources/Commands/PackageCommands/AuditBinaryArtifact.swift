@@ -23,7 +23,9 @@ import struct TSCBasic.StringError
 
 struct AuditBinaryArtifact: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Audit a static library binary artifact for undefined symbols.")
+        commandName: "experimental-audit-binary-artifact",
+        abstract: "Audit a static library binary artifact for undefined symbols."
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
