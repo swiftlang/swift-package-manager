@@ -43,15 +43,9 @@
 - ``SourceControlRequirement``
 - ``requirement-swift.property``
 - ``Requirement-swift.enum``
-- ``traits``
-- ``Trait``
-- ``RegistryRequirement``
-- ``SourceControlRequirement``
 
 ### Describing a Package Dependency
 
-- ``name``
-- ``url``
 - ``kind-swift.property``
 - ``Kind``
 - ``Version``

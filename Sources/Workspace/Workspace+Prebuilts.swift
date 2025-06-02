@@ -612,7 +612,7 @@ extension Workspace {
                             artifact: artifact,
                             observabilityScope: observabilityScope
                         )
-                    {   
+                    {
                         // Add to workspace state
                         let checkoutPath = self.location.repositoriesCheckoutsDirectory
                             .appending(component: prebuilt.identity.description)

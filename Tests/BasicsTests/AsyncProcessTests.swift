@@ -143,8 +143,6 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testFindExecutable() throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: Assertion failure when trying to find ls executable")
-
         try testWithTemporaryDirectory { tmpdir in
             // This process should always work.
             #if os(Windows)

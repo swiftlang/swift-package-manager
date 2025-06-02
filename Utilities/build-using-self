@@ -83,18 +83,6 @@ def get_arguments() -> argparse.Namespace:
         dest="build_system",
     )
     parser.add_argument(
-        "-t",
-        "--triple",
-        type=str,
-        dest="triple",
-    )
-    parser.add_argument(
-        "-b",
-        "--build-system",
-        type=str,
-        dest="build_system",
-    )
-    parser.add_argument(
         "--enable-swift-testing",
         action="store_true",
     )

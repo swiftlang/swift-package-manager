@@ -226,8 +226,6 @@ public final class PIFBuilder {
         return accessibleToolsPerPlugin
     }
 
-    private var cachedPIF: PIF.TopLevelObject?
-
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     private func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
         let pluginScriptRunner = self.parameters.pluginScriptRunner

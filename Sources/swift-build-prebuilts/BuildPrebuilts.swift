@@ -155,52 +155,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
         return hostToolchain.swiftCompilerVersion
     }
 
-    @Flag(help: "Whether to build the prebuilt artifacts")
-    var build = false
-
-    @Flag(help: "Whether to sign the manifest")
-    var sign = false
-
-    @Option(name: .customLong("private-key-path"), help: "The path to certificate's private key (PEM encoded)")
-    var privateKeyPathStr: String?
-
-    @Option(name: .customLong("cert-chain-path"), help: "Path to a certificate (DER encoded) in the chain. The certificate used for signing must be first and the root certificate last.")
-    var certChainPathStrs: [String] = []
-
-    @Flag(help: .hidden)
-    var testSigning: Bool = false
-
-    func validate() throws {
-        if sign && !testSigning {
-            guard privateKeyPathStr != nil else {
-                throw ValidationError("No private key path provided")
-            }
-
-            guard !certChainPathStrs.isEmpty else {
-                throw ValidationError("No certificates provided")
-            }
-        }
-
-        if !build && !sign && !testSigning {
-            throw ValidationError("Requires one of --build or --sign or both")
-        }
-    }
-
-    func computeSwiftVersion() throws -> String? {
-        let fileSystem = localFileSystem
-
-        let environment = Environment.current
-        let hostToolchain = try UserToolchain(
-            swiftSDK: SwiftSDK.hostSwiftSDK(
-                environment: environment,
-                fileSystem: fileSystem
-            ),
-            environment: environment
-        )
-
-        return hostToolchain.swiftCompilerVersion
-    }
-
     mutating func run() async throws {
         if build {
             try await build()
@@ -361,7 +315,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         try fileSystem.removeFileTree(includesDir)
                     }
 
-                    let decoder = JSONDecoder()
                     let newLibrary = Workspace.PrebuiltsManifest.Library(
                         name: library.name,
                         products: library.products,
