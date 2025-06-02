@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 
 public protocol Toolchain {
     /// Path of the librarian.
@@ -88,12 +89,33 @@ extension Toolchain {
         }
     }
 
+    /// Base toolchain path that's given to Swift Build to initialize its core.
     public var toolchainDir: AbsolutePath {
         get throws {
-            try resolveSymlinks(swiftCompilerPath)
-                .parentDirectory // bin
-                .parentDirectory // usr
-                .parentDirectory // <toolchain>
+            let compilerPath = try resolveSymlinks(swiftCompilerPath)
+            let os = ProcessInfo.hostOperatingSystem
+            switch os {
+            case .windows:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .parentDirectory // <version>
+                    .parentDirectory // Toolchains
+                    .parentDirectory // <toolchain>
+            case .macOS, .linux, .android:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .parentDirectory // <toolchain>
+            case .freebsd:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // local
+                    .parentDirectory // usr
+                    .parentDirectory // <toolchain>
+            case .unknown:
+                throw UnknownToolchainLayout(os: os)
+            }
         }
     }
 
@@ -126,5 +148,12 @@ extension Toolchain {
 
     package static func toolchainLibDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {
         try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+    }
+}
+
+struct UnknownToolchainLayout: Error, CustomStringConvertible {
+    let os: OperatingSystem
+    var description: String {
+        "Unknown toolchain layout for host operating system: \(os)"
     }
 }

@@ -290,17 +290,33 @@ public struct PrebuiltLibrary {
     /// The path to the extracted prebuilt artifacts
     public let path: AbsolutePath
 
+    /// The path to the checked out source
+    public let checkoutPath: AbsolutePath?
+
     /// The products in the library
     public let products: [String]
+
+    /// The include path relative to the checkouts dir
+    public let includePath: [RelativePath]?
 
     /// The C modules that need their includes directory added to the include path
     public let cModules: [String]
 
-    public init(identity: PackageIdentity, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
+    public init(
+        identity: PackageIdentity,
+        libraryName: String,
+        path: AbsolutePath,
+        checkoutPath: AbsolutePath?,
+        products: [String],
+        includePath: [RelativePath]? = nil,
+        cModules: [String] = []
+    ) {
         self.identity = identity
         self.libraryName = libraryName
         self.path = path
+        self.checkoutPath = checkoutPath
         self.products = products
+        self.includePath = includePath
         self.cModules = cModules
     }
 }
@@ -1318,8 +1334,14 @@ public final class PackageBuilder {
                 table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
 
                 var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-                for cModule in prebuilt.cModules {
-                    includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                    for includeDir in includePath {
+                        includeDirs.append(checkoutPath.appending(includeDir))
+                    }
+                } else {
+                    for cModule in prebuilt.cModules {
+                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                    }
                 }
                 var includeAssignment = BuildSettings.Assignment()
                 includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })

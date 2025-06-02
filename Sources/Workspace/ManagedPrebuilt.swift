@@ -31,8 +31,14 @@ extension Workspace {
         /// The path to the extracted prebuilt artifacts
         public let path: AbsolutePath
 
+        /// The path to the checked out source
+        public let checkoutPath: AbsolutePath?
+
         /// The products in the library
         public let products: [String]
+
+        /// The include path for the C modules
+        public let includePath: [RelativePath]?
 
         /// The C modules that need their includes directory added to the include path
         public let cModules: [String]
