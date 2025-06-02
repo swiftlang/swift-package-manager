@@ -372,7 +372,6 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     packageManagerResourcesDirectory: nil,
                     additionalFileRules: [],
-                    pkgConfigDirectories: [],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,

@@ -24,6 +24,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:ResolvingPackageVersions>
 - <doc:CreatingCLanguageTargets>
 - <doc:SwiftPMAsALibrary>
+- <doc:ModuleAliasing>
 - <doc:PackageCollections>
 
 <!-- ### Command Plugins -->

@@ -199,10 +199,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
 
+    /// Configuration for building and invoking plugins.
     private let pluginConfiguration: PluginConfiguration
 
+    /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
-    private let pkgConfigDirectories: [Basics.AbsolutePath]
 
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
@@ -244,7 +245,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         packageManagerResourcesDirectory: Basics.AbsolutePath?,
         additionalFileRules: [FileRuleDescription],
-        pkgConfigDirectories: [Basics.AbsolutePath],
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
@@ -255,7 +255,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.packageGraphLoader = packageGraphLoader
         self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         self.additionalFileRules = additionalFileRules
-        self.pkgConfigDirectories = pkgConfigDirectories
         self.outputStream = outputStream
         self.logLevel = logLevel
         self.fileSystem = fileSystem
@@ -405,23 +404,31 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             progressAnimation.update(step: step, total: 100, text: message)
                         case .diagnostic(let info):
-                            let fixItsDescription = if info.fixIts.hasContent {
-                                ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
-                            } else {
-                                ""
+                            func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
+                                let fixItsDescription = if info.fixIts.hasContent {
+                                    ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+                                } else {
+                                    ""
+                                }
+                                let message = if let locationDescription = info.location.userDescription {
+                                    "\(locationDescription) \(info.message)\(fixItsDescription)"
+                                } else {
+                                    "\(info.message)\(fixItsDescription)"
+                                }
+                                let severity: Diagnostic.Severity = switch info.kind {
+                                case .error: .error
+                                case .warning: .warning
+                                case .note: .info
+                                case .remark: .debug
+                                }
+                                self.observabilityScope.emit(severity: severity, message: message)
+
+                                for childDiagnostic in info.childDiagnostics {
+                                    emitInfoAsDiagnostic(info: childDiagnostic)
+                                }
                             }
-                            let message = if let locationDescription = info.location.userDescription {
-                                "\(locationDescription) \(info.message)\(fixItsDescription)"
-                            } else {
-                                "\(info.message)\(fixItsDescription)"
-                            }
-                            let severity: Diagnostic.Severity = switch info.kind {
-                            case .error: .error
-                            case .warning: .warning
-                            case .note: .info
-                            case .remark: .debug
-                            }
-                            self.observabilityScope.emit(severity: severity, message: message)
+
+                            emitInfoAsDiagnostic(info: info)
                         case .output(let info):
                             self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
                         case .taskStarted(let info):
@@ -604,13 +611,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             let graph = try await getPackageGraph()
             let pifBuilder = try PIFBuilder(
                 graph: graph,
-                parameters: .init(buildParameters, supportedSwiftVersions: supportedSwiftVersions()),
+                parameters: .init(
+                    buildParameters,
+                    supportedSwiftVersions: supportedSwiftVersions(),
+                    pluginScriptRunner: self.pluginConfiguration.scriptRunner,
+                    disableSandbox: self.pluginConfiguration.disableSandbox,
+                    pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
+                    additionalFileRules: additionalFileRules
+                ),
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope,
-                pluginScriptRunner: self.pluginConfiguration.scriptRunner,
-                pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
-                pkgConfigDirectories: pkgConfigDirectories,
-                additionalFileRules: additionalFileRules
+                observabilityScope: self.observabilityScope
             )
             return pifBuilder
         }

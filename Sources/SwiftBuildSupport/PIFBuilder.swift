@@ -25,7 +25,7 @@ import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
 
-public func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
+fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
     if let value = cache {
         return value
     } else {
@@ -36,7 +36,7 @@ public func memoize<T>(to cache: inout T?, build: () async throws -> T) async re
 }
 
 extension ModulesGraph {
-    public static func computePluginGeneratedFiles(
+    fileprivate static func computePluginGeneratedFiles(
         target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription],
@@ -73,7 +73,7 @@ extension ModulesGraph {
             observabilityScope: observabilityScope
         )
         let pluginDerivedResources = derivedResources
-        derivedSources.forEach { absPath in
+        for absPath in derivedSources {
             let relPath = absPath.relative(to: pluginDerivedSources.root)
             pluginDerivedSources.relativePaths.append(relPath)
         }
@@ -106,6 +106,18 @@ struct PIFBuilderParameters {
 
     /// The Swift language versions supported by the SwiftBuild being used for the build.
     let supportedSwiftVersions: [SwiftLanguageVersion]
+
+    /// The plugin script runner that will compile and run plugins.
+    let pluginScriptRunner: PluginScriptRunner
+
+    /// Disable the sandbox for the custom tasks
+    let disableSandbox: Bool
+
+    /// The working directory where the plugins should produce their results
+    let pluginWorkingDirectory: AbsolutePath
+
+    /// Additional rules for including a source or resource file in a target
+    let additionalFileRules: [FileRuleDescription]
 }
 
 /// PIF object builder for a package graph.
@@ -128,14 +140,6 @@ public final class PIFBuilder {
     /// The file system to read from.
     let fileSystem: FileSystem
 
-    let pluginScriptRunner: PluginScriptRunner
-
-    let pluginWorkingDirectory: AbsolutePath
-
-    let pkgConfigDirectories: [Basics.AbsolutePath]
-
-    let additionalFileRules: [FileRuleDescription]
-
     /// Creates a `PIFBuilder` instance.
     /// - Parameters:
     ///   - graph: The package graph to build from.
@@ -147,19 +151,11 @@ public final class PIFBuilder {
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        pluginScriptRunner: PluginScriptRunner,
-        pluginWorkingDirectory: AbsolutePath,
-        pkgConfigDirectories: [Basics.AbsolutePath],
-        additionalFileRules: [FileRuleDescription]
     ) {
         self.graph = graph
         self.parameters = parameters
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "PIF Builder")
-        self.pluginScriptRunner = pluginScriptRunner
-        self.pluginWorkingDirectory = pluginWorkingDirectory
-        self.pkgConfigDirectories = pkgConfigDirectories
-        self.additionalFileRules = additionalFileRules
     }
 
     /// Generates the PIF representation.
@@ -232,8 +228,8 @@ public final class PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     private func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
-        let pluginScriptRunner = self.pluginScriptRunner
-        let outputDir = self.pluginWorkingDirectory.appending("outputs")
+        let pluginScriptRunner = self.parameters.pluginScriptRunner
+        let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
@@ -261,7 +257,7 @@ public final class PIFBuilder {
             var packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = []
             
             for package in sortedPackages {
-                var buildtoolPluginResults: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
+                var buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
 
                 for module in package.modules {
                     // Apply each build tool plugin used by the target in order,
@@ -308,7 +304,7 @@ public final class PIFBuilder {
                             (pluginDerivedSources, pluginDerivedResources) = try ModulesGraph.computePluginGeneratedFiles(
                                 target: module,
                                 toolsVersion: package.manifest.toolsVersion,
-                                additionalFileRules: self.additionalFileRules,
+                                additionalFileRules: self.parameters.additionalFileRules,
                                 buildParameters: buildParameters,
                                 buildToolPluginInvocationResults: buildToolPluginResults,
                                 prebuildCommandResults: [],
@@ -336,7 +332,7 @@ public final class PIFBuilder {
                             writableDirectories: writableDirectories,
                             readOnlyDirectories: readOnlyDirectories,
                             allowNetworkConnections: [],
-                            pkgConfigDirectories: self.pkgConfigDirectories,
+                            pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                             sdkRootPath: buildParameters.toolchain.sdkRootPath,
                             fileSystem: fileSystem,
                             modulesGraph: self.graph,
@@ -366,22 +362,33 @@ public final class PIFBuilder {
                                     env[key.rawValue] = value
                                 }
 
+                                let workingDir = buildCommand.configuration.workingDirectory
+
+                                let writableDirectories: [AbsolutePath] = buildCommand.outputFiles
+
                                 return PackagePIFBuilder.CustomBuildCommand(
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
                                     environment: env,
-                                    workingDir: buildCommand.configuration.workingDirectory,
+                                    workingDir: workingDir,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
-                                    sandboxProfile: nil
+                                    sandboxProfile:
+                                        self.parameters.disableSandbox ?
+                                            nil :
+                                            .init(
+                                                strictness: .default,
+                                                writableDirectories: writableDirectories,
+                                                readOnlyDirectories: buildCommand.inputFiles
+                                            )
                                 )
                             } )
                         )
 
                         // Add a BuildToolPluginInvocationResult to the mapping.
                         buildToolPluginResults.append(result2)
-                        buildtoolPluginResults[module.name] = result2
+                        buildToolPluginResultsByTargetName[module.name] = result2
                     }
                 }
 
@@ -393,7 +400,7 @@ public final class PIFBuilder {
                     resolvedPackage: package,
                     packageManifest: package.manifest,
                     delegate: packagePIFBuilderDelegate,
-                    buildToolPluginResultsByTargetName: buildtoolPluginResults,
+                    buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
                     createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                     packageDisplayVersion: package.manifest.displayName,
                     fileSystem: self.fileSystem,
@@ -433,20 +440,24 @@ public final class PIFBuilder {
         observabilityScope: ObservabilityScope,
         preservePIFModelStructure: Bool,
         pluginScriptRunner: PluginScriptRunner,
+        disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription]
     ) async throws -> String {
-        let parameters = PIFBuilderParameters(buildParameters, supportedSwiftVersions: [])
+        let parameters = PIFBuilderParameters(
+            buildParameters,
+            supportedSwiftVersions: [],
+            pluginScriptRunner: pluginScriptRunner,
+            disableSandbox: disableSandbox,
+            pluginWorkingDirectory: pluginWorkingDirectory,
+            additionalFileRules: additionalFileRules,
+        )
         let builder = Self(
             graph: packageGraph,
             parameters: parameters,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            pluginScriptRunner: pluginScriptRunner,
-            pluginWorkingDirectory: pluginWorkingDirectory,
-            pkgConfigDirectories: pkgConfigDirectories,
-            additionalFileRules: additionalFileRules
+            observabilityScope: observabilityScope
         )
         return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
     }
@@ -696,7 +707,14 @@ extension PIFGenerationError: CustomStringConvertible {
 // MARK: - Helpers
 
 extension PIFBuilderParameters {
-    init(_ buildParameters: BuildParameters, supportedSwiftVersions: [SwiftLanguageVersion]) {
+    init(
+        _ buildParameters: BuildParameters,
+        supportedSwiftVersions: [SwiftLanguageVersion],
+        pluginScriptRunner: PluginScriptRunner,
+        disableSandbox: Bool,
+        pluginWorkingDirectory: AbsolutePath,
+        additionalFileRules: [FileRuleDescription]
+    ) {
         self.init(
             triple: buildParameters.triple,
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -705,7 +723,11 @@ extension PIFBuilderParameters {
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
             sdkRootPath: buildParameters.toolchain.sdkRootPath,
-            supportedSwiftVersions: supportedSwiftVersions
+            supportedSwiftVersions: supportedSwiftVersions,
+            pluginScriptRunner: pluginScriptRunner,
+            disableSandbox: disableSandbox,
+            pluginWorkingDirectory: pluginWorkingDirectory,
+            additionalFileRules: additionalFileRules,
         )
     }
 }
