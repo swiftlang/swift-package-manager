@@ -164,7 +164,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: []), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
         )
         let libraries = try binaryTarget.parseLibraries(
             for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
@@ -214,7 +214,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: []), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
         )
         // library artifacts must not specify supported triples
         #expect(throws: (any Error).self) {
@@ -272,7 +272,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: []), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
         )
         // library artifacts must not specify supported triples
         #expect(throws: (any Error).self) {
