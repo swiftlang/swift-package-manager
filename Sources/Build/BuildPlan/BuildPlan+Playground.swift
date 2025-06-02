@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import class Basics.ObservabilityScope
-import struct LLBuildManifest.PlaygroundEntryPointTool
+import struct LLBuildManifest.PlaygroundRunnerTool
 
 @_spi(SwiftPMInternal)
 import struct PackageGraph.ResolvedModule
@@ -23,65 +23,60 @@ import struct SPMBuildCore.BuildParameters
 import protocol TSCBasic.FileSystem
 
 extension BuildPlan {
-    static func makeDerivedPlaygroundTargets(
-        playgroundProducts: [ProductBuildDescription],
+    /// Creates and returns a module build description for a synthesized Playground runner executable target.
+    static func makeDerivedPlaygroundRunnerTargets(
+        playgroundRunnerProductBuildDescription: ProductBuildDescription,
         destinationBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
         shouldDisableSandbox: Bool,
         _ fileSystem: FileSystem,
         _ observabilityScope: ObservabilityScope
-    ) throws -> [(product: ResolvedProduct, entryPointTargetBuildDescription: SwiftModuleBuildDescription)] {
-        var result: [(ResolvedProduct, SwiftModuleBuildDescription)] = []
-        for playgroundBuildDescription in playgroundProducts {
-            let playgroundProduct = playgroundBuildDescription.product
-            let package = playgroundBuildDescription.package
-
-            let toolsVersion = package.manifest.toolsVersion
-
-            /// Generates a synthesized playground entry point target, consisting of a single "main" file which handles the playground entry point.
-            func generateSynthesizedPlaygroundEntryPointTarget() throws -> SwiftModuleBuildDescription {
-                let entryPointDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(playgroundProduct.name).derived")
-                let entryPointMainFile = entryPointDerivedDir.appending(component: PlaygroundEntryPointTool.mainFileName)
-                let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)
-
-                let entryPointTarget = SwiftModule(
-                    name: playgroundProduct.name,
-                    type: .library,
-                    path: .root,
-                    sources: entryPointSources,
-                    dependencies: playgroundProduct.underlying.modules.map { .module($0, conditions: []) },
-                    packageAccess: true, // playground target is allowed access to package decls
-                    usesUnsafeFlags: false,
-                    implicit: true // implicitly created for swift play
-                )
-                let entryPointResolvedTarget = ResolvedModule(
-                    packageIdentity: playgroundProduct.packageIdentity,
-                    underlying: entryPointTarget,
-                    dependencies: playgroundProduct.modules.map { .module($0, conditions: []) },
-                    defaultLocalization: playgroundProduct.defaultLocalization,
-                    supportedPlatforms: playgroundProduct.supportedPlatforms,
-                    platformVersionProvider: playgroundProduct.platformVersionProvider
-                )
-
-                return try SwiftModuleBuildDescription(
-                    package: package,
-                    target: entryPointResolvedTarget,
-                    toolsVersion: toolsVersion,
-                    buildParameters: playgroundBuildDescription.buildParameters,
-                    macroBuildParameters: toolsBuildParameters,
-                    testTargetRole: nil,
-                    shouldDisableSandbox: shouldDisableSandbox,
-                    fileSystem: fileSystem,
-                    observabilityScope: observabilityScope,
-                    isPlaygroundTarget: true
-                )
-            }
-            
-            // Synthesize a playground entry point target, declaring a dependency on the test discovery targets.
-            let entryPointTargetBuildDescription = try generateSynthesizedPlaygroundEntryPointTarget()
-            result.append((playgroundProduct, entryPointTargetBuildDescription))
+    ) throws -> [(product: ResolvedProduct, playgroundRunnerTargetBuildDescription: SwiftModuleBuildDescription)] {
+        let playgroundProduct = playgroundRunnerProductBuildDescription.product
+        guard let playgroundRunnerTarget = playgroundProduct.modules.first(where: { $0.underlying.isPlaygroundRunner }) else {
+            return []
         }
 
-        return result
+        let targetName = playgroundRunnerTarget.name
+
+        // Playground runner target builds from a derived source file (written out by a playground runner build cmd)
+        let derivedDir = playgroundRunnerProductBuildDescription.buildParameters.buildPath.appending(components: "\(targetName).derived")
+        let mainFile = derivedDir.appending(component: PlaygroundRunnerTool.mainFileName)
+
+        let target = SwiftModule(
+            name: targetName,
+            type: .executable,
+            path: .root,
+            sources: Sources(paths: [mainFile], root: derivedDir),
+            dependencies: playgroundRunnerTarget.underlying.dependencies, // copy template target's dependencies
+            packageAccess: true, // playground target is allowed access to package decls
+            usesUnsafeFlags: false,
+            implicit: true, // implicitly created for swift play
+            isPlaygroundRunner: true
+        )
+
+        let resolvedTarget = ResolvedModule(
+            packageIdentity: playgroundProduct.packageIdentity,
+            underlying: target,
+            dependencies: playgroundRunnerTarget.dependencies, // copy template target's dependencies
+            defaultLocalization: playgroundProduct.defaultLocalization,
+            supportedPlatforms: playgroundProduct.supportedPlatforms,
+            platformVersionProvider: playgroundProduct.platformVersionProvider
+        )
+
+        let targetBuildDescription = try SwiftModuleBuildDescription(
+            package: playgroundRunnerProductBuildDescription.package,
+            target: resolvedTarget,
+            toolsVersion: playgroundRunnerProductBuildDescription.package.manifest.toolsVersion,
+            buildParameters: playgroundRunnerProductBuildDescription.buildParameters,
+            macroBuildParameters: toolsBuildParameters,
+            testTargetRole: nil,
+            shouldDisableSandbox: shouldDisableSandbox,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            isPlaygroundRunnerTarget: true
+        )
+
+        return [(playgroundProduct, targetBuildDescription)]
     }
 }

@@ -59,10 +59,6 @@ struct PlayCommandOptions: ParsableArguments {
     @OptionGroup(visibility: .hidden)
     package var traits: TraitOptions
 
-    /// Output debug logging for play command
-    @Flag(name: .customLong("enable-play-debug-logging"), help: "Output debug logging for the play command")
-    var debugLoggingEnabled: Bool = false
-
     /// List found playgrounds instead of running them
     @Flag(name: .customLong("list"), help: "List all Playgrounds")
     var list: Bool = false
@@ -85,9 +81,9 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     var options: PlayCommandOptions
 
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
-        // Enabling REPL product ensures products are built as dynamic libraries
-        // so that swiftpm-playground-helper can load them.
-        return .init(wantsREPLProduct: true)
+        // Enabling the Playground product ensures a playground runner executable
+        // is synthesized for `swift play` to access and run playground macro code.
+        return .init(wantsPlaygroundProduct: true)
     }
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -116,51 +112,23 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 )
 
                 let allProducts = try await buildSystem.getPackageGraph().reachableProducts
-                if options.debugLoggingEnabled {
+                if globalOptions.logging.veryVerbose {
                     for product in allProducts {
-                        print("[Found product: \(product)]")
+                        verboseLog("Found product: \(product)")
                     }
-                    print("[- Found \(allProducts.count) product\(allProducts.count==1 ? "" : "s")]")
+                    verboseLog("- Found \(allProducts.count) product\(allProducts.count==1 ? "" : "s")")
                 }
 
-                let filteredProducts = allProducts.filter {
-                    // Only library targets are supported for playgrounds right now
-                    $0.type.isLibrary && $0.modules.count > 0 && !$0.isLinkingXCTest
-                }
-                if options.debugLoggingEnabled {
-                    for product in filteredProducts {
-                        print("[Filtered product: \(product)]")
-                    }
-                    print("[- Filtered down to \(filteredProducts.count) product\(filteredProducts.count==1 ? "" : "s")]")
-                }
-
-                // Choose the "REPL" product
-                guard let playgroundLibraryProduct = filteredProducts.first(where: { $0.name.hasSuffix(Product.replProductSuffix) }) else {
-                    print("No product found that matches criteria for hosting playgrounds")
+                guard let playgroundExecutableProduct = allProducts.first(where: { $0.underlying.isPlaygroundRunner }) else {
+                    print("Could not create a playground executable.")
                     throw ExitCode.failure
                 }
-                if options.debugLoggingEnabled { print("[Choosing product \"\(playgroundLibraryProduct.name)\", type: \(playgroundLibraryProduct.type)]") }
-
-                guard case .library(_) = playgroundLibraryProduct.type else {
-                    print("Product \"\(playgroundLibraryProduct.name)\" is not a library (it's a \(playgroundLibraryProduct.type)) and so cannot be used for playgrounds")
-                    throw ExitCode.failure
-                }
-
-                let buildConfigurationDirName = try swiftCommandState.productsBuildParameters.configuration.dirname
-                #if os(macOS)
-                let libraryExtension = "dylib"
-                #else
-                let libraryExtension = "so"
-                #endif
-                let playgroundHelperArguments = [
-                    "--lib-path",
-                    "\(swiftCommandState.scratchDirectory)/\(buildConfigurationDirName)/lib\(playgroundLibraryProduct.name).\(libraryExtension)"
-                ]
+                verboseLog("Choosing product \"\(playgroundExecutableProduct.name)\", type: \(playgroundExecutableProduct.type)")
 
                 // Build the package
                 var buildSucceeded = false
                 do {
-                    try await buildSystem.build(subset: .product(playgroundLibraryProduct.name))
+                    try await buildSystem.build(subset: .product(playgroundExecutableProduct.name))
                     buildSucceeded = true
                 } catch {
                     print("Build failed")
@@ -173,24 +141,16 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 var helperProcess: Process? = nil
                 
                 if buildSucceeded {
-                    // Build was successful so call swiftpm-playground-helper to list or run playgrounds
-                    var helperExecutablePath: AbsolutePath
-                    if let helperOverridePath = ProcessInfo.processInfo.environment["SWIFTPM_PLAYGROUND_HELPER"],
-                       let helperOverrideAbsolutePath = AbsolutePath(argument: helperOverridePath) {
-                        helperExecutablePath = helperOverrideAbsolutePath
-                    }
-                    else {
-                        let toolchain = try swiftCommandState.getTargetToolchain()
-                        helperExecutablePath = try toolchain.getSwiftPlaygroundHelper()
-                    }
+                    // Build was successful so run the playground runner executable that we just built
+                    let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: playgroundExecutableProduct.name)
+                    let helperExecutablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
 
                     playAgain = false
                     
                     helperProcess = try self.play(
                         fileSystem: swiftCommandState.fileSystem,
                         executablePath: helperExecutablePath,
-                        originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                        playgroundHelperArguments: playgroundHelperArguments
+                        originalWorkingDirectory: swiftCommandState.originalWorkingDirectory
                     )
                 }
                 
@@ -213,10 +173,10 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                     // Monitor for file changes
                     var fileMonitor: FileMonitor? = nil
                     do {
-                        if options.debugLoggingEnabled { print("[Monitoring files at \(monitorURL)]") }
+                        verboseLog("Monitoring files at \(monitorURL)")
                         fileMonitor = try FileMonitor(url: monitorURL)
                     } catch {
-                        print("[FileMonitor failed for \(monitorURL): \(error)]")
+                        print("FileMonitor failed for \(monitorURL): \(error)")
                         throw ExitCode.failure
                     }
                     defer {
@@ -225,12 +185,12 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                     }
                     #endif
                     
-                    if options.debugLoggingEnabled { print("[swift play waiting...]") }
+                    verboseLog("swift play waiting...")
                     var waitingForFileChanges = true
                     
                     #if os(macOS)
                     fileMonitor?.onChange = {
-                        if options.debugLoggingEnabled { print("[Files changed]") }
+                        verboseLog("Files changed")
                         waitingForFileChanges = false
                     }
                     #endif
@@ -247,7 +207,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 }
 
                 if let activeProcess = helperProcess, activeProcess.processIdentifier > 0 {
-                    if options.debugLoggingEnabled { print("[killing pid \(activeProcess.processIdentifier)]") }
+                    verboseLog("killing pid \(activeProcess.processIdentifier)")
                     kill(activeProcess.processIdentifier, SIGKILL)
                 }
                 helperProcess = nil
@@ -262,8 +222,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     private func play(
         fileSystem: FileSystem,
         executablePath: AbsolutePath,
-        originalWorkingDirectory: AbsolutePath,
-        playgroundHelperArguments: [String]) throws -> Process
+        originalWorkingDirectory: AbsolutePath) throws -> Process
     {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -271,32 +230,37 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
             try ProcessEnv.chdir(originalWorkingDirectory)
         }
 
-        var extraArguments: [String] = []
+        var helperArguments: [String] = []
         if options.mode == .oneShot {
-            extraArguments.append("--one-shot")
+            helperArguments.append("--one-shot")
         }
-        extraArguments.append(options.list ? "--list" : options.playgroundName)
-        
-        let allArguments = playgroundHelperArguments + extraArguments
+        helperArguments.append(options.list ? "--list" : options.playgroundName)
+
         let helperProcess = Process()
         helperProcess.executableURL = executablePath.asURL
-        helperProcess.arguments = allArguments
+        helperProcess.arguments = helperArguments
 
         do {
-            if options.debugLoggingEnabled { print("[Launching helper: \(executablePath.pathString) \(allArguments.joined(separator: " "))]") }
+            verboseLog("Launching runner: \(executablePath.pathString) \(helperArguments.joined(separator: " "))")
             try helperProcess.run()
             #if os(macOS)
             // Allow the helper to read input from stdin
             // FIXME: On Linux this suppresses CTRL-C
             tcsetpgrp(STDIN_FILENO, helperProcess.processIdentifier)
             #endif
-            if options.debugLoggingEnabled { print("[Helper launched with pid \(helperProcess.processIdentifier)]") }
+            verboseLog("Runner launched with pid \(helperProcess.processIdentifier)")
         } catch {
             print("[Helper launch failed with error: \(error)]")
             throw ExitCode.failure
         }
         
         return helperProcess
+    }
+
+    private func verboseLog(_ message: String) {
+        if globalOptions.logging.veryVerbose {
+            print("[swift play: \(message)]")
+        }
     }
 
     public init() {}

@@ -246,6 +246,9 @@ public class Module {
     /// or was synthesized (i.e. some test modules are synthesized).
     public let implicit: Bool
 
+    /// Whether this module represents a playground runner executable.
+    public let isPlaygroundRunner: Bool
+
     init(
         name: String,
         potentialBundleName: String? = nil,
@@ -261,7 +264,8 @@ public class Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
-        implicit: Bool
+        implicit: Bool,
+        isPlaygroundRunner: Bool = false
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -279,6 +283,7 @@ public class Module {
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
         self.implicit = implicit
+        self.isPlaygroundRunner = isPlaygroundRunner
     }
 }
 
