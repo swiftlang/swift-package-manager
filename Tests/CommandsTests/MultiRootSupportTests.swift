@@ -42,6 +42,6 @@ final class MultiRootSupportTests: CommandsTestCase {
         let result = try XcodeWorkspaceLoader(fileSystem: fs, observabilityScope: observability.topScope).load(workspace: path)
 
         XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertEqual(result.map{ $0.pathString }.sorted(), ["/tmp/test/dep", "/tmp/test/local"])
+        XCTAssertEqual(result.map{ $0.pathString }.sorted(), [AbsolutePath("/tmp/test/dep").pathString, AbsolutePath("/tmp/test/local").pathString])
     }
 }

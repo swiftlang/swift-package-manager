@@ -128,7 +128,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Basics.AbsolutePath, Error>) -> Void
+        completion: @escaping @Sendable (Result<Basics.AbsolutePath, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.lookup(

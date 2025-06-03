@@ -2,23 +2,25 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
 import _InternalTestSupport
-import XCTest
+import Testing
 
 // TODO: remove when transition to new diagnostics system is complete
 typealias Diagnostic = Basics.Diagnostic
 
-final class ObservabilitySystemTest: XCTestCase {
-    func testScopes() throws {
+struct ObservabilitySystemTest {
+    @Test
+    func scopes() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)
 
@@ -33,16 +35,19 @@ final class ObservabilitySystemTest: XCTestCase {
         let emitter1 = childScope1.makeDiagnosticsEmitter()
         emitter1.emit(error: "error 1.5")
 
-        testDiagnostics(collector.diagnostics) { result in
-            let diagnostic1 = result.check(diagnostic: "error 1", severity: .error)
-            XCTAssertEqual(diagnostic1?.metadata?.testKey1, metadata1.testKey1)
-            XCTAssertEqual(diagnostic1?.metadata?.testKey2, metadata1.testKey2)
-            XCTAssertEqual(diagnostic1?.metadata?.testKey3, metadata1.testKey3)
+        try expectDiagnostics(collector.diagnostics) { result in
+            let diagnostic1 = try #require(result.check(diagnostic: "error 1", severity: .error))
+            let diagnostic1_metadata = try #require(diagnostic1.metadata)
+            #expect(diagnostic1_metadata.testKey1 == metadata1.testKey1)
+            #expect(diagnostic1_metadata.testKey2 == metadata1.testKey2)
+            #expect(diagnostic1_metadata.testKey3 == metadata1.testKey3)
 
-            let diagnostic1_5 = result.check(diagnostic: "error 1.5", severity: .error)
-            XCTAssertEqual(diagnostic1_5?.metadata?.testKey1, metadata1.testKey1)
-            XCTAssertEqual(diagnostic1_5?.metadata?.testKey2, metadata1.testKey2)
-            XCTAssertEqual(diagnostic1_5?.metadata?.testKey3, metadata1.testKey3)
+            let diagnostic1_5 = try #require(result.check(diagnostic: "error 1.5", severity: .error))
+            let diagnostic1_5_metadata = try #require(diagnostic1_5.metadata)
+
+            #expect(diagnostic1_5_metadata.testKey1 == metadata1.testKey1)
+            #expect(diagnostic1_5_metadata.testKey2 == metadata1.testKey2)
+            #expect(diagnostic1_5_metadata.testKey3 == metadata1.testKey3)
         }
 
         collector.clear()
@@ -52,9 +57,9 @@ final class ObservabilitySystemTest: XCTestCase {
         metadata2.testKey2 = Int.random(in: Int.min..<Int.max)
 
         let mergedMetadata2 = metadata1.merging(metadata2)
-        XCTAssertEqual(mergedMetadata2.testKey1, metadata2.testKey1)
-        XCTAssertEqual(mergedMetadata2.testKey2, metadata2.testKey2)
-        XCTAssertEqual(mergedMetadata2.testKey3, metadata1.testKey3)
+        #expect(mergedMetadata2.testKey1 == metadata2.testKey1)
+        #expect(mergedMetadata2.testKey2 == metadata2.testKey2)
+        #expect(mergedMetadata2.testKey3 == metadata1.testKey3)
 
         let childScope2 = childScope1.makeChildScope(description: "child 2", metadata: metadata2)
         childScope2.emit(error: "error 2")
@@ -62,16 +67,18 @@ final class ObservabilitySystemTest: XCTestCase {
         let emitter2 = childScope2.makeDiagnosticsEmitter()
         emitter2.emit(error: "error 2.5")
 
-        testDiagnostics(collector.diagnostics) { result in
-            let diagnostic2 = result.check(diagnostic: "error 2", severity: .error)!
-            XCTAssertEqual(diagnostic2.metadata?.testKey1, mergedMetadata2.testKey1)
-            XCTAssertEqual(diagnostic2.metadata?.testKey2, mergedMetadata2.testKey2)
-            XCTAssertEqual(diagnostic2.metadata?.testKey3, mergedMetadata2.testKey3)
+        try expectDiagnostics(collector.diagnostics) { result in
+            let diagnostic2 = try #require(result.check(diagnostic: "error 2", severity: .error))
+            let diagnostic2_metadata = try #require(diagnostic2.metadata)
+            #expect(diagnostic2_metadata.testKey1 == mergedMetadata2.testKey1)
+            #expect(diagnostic2_metadata.testKey2 == mergedMetadata2.testKey2)
+            #expect(diagnostic2_metadata.testKey3 == mergedMetadata2.testKey3)
 
-            let diagnostic2_5 = result.check(diagnostic: "error 2.5", severity: .error)
-            XCTAssertEqual(diagnostic2_5?.metadata?.testKey1, mergedMetadata2.testKey1)
-            XCTAssertEqual(diagnostic2_5?.metadata?.testKey2, mergedMetadata2.testKey2)
-            XCTAssertEqual(diagnostic2_5?.metadata?.testKey3, mergedMetadata2.testKey3)
+            let diagnostic2_5 = try #require(result.check(diagnostic: "error 2.5", severity: .error))
+            let diagnostic2_5_metadata = try #require(diagnostic2_5.metadata)
+            #expect(diagnostic2_5_metadata.testKey1 == mergedMetadata2.testKey1)
+            #expect(diagnostic2_5_metadata.testKey2 == mergedMetadata2.testKey2)
+            #expect(diagnostic2_5_metadata.testKey3 == mergedMetadata2.testKey3)
         }
 
         collector.clear()
@@ -80,9 +87,9 @@ final class ObservabilitySystemTest: XCTestCase {
         metadata3.testKey1 = UUID().uuidString
 
         let mergedMetadata3 = metadata1.merging(metadata2).merging(metadata3)
-        XCTAssertEqual(mergedMetadata3.testKey1, metadata3.testKey1)
-        XCTAssertEqual(mergedMetadata3.testKey2, metadata2.testKey2)
-        XCTAssertEqual(mergedMetadata3.testKey3, metadata1.testKey3)
+        #expect(mergedMetadata3.testKey1 == metadata3.testKey1)
+        #expect(mergedMetadata3.testKey2 == metadata2.testKey2)
+        #expect(mergedMetadata3.testKey3 == metadata1.testKey3)
 
         let childScope3 = childScope2.makeChildScope(description: "child 3", metadata: metadata3)
         childScope3.emit(error: "error 3")
@@ -91,27 +98,30 @@ final class ObservabilitySystemTest: XCTestCase {
         metadata3_5.testKey1 = UUID().uuidString
 
         let mergedMetadata3_5 = metadata1.merging(metadata2).merging(metadata3).merging(metadata3_5)
-        XCTAssertEqual(mergedMetadata3_5.testKey1, metadata3_5.testKey1)
-        XCTAssertEqual(mergedMetadata3_5.testKey2, metadata2.testKey2)
-        XCTAssertEqual(mergedMetadata3_5.testKey3, metadata1.testKey3)
+        #expect(mergedMetadata3_5.testKey1 == metadata3_5.testKey1)
+        #expect(mergedMetadata3_5.testKey2 == metadata2.testKey2)
+        #expect(mergedMetadata3_5.testKey3 == metadata1.testKey3)
 
         let emitter3 = childScope3.makeDiagnosticsEmitter(metadata: metadata3_5)
         emitter3.emit(error: "error 3.5")
 
-        testDiagnostics(collector.diagnostics) { result in
-            let diagnostic3 = result.check(diagnostic: "error 3", severity: .error)
-            XCTAssertEqual(diagnostic3?.metadata?.testKey1, mergedMetadata3.testKey1)
-            XCTAssertEqual(diagnostic3?.metadata?.testKey2, mergedMetadata3.testKey2)
-            XCTAssertEqual(diagnostic3?.metadata?.testKey3, mergedMetadata3.testKey3)
+        try expectDiagnostics(collector.diagnostics) { result in
+            let diagnostic3 = try #require(result.check(diagnostic: "error 3", severity: .error))
+            let diagnostic3_metadata = try #require(diagnostic3.metadata)
+            #expect(diagnostic3_metadata.testKey1 == mergedMetadata3.testKey1)
+            #expect(diagnostic3_metadata.testKey2 == mergedMetadata3.testKey2)
+            #expect(diagnostic3_metadata.testKey3 == mergedMetadata3.testKey3)
 
-            let diagnostic3_5 = result.check(diagnostic: "error 3.5", severity: .error)
-            XCTAssertEqual(diagnostic3_5?.metadata?.testKey1, mergedMetadata3_5.testKey1)
-            XCTAssertEqual(diagnostic3_5?.metadata?.testKey2, mergedMetadata3_5.testKey2)
-            XCTAssertEqual(diagnostic3_5?.metadata?.testKey3, mergedMetadata3_5.testKey3)
+            let diagnostic3_5 = try #require(result.check(diagnostic: "error 3.5", severity: .error))
+            let diagnostic3_5_metadata = try #require(diagnostic3_5.metadata)
+            #expect(diagnostic3_5_metadata.testKey1 == mergedMetadata3_5.testKey1)
+            #expect(diagnostic3_5_metadata.testKey2 == mergedMetadata3_5.testKey2)
+            #expect(diagnostic3_5_metadata.testKey3 == mergedMetadata3_5.testKey3)
         }
     }
 
-    func testBasicDiagnostics() throws {
+    @Test
+    func basicDiagnostics() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)
 
@@ -130,48 +140,58 @@ final class ObservabilitySystemTest: XCTestCase {
         emitter.emit(debug: "debug")
         emitter.emit(.debug("debug 2"))
 
-        testDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+        try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
             do {
-                let diagnostic = result.check(diagnostic: "error", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "error", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "error 2", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "error 2", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "error 3", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
-                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? StringError, StringError("error 3"))
+                let diagnostic = try #require(result.check(diagnostic: "error 3", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
+                #expect(diagnostic_metadata.underlyingError as? StringError == StringError("error 3"))
             }
             do {
-                let diagnostic = result.check(diagnostic: "warning", severity: .warning)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "warning", severity: .warning))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "warning 2", severity: .warning)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "warning 2", severity: .warning))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "info", severity: .info)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "info", severity: .info))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "info 2", severity: .info)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "info 2", severity: .info))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "debug", severity: .debug)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = result.check(diagnostic: "debug 2", severity: .debug)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, metadata.testKey1)
+                let diagnostic = try #require(result.check(diagnostic: "debug 2", severity: .debug))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
         }
     }
 
-    func testDiagnosticsErrorDescription() throws {
+    @Test
+    func diagnosticsErrorDescription() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)
 
@@ -181,26 +201,29 @@ final class ObservabilitySystemTest: XCTestCase {
         observabilitySystem.topScope.emit(MyDescribedError(description: "error 4"))
         observabilitySystem.topScope.emit(MyLocalizedError(errorDescription: "error 5"))
 
-        testDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+        try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
             do {
-                let diagnostic = result.check(diagnostic: "error", severity: .error)
-                XCTAssertNil(diagnostic?.metadata?.underlyingError)
+                let diagnostic = try #require(result.check(diagnostic: "error", severity: .error))
+                #expect(diagnostic.metadata?.underlyingError == nil)
             }
             do {
-                let diagnostic = result.check(diagnostic: "error 2", severity: .error)
-                XCTAssertNil(diagnostic?.metadata?.underlyingError)
+                let diagnostic = try #require(result.check(diagnostic: "error 2", severity: .error))
+                #expect(diagnostic.metadata?.underlyingError == nil)
             }
             do {
-                let diagnostic = result.check(diagnostic: "MyError(description: \"error 3\")", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyError, MyError(description: "error 3"))
+                let diagnostic = try #require(result.check(diagnostic: "MyError(description: \"error 3\")", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.underlyingError as? MyError == MyError(description: "error 3"))
             }
             do {
-                let diagnostic = result.check(diagnostic: "error 4", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyDescribedError, MyDescribedError(description: "error 4"))
+                let diagnostic = try #require(result.check(diagnostic: "error 4", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.underlyingError as? MyDescribedError == MyDescribedError(description: "error 4"))
             }
             do {
-                let diagnostic = result.check(diagnostic: "error 5", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.underlyingError as? MyLocalizedError, MyLocalizedError(errorDescription: "error 5"))
+                let diagnostic = try #require(result.check(diagnostic: "error 5", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.underlyingError as? MyLocalizedError == MyLocalizedError(errorDescription: "error 5"))
             }
         }
 
@@ -218,7 +241,8 @@ final class ObservabilitySystemTest: XCTestCase {
         }
     }
 
-    func testDiagnosticsMetadataMerge() throws {
+    @Test
+    func diagnosticsMetadataMerge() throws {
         let collector = Collector()
         let observabilitySystem = ObservabilitySystem(collector)
 
@@ -234,9 +258,9 @@ final class ObservabilitySystemTest: XCTestCase {
         emitterMetadata.testKey2 = Int.random(in: Int.min..<Int.max)
 
         let emitterMergedMetadata = scopeMetadata.merging(emitterMetadata)
-        XCTAssertEqual(emitterMergedMetadata.testKey1, emitterMetadata.testKey1)
-        XCTAssertEqual(emitterMergedMetadata.testKey2, emitterMetadata.testKey2)
-        XCTAssertEqual(emitterMergedMetadata.testKey3, scopeMetadata.testKey3)
+        #expect(emitterMergedMetadata.testKey1 == emitterMetadata.testKey1)
+        #expect(emitterMergedMetadata.testKey2 == emitterMetadata.testKey2)
+        #expect(emitterMergedMetadata.testKey3 == scopeMetadata.testKey3)
 
         let emitter = scope.makeDiagnosticsEmitter(metadata: emitterMetadata)
         emitter.emit(error: "error")
@@ -245,24 +269,26 @@ final class ObservabilitySystemTest: XCTestCase {
         diagnosticMetadata.testKey1 = UUID().uuidString
 
         let diagnosticMergedMetadata = scopeMetadata.merging(emitterMetadata).merging(diagnosticMetadata)
-        XCTAssertEqual(diagnosticMergedMetadata.testKey1, diagnosticMetadata.testKey1)
-        XCTAssertEqual(diagnosticMergedMetadata.testKey2, emitterMetadata.testKey2)
-        XCTAssertEqual(diagnosticMergedMetadata.testKey3, scopeMetadata.testKey3)
+        #expect(diagnosticMergedMetadata.testKey1 == diagnosticMetadata.testKey1)
+        #expect(diagnosticMergedMetadata.testKey2 == emitterMetadata.testKey2)
+        #expect(diagnosticMergedMetadata.testKey3 == scopeMetadata.testKey3)
 
         emitter.emit(warning: "warning", metadata: diagnosticMetadata)
 
-        testDiagnostics(collector.diagnostics) { result in
+        try expectDiagnostics(collector.diagnostics) { result in
             do {
-                let diagnostic = result.check(diagnostic: "error", severity: .error)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, emitterMergedMetadata.testKey1)
-                XCTAssertEqual(diagnostic?.metadata?.testKey2, emitterMergedMetadata.testKey2)
-                XCTAssertEqual(diagnostic?.metadata?.testKey3, emitterMergedMetadata.testKey3)
+                let diagnostic = try #require(result.check(diagnostic: "error", severity: .error))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == emitterMergedMetadata.testKey1)
+                #expect(diagnostic_metadata.testKey2 == emitterMergedMetadata.testKey2)
+                #expect(diagnostic_metadata.testKey3 == emitterMergedMetadata.testKey3)
             }
             do {
-                let diagnostic = result.check(diagnostic: "warning", severity: .warning)
-                XCTAssertEqual(diagnostic?.metadata?.testKey1, diagnosticMergedMetadata.testKey1)
-                XCTAssertEqual(diagnostic?.metadata?.testKey2, diagnosticMergedMetadata.testKey2)
-                XCTAssertEqual(diagnostic?.metadata?.testKey3, diagnosticMergedMetadata.testKey3)
+                let diagnostic = try #require(result.check(diagnostic: "warning", severity: .warning))
+                let diagnostic_metadata = try #require(diagnostic.metadata)
+                #expect(diagnostic_metadata.testKey1 == diagnosticMergedMetadata.testKey1)
+                #expect(diagnostic_metadata.testKey2 == diagnosticMergedMetadata.testKey2)
+                #expect(diagnostic_metadata.testKey3 == diagnosticMergedMetadata.testKey3)
             }
         }
     }

@@ -229,7 +229,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         sourcePath: Basics.AbsolutePath,
         at destinationPath: Basics.AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
+    ) async throws -> WorkingCheckout {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
