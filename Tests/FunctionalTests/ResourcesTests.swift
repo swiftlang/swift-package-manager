@@ -17,6 +17,13 @@ import XCTest
 
 final class ResourcesTests: XCTestCase {
     func testSimpleResources() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+
         try await fixture(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]
 
