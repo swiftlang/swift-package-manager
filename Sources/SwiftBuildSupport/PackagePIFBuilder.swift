@@ -209,6 +209,28 @@ public final class PackagePIFBuilder {
         self.observabilityScope = observabilityScope
     }
 
+    public init(
+        modulesGraph: ModulesGraph,
+        resolvedPackage: ResolvedPackage,
+        packageManifest: PackageModel.Manifest,
+        delegate: PackagePIFBuilder.BuildDelegate,
+        buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        createDylibForDynamicProducts: Bool = false,
+        packageDisplayVersion: String?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.package = resolvedPackage
+        self.packageManifest = packageManifest
+        self.modulesGraph = modulesGraph
+        self.delegate = delegate
+        self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
+        self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.packageDisplayVersion = packageDisplayVersion
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+    }
+
     /// Build an empty PIF project.
     public func buildEmptyPIF() {
         self._pifProject = PackagePIFBuilder.buildEmptyPIF(package: self.package.underlying)
