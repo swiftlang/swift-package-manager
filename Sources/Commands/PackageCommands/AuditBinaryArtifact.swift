@@ -41,9 +41,17 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
             usingSwiftCompiler: hostToolchain.swiftCompilerPath)
         let fileSystem = swiftCommandState.fileSystem
 
+        guard !(hostTriple.isDarwin() || hostTriple.isWindows()) else {
+            throw StringError(
+                "experimental-audit-binary-artifact is not supported on Darwin and Windows platforms."
+            )
+        }
+
         var hostDefaultSymbols = ReferencedSymbols()
         let symbolProvider = LLVMObjdumpSymbolProvider(objdumpPath: objdump)
-        for binary in try await detectDefaultObjects(clang: clang, fileSystem: fileSystem, hostTriple: hostTriple) {
+        for binary in try await detectDefaultObjects(
+            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple)
+        {
             try await symbolProvider.symbols(
                 for: binary, symbols: &hostDefaultSymbols, recordUndefined: false)
         }
@@ -67,7 +75,6 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         for library in try module.parseLibraryArtifactArchives(
             for: hostTriple, fileSystem: fileSystem)
         {
-            print("URG")
             var symbols = hostDefaultSymbols
             try await symbolProvider.symbols(for: library.libraryPath, symbols: &symbols)
 
@@ -82,7 +89,9 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
             }
         }
 
-        print("Artifact is safe to use on the platforms runtime compatible with triple: \(hostTriple.tripleString)")
+        print(
+            "Artifact is safe to use on the platforms runtime compatible with triple: \(hostTriple.tripleString)"
+        )
     }
 
     private func extractArtifact(fileSystem: any FileSystem, scratchDirectory: AbsolutePath)
