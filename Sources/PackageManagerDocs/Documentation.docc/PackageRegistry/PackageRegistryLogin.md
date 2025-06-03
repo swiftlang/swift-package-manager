@@ -8,7 +8,9 @@ Log in to a registry.
 
 ## Overview
 
-SwiftPM will verify the credentials using the registry service's login API. If it returns a successful response, credentials will be persisted to the operating system's credential store if supported, or the user-level netrc file otherwise. The user-level configuration file located at ~/.swiftpm/configuration/registries.json will also be updated.
+The package manager will verify the credentials using the registry service's login API.
+If it returns a successful response, credentials will be persisted to the operating system's credential store (e.g., Keychain in macOS), or the user-level netrc file otherwise (which by default is located at `~/.netrc`).
+The user-level configuration file located at ~/.swiftpm/configuration/registries.json will also be updated.
 
 ```bash
 SYNOPSIS
@@ -24,7 +26,8 @@ OPTIONS:
   --netrc        Use netrc file even in cases where other credential stores are preferred
 ```
 
-`url` should be the registry's base URL (e.g., `https://example-registry.com`). In case the location of the login API is something other than /login (e.g., `https://example-registry.com/api/v1/login`), provide the full URL.
+`url` should be the registry's base URL (e.g., `https://example-registry.com`).
+In case the location of the login API is something other than /login (e.g., `https://example-registry.com/api/v1/login`), provide the full URL.
 
 The URL must be HTTPS.
 
@@ -33,13 +36,15 @@ The table below shows the supported authentication types and their required opti
 Authentication Method    Required Option(s)
 Basic    --username, --password
 Token    --token
-The tool will analyze the provided options to determine the authentication type and prompt (i.e., interactive mode) for the password/token if it is missing. For example, if only --username is present, the tool assumes basic authentication and prompts for the password.
+The tool will analyze the provided options to determine the authentication type and prompt (i.e., interactive mode) for the password/token if it is missing.
+For example, if only `--username` is present, the tool assumes basic authentication and prompts for the password.
 
-For non-interactive mode, simply provide the --password or --token option as required or make sure the secret is present in credential storage.
+For non-interactive mode, simply provide the `--password` or `--token` option as required or make sure the secret is present in credential storage.
 
-If the operating system's credential store is not supported, the tool will prompt user for confirmation before writing credentials to the less secured netrc file. Use --no-confirm to disable this confirmation.
+If the operating system's credential store is not supported, the tool will prompt user for confirmation before writing credentials to the less secured netrc file.
+Use `--no-confirm` to disable this confirmation.
 
-To force usage of netrc file instead of the operating system's credential store, pass the --netrc flag.
+To force usage of netrc file instead of the operating system's credential store, pass the `--netrc` flag.
 
 ### Example: basic authentication (macOS, interactive)
 

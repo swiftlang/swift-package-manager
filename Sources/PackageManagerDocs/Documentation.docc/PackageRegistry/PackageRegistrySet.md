@@ -8,31 +8,47 @@ Set a custom registry.
 
 ## Overview
 
+This subcommand is used to assign a registry at project or user-level.
+
+### Project-level
+
 ```bash
-$ swift package-registry set 
-OVERVIEW: Set a custom registry
-
-USAGE: swift package-registry set [--global] [--scope <scope>] <url>
-
-ARGUMENTS:
-  <url>                   The registry URL
-
-OPTIONS:
-  --global                Apply settings to all projects for this user
-  --scope <scope>         Associate the registry with a given scope
+$ swift package-registry set https://packages.example.com 
 ```
 
-This subcommand is used to assign registry at project or user-level:
+At the project level, the registry will be used for packages within the project with the registry settings stored in `.swiftpm/configuration/registries.json`.
+
+### User-level
+
+When passing the `--global` option, the registry will be set at the user-level:
 
 ```bash
-# project-level
-$ swift package-registry set https://packages.example.com 
-
-# user-level
 $ swift package-registry set --global https://global.example.com 
 ```
 
-For a specific scope:
+At the user level, the registry will be used for all projects for the user with the registry settings stored in `~/.swiftpm/configuration/registries.json`.
+
+
+### Registry settings
+
+An example of the `registries.json` that would result from the user-level setting from above would look something like:
+
+```json
+{
+  "registries" : {
+    "[default]" : {
+      "url": "https://global.example.com"
+    }   
+  },
+  "version" : 1
+}
+```
+
+The JSON key `[default]` means that the registry at `https://global.example.com` is "unscoped" and will be applied when there is no registry association found for a given scope. 
+
+### Setting a scope
+
+To set a specific scope:
 
 ```bash
 # project-level
@@ -42,7 +58,9 @@ $ swift package-registry set --scope foo https://local.example.com
 $ swift package-registry set --scope foo --global https://global.example.com  
 ```
 
-To remove a registry assignment, use the `swift package-registry unset` subcommand.
+### Removing a registry
+
+To remove a registry assignment, use the [`swift package-registry unset` subcommand](<doc:PackageRegistryUnset>).
 
 
 ### Usage

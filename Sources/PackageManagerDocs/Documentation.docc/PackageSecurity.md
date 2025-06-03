@@ -30,3 +30,11 @@ For packages retrieved from a registry, the package manager expects all registri
 If registries have conflicting fingerprints, package manager reports that as an error.
 This can be tuned down to warning by setting the [build](<doc:SwiftBuild>) option `--resolver-fingerprint-checking` 
 to `warn` (default is `strict`).
+
+### Package Dependency From a Registry
+
+#### Checksum TOFU
+
+The checksum TOFU is also done for manifests downloaded from registry.
+If the archive is downloaded for the first time, the package manager [fetches metadata of the package release](<doc:RegistryServerSpecification#4.2.-Fetch-information-about-a-package-release>) to obtain the expected checksum.
+Otherwise, the package manager compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`) saved from previous download.
