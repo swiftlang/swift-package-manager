@@ -100,6 +100,27 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
+let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
+
+let swiftDriverDeps: [Target.Dependency]
+let swiftTSCBasicsDeps: [Target.Dependency]
+let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
+
+if shoudUseSwiftBuildFramework {
+    swiftDriverDeps = []
+    swiftTSCBasicsDeps = []
+    swiftToolsCoreSupportAutoDeps = []
+} else {
+    swiftDriverDeps = [
+        .product(name: "SwiftDriver", package: "swift-driver")
+    ]
+    swiftTSCBasicsDeps = [
+        .product(name: "TSCBasic", package: "swift-tools-support-core"),
+    ]
+    swiftToolsCoreSupportAutoDeps = [
+        .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+    ]
+}
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -244,9 +265,8 @@ let package = Package(
                 .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
-            ],
+            ] + swiftToolsCoreSupportAutoDeps,
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
@@ -309,8 +329,7 @@ let package = Package(
             name: "SwiftFixIt",
             dependencies: [
                 "Basics",
-                .product(name: "TSCBasic", package: "swift-tools-support-core"),
-            ] + swiftSyntaxDependencies(
+            ] + swiftTSCBasicsDeps + swiftSyntaxDependencies(
                 ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
             ),
             exclude: ["CMakeLists.txt"],
@@ -474,10 +493,9 @@ let package = Package(
                 "PackageGraph",
                 "SPMBuildCore",
                 "SPMLLBuild",
-                .product(name: "SwiftDriver", package: "swift-driver"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "DriverSupport",
-            ],
+            ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -488,8 +506,7 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageModel",
-                .product(name: "SwiftDriver", package: "swift-driver"),
-            ],
+            ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -1095,7 +1112,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] == nil {
+if !shoudUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [
