@@ -133,7 +133,7 @@ public final class AsyncOperationQueue: @unchecked Sendable {
     /// - Returns: The result of the operation.
     /// - Throws: An error thrown by the operation, or a `CancellationError` if the operation is cancelled.
     public func withOperation<ReturnValue>(
-        _ operation: @Sendable () async throws -> sending ReturnValue
+        _ operation: () async throws -> sending ReturnValue
     ) async throws -> ReturnValue {
         let taskId = try await waitIfNeeded()
         defer { signalCompletion(taskId) }
