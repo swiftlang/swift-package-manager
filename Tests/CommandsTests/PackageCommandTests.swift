@@ -4084,8 +4084,6 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
 #if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
-        try XCTSkipIfWorkingDirectoryUnsupported()
-
         try await super.testCommandPluginTestingCallbacks()
     }
 #endif
