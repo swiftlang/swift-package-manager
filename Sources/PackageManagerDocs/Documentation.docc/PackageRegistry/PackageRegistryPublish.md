@@ -8,9 +8,9 @@ Publish to a registry.
 
 ## Overview
 
-<!-- This should be its own sub-topic under "signing" or something similarly named, and we need a different overview text -->
-A registry may require packages to be signed.
-In order for Swift Package Manager to be able to download and handle signed packages from a registry, we propose to standardize package signature format and establish server-client API contract on package signing.
+This command creates source archive for the package release, optionally signs the package release, and [publishes the package release](<doc:RegistryServerSpecification#4.6.-Create-a-package-release>) to the registry.
+
+If authentication is required for package publication, package authors should [configure registry login](<doc:UsingSwiftPackageRegistry#Registry-authentication>) before running `publish`.
 
 ### Usage
 

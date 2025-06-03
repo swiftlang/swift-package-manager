@@ -12,20 +12,6 @@ The package manager will verify the credentials using the registry service's log
 If it returns a successful response, credentials will be persisted to the operating system's credential store (e.g., Keychain in macOS), or the user-level netrc file otherwise (which by default is located at `~/.netrc`).
 The user-level configuration file located at ~/.swiftpm/configuration/registries.json will also be updated.
 
-```bash
-SYNOPSIS
-    swift package-registry login <url> [options]
-OPTIONS:  
-  --username     Username
-  --password     Password
-  
-  --token        Access token
-
-  --no-confirm   Allow writing to netrc file without confirmation
-  --netrc-file   Specify the netrc file path
-  --netrc        Use netrc file even in cases where other credential stores are preferred
-```
-
 `url` should be the registry's base URL (e.g., `https://example-registry.com`).
 In case the location of the login API is something other than /login (e.g., `https://example-registry.com/api/v1/login`), provide the full URL.
 
@@ -33,9 +19,11 @@ The URL must be HTTPS.
 
 The table below shows the supported authentication types and their required option(s):
 
-Authentication Method    Required Option(s)
-Basic    --username, --password
-Token    --token
+| Authentication Method   | Required Option(s)        |
+| ----------------------- | ------------------------- |
+| Basic                   |  --username, --password   |
+| Token                   |  --token                  |
+
 The tool will analyze the provided options to determine the authentication type and prompt (i.e., interactive mode) for the password/token if it is missing.
 For example, if only `--username` is present, the tool assumes basic authentication and prompts for the password.
 

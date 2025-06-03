@@ -4,11 +4,11 @@
     @PageImage(purpose: icon, source: command-icon)
 }
 
-Log out from a registry
+Log out from a registry.
 
 ## Overview
 
-Log out from a registry. Credentials are removed from the operating system's credential store if supported, and the user-level configuration file (`registries.json`).
+Credentials are removed from the operating system's credential store if supported, and the user-level configuration file (`registries.json`).
 
 To avoid accidental removal of sensitive data, netrc file needs to be updated manually by the user.
 
@@ -19,7 +19,7 @@ SYNOPSIS
 
 ### Changes to registry configuration
 
-We will introduce a new `authentication` key to the user-level `registries.json` file, which by default is located at `~/.swiftpm/configuration/registries.json`. Any package registry that requires authentication must have a corresponding entry in this dictionary.
+The `authentication` key in the user-level `registries.json` file by default is located at `~/.swiftpm/configuration/registries.json`. Any package registry that requires authentication must have a corresponding entry in this dictionary.
 
 ```json
 {
@@ -43,7 +43,7 @@ We will introduce a new `authentication` key to the user-level `registries.json`
 - `basic`: username and password
 - `token`: access token
 
-Credentials are to be specified in the native credential store of the operating system if supported, otherwise in the user-level netrc file. (Only macOS Keychain will be supported in the initial feature release; more might be added in the future.)
+Credentials are to be specified in the native credential store of the operating system if supported, otherwise in the user-level netrc file.
 
 See [credential storage](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#credential-storage) for more details on configuring credentials for each authentication type.
 

@@ -255,12 +255,12 @@ A server MUST respond to the following endpoints:
 
 | Link                 | Method | Path                                                      | Description                                       |
 | -------------------- | ------ | --------------------------------------------------------- | ------------------------------------------------- |
-| [\[1\]](#endpoint-1) | `GET`  | `/{scope}/{name}`                                         | List package releases                             |
-| [\[2\]](#endpoint-2) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release              |
-| [\[3\]](#endpoint-3) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release              |
-| [\[4\]](#endpoint-4) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
-| [\[5\]](#endpoint-5) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
-| [\[6\]](#endpoint-6) | `PUT`  | `/{scope}/{name}/{version}`                               | Create a package release                          |
+| [\[1\]](<doc:#4.1.-List-package-releases>) | `GET`  | `/{scope}/{name}`                                         | List package releases                             |
+| [\[2\]](<doc:#4.2.-Fetch-information-about-a-package-release>) | `GET`  | `/{scope}/{name}/{version}`                               | Fetch metadata for a package release              |
+| [\[3\]](<doc:#4.3.-Fetch-manifest-for-a-package-release>) | `GET`  | `/{scope}/{name}/{version}/Package.swift{?swift-version}` | Fetch manifest for a package release              |
+| [\[4\]](<doc:#4.4.-Download-source-archive>) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
+| [\[5\]](<doc:#4.5.-Lookup-package-identifiers-registered-for-a-URL>) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
+| [\[6\]](<doc:#4.6.-Create-a-package-release>) | `PUT`  | `/{scope}/{name}/{version}`                               | Create a package release                          |
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
@@ -447,7 +447,7 @@ The response body SHOULD contain a JSON object containing the following fields:
 | `version`     | String | The package release version number.       | ✓ |
 | `resources`   | Array  | The resources available for the release.  | ✓ |
 | `metadata`    | Object | Additional information about the release. | ✓ |
-| `publishedAt` | String | The [ISO 8601]-formatted datetime string of when the package release was published, as recorded by the registry. See related [`originalPublicationTime`](#appendix-b---package-release-metadata-json-schema) in `metadata`. | |
+| `publishedAt` | String | The [ISO 8601]-formatted datetime string of when the package release was published, as recorded by the registry. See related [`originalPublicationTime`](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>) in `metadata`. | |
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
@@ -490,12 +490,12 @@ with a given combination of `name` and `type` values.
 
 ##### 4.2.2. Package release metadata standards
 
- [Appendix B](#appendix-b---package-release-metadata-json-schema) 
+ [Appendix B](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>) 
  defines the JSON schema for package release metadata that
- gets submitted as part of the ["create a package release"](#endpoint-6)
+ gets submitted as part of the ["create a package release"](<doc:#4.6.-Create-a-package-release>)
  request. A server MAY allow and/or populate additional metadata by 
  expanding the schema. The `metadata` key in the 
- ["fetch information about a package release "](#endpoint-2) API response
+ ["fetch information about a package release"](<doc:#4.2.-Fetch-information-about-a-package-release>) API response
  will hold the user-provided as well as the server populated metadata.
 
  <a name="endpoint-3"></a>
@@ -693,7 +693,7 @@ headers in the response.
 A client MUST verify the integrity of a downloaded source archive using
 the `checksum` value for the associated `source-archive` resource
 in the response to `GET /{scope}/{name}/{version}`,
-as described in [4.2.1](#421-package-release-resources).
+as described in [4.2.1](<doc:#4.2.1.-Package-release-resources>).
 
 A client SHOULD also verify the integrity using any values
 provided in the `Digest` header of the source archive response
@@ -746,7 +746,7 @@ A client MUST validate the signature of a signed archive
 according to the signature format and configuration. Signing
 information can alternatively be found in the associated 
 `source-archive` resource in the response to `GET /{scope}/{name}/{version}`,
-as described in [4.2.1](#421-package-release-resources).
+as described in [4.2.1](<doc:#4.2.1.-Package-release-resources>).
 
 <a name="endpoint-5"></a>
 
@@ -796,17 +796,12 @@ caching as described by [RFC 7234].
 
 ##### 4.5.1 URL to package identifier mappings
 
-As part of the [package release metadata](#422-package-release-metadata-standards)
-JSON object, the `repositoryURLs` array can be used to specify 
-URLs associated with a package identifier. This is one way 
-through which a server can obtain URL to package identifier 
-mappings for this API. 
+As part of the [package release metadata](<doc:#4.2.2.-Package-release-metadata-standards>) JSON object, the `repositoryURLs` array can be used to specify URLs associated with a package identifier.
+This is one way through which a server can obtain URL to package identifier mappings for this API. 
 
-A server MAY choose other mechanism(s) for package authors 
-to specify these mappings.
+A server MAY choose other mechanism(s) for package authors to specify these mappings.
 
-A server SHOULD validate the package author's ownership claim
-on the corresponding repository.
+A server SHOULD validate the package author's ownership claim on the corresponding repository.
 
 <a name="endpoint-6"></a>
 
@@ -955,7 +950,7 @@ Content-Language: en
 
 A server MAY respond either synchronously or asynchronously.
 For more information,
-see [4.6.4](#464-synchronous-and-asynchronous-publication).
+see [4.6.3](<doc:#4.6.3.-Synchronous-and-asynchronous-publication>).
 
 ##### 4.6.1. Source archive
 
@@ -995,10 +990,7 @@ Content-Language: en
 }
 ```
 
-A server SHOULD use the `swift package compute-checksum` tool
-to compute the checksum that's provided in response to
-a client's subsequent request to [download the source archive](#endpoint-4)
-for the release.
+A server SHOULD use the `swift package compute-checksum` tool to compute the checksum that's provided in response to a client's subsequent request to [download the source archive](<doc:#4.4.-Download-source-archive>) for the release.
 
 ##### 4.6.2. Package release metadata
 
@@ -1006,8 +998,8 @@ A client MAY include a multipart section named `metadata`
 containing additional information about the release.
 A client SHOULD set a `Content-Type` header with the value `application/json`
 and a `Content-Length` header with the size of the JSON document in bytes.
-The package release metadata MUST be based on the [JSON schema](#appendix-b---package-release-metadata-json-schema),
-as discussed in [4.2.2](#422-package-release-metadata-standards).
+The package release metadata MUST be based on the [JSON schema](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>),
+as discussed in [4.2.2](<doc:#4.2.2.-Package-release-metadata-standards>).
 
 ```http
 --boundary
@@ -1029,7 +1021,7 @@ Content-Transfer-Encoding: quoted-printable
 
 A server MAY allow and/or populate additional metadata for a release.
 
-A server MAY make any properties in the [JSON schema](#appendix-b---package-release-metadata-json-schema)
+A server MAY make any properties in the [JSON schema](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>)
 and additional metadata it defines required.
 
 If a client provides an invalid JSON document,
@@ -1229,8 +1221,8 @@ See [registry.openapi.yaml](./registry.openapi.yaml).
 
 ### Appendix B - Package Release Metadata JSON Schema
 
-The `metadata` section of the [create package release request](#46-create-a-package-release) 
-must be a JSON object of type [`PackageRelease`](#packagerelease-type), as defined in the
+The `metadata` section of the [create package release request](<doc:#4.6.-Create-a-package-release>) 
+must be a JSON object of type [`PackageRelease`](<doc:#PackageRelease-type>), as defined in the
 JSON schema below.
 
 <details>
@@ -1326,28 +1318,28 @@ JSON schema below.
 
 </details>
 
-###### `PackageRelease` type
+###### PackageRelease type
 
 | Property                  | Type                | Description                                      | Required |
 | ------------------------- | :-----------------: | ------------------------------------------------ | :------: |
-| `author`                  | [Author](#author-type) | Author of the package release. | |
+| `author`                  | [Author](<doc:#Author-type>) | Author of the package release. | |
 | `description`             | String | A description of the package release. | |
 | `licenseURL`              | String | URL of the package release's license document. | |
-| `originalPublicationTime` | String | Original publication time of the package release in [ISO 8601] format. This can be set if the package release was previously published elsewhere.<br>A registry should record the publication time independently and include it as `publishedAt` in the [package release metadata response](#42-fetch-information-about-a-package-release). <br>In case both `originalPublicationTime` and `publishedAt` are set, `originalPublicationTime` should be used. | |
+| `originalPublicationTime` | String | Original publication time of the package release in [ISO 8601] format. This can be set if the package release was previously published elsewhere.<br>A registry should record the publication time independently and include it as `publishedAt` in the [package release metadata response](<doc:#4.2.-Fetch-information-about-a-package-release>). <br>In case both `originalPublicationTime` and `publishedAt` are set, `originalPublicationTime` should be used. | |
 | `readmeURL`       | String | URL of the README specifically for the package release or broadly for the package. | |
-| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](Registry.md#45-lookup-package-identifiers-registered-for-a-url). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
+| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](<doc:#4.5.-Lookup-package-identifiers-registered-for-a-url>). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
 
-###### `Author` type
+###### Author type
 
 | Property          | Type                | Description                                      | Required |
 | ----------------- | :-----------------: | ------------------------------------------------ | :------: |
 | `name`            | String | Name of the author. | ✓ |
 | `email`           | String | Email address of the author. | |
 | `description`     | String | A description of the author. | |
-| `organization`    | [Organization](#organization-type) | Organization that the author belongs to. | |
+| `organization`    | [Organization](<doc:#Organization-type>) | Organization that the author belongs to. | |
 | `url`             | String | URL of the author. | |
 
-###### `Organization` type
+###### Organization type
 
 | Property          | Type                | Description                                      | Required |
 | ----------------- | :-----------------: | ------------------------------------------------ | :------: |

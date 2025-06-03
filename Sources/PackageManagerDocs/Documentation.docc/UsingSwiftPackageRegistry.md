@@ -163,41 +163,6 @@ The `--resolver-signing-entity-checking` option controls whether publisher misma
  [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand)
  is an all-in-one command for publishing a package release to registry.
 
-<!-- ```bash-->
-<!-- OVERVIEW: Publish to a registry-->
-<!---->
-<!-- USAGE: swift package-registry publish <package-id> <package-version> [--url <url>] [--scratch-directory <scratch-directory>] [--metadata-path <metadata-path>] [--signing-identity <signing-identity>] [--private-key-path <private-key-path>] [--cert-chain-paths <cert-chain-paths> ...] [--dry-run]-->
-<!---->
-<!-- ARGUMENTS:-->
-<!--   <package-id>            The package identifier.-->
-<!--   <package-version>       The package release version being created.-->
-<!---->
-<!-- OPTIONS:-->
-<!--   --url, --registry-url <url>-->
-<!--                           The registry URL.-->
-<!--   --scratch-directory <scratch-directory>-->
-<!--                           The path of the directory where working file(s) will be written.-->
-<!--   --metadata-path <metadata-path>-->
-<!--                           The path to the package metadata JSON file if it is not 'package-metadata.json' in the package directory.-->
-<!--   --signing-identity <signing-identity>-->
-<!--                           The label of the signing identity to be retrieved from the system's identity store if supported.-->
-<!--   --private-key-path <private-key-path>-->
-<!--                           The path to the certificate's PKCS#8 private key (DER-encoded).-->
-<!--   --cert-chain-paths <cert-chain-paths>-->
-<!--                           Path(s) to the signing certificate (DER-encoded) and optionally the rest of the certificate chain. Certificates-->
-<!--                           should be ordered with the leaf first and the root last.-->
-<!--   --dry-run               Dry run only; prepare the archive and sign it but do not publish to the registry.-->
-<!-- ```-->
-  
- The command creates source archive for the package release,
- optionally signs the package release, and 
- [publishes the package release](<doc:RegistryServerSpecification#4.6.-Create-a-package-release>)
- to the registry.
-
- If authentication is required for package publication, 
- package author should [configure registry login](<doc:Registry-authentication>)
- before running `publish`.
-
 #### Package release metadata
 
 Package authors can specify a custom location of the package 
@@ -239,6 +204,7 @@ telling package users to include the root certificate in their local
 directory, or else [signature validation](<doc:Validating-signed-packages>) 
 may fail upon download because the signing certificate is not trusted.
 
+<!-- TODO bp: remove this-->
 Refer to registry documentation for its certificate policy.
 
 ##### Signature formats
