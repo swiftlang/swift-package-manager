@@ -4084,8 +4084,6 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testCommandPluginTestingCallbacks() async throws {
         throw XCTSkip("SWBINTTODO: Requires PIF generation to adopt new test runner product type")
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
-        try XCTSkipIfWorkingDirectoryUnsupported()
-
         try await super.testCommandPluginTestingCallbacks()
     }
 

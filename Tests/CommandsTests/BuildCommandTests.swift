@@ -856,7 +856,6 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
     }
 
     override func testParseableInterfaces() async throws {
-        try XCTSkipIfWorkingDirectoryUnsupported()
         try XCTSkipOnWindows(because: "possible long filename issue: needs investigation")
 
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
@@ -939,13 +938,11 @@ class BuildCommandSwiftBuildTests: BuildCommandTestCases {
 
     override func testBuildSystemDefaultSettings() async throws {
         try XCTSkipOnWindows(because: "possible long filename issue: needs investigation")
-        try XCTSkipIfWorkingDirectoryUnsupported()
 
         try await super.testBuildSystemDefaultSettings()
     }
 
     override func testBuildCompleteMessage() async throws {
-        try XCTSkipIfWorkingDirectoryUnsupported()
         try XCTSkipOnWindows(because: "possible long filename issue: needs investigation")
 
         try await super.testBuildCompleteMessage()

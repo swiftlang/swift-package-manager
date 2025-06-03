@@ -7466,14 +7466,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
     }
 
     override func testPackageNameFlag() async throws {
-        try XCTSkipIfWorkingDirectoryUnsupported()
         try XCTSkipOnWindows(because: "Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-#if os(Linux)
-        // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
-        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
-        throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
-#endif
-
         try await super.testPackageNameFlag()
     }
 
