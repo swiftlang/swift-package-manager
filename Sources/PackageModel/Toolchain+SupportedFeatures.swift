@@ -120,7 +120,11 @@ extension Toolchain {
                 let name: String = try $0.get("name")
                 let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
-                let enabledIn: String = try $0.get("enabled_in")
+                let enabledIn = if let version = try? $0.get(String.self, forKey: "enabled_in") {
+                    version
+                } else {
+                    try String($0.get(Int.self, forKey: "enabled_in"))
+                }
 
                 guard let mode = SwiftLanguageVersion(string: enabledIn) else {
                     throw InternalError("Unknown swift language mode: \(enabledIn)")
