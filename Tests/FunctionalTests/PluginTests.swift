@@ -1332,5 +1332,12 @@ final class PluginTests: XCTestCase {
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+        try await fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath, extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 }
