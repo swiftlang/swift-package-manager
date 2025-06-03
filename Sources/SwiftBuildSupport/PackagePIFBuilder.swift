@@ -159,7 +159,7 @@ public final class PackagePIFBuilder {
     }
 
     /// Records the results of applying build tool plugins to modules in the package.
-    let buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult]
+    let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
     /// Whether to create dynamic libraries for dynamic products.
     ///
@@ -192,7 +192,7 @@ public final class PackagePIFBuilder {
         resolvedPackage: ResolvedPackage,
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
-        buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
