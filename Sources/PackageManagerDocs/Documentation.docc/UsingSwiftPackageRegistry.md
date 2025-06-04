@@ -62,7 +62,7 @@ Package manager will query the registry mapped to a package's scope to resolve a
 
 ### Registry authentication
 
-If a registry requires authentication, it can be set up by using the [`swift package-registry login` subcommand](<doc:PackageRegistryLogin>) introduced by SE-0378.
+If a registry requires authentication, it can be set up by using the [`swift package-registry login`](<doc:PackageRegistryLogin>) subcommand introduced by [SE-0378](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#new-login-subcommand).
 
 Currently, basic and token authentication are supported.
 
@@ -80,6 +80,8 @@ Resolving a registry dependency involves these steps:
 1. Fetch a package's available versions by calling the [list package releases](<doc:RegistryServerSpecification#4.1.-List-package-releases>) API.
 2. Compute the dependency graph by [fetching manifest(s) for a package release](<doc:RegistryServerSpecification#4.3.-Fetch-manifest-for-a-package-release>).
 3. Pinpoint the package version to use.
+
+For more information on resolving dependencies, see <doc:ResolvingPackageVersions>. 
 
 #### Using registry for source control dependencies
 
@@ -108,13 +110,14 @@ After a registry dependency is resolved, Swift Package Manager can [download sou
 
 #### Checksum TOFU
 
-As a [security feature](<doc:PackageSecurity#Trust-on-First-Use>), Swift Package Manager performs checksum TOFU  ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) on the downloaded source archive.
+As a security feature, Swift Package Manager performs checksum TOFU ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) on the downloaded source archive.
+
+For more information on Package manager's security features, see <doc:PackageSecurity#Trust-on-First-Use>.
 
 #### Validating signed packages
 
  [SE-0391](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signing) adds package signing support to Swift Package Manager.
-Package manager determines if a downloaded archive is signed by checking for presence of the `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature`
- headers in the HTTP response.
+Package manager determines if a downloaded archive is signed by checking for presence of the `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature` headers in the HTTP response.
 
  Swift Package Manager then performs a series of validations based on user's
  [security configuration](<doc:#Security-configuration>).
@@ -127,8 +130,8 @@ A certificate is trusted if it is chained to any root in Swift Package Manager's
 - Swift Package Manager's default trust store, if `signing.includeDefaultTrustedRootCertificates` is `true`.
 - Custom root(s) in the configured trusted roots directory at `signing.trustedRootCertificatesPath`. Certificates must be DER-encoded.
 
-Otherwise, a certificate is untrusted and handled according to the `signing.onUntrustedCertificate` configuration. 
-If user opts to continue with the untrusted certificate, Package manager will proceed with the archive as if it were an unsigned package.
+Otherwise, a certificate is untrusted and handled according to the `signing.onUntrustedCertifica te` configuration. 
+If user opts to continue with the untrusted certificate, Package manager will proceed with the archive as if it were an unsigned package. 
 
 ##### Certificate policies
 
@@ -146,21 +149,17 @@ The `--resolver-signing-entity-checking` option controls whether publisher misma
 
 ### Publishing to Registry
 
- [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand)
- is an all-in-one command for publishing a package release to registry.
+ [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand) is an all-in-one command for publishing a package release to registry.
 
 #### Package release metadata
 
-Package authors can specify a custom location of the package 
-release metadata file by setting the `--metadata-path` option 
-of the [`publish` subcommand](<doc:PackageRegistryPublish>). Otherwise, by default Package manager 
-looks for a file named `package-metadata.json` in the 
-package directory.
+Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the [`publish` subcommand](<doc:PackageRegistryPublish>).
+Otherwise, by default Package manager looks for a file named `package-metadata.json` in the package directory.
 
-Contents of the metadata file must conform to the 
-[JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards)
-defined in SE-0391. Also refer to registry documentation 
-for any additional requirements.
+Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.
+
+<!-- TODO bp: remove this line -->
+Also refer to registry documentation for any additional requirements.
 
 #### Package signing
  
@@ -174,8 +173,8 @@ This is applicable to `signing-identity` as well (i.e., `signing-identity` can b
 
 If the root of the signing certificate is not in Package manager's default trust store, package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:Trusted-vs-untrusted-certificate>) directory, or else [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
 
-<!-- TODO bp: remove this-->
-Refer to registry documentation for its certificate policy.
+<!-- TODO bp: remove/reword this-->
+Refer to registry documentation for its [certificate policy](<doc:#Certificate-policies>.
 
 ##### Signature formats
 
@@ -198,7 +197,8 @@ The current API specification does not include an endpoint for fetching this met
 
 ###### Package manifest(s)
 
-`Package.swift` and version-specific manifests are individually signed. The signature is embedded in the corresponding manifest file.
+`Package.swift` and version-specific manifests are individually signed.
+The signature is embedded in the corresponding manifest file.
 The source archive is generated and signed **after** manifest signing. 
 
 ```swift

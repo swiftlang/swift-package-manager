@@ -4,18 +4,11 @@ Learn to create, publish and use Swift package collections.
 
 ## Overview
 
-Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are
-curated lists of packages and associated metadata that can be imported
-by SwiftPM to make discovery of existing packages easier. 
-They are authored as static JSON documents 
-and can be published to the web or distributed to local file systems. 
+Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that can be imported by SwiftPM to make discovery of existing packages easier. 
+They are authored as static JSON documents and can be published to the web or distributed to local file systems. 
 
-Educators and community influencers can publish
-package collections to go along with course materials or blog posts, removing the friction of using
-packages for the first time and the cognitive overload of deciding which packages are useful for
-a particular task. 
-Enterprises may use collections to narrow the decision space for their internal
-engineering teams, focusing them on a trusted set of vetted packages.
+Educators and community influencers can publish package collections to go along with course materials or blog posts, removing the friction of using packages for the first time and the cognitive overload of deciding which packages are useful for a particular task. 
+Enterprises may use collections to narrow the decision space for their internal engineering teams, focusing them on a trusted set of vetted packages.
 
 ### Using the package-collection CLI
 
@@ -42,8 +35,9 @@ intended for package collection publishers:
 - [`package-collection-validate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionValidator): Perform basic validations on a package collection
 - [`package-collection-diff`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionDiff): Compare two package collections to see if their contents are different 
 
-All package collections must adhere to the [collection data format](<doc:Input-Format>) for SwiftPM to be able to consume them. The recommended way
-to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator). For custom implementations, the data models are available through the [`PackageCollectionsModel` module](https://github.com/swiftlang/swift-package-manager/tree/main/Sources/PackageCollectionsModel).
+All package collections must adhere to the [collection data format](<doc:Input-Format>) for SwiftPM to be able to consume them.
+The recommended way to create package collections is to use [`package-collection-generate`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionGenerator).
+For custom implementations, the data models are available through the [`PackageCollectionsModel` module](https://github.com/swiftlang/swift-package-manager/tree/main/Sources/PackageCollectionsModel).
 
 #### Input Format
 
@@ -64,7 +58,7 @@ To begin, define the top-level metadata about the collection:
 Each item in the `packages` array is a package object with the following properties:
 
 * `url`: The URL of the package. Currently only Git repository URLs are supported. URL should be HTTPS and may contain `.git` suffix.
-* `identity`: The [identity](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification) <!-- TODO bp: to replace this link once PackageRegsitry/ is ported. --> of the package if published to registry. **Optional.**
+* `identity`: The [identity](<doc:RegistryServerSpecification#3.6.-Package-identification>) of the package if published to registry. **Optional.**
 * `summary`: A description of the package. **Optional.**
 * `keywords`: An array of keywords that the package is associated with. **Optional.**
 * `readmeURL`: The URL of the package's README. **Optional.**
@@ -140,7 +134,7 @@ A version object has metadata extracted from `Package.swift` and optionally addi
     * `name`: License name. [SPDX identifier](https://spdx.org/licenses/) (e.g., `Apache-2.0`, `MIT`, etc.) preferred. Omit if unknown. **Optional.**
 * `author`: The package version's author. **Optional.**
     * `name`: The author of the package version.
-* `signer`: The signer of the package version. **Optional.** Refer to [documentation](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/PackageRegistryUsage.md#package-signing) <!-- TODO bp: to replace this link once PackageRegistry/ is ported. --> on package signing for details.
+* `signer`: The signer of the package version. **Optional.** Refer to [documentation](<doc:UsingSwiftPackageRegistry#Package-signing>) <!-- TODO bp: link may be moved to package security -->on package signing for details.
     * `type`: The signer type. Currently the only valid value is `ADP` (Apple Developer Program).
     * `commonName`: The common name of the signing certificate's subject.
     * `organizationalUnitName`: The organizational unit name of the signing certificate's subject.
@@ -149,7 +143,7 @@ A version object has metadata extracted from `Package.swift` and optionally addi
 
 ### Version-specific manifests
 
-Package collection generators should include data from the "default" manifest `Package.swift` as well as [version-specific manifest(s)](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-manifest-selection) <!-- TODO bp: to replace this link once Usage.md is ported. -->.
+Package collection generators should include data from the "default" manifest `Package.swift` as well as [version-specific manifest(s)](<doc:SwiftVersionSpecificPackaging#Version-specific-Manifest-Selection>)
 
 The keys of the `manifests` map are Swift tools (semantic) versions:
 * For `Package.swift`, the tools version specified in `Package.swift` should be used.
@@ -157,16 +151,14 @@ The keys of the `manifests` map are Swift tools (semantic) versions:
 
 ### Version-specific tags
 
- [Version-specific tags](https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/Usage.md#version-specific-tag-selection) <!-- TODO bp: to replace this link once Usage.md is ported. --> are not
- supported by package collections.
+ [Version-specific tags](<doc:SwiftVersionSpecificPackaging#Version-specific-tags-when-resolving-remote-dependencies>) are not supported by package collections.
 
 ### Configuration File
 
 Configuration that pertains to package collections are stored in the file `~/.swiftpm/config/collections.json`. 
-It keeps track of user's list of configured collections
-and preferences such as those set by the `--trust-unsigned` and `--skip-signature-check` flags in the [`package-collection add` command](<doc:PackageCollectionAdd>). 
+It keeps track of user's list of configured collections and preferences such as those set by the `--trust-unsigned` and `--skip-signature-check` flags in the [`package-collection add` command](<doc:PackageCollectionAdd>). 
 
-> Note: This file is managed through SwiftPM commands and users are not expected to edit it by hand.
+> Note: This file is managed through Swift Package Manager commands and users are not expected to edit it by hand.
 
 ## Example
 
@@ -299,12 +291,12 @@ and preferences such as those set by the `--trust-unsigned` and `--skip-signatur
 
 ## Signing and protecting package collections
 
-Package collections can be signed to establish authenticity and protect their integrity. 
+Package collections [can be signed](<doc:PackageSecurity#Signed-packages>) to establish authenticity and protect their integrity. 
 Doing this is optional. 
 Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>).
 
-[`package-collection-sign`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionSigner) helps publishers sign their package 
-collections. To generate a signature one must provide:
+[`package-collection-sign`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionSigner) helps publishers sign their package collections. 
+To generate a signature one must provide:
 - The package collection file to be signed
 - A code signing certificate (DER-encoded)
 - The certificate's private key (PEM-encoded)
@@ -331,12 +323,12 @@ A signed package collection has an extra `signature` object:
 }
 ```
 
-- The signature string (represented by `"<SIGNATURE>"`) is used to verify the contents of the collection file haven't been tampered with since it was signed when SwiftPM user [adds the collection](<doc:PackageCollectionAdd#Signed-package-collections>) to their configured list of collections. It includes the certificate's public key and chain.
+- The signature string (represented by `"<SIGNATURE>"`) is used to verify the contents of the collection file haven't been tampered with since it was signed when a Package manager user [adds the collection](<doc:PackageCollectionAdd#Signed-package-collections>) to their configured list of collections. It includes the certificate's public key and chain.
 - `certificate` contains details extracted from the signing certificate. `subject.commonName` should be consistent with the name of the publisher so that it's recognizable by users. The root of the certificate must be [installed and trusted on users' machines](<doc:PackageCollectionAdd#trusted-root-certificates>).
 
 ### Requirements on signing certificate
 
-Certificates used for signing package collections must meet the following requirements, which are checked and enforced during signature generation (publishers) and verification (SwiftPM users):
+Certificates used for signing package collections must meet the following requirements, which are checked and enforced during signature generation (publishers) and verification (Swift Package Manager users):
 - The timestamp at which signing/verification is done must fall within the signing certificate's validity period.
 - The certificate's "Extended Key Usage" extension must include "Code Signing".
 - The certificate must use either 256-bit EC (recommended for enhanced security) or 2048-bit RSA key.
@@ -347,20 +339,18 @@ Non-expired, non-revoked Swift Package Collection certificates from [developer.a
 
 #### Trusted root certificates
 
-With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
-the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with 
-the [certificate-pinning configuration](<doc:#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAdd#Signed-package-collections>) will fail. Collection publishers should make the DER-encoded 
+With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. 
+When a Package manager user tries to add the collection, however, the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with the [certificate-pinning configuration](<doc:#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAdd#Signed-package-collections>) will fail. Collection publishers should make the DER-encoded 
 root certificate(s) that they use downloadable so that users can adjust their setup if needed.
 
 
 ## Protecting package collections
 
-[Signing](<doc:PackageCollectionAdd#Unsigned-package-collections>) can provide some degree of protection on package collections and reduce the risks of their contents being modified by malicious actors, but it doesn't
-prevent the following attack vectors:
+[Signing](<doc:PackageCollectionAdd#Unsigned-package-collections>) can provide some degree of protection on package collections and reduce the risks of their contents being modified by malicious actors, but it doesn't prevent the following attack vectors:
 - **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>) and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.
 - **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](<doc:PackageCollectionAdd#Signed-package-collections>).
 
-To defend against these attacks, SwiftPM has certificate-pinning configuration that allows collection publishers to:
+To defend against these attacks, Package manager has certificate-pinning configuration that allows collection publishers to:
 - Require signature check on their collections — this defends against "signature stripping".
 - Restrict what certificate can be used for signing — this defends against "signature replacement".
 

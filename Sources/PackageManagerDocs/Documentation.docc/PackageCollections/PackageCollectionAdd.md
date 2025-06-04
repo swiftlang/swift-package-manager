@@ -32,8 +32,7 @@ Added "Sample Package Collection" to your package collections.
 ### Signed package collections
 
 Package collection publishers may [sign a collection to protect its contents](<doc:PackageCollections#Signing-and-protecting-package-collections>) from being tampered with. 
-If a collection is signed, SwiftPM will check that the 
-signature is valid before importing it and return an error if any of these fails:
+If a collection is signed, Package manager will check that the signature is valid before importing it and return an error if any of these fails:
 - The file's contents, signature excluded, must match what was used to generate the signature. 
 In other words, this checks to see if the collection has been altered since it was signed.
 - The signing certificate must meet all the [requirements](<doc:PackageCollections#Requirements-on-signing-certificate>).
@@ -49,7 +48,7 @@ Users may continue adding the collection despite the error or preemptively skip 
 $ swift package-collection add https://www.example.com/packages.json --skip-signature-check
 ```
 
-For package collections hosted on the web, publishers may ask SwiftPM to [enforce the signature requirement](<doc:PackageCollections#Protecting-package-collections>). If a package collection is
+For package collections hosted on the web, publishers may ask Package manager to [enforce the signature requirement](<doc:PackageCollections#Protecting-package-collections>). If a package collection is
 expected to be signed but it isn't, user will see the following error message:
 
 ```bash
