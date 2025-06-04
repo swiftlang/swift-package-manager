@@ -168,7 +168,7 @@ extension BuildPlan {
                         product: $0.product,
                         context: $0.destination
                     ) }
-                case .test, .executable, .snippet, .macro:
+                case .test, .executable, .snippet, .macro, .template: //john-to-revisit
                     return []
                 }
             }
@@ -243,7 +243,7 @@ extension BuildPlan {
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
-                case .executable, .snippet, .macro:
+                case .executable, .snippet, .macro, .template: //john-to-revisit
                     if product.modules.contains(id: module.id) {
                         guard let description else {
                             throw InternalError("Could not find a description for module: \(module)")
