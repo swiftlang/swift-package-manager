@@ -257,7 +257,7 @@ public final class PIFBuilder {
             var packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = []
             
             for package in sortedPackages {
-                var buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
+                var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
 
                 for module in package.modules {
                     // Apply each build tool plugin used by the target in order,
@@ -388,7 +388,11 @@ public final class PIFBuilder {
 
                         // Add a BuildToolPluginInvocationResult to the mapping.
                         buildToolPluginResults.append(result2)
-                        buildToolPluginResultsByTargetName[module.name] = result2
+                        if var existingResults = buildToolPluginResultsByTargetName[module.name] {
+                            existingResults.append(result2)
+                        } else {
+                            buildToolPluginResultsByTargetName[module.name] = [result2]
+                        }
                     }
                 }
 
