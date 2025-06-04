@@ -198,19 +198,17 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     public let templateInitializationOptions: TemplateInitializationOptions?
 
     public enum TemplateInitializationOptions: Hashable, Sendable {
-        case packageInit(templateType: TemplateType, executable: Dependency, templatePermissions: [TemplatePermission]?, description: String)
+        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermission]?, description: String)
     }
 
     public enum TemplateType: String, Hashable, Codable, Sendable {
-        /// A target that contains code for the Swift package's functionality.
-        case regular
-        /// A target that contains code for an executable's main module.
+        case library
         case executable
-        /// A target that contains tests for the Swift package's other targets.
-        case test
-        /// A target that adapts a library on the system to work with Swift
-        /// packages.
+        case tool
+        case buildToolPlugin
+        case commandPlugin
         case `macro`
+        case empty
     }
 
     public enum TemplateNetworkPermissionScope: Hashable, Codable, Sendable {
@@ -553,14 +551,13 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 targetType: targetType,
                 propertyName: "checksum",
                 value: checksum ?? "<nil>"
-            ) }
-            if templateInitializationOptions == nil { throw Error.disallowedPropertyInTarget(
+            ) } 
+            if templateInitializationOptions == nil { throw Error.disallowedPropertyInTarget( //john-to-revisit
                 targetName: name,
                 targetType: targetType,
                 propertyName: "templateInitializationOptions",
-                value: String(describing: templateInitializationOptions!)
-                )
-            }
+                value: String(describing: templateInitializationOptions)
+            ) }
 
         }
 
@@ -714,16 +711,15 @@ extension TargetDescription.TemplateInitializationOptions: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .packageInit(a1, a2, a3, a4):
+        case let .packageInit(a1, a2, a3):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .packageInit)
             try unkeyedContainer.encode(a1)
-            try unkeyedContainer.encode(a2)
-            if let permissions = a3 {
-                try unkeyedContainer.encode(a3)
+            if let permissions = a2 {
+                try unkeyedContainer.encode(permissions)
             } else {
                 try unkeyedContainer.encodeNil()
             }
-            try unkeyedContainer.encode(a4)
+            try unkeyedContainer.encode(a3)
         }
     }
 
@@ -736,10 +732,9 @@ extension TargetDescription.TemplateInitializationOptions: Codable {
         case .packageInit:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let templateType = try unkeyedValues.decode(TargetDescription.TemplateType.self)
-            let executable = try unkeyedValues.decode(TargetDescription.Dependency.self)
             let templatePermissions = try unkeyedValues.decodeIfPresent([TargetDescription.TemplatePermission].self)
             let description = try unkeyedValues.decode(String.self)
-            self = .packageInit(templateType: templateType, executable: executable, templatePermissions: templatePermissions ?? nil, description: description)
+            self = .packageInit(templateType: templateType, templatePermissions: templatePermissions ?? nil, description: description)
         }
     }
 }

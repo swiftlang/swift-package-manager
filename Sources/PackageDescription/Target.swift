@@ -234,20 +234,18 @@ public final class Target {
     public var templateInitializationOptions: TemplateInitializationOptions?
 
     public enum TemplateType: String {
-        /// A target that contains code for the Swift package's functionality.
-        case regular
-        /// A target that contains code for an executable's main module.
         case executable
-        /// A target that contains tests for the Swift package's other targets.
-        case test
-        /// A target that adapts a library on the system to work with Swift
-        /// packages.
         case `macro`
+        case library
+        case tool
+        case buildToolPlugin
+        case commandPlugin
+        case empty
     }
 
     @available(_PackageDescription, introduced: 5.9)
     public enum TemplateInitializationOptions {
-        case packageInit(templateType: TemplateType, executable: Dependency, templatePermissions: [TemplatePermissions]? = nil, description: String)
+        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]? = nil, description: String)
     }
 
     /// Construct a target.
@@ -293,6 +291,7 @@ public final class Target {
         self.linkerSettings = linkerSettings
         self.checksum = checksum
         self.plugins = plugins
+        self.templateInitializationOptions = templateInitializationOptions
 
         switch type {
         case .regular, .executable, .test:
@@ -616,7 +615,8 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -632,7 +632,8 @@ public final class Target {
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
-            plugins: plugins
+            plugins: plugins,
+            templateInitializationOptions: templateInitializationOptions
         )
     }
 
@@ -1270,24 +1271,90 @@ public final class Target {
             pluginCapability: capability)
     }
 
+    //john-to-revisit documentation
     @available(_PackageDescription, introduced: 6.0)
     public static func template(
         name: String,
-        templateInitializationOptions: TemplateInitializationOptions,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
         exclude: [String] = [],
-        executable: Dependency
-    ) -> Target {
-        return Target(
-            name: name,
-            dependencies: [],
-            path: nil,
-            exclude: exclude,
-            sources: nil,
-            publicHeadersPath: nil,
-            type: .template,
-            packageAccess: false,
-            templateInitializationOptions: templateInitializationOptions
-        )
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        templateInitializationOptions: TemplateInitializationOptions,
+    ) -> [Target] {
+
+        let templatePluginName = "\(name)Plugin"
+        let templateExecutableName = name
+
+        let (verb, description): (String, String)
+        switch templateInitializationOptions {
+        case .packageInit(_, _, let desc):
+            verb = "init-\(name.lowercased())"
+            description = desc
+        }
+
+        let permissions: [PluginPermission] = {
+            switch templateInitializationOptions {
+            case .packageInit(_, let templatePermissions, _):
+                return templatePermissions?.compactMap { permission in
+                    switch permission {
+                    case .allowNetworkConnections(let scope, let reason):
+                        // Map from TemplateNetworkPermissionScope to PluginNetworkPermissionScope
+                        let pluginScope: PluginNetworkPermissionScope
+                        switch scope {
+                        case .none:
+                            pluginScope = .none
+                        case .local(let ports):
+                            pluginScope = .local(ports: ports)
+                        case .all(let ports):
+                            pluginScope = .all(ports: ports)
+                        case .docker:
+                            pluginScope = .docker
+                        case .unixDomainSocket:
+                            pluginScope = .unixDomainSocket
+                        }
+                        return .allowNetworkConnections(scope: pluginScope, reason: reason)
+                    }
+                } ?? []
+            }
+        }()
+
+            let templateTarget = Target(
+                name: templateExecutableName,
+                dependencies: dependencies,
+                path: path,
+                exclude: exclude,
+                sources: sources,
+                resources: resources,
+                publicHeadersPath: publicHeadersPath,
+                type: .template,
+                packageAccess: packageAccess,
+                cSettings: cSettings,
+                cxxSettings: cxxSettings,
+                swiftSettings: swiftSettings,
+                linkerSettings: linkerSettings,
+                plugins: plugins,
+                templateInitializationOptions: templateInitializationOptions
+            )
+
+            // Plugin target that depends on the template
+            let pluginTarget = plugin(
+                name: templatePluginName,
+                capability: .command(
+                    intent: .custom(verb: verb, description: description),
+                    permissions: permissions
+                ),
+                dependencies: [Target.Dependency.target(name: templateExecutableName, condition: nil)]
+            )
+
+            return [templateTarget, pluginTarget]
     }
 }
 
