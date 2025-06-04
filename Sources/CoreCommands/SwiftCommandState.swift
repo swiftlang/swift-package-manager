@@ -204,7 +204,7 @@ public final class SwiftCommandState {
     public let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
-    private let packageRoot: AbsolutePath?
+    private var packageRoot: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
