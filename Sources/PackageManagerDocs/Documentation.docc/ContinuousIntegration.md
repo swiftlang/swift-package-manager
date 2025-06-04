@@ -33,7 +33,7 @@ When building on macOS based CI hosts you can use the command-line tool `xcodebu
 `xcodebuild` uses Xcode's built-in Git tooling to connect to repositories.
 
 In many cases, you don't need to make changes to how xcodebuild connects to them.
-However, some use cases require you use the git configuration — for example URL remapping, the use of proxie, or advanced SSH configurations.
+However, some use cases require you use the git configuration — for example URL remapping, the use of proxies, or advanced SSH configurations.
 To have xcodebuild use your Mac's Git installation and configuration instead of Xcode's built-in Git tooling, pass `-scmProvider system` to the xcodebuild command.
 
 For more information on using xcodebuild in continuous integration workflows, visit [Building Swift packages or apps that use them in continuous integration workflows](https://developer.apple.com/documentation/swift_packages/building_swift_packages_or_apps_that_use_them_in_continuous_integration_workflows).
