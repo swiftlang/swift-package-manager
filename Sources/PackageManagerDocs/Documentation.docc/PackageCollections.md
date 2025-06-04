@@ -332,7 +332,7 @@ A signed package collection has an extra `signature` object:
 ```
 
 - The signature string (represented by `"<SIGNATURE>"`) is used to verify the contents of the collection file haven't been tampered with since it was signed when SwiftPM user [adds the collection](<doc:PackageCollectionAdd#Signed-package-collections>) to their configured list of collections. It includes the certificate's public key and chain.
-- `certificate` contains details extracted from the signing certificate. `subject.commonName` should be consistent with the name of the publisher so that it's recognizable by users. The root of the certificate must be [installed and trusted on users' machines](<doc:PackageCollectionAdd#trusted-root-certificates>).
+- `certificate` contains details extracted from the signing certificate. `subject.commonName` should be consistent with the name of the publisher so that it's recognizable by users. The root of the certificate must be [installed and trusted on users' machines](<doc:PackageCollectionAdd#Trusted-root-certificates>).
 
 ### Requirements on signing certificate
 
@@ -349,7 +349,8 @@ Non-expired, non-revoked Swift Package Collection certificates from [developer.a
 
 With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. When SwiftPM user tries to add the collection, however,
 the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with 
-the [certificate-pinning configuration](<doc:#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAdd#Signed-package-collections>) will fail. Collection publishers should make the DER-encoded 
+the [certificate-pinning configuration](<doc:#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAdd#Signed-package-collections>) will fail.
+Collection publishers should make the DER-encoded 
 root certificate(s) that they use downloadable so that users can adjust their setup if needed.
 
 

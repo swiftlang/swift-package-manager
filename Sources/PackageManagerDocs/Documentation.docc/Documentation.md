@@ -30,10 +30,11 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:BundlingResources>
 - <doc:ReleasingPublishingAPackage>
 - <doc:ContinuousIntegration>
-- <doc:UsingShellCompletion>
-- <doc:SwiftPMAsALibrary>
+- <doc:Plugins>
 - <doc:ModuleAliasing>
 - <doc:PackageCollections>
+- <doc:UsingShellCompletion>
+- <doc:SwiftPMAsALibrary>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
