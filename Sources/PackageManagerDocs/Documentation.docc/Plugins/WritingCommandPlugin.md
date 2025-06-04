@@ -6,6 +6,8 @@
 
 The first step when writing a package plugin is to decide what kind of plugin you need.  If your goal is to generate source files that should be part of a build, or to perform other actions at the start of every build, implement a build tool plugin.  If your goal is to provide actions that users can perform at any time and that are not associated with a build, implement a command plugin.
 
+A plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package.
+
 ### Command plugins
 
 Command plugins are invoked at will by the user, by invoking `swift` `package` `<command>` `<arguments>`.  They are unrelated to the build graph, and often perform their work by invoking to command line tools as subprocesses.

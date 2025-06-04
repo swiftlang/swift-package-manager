@@ -1,28 +1,54 @@
 # EnableCommandPlugin
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Extend package manager commands with a command plugin from another package.
 
 ## Overview
 
-A package plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package that defines it.
+To get access to a plugin from another package, add a dependency on the package that provides the plugin.
+This lets the package access any plugins from the dependency.
 
-To get access to a plugin defined in another package, add a package dependency on the package that defines the plugin.  This will let the package access any build tool plugins and command plugins from the dependency.
+For example, to enable the plugins from [swift-docc-plugin](https://github.com/swiftlang/swift-docc-plugin), add it as a dependency:
 
-
-### Making use of a command plugin
-
-Unlike build tool plugins, which are invoked as needed when package manager constructs the build task graph, command plugins are only invoked directly by the user.  This is done through the `swift` `package` command line interface:
-
-```shell
-❯ swift package my-plugin --my-flag my-parameter
+```swift
+let package = Package(
+    // name, platforms, products, etc.
+    dependencies: [
+        // other dependencies
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin",
+                 from: "1.0.0"),
+    ],
+    targets: [
+        // targets
+    ]
+)
 ```
 
-Any command line arguments that appear after the invocation verb defined by the plugin are passed unmodified to the plugin — in this case, `--my-flag` and `my-parameter`.  This is commonly used in order to narrow down the application of a command to one or more targets, through the convention of one or more occurrences of a `--target` option with the name of the target(s).
+### View available plugins
 
-To list the plugins that are available within the context of a package, use the `--list` option of the `plugin` subcommand:
+Run `swift package plugin --list` to see available plugins.
+For full documentation on the plugin command, see <doc:PackagePlugin>.
 
-```shell
-❯ swift package plugin --list
+Invoke an available plugin using `swift package` followed by the plugin, and provide any parameters or options required.
+For example, the following command invokes the `generate-documentation` command from [swift-docc-plugin](https://github.com/swiftlang/swift-docc-plugin).
+
+```bash
+swift package generate-documentation
 ```
 
-Command plugins that need to write to the file system will cause package manager to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.  Passing the `--allow-writing-to-package-directory` flag to the `swift package` invocation will allow the request without questions — this is particularly useful in a Continuous Integration environment. Similarly, the `--allow-network-connections` flag can be used to allow network connections without showing a prompt.
+### Pass arguments and flags to the plugin
+
+Package manager passes all command line arguments and flags after the invocation verb to the plugin.
+
+For example, if your package has multiple targets you may want to specify a single target with the parameter: `--target`.
+An updated example that previews the hypothetical target `MyTarget`:
+
+```bash
+swift package generate-documentation --target MyTarget
+```
+
+### Exempting sandbox constraints
+
+Command plugins that need to write to the file system cause package manager to ask the user for approval if `swift package` is invoked from a console, or deny the request if it is not.
+Pass the flag `--allow-writing-to-package-directory` to the `swift package` invocation to allow the request without questions — this is particularly useful in a Continuous Integration environment.
+
+Similarly, use the `--allow-network-connections` flag to allow network connections without showing a prompt.
