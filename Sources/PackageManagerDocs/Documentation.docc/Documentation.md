@@ -32,6 +32,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:UsingShellCompletion>
 - <doc:SwiftPMAsALibrary>
 - <doc:ModuleAliasing>
+- <doc:PackageCollections>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
