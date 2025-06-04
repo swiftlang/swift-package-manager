@@ -33,6 +33,7 @@ extension SwiftPackageCommand {
             case executable
             case test
             case macro
+            case template
         }
 
         package static let configuration = CommandConfiguration(
@@ -99,12 +100,13 @@ extension SwiftPackageCommand {
                 verbose: !globalOptions.logging.quiet
             )
 
-            // Map the target type.
+            // Map the target type. john-to-revisit
             let type: TargetDescription.TargetKind = switch self.type {
                 case .library: .regular
                 case .executable: .executable
                 case .test: .test
                 case .macro: .macro
+                case .template: .template
             }
 
             // Map dependencies
