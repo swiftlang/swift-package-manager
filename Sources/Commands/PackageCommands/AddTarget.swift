@@ -39,6 +39,7 @@ extension SwiftPackageCommand {
             case executable
             case test
             case macro
+            case template
         }
 
         package static let configuration = CommandConfiguration(
@@ -114,6 +115,8 @@ extension SwiftPackageCommand {
             case .executable: .executable
             case .test: .test
             case .macro: .macro
+            default:
+                throw StringError("unexpected target type: \(self.type)")
             }
 
             // Map dependencies
