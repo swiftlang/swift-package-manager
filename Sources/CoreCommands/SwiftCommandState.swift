@@ -228,7 +228,7 @@ public final class SwiftCommandState {
     }
 
     /// Scratch space (.build) directory.
-    public let scratchDirectory: AbsolutePath
+    public var scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     public let sharedSecurityDirectory: AbsolutePath
@@ -1293,6 +1293,70 @@ extension BuildOptions.DebugInfoFormat {
 extension Basics.Diagnostic {
     public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+}
+
+extension SwiftCommandState {
+
+    public func withTemporaryWorkspace<R>(
+        switchingTo packagePath: AbsolutePath,
+        createPackagePath: Bool = true,
+        perform: @escaping (Workspace, PackageGraphRootInput) async throws -> R
+    ) async throws -> R {
+        let originalWorkspace = self._workspace
+        let originalDelegate = self._workspaceDelegate
+        let originalWorkingDirectory = self.fileSystem.currentWorkingDirectory
+        let originalLock = self.workspaceLock
+        let originalLockState = self.workspaceLockState
+
+        // Switch to temp directory
+        try Self.chdirIfNeeded(packageDirectory: packagePath, createPackagePath: createPackagePath)
+
+        // Reset for new context
+        self._workspace = nil
+        self._workspaceDelegate = nil
+        self.workspaceLock = nil
+        self.workspaceLockState = .needsLocking
+
+        defer {
+            if self.workspaceLockState == .locked {
+                self.releaseLockIfNeeded()
+            }
+
+            // Restore lock state
+            self.workspaceLock = originalLock
+            self.workspaceLockState = originalLockState
+
+            // Restore other context
+            if let cwd = originalWorkingDirectory {
+                try? Self.chdirIfNeeded(packageDirectory: cwd, createPackagePath: false)
+                do {
+                    self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd)
+                        ?? (packageRoot ?? cwd).appending(component: ".build")
+                } catch {
+                    self.scratchDirectory = (packageRoot ?? cwd).appending(component: ".build")
+                }
+
+            }
+
+            self._workspace = originalWorkspace
+            self._workspaceDelegate = originalDelegate
+        }
+
+        // Set up new context
+        self.packageRoot = findPackageRoot(fileSystem: self.fileSystem)
+
+
+        if let cwd = self.fileSystem.currentWorkingDirectory {
+            self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ?? (packageRoot ?? cwd).appending(".build")
+
+        }
+
+
+        let tempWorkspace = try self.getActiveWorkspace()
+        let tempRoot = try self.getWorkspaceRoot()
+
+        return try await perform(tempWorkspace, tempRoot)
     }
 }
 
