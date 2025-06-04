@@ -362,6 +362,35 @@ public final class PIFBuilder {
                                     env[key.rawValue] = value
                                 }
 
+                                if let libDir = try? buildParameters.toolchain.toolchainLibDir {
+                                    var libPathVar: String? = nil
+                                    var libPathEntry: String? = nil
+                                    var libPathSeparator: String? = nil
+#if os(macOS)
+                                    libPathVar = "DYLD_LIBRARY_PATH"
+                                    libPathEntry = libDir.appending("swift").appending("macosx").pathString
+                                    libPathSeparator = ":"
+#elseif os(Linux)
+                                    libPathVar = "LD_LIBRARY_PATH"
+                                    libPathEntry = libDir.appending("swift").appending("linux").pathString
+                                    libPathSeparator = ":"
+#elseif os(Windows)
+                                    libPathVar = "PATH"
+                                    libPathEntry = libDir.pathString
+                                    libPathSeparator = ";"
+#endif
+
+                                    if let libPathVar, let libPathEntry, let libPathSeparator {
+                                        let existingEntry = env[libPathVar] ?? ""
+                                        if case var parts = existingEntry.split(separator: libPathSeparator).map({ String($0) }), !parts.contains(libPathEntry) {
+                                            parts.append(libPathEntry)
+                                            env[libPathVar] = parts.joined(separator: libPathSeparator)
+                                        }
+                                    } else {
+                                        observabilityScope.emit(warning: "Unable to set the library path for this platform. Some plugin build tools may not run without this.")
+                                    }
+                                }
+
                                 let workingDir = buildCommand.configuration.workingDirectory
 
                                 let writableDirectories: [AbsolutePath] = buildCommand.outputFiles
