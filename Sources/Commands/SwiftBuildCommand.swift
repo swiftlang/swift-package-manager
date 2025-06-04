@@ -103,13 +103,14 @@ struct BuildCommandOptions: ParsableArguments {
     @Option(help: "Build the specified product.")
     var product: String?
 
+    /*
     /// Testing library options.
     ///
     /// These options are no longer used but are needed by older versions of the
     /// Swift VSCode plugin. They will be removed in a future update.
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
-
+    */
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
