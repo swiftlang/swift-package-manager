@@ -175,6 +175,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// as targets, but they are not directly included in the build graph.
     public let pluginDescriptions: [PluginBuildDescription]
 
+
     /// The build targets.
     public var targets: AnySequence<ModuleBuildDescription> {
         AnySequence(self.targetMap.values)
@@ -387,7 +388,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     try module.dependencies.compactMap {
                         switch $0 {
                         case .module(let moduleDependency, _):
-                            if moduleDependency.type == .executable {
+                            if moduleDependency.type == .executable || moduleDependency.type == .template {
                                 return graph.product(for: moduleDependency.name)
                             }
                             return nil
@@ -1386,6 +1387,6 @@ extension ResolvedProduct {
     // We shouldn't create product descriptions for automatic libraries, plugins or products which consist solely of
     // binary targets, because they don't produce any output.
     fileprivate var shouldCreateProductDescription: Bool {
-        !self.isAutomaticLibrary && !self.isBinaryOnly && !self.isPlugin
+        !self.isAutomaticLibrary && !self.isBinaryOnly && !self.isPlugin //john-to-revisit to see if include templates
     }
 }

@@ -69,6 +69,11 @@ extension LLBuildManifestBuilder {
                buildProduct.buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
                 shouldCodeSign = true
                 linkedBinaryNode = try .file(buildProduct.binaryPath, isMutated: true)
+            } else if case .template = buildProduct.product.type, //john-to-revisit
+                    buildProduct.buildParameters.triple.isMacOSX,
+                    buildProduct.buildParameters.debuggingParameters.shouldEnableDebuggingEntitlement {
+                    shouldCodeSign = true
+                    linkedBinaryNode = try .file(buildProduct.binaryPath, isMutated: true)
             } else {
                 shouldCodeSign = false
                 linkedBinaryNode = try .file(buildProduct.binaryPath)
@@ -199,7 +204,7 @@ extension ResolvedProduct {
             return staticLibraryName(for: self.name, buildParameters: buildParameters)
         case .library(.automatic):
             throw InternalError("automatic library not supported")
-        case .executable, .snippet:
+        case .executable, .snippet, .template: //john-to-revisit
             return executableName(for: self.name, buildParameters: buildParameters)
         case .macro:
             guard let macroModule = self.modules.first else {
