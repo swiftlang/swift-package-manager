@@ -11,7 +11,7 @@ add_library(BinarySymbols STATIC
   LLVMObjdumpSymbolProvider.swift
   ReferencedSymbols.swift
   SymbolProvider.swift)
-target_link_libraries(BinarySybmolsPUBLIC
+target_link_libraries(BinarySymbols PUBLIC
   Basics)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
