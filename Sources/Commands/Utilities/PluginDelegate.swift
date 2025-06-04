@@ -197,7 +197,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                     path: $0.binaryPath.pathString,
                     kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
                 )
-            case .executable:
+            case .executable, .template: //john-to-revisit
                 return try .init(path: $0.binaryPath.pathString, kind: .executable)
             default:
                 return nil
