@@ -33,6 +33,7 @@ extension SwiftPackageCommand {
             case staticLibrary = "static-library"
             case dynamicLibrary = "dynamic-library"
             case plugin
+            case template
         }
 
         package static let configuration = CommandConfiguration(
@@ -86,6 +87,7 @@ extension SwiftPackageCommand {
             case .dynamicLibrary: .library(.dynamic)
             case .staticLibrary: .library(.static)
             case .plugin: .plugin
+            case .template: .template
             }
 
             let product = try ProductDescription(
