@@ -212,19 +212,17 @@ enum Serialization {
     }
 
     enum TemplateInitializationOptions: Codable {
-        case packageInit(templateType: TemplateType, executable: TargetDependency, templatePermissions: [TemplatePermissions]?, description: String)
+        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]?, description: String)
     }
 
     enum TemplateType: Codable {
-        /// A target that contains code for the Swift package's functionality.
-        case regular
-        /// A target that contains code for an executable's main module.
+        case library
         case executable
-        /// A target that contains tests for the Swift package's other targets.
-        case test
-        /// A target that adapts a library on the system to work with Swift
-        /// packages.
+        case tool
+        case buildToolPlugin
+        case commandPlugin
         case `macro`
+        case empty
     }
 
     enum TemplateNetworkPermissionScope: Codable {
@@ -288,6 +286,7 @@ enum Serialization {
             case executable
             case library(type: LibraryType)
             case plugin
+            case template
         }
 
         let name: String

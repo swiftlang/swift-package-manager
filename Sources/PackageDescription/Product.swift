@@ -120,6 +120,15 @@ public class Product {
         }
     }
 
+    public final class Template: Product, @unchecked Sendable {
+        public let targets: [String]
+        
+        init(name: String, targets: [String]) {
+            self.targets = [name]
+            super.init(name: name)
+        }
+    }
+
     /// Creates a library product to allow clients that declare a dependency on
     /// this package to use the package's functionality.
     ///
@@ -169,11 +178,12 @@ public class Product {
         return Executable(name: name, targets: targets, settings: settings)
     }
 
-    /// Defines a product that vends a package plugin target for use by clients of the package.
-    ///
-    /// It is not necessary to define a product for a plugin that
+    //john-to-revisit documentation
+    /// Defines a template that vends a template plugin target and a template executable target for use by clients of the package.
+    /// 
+    /// It is not necessary to define a product for a template that
     /// is only used within the same package where you define it. All the targets
-    /// listed must be plugin targets in the same package as the product. Swift Package Manager
+    /// listed must be template targets in the same package as the product. Swift Package Manager
     /// will apply them to any client targets of the product in the order
     /// they are listed.
     /// - Parameters:
@@ -186,6 +196,15 @@ public class Product {
         targets: [String]
     ) -> Product {
         return Plugin(name: name, targets: targets)
+    }
+
+    @available(_PackageDescription, introduced: 6.0)
+    public static func template(
+        name: String,
+    ) -> Product {
+        let templatePluginName = "\(name)Plugin"
+        let executableTemplateName = name
+        return Product.plugin(name: templatePluginName, targets: [templatePluginName])
     }
 }
 

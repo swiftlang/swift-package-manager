@@ -300,18 +300,21 @@ extension Serialization.TemplateInitializationOptions {
     init(_ usage: PackageDescription.Target.TemplateInitializationOptions) {
         switch usage {
 
-        case .packageInit(let templateType, let executable, let templatePermissions, let description):
-            self = .packageInit(templateType: .init(templateType), executable: .init(executable), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
+        case .packageInit(let templateType, let templatePermissions, let description):
+            self = .packageInit(templateType: .init(templateType), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
         }
     }
 }
 extension Serialization.TemplateType {
     init(_ type: PackageDescription.Target.TemplateType) {
         switch type {
-        case .regular: self = .regular
         case .executable: self = .executable
         case .macro: self = .macro
-        case .test: self = .test
+        case .library: self = .library
+        case .tool: self = .tool
+        case .buildToolPlugin: self = .buildToolPlugin
+        case .commandPlugin: self = .commandPlugin
+        case .empty: self = .empty
         }
     }
 }
@@ -398,6 +401,8 @@ extension Serialization.Product {
             self.init(library)
         } else if let plugin = product as? PackageDescription.Product.Plugin {
             self.init(plugin)
+        } else if let template = product as? PackageDescription.Product.Template {
+            self.init(template)
         } else {
             fatalError("should not be reached")
         }
@@ -430,6 +435,16 @@ extension Serialization.Product {
         self.settings = []
         #endif
     }
+
+    init(_ template: PackageDescription.Product.Template) {
+        self.name = template.name
+        self.targets = template.targets
+        self.productType = .template
+        #if ENABLE_APPLE_PRODUCT_TYPES
+        self.settings = []
+        #endif
+    }
+
 }
 
 extension Serialization.Trait {
