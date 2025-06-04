@@ -1,4 +1,4 @@
-# EnableCommandPlugin
+# Enable a command plugin
 
 Extend package manager commands with a command plugin from another package.
 
@@ -6,6 +6,8 @@ Extend package manager commands with a command plugin from another package.
 
 To get access to a plugin from another package, add a dependency on the package that provides the plugin.
 This lets the package access any plugins from the dependency.
+
+### Add a dependency
 
 For example, to enable the plugins from [swift-docc-plugin](https://github.com/swiftlang/swift-docc-plugin), add it as a dependency:
 

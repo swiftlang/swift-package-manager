@@ -1,35 +1,56 @@
-# EnableBuildPlugin
+# Enable a build plugin
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Extend the package manager with a build plugin from another package.
 
 ## Overview
 
 A package plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package that defines it.
 
-To get access to a plugin defined in another package, add a package dependency on the package that defines the plugin.  This will let the package access any build tool plugins and command plugins from the dependency.
+### Add a dependency
 
-### Making use of a build tool plugin
-
-To make use of a build tool plugin, list its name in each target to which it should apply:
+To use a plugin defined in another package, add a package dependency on the package that defines the plugin.
+For example, to use the [swift-openapi-generator](https://github.com/apple/swift-openapi-generator), add
+the following dependency:
 
 ```swift
-// swift-tools-version: 5.6
-import PackageDescription
-
 let package = Package(
-    name: "my-plugin-example",
+    // name, platforms, products, etc.
     dependencies: [
-        .package(url: "https://github.com/example/my-plugin-package.git", from: "1.0"),
+        // other dependencies
+        .package(url: "https://github.com/apple/swift-openapi-generator",
+                 from: "1.0.0"),
+    ],
+    targets: [
+        // targets
+    ]
+)
+```
+
+
+This plugin can generate models and stubs for clients and servers from an OpenAPI definition file.
+
+### Identify the targets to enable
+
+Add the plugin to each target to which it should apply.
+For example, the following example enables the OpenAPI generator plugin on the executable target:
+
+```swift
+let package = Package(
+    name: "Example",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-openapi-generator",
+                 from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
             name: "MyExample",
             plugins: [
-                .plugin(name: "MyBuildToolPlugin", package: "my-plugin-package"),
+                .plugin(name: "OpenAPIGenerator", 
+                        package: "swift-openapi-generator")
             ]
         )
     ]
 )
 ```
-
-This will cause package manager to call the plugin, passing it a simplified version of the package model for the target to which it is being applied.  Any build commands returned by the plugin will be incorporated into the build graph and will run at the appropriate time during the build.
+When package manager builds the executable target, it calls the plugin and passes it a simplified version of the package model for the target to which it is applied.
+Any build commands returned by the plugin are be incorporated into the build graph and run at the appropriate time during the build.

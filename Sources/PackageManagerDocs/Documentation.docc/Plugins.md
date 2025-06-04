@@ -10,8 +10,11 @@ This is similar to how the package manifest is implemented — as Swift code tha
 
 Package manager defines two extension points for plugins:
 
-- Custom build tool tasks that provide commands to run before or during the build.
-- Custom commands that you run using the `swift package` command line interface.
+- term Build Plugin: Custom build tool tasks that provide commands to run before or during the build.
+  See <doc:EnableBuildPlugin> to see how to add an existing build plugin, or <doc:WritingBuildToolPlugin> to write your own.
+
+- term Command Plugin: Custom commands that you run using the `swift package` command line interface.
+  See <doc:EnableCommandPlugin> to see how to add an existing command plugin, or <doc:WritingCommandPlugin> to write your own.
 
 ### Plugin Capabilities
 
@@ -25,10 +28,6 @@ All plugins can write to a temporary directory.
 Custom command plugins that need to modify the package source code can specify this requirement.
 If the user approves, package manager grants write access to the package directory.
 Build tool plugins can't modify the package source code.
-
-### Using a plugin from another package
-
-<!-- example of add dependency, add plugin line to manifest -->
 
 ### Creating Plugins
 
