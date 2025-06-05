@@ -17,8 +17,6 @@ struct TemplatePlugin: CommandPlugin {
         context: PluginContext,
         arguments: [String]
     ) async throws {
-
-        print(arguments)
         let tool = try context.tool(named: "loo")
         let process = Process()
 

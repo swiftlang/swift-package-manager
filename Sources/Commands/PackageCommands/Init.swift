@@ -27,6 +27,7 @@ import SPMBuildCore
 import XCBuildSupport
 import TSCBasic
 
+import ArgumentParserToolInfo
 
 extension SwiftPackageCommand {
     struct Init: AsyncSwiftCommand {
@@ -192,9 +193,49 @@ extension SwiftPackageCommand {
                     print("TODO: Handle Registry template")
                 }
 
-
+                /*
                 let parsedOptions = try PluginCommand.PluginOptions.parse(["--allow-writing-to-package-directory"])
+
+
                 try await PluginCommand.run(command: template, options: parsedOptions, arguments: ["--","--experimental-dump-help"], swiftCommandState: swiftCommandState)
+
+                 */
+
+                //will need to revisit this
+                let arguments = [
+                    "/Users/johnbute/Desktop/swift-pm-template/.build/arm64-apple-macosx/debug/swift-package", "plugin", template, "--allow-network-connections","local:1200",
+                    "--", "--experimental-dump-help"
+                ]
+                let process = AsyncProcess(arguments: arguments)
+
+                try process.launch()
+
+                let processResult = try await process.waitUntilExit()
+
+
+                guard processResult.exitStatus == .terminated(code: 0) else {
+                    throw try StringError(processResult.utf8stderrOutput())
+                }
+
+
+                switch processResult.output {
+                case .success(let outputBytes):
+                    let outputString = String(decoding: outputBytes, as: UTF8.self)
+
+
+                    guard let data = outputString.data(using: .utf8) else {
+                        fatalError("Could not convert output string to Data")
+                    }
+                    
+                    do {
+                        let schema = try JSONDecoder().decode(ToolInfoV0.self, from: data)
+                    }
+
+                case .failure(let error):
+                    print("Failed to get output:", error)
+                }
+
+
 
             } else {
 
@@ -226,6 +267,34 @@ extension SwiftPackageCommand {
             }
         }
 
+
+        private func captureStdout(_ block: () async throws -> Void) async throws -> String {
+            let originalStdout = dup(fileno(stdout))
+
+            let pipe = Pipe()
+            let readHandle = pipe.fileHandleForReading
+            let writeHandle = pipe.fileHandleForWriting
+
+            dup2(writeHandle.fileDescriptor, fileno(stdout))
+
+
+            var output = ""
+            let outputQueue = DispatchQueue(label: "outputQueue")
+            let group = DispatchGroup()
+            group.enter()
+
+            outputQueue.async {
+                let data = readHandle.readDataToEndOfFile()
+                output = String(data: data, encoding: .utf8) ?? ""
+            }
+
+
+            fflush(stdout)
+            writeHandle.closeFile()
+
+            dup2(originalStdout, fileno(stdout))
+            return output
+        }
         // first save current activeWorkspace
         //second switch activeWorkspace to the template Path
         //third revert after conditions have been checked, (we will also get stuff needed for dpeende
