@@ -267,16 +267,6 @@ final class PluginTests: XCTestCase {
                         .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
                     ],
                     targets: [
-                        .template(
-                                name: "GenerateStuff",
-
-                                templateInitializationOptions: .packageInit(
-                                                templateType: .executable,
-                                                executable: .target(name: "MyLibrary"),
-                                                description: "A template that generates a starter executable package"
-                                            ),
-                                     executable: .target(name: "MyLibrary"),
-                               ),
                         .target(
                             name: "MyLibrary",
                             dependencies: [
