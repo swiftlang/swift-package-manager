@@ -338,6 +338,19 @@ let package = Package(
             ]
         ),
 
+        .target(
+            /** API for inspecting symbols defined in binaries */
+            name: "BinarySymbols",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
         // MARK: Project Model
 
         .target(
@@ -598,6 +611,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
+                "BinarySymbols",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
@@ -957,6 +971,10 @@ let package = Package(
         .testTarget(
             name: "SwiftFixItTests",
             dependencies: ["SwiftFixIt", "_InternalTestSupport"]
+        ),
+        .testTarget(
+            name: "BinarySymbolsTests",
+            dependencies: ["BinarySymbols", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "XCBuildSupportTests",
