@@ -123,7 +123,7 @@ public let swiftTest: AbsolutePath = swiftpmBinaryDirectory.appending(component:
 
 public let swiftRun: AbsolutePath = swiftpmBinaryDirectory.appending(component: "swift-run")
 
-public let isSelfHosted: Bool = {
+public let runningInSelfHostedPipeline: Bool = {
     ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
 }()
 
