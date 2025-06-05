@@ -383,8 +383,6 @@ struct PluginCommand: AsyncSwiftCommand {
             delegate: pluginDelegate
         )
 
-        print("plugin Output:", pluginOutput)
-
         // TODO: We should also emit a final line of output regarding the result.
     }
 

@@ -602,7 +602,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
             let product = graph.product(for: productName)
 
-            print("computeLLBuildTargetName")
             guard let product else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 throw Diagnostics.fatalError
