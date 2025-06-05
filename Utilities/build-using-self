@@ -109,12 +109,6 @@ def get_arguments() -> argparse.Namespace:
         default=""
     )
     parser.add_argument(
-        "--additional-integration-test-args",
-        type=str,
-        dest="additional_integration_test_args",
-        default=""
-    )
-    parser.add_argument(
         "--skip-bootstrap",
         dest="skip_bootstrap",
         action="store_true"
@@ -187,8 +181,8 @@ class GlobalArgs:
     value: t.Optional[GlobalArgsValueType]
 
 
-def filterNoneAndEmpty(items: t.Iterable) -> t.Iterable:
-    return list(filter(lambda x: x is not None and x != '', items))
+def filterIsTruthy(items: t.Iterable) -> t.Iterable:
+    return list(filter(lambda x: x, items))
 
 
 def main() -> None:
@@ -211,7 +205,7 @@ def main() -> None:
         set_environment(swiftpm_bin_dir=swiftpm_bin_dir)
 
         call(
-            filterNoneAndEmpty(
+            filterIsTruthy(
                 [
                     "swift",
                     "--version",
@@ -220,7 +214,7 @@ def main() -> None:
         )
 
         call(
-            filterNoneAndEmpty(
+            filterIsTruthy(
                 [
                     "swift",
                     "package",
@@ -229,7 +223,7 @@ def main() -> None:
             )
         )
         call(
-            filterNoneAndEmpty(
+            filterIsTruthy(
                 [
                     "swift",
                     "build",
@@ -242,10 +236,11 @@ def main() -> None:
             )
         )
         call(
-            filterNoneAndEmpty(
+            filterIsTruthy(
                 [
                     "swift",
                     "run",
+                    *ignore_args,
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
@@ -258,35 +253,6 @@ def main() -> None:
                     ".test",
                     *ignore_args,
                     *args.additional_test_args.split(" ")
-                ]
-            )
-        )
-
-        integration_test_dir = (REPO_ROOT_PATH / "IntegrationTests").as_posix()
-        call(
-            filterNoneAndEmpty(
-                [
-                    "swift",
-                    "package",
-                    "--package-path",
-                    integration_test_dir,
-                    "update",
-                ]
-            )
-        )
-        call(
-            filterNoneAndEmpty(
-               [
-                    "swift",
-                    "run",
-                    *args.additional_run_args.split(" "),
-                    "swift-test",
-                    *global_args,
-                    "--package-path",
-                    integration_test_dir,
-                    "--parallel",
-                    *ignore_args,
-                    *args.additional_integration_test_args.split(" ")
                 ]
             )
         )
