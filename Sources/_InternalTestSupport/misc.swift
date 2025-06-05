@@ -53,6 +53,14 @@ public let isRealSigningIdentitTestDefined = {
     #endif
 }()
 
+public let duplicateSymbolRegex: Regex<AnyRegexOutput>? = {
+    do {
+        return try Regex(".*One of the duplicates must be removed or renamed.")
+    } catch {
+        return nil
+    }
+}()
+
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
     function: StaticString = #function,
@@ -281,13 +289,14 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind = .native,
+    throwIfCommandFails: Bool = true,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -297,14 +306,14 @@ public func executeSwiftBuild(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
 @discardableResult
 public func executeSwiftRun(
     _ packagePath: AbsolutePath?,
     _ executable: String?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -329,7 +338,7 @@ public func executeSwiftRun(
 @discardableResult
 public func executeSwiftPackage(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -351,7 +360,7 @@ public func executeSwiftPackage(
 @discardableResult
 public func executeSwiftPackageRegistry(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -373,7 +382,7 @@ public func executeSwiftPackageRegistry(
 @discardableResult
 public func executeSwiftTest(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -394,7 +403,7 @@ public func executeSwiftTest(
 }
 
 private func swiftArgs(
-    configuration: Configuration,
+    configuration: BuildConfiguration,
     extraArgs: [String],
     Xcc: [String],
     Xld: [String],
@@ -403,9 +412,9 @@ private func swiftArgs(
 ) -> [String] {
     var args = ["--configuration"]
     switch configuration {
-    case .Debug:
+    case .debug:
         args.append("debug")
-    case .Release:
+    case .release:
         args.append("release")
     }
 

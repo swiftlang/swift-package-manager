@@ -19,6 +19,18 @@ public enum OperatingSystem: Hashable, Sendable {
     case unknown
 }
 
+
+public func workingDirectoryIsSupported() -> Bool {
+        #if os(Linux)
+        if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
+            return false
+        }
+        #elseif os(OpenBSD)
+        return false
+        #endif
+        return true
+
+}
 extension ProcessInfo {
     public static var hostOperatingSystem: OperatingSystem {
         #if os(macOS)

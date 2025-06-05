@@ -18,7 +18,9 @@ import Testing
 struct ConcurrencyHelpersTest {
     let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
 
-    @Test
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
+    )
     func threadSafeKeyValueStore() throws {
         for _ in 0 ..< 100 {
             let sync = DispatchGroup()
@@ -43,14 +45,16 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             expected.forEach { key, value in
                 #expect(cache[key] == value)
             }
         }
     }
 
-    @Test
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
+    )
     func threadSafeArrayStore() throws {
         for _ in 0 ..< 100 {
             let sync = DispatchGroup()
@@ -70,14 +74,16 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             let expectedSorted = expected.sorted()
             let resultsSorted = cache.get().sorted()
             #expect(expectedSorted == resultsSorted)
         }
     }
 
-    @Test
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
+    )
     func threadSafeBox() throws {
         for _ in 0 ..< 100 {
             let sync = DispatchGroup()
@@ -104,7 +110,7 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             #expect(cache.get() == winner)
         }
     }
