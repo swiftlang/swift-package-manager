@@ -12,6 +12,36 @@ This command creates source archive for the package release, optionally signs th
 
 If authentication is required for package publication, package authors should [configure registry login](<doc:UsingSwiftPackageRegistry#Registry-authentication>) before running `publish`.
 
+### Publisher TOFU
+
+Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, Package manager will perform publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
+
+The `--resolver-signing-entity-checking` option controls whether publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
+
+For more details on trust-on-first-use, see <doc:PackageSecurity#Trust-on-First-Use>.
+
+#### Package release metadata
+
+Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the `publish` subcommand.
+Otherwise, by default Package manager looks for a file named `package-metadata.json` in the package directory.
+
+Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.
+
+Also refer to the [registry specification](<doc:RegistryServerSpecification#4.2.2.-Package-release-metadata-standards>) for any additional requirements.
+
+#### Package signing
+ 
+<!--A registry may support or require signing. -->
+<!--To sign a package release, package authors will need to set either the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand such that Package manager can locate the signing key and certificate.-->
+
+<!--If the certificate chain's root and intermediates are known by Package manager, then package author would only need to provide the leaf signing certificate in `cert-chain-paths`. -->
+
+Otherwise, the entire certificate chain should be provided as `cert-chain-paths` so that all of the certificates will be included in the signature and make it possible for Package manager to reconstruct the certificate chain for validation later. 
+This is applicable to `signing-identity` as well (i.e., `signing-identity` can be used in combination with `cert-chain-paths` to provide the entire certificate chain).
+
+If the root of the signing certificate is not in Package manager's default trust store, package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:PackageSecurity#Trusted-vs.-untrusted-certificate>) directory, or else [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
+
+
 ### Usage
 
 ```

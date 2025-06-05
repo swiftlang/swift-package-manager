@@ -31,11 +31,15 @@ Added "Sample Package Collection" to your package collections.
 
 ### Signed package collections
 
-Package collection publishers may [sign a collection to protect its contents](<doc:PackageCollections#Signing-and-protecting-package-collections>) from being tampered with. 
-If a collection is signed, Package manager will check that the signature is valid before importing it and return an error if any of these fails:
-- The file's contents, signature excluded, must match what was used to generate the signature. 
-In other words, this checks to see if the collection has been altered since it was signed.
-- The signing certificate must meet all the [requirements](<doc:PackageCollections#Requirements-on-signing-certificate>).
+Publishers of a package collection may [sign a collection to protect its contents](<doc:PackageCollections#Signing-and-protecting-package-collections>) from being tampered with. 
+Package manager will check if a signed collection's signature is valid before importing it. If the validation check fails, it will return an error.
+
+For more details on signature validation, see <doc:PackageSecurity#Package-Collections>.
+
+<!--If a collection is signed, Package manager will check that the signature is valid before importing it and return an error if any of these fails:-->
+<!--- The file's contents, signature excluded, must match what was used to generate the signature. -->
+<!--In other words, this checks to see if the collection has been altered since it was signed.-->
+<!--- The signing certificate must meet all the [requirements](<doc:PackageCollections#Requirements-on-signing-certificate>).-->
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -49,7 +53,7 @@ $ swift package-collection add https://www.example.com/packages.json --skip-sign
 ```
 
 For package collections hosted on the web, publishers may ask Package manager to [enforce the signature requirement](<doc:PackageCollections#Protecting-package-collections>). If a package collection is
-expected to be signed but it isn't, user will see the following error message:
+expected to be signed but it isn't, users will see the following error message:
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -60,13 +64,13 @@ Users should NOT add the package collection in this case.
 
 ##### Trusted root certificates
 
-Since generating a collection signature requires a certificate, part of the signature check involves validating the certificate and its chain and making sure that the root certificate is trusted.
-
-On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted. Users may include additional certificates to trust by placing 
-them in the `~/.swiftpm/config/trust-root-certs` directory. 
-
-On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](<doc:PackageCollections#Protecting-package-collections>). Only those 
-found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that the signature check will always fail unless the `trust-root-certs` directory is set up:
+<!--Since generating a collection signature requires a certificate, part of the signature check involves validating the certificate and its chain and making sure that the root certificate is trusted.-->
+<!---->
+<!--On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted. Users may include additional certificates to trust by placing -->
+<!--them in the `~/.swiftpm/config/trust-root-certs` directory. -->
+<!---->
+<!--On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](<doc:PackageCollections#Protecting-package-collections>). Only those -->
+<!--found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that the signature check will always fail unless the `trust-root-certs` directory is set up:-->
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json

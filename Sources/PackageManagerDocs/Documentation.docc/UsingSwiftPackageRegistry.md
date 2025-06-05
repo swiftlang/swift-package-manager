@@ -112,69 +112,68 @@ After a registry dependency is resolved, Swift Package Manager can [download sou
 
 As a security feature, Swift Package Manager performs checksum TOFU ([trust-on-first-use](https://en.wikipedia.org/wiki/Trust_on_first_use)) on the downloaded source archive.
 
-For more information on Package manager's security features, see <doc:PackageSecurity#Trust-on-First-Use>.
+For more information on Package manager's security features, see <doc:PackageSecurity>.
 
 #### Validating signed packages
 
  [SE-0391](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signing) adds package signing support to Swift Package Manager.
 Package manager determines if a downloaded archive is signed by checking for presence of the `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature` headers in the HTTP response.
 
- Swift Package Manager then performs a series of validations based on user's
- [security configuration](<doc:#Security-configuration>).
+ Swift Package Manager then performs a series of validations based on user's [security configuration](<doc:#Security-configuration>).
  - If the archive is unsigned, Package manager will error/prompt/warn/allow based on the `signing.onUnsigned` configuration. 
  - If the archive is signed, Package manager will validate the signature and the signing certificate chain. (see the following sections for details)
 
 ##### Trusted vs. untrusted certificate
 
-A certificate is trusted if it is chained to any root in Swift Package Manager's trust store, which consists of:
-- Swift Package Manager's default trust store, if `signing.includeDefaultTrustedRootCertificates` is `true`.
-- Custom root(s) in the configured trusted roots directory at `signing.trustedRootCertificatesPath`. Certificates must be DER-encoded.
-
-Otherwise, a certificate is untrusted and handled according to the `signing.onUntrustedCertifica te` configuration. 
-If user opts to continue with the untrusted certificate, Package manager will proceed with the archive as if it were an unsigned package. 
+<!--A certificate is trusted if it is chained to any root in Swift Package Manager's trust store, which consists of:-->
+<!--- Swift Package Manager's default trust store, if `signing.includeDefaultTrustedRootCertificates` is `true`.-->
+<!--- Custom root(s) in the configured trusted roots directory at `signing.trustedRootCertificatesPath`. Certificates must be DER-encoded.-->
+<!---->
+<!--Otherwise, a certificate is untrusted and handled according to the `signing.onUntrustedCertificate` configuration. -->
+<!--If user opts to continue with the untrusted certificate, Package manager will proceed with the archive as if it were an unsigned package. -->
 
 ##### Certificate policies
 
-Swift Package Manager requires all certificates used for package signing to have the "code signing" extended key usage extension. They must also satisfy the core policies from [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280), as implemented by [swift-certificates](https://github.com/apple/swift-certificates). 
-
-User can configure certificate expiry and revocation check through the `signing.validationChecks.certificateExpiration` and `signing.validationChecks.certificateRevocation` configuration, respectively. Note that revocation check implicitly requires expiry check.
-   
-An invalid signing certificate would result in Package manager rejecting the archive.
+<!--Swift Package Manager requires all certificates used for package signing to have the "code signing" extended key usage extension. They must also satisfy the core policies from [RFC 5280](https://www.rfc-editor.org/rfc/rfc5280), as implemented by [swift-certificates](https://github.com/apple/swift-certificates). -->
+<!---->
+<!--User can configure certificate expiry and revocation check through the `signing.validationChecks.certificateExpiration` and `signing.validationChecks.certificateRevocation` configuration, respectively. Note that revocation check implicitly requires expiry check.-->
+<!--   -->
+<!--An invalid signing certificate would result in Package manager rejecting the archive.-->
 
 ##### Publisher TOFU
 
-Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, Package manager will perform publisher TOFU to ensure the signer remains the same across all versions of the package. 
-
-The `--resolver-signing-entity-checking` option controls whether publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
+<!--Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, Package manager will perform publisher TOFU to ensure the signer remains the same across all versions of the package. -->
+<!---->
+<!--The `--resolver-signing-entity-checking` option controls whether publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.-->
 
 ### Publishing to Registry
 
- [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand) is an all-in-one command for publishing a package release to registry.
+ [`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand) is an all-in-one command for publishing a package release to registry. There are security features that protect against 
 
-#### Package release metadata
-
-Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the [`publish` subcommand](<doc:PackageRegistryPublish>).
-Otherwise, by default Package manager looks for a file named `package-metadata.json` in the package directory.
-
-Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.
+<!--#### Package release metadata-->
+<!---->
+<!--Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the [`publish` subcommand](<doc:PackageRegistryPublish>).-->
+<!--Otherwise, by default Package manager looks for a file named `package-metadata.json` in the package directory.-->
+<!---->
+<!--Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.-->
 
 <!-- TODO bp: remove this line -->
-Also refer to registry documentation for any additional requirements.
+<!--Also refer to registry documentation for any additional requirements.-->
 
 #### Package signing
  
-A registry may support or require signing. 
-To sign a package release, package author will need to set either the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand such that Package manager can locate the signing key and certificate.
+<!--A registry may support or require signing. -->
+<!--To sign a package release, package authors will need to set either the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand such that Package manager can locate the signing key and certificate.-->
 
-If the certificate chain's root and intermediates are known by Package manager, then package author would only need to provide the leaf signing certificate in `cert-chain-paths`. 
+<!--If the certificate chain's root and intermediates are known by Package manager, then package author would only need to provide the leaf signing certificate in `cert-chain-paths`. -->
 
 Otherwise, the entire certificate chain should be provided as `cert-chain-paths` so that all of the certificates will be included in the signature and make it possible for Package manager to reconstruct the certificate chain for validation later. 
 This is applicable to `signing-identity` as well (i.e., `signing-identity` can be used in combination with `cert-chain-paths` to provide the entire certificate chain).
 
-If the root of the signing certificate is not in Package manager's default trust store, package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:Trusted-vs-untrusted-certificate>) directory, or else [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
+If the root of the signing certificate is not in Package manager's default trust store, package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:PackageSecurity#Trusted-vs.-untrusted-certificate>) directory, or else [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
 
 <!-- TODO bp: remove/reword this-->
-Refer to registry documentation for its [certificate policy](<doc:#Certificate-policies>.
+Refer to registry documentation for its [certificate policy](<doc:PackageSecurity#Certificate-policies>.
 
 ##### Signature formats
 
@@ -194,6 +193,8 @@ The signature is detached and sent as part of the HTTP request to the publish AP
 
 The signature is detached and sent as part of the HTTP request to the publish API.
 The current API specification does not include an endpoint for fetching this metadata in its original form.
+
+For more details, refer to the [registry specification](<doc:RegistryServerSpecification#4.2.2.-Package-release-metadata-standards>).
 
 ###### Package manifest(s)
 
@@ -262,7 +263,7 @@ For example, given the following configuration files:
   
 #### Security configuration
 
-Registry security configuration are specified in the user-level `registries.json` (`~/.swiftpm/configuration/registries.json`):
+Registry security configurations are specified in the user-level `registries.json` (`~/.swiftpm/configuration/registries.json`):
 
 ```json
 {
@@ -317,7 +318,8 @@ Registry security configuration are specified in the user-level `registries.json
 }
 ```
 
-There are multiple levels of overrides. Configuration for a package is computed using values from the following (in descending precedence):
+There are multiple levels of overrides.
+A configuration for a package is computed using values from the following (in descending precedence):
 1. `packageOverrides` (if any)
 1. `scopeOverrides` (if any)
 1. `registryOverrides` (if any)
@@ -330,11 +332,11 @@ The `default` JSON object in the example above contains all configurable securit
   | Option        | Description                                               |
   | ------------- | --------------------------------------------------------- |
   | `error`       | Package manager will reject the package and fail the build. |
-  | `prompt`      | Package manager will prompt user to see if the unsigned package should be allowed. <ul><li>If no, Package manager will reject the package and fail the build.</li><li>If yes and the package has never been downloaded, its checksum will be stored for [checksum TOFU](<doc:Checksum-TOFU>). Otherwise, if the package has been downloaded before, its checksum must match the previous value or else Package manager will reject the package and fail the build.</li></ul> Package manager will record user's response to prevent repetitive prompting. |
+  | `prompt`      | Package manager will prompt user to see if the unsigned package should be allowed. <ul><li>If no, Package manager will reject the package and fail the build.</li><li>If yes and the package has never been downloaded, its checksum will be stored for [checksum TOFU](<doc:PackageSecurity#Trust-on-First-Use>). Otherwise, if the package has been downloaded before, its checksum must match the previous value or else Package manager will reject the package and fail the build.</li></ul> Package manager will record user's response to prevent repetitive prompting. |
   | `warn`        | Package manager will not prompt user but will emit a warning before proceeding. |
   | `silentAllow` | Package manager will allow the unsigned package without prompting user or emitting warning. |
 
-- `signing.onUntrustedCertificate`: Indicates how Package manager will handle a package signed with an [untrusted certificate](<doc:Trusted-vs-untrusted-certificate>).
+- `signing.onUntrustedCertificate`: Indicates how Package manager will handle a package signed with an [untrusted certificate](<doc:PackageSecurity#Trusted-vs-untrusted-certificate>).
 
   | Option        | Description                                               |
   | ------------- | --------------------------------------------------------- |
@@ -343,8 +345,8 @@ The `default` JSON object in the example above contains all configurable securit
   | `warn`        | Package manager will not prompt user but will emit a warning before proceeding. |
   | `silentAllow` | Package manager will allow the package signed with an untrusted certificate without prompting user or emitting warning. |
 
-- `signing.trustedRootCertificatesPath`: Absolute path to the directory containing custom trusted roots. Package manager will include these roots in its [trust store](<doc:Trusted-vs-untrusted-certificate>), and certificates used for package signing must chain to roots found in this store. This configuration allows override at the package, scope, and registry levels.
-- `signing.includeDefaultTrustedRootCertificates`: Indicates if Package manager should include default trusted roots in its [trust store](<doc:Trusted-vs-untrusted-certificate>). This configuration allows override at the package, scope, and registry levels.
+- `signing.trustedRootCertificatesPath`: Absolute path to the directory containing custom trusted roots. Package manager will include these roots in its [trust store](<doc:PackageSecurity#Trusted-vs-untrusted-certificate>), and certificates used for package signing must chain to roots found in this store. This configuration allows override at the package, scope, and registry levels.
+- `signing.includeDefaultTrustedRootCertificates`: Indicates if Package manager should include default trusted roots in its [trust store](<doc:PackageSecurity#Trusted-vs-untrusted-certificate>). This configuration allows override at the package, scope, and registry levels.
 - `signing.validationChecks`: Validation check settings for the package signature.
 
   | Validation               | Description                                               |
