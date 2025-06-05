@@ -335,7 +335,7 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
         switch kind {
         case .library:
             self = .generic
-        case .executable:
+        case .executable, .template: //john-to-revisit
             self = .executable
         case .snippet:
             self = .snippet
