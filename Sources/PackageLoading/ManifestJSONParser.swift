@@ -499,7 +499,7 @@ extension ProductDescription {
         switch product.productType {
         case .executable:
             productType = .executable
-        case .plugin:
+        case .plugin, .template:
             productType = .plugin
         case .library(let type):
             productType = .library(.init(type))
@@ -638,8 +638,8 @@ extension TargetDescription.PluginUsage {
 extension TargetDescription.TemplateInitializationOptions {
     init (_ usage: Serialization.TemplateInitializationOptions, identityResolver: IdentityResolver) throws {
         switch usage {
-        case .packageInit(let templateType, let executable, let templatePermissions, let description):
-            self = .packageInit(templateType: .init(templateType), executable: try .init(executable, identityResolver: identityResolver), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
+        case .packageInit(let templateType, let templatePermissions, let description):
+            self = .packageInit(templateType: .init(templateType), templatePermissions: templatePermissions?.map { .init($0) }, description: description)
         }
     }
 }
@@ -647,14 +647,20 @@ extension TargetDescription.TemplateInitializationOptions {
 extension TargetDescription.TemplateType {
     init(_ type: Serialization.TemplateType) {
         switch type {
-        case .regular:
-            self = .regular
+        case .library:
+            self = .library
         case .executable:
             self = .executable
-        case .test:
-            self = .test
+        case .tool:
+            self = .tool
+        case .buildToolPlugin:
+            self = .buildToolPlugin
+        case .commandPlugin:
+            self = .commandPlugin
         case .macro:
             self = .macro
+        case .empty:
+            self = .empty
         }
     }
 }
