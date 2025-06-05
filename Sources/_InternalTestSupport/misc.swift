@@ -63,6 +63,14 @@ public let isRealSigningIdentitTestDefined = {
     #endif
 }()
 
+public let duplicateSymbolRegex: Regex<AnyRegexOutput>? = {
+    do {
+        return try Regex(".*One of the duplicates must be removed or renamed.")
+    } catch {
+        return nil
+    }
+}()
+
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(
     function: StaticString = #function,
