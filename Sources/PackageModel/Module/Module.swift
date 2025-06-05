@@ -29,6 +29,7 @@ public class Module {
         case plugin
         case snippet
         case `macro`
+        case template
     }
 
     /// A group a module belongs to that allows customizing access boundaries. A module is treated as
@@ -307,7 +308,7 @@ public extension Sequence where Iterator.Element == Module {
             switch $0.type {
             case .binary:
                 return ($0 as? BinaryModule)?.containsExecutable == true
-            case .executable, .snippet, .macro:
+            case .executable, .snippet, .macro, .template: //john-to-revisit
                 return true
             default:
                 return false
