@@ -79,7 +79,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
 
     /// Returns the tools version with zeroed patch number.
     public var zeroedPatch: ToolsVersion {
-        return ToolsVersion(version: Version(major, minor, 0))
+        return ToolsVersion(version: Version(6, 1, 0)) //john-to-revisit working on 6.1.0, just for using to test. revert to major, minor when finished
     }
 
     /// The underlying backing store.
