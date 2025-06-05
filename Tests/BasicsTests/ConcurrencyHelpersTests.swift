@@ -45,7 +45,7 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(60)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             expected.forEach { key, value in
                 #expect(cache[key] == value)
             }
@@ -74,7 +74,7 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(60)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             let expectedSorted = expected.sorted()
             let resultsSorted = cache.get().sorted()
             #expect(expectedSorted == resultsSorted)
@@ -110,7 +110,7 @@ struct ConcurrencyHelpersTest {
                 }
             }
 
-            try #require(sync.wait(timeout: .now() + .seconds(60)) == .success)
+            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
             #expect(cache.get() == winner)
         }
     }

@@ -193,7 +193,7 @@ struct BuildCommandTestCases {
         arguments: SupportedBuildSystemOnPlatform,
     )
     func commandDoesNotEmitDuplicateSymbols(buildSystem: BuildSystemProvider.Kind) async throws {
-        let duplicateSymbolRegex = try Regex(".*One of the duplicates must be removed or renamed.")
+        let duplicateSymbolRegex = try #require(duplicateSymbolRegex)
         let (stdout, stderr) = try await execute(["--help"], buildSystem: buildSystem)
         #expect(!stdout.contains(duplicateSymbolRegex))
         #expect(!stderr.contains(duplicateSymbolRegex))
