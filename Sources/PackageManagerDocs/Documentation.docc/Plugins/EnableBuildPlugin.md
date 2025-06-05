@@ -1,5 +1,9 @@
 # Enable a build plugin
 
+@Metadata {
+    @Available("Swift", introduced: "5.6")
+}
+
 Extend the package manager with a build plugin from another package.
 
 ## Overview

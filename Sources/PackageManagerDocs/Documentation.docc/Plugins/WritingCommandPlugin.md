@@ -1,5 +1,9 @@
 # Writing a command plugin
 
+@Metadata {
+    @Available("Swift", introduced: "5.6")
+}
+
 Create a command plugin to provide commands that extend the package manager.
 
 ## Overview
@@ -29,7 +33,6 @@ A plugin is available to the package that defines it, and if there is a correspo
 The manifest of a package that declares a command plugin might look like:
 
 ```swift
-// swift-tools-version: 5.6
 import PackageDescription
 
 let package = Package(

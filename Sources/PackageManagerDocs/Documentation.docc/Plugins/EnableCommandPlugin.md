@@ -1,5 +1,9 @@
 # Enable a command plugin
 
+@Metadata {
+    @Available("Swift", introduced: "5.6")
+}
+
 Extend package manager commands with a command plugin from another package.
 
 ## Overview

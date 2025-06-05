@@ -1,5 +1,9 @@
 # Plugins
 
+@Metadata {
+    @Available("Swift", introduced: "5.6")
+}
+
 Extend package manager functionality with build or command plugins.  
 
 ## Overview

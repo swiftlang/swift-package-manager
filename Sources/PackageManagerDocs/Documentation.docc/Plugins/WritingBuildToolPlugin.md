@@ -1,5 +1,9 @@
 # Writing a build tool plugin
 
+@Metadata {
+    @Available("Swift", introduced: "5.6")
+}
+
 Create a build tool to process or generate files.
 
 ## Overview
