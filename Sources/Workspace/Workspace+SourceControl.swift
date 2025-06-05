@@ -178,8 +178,7 @@ extension Workspace {
             repository: repository,
             updateStrategy: .never,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
 
         // Clone the repository into the checkouts.
