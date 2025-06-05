@@ -466,7 +466,8 @@ let package = Package(
         // MARK: Documentation
 
         .target(
-            name: "PackageManagerDocs"
+            name: "PackageManagerDocs",
+            exclude: ["README.md"],
         ),
 
         // MARK: Package Manager Functionality
