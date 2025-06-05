@@ -197,7 +197,14 @@ extension PackageContainerConstraint: CustomStringConvertible {
 /// An interface for resolving package containers.
 public protocol PackageContainerProvider {
     /// Get the container for a particular identifier asynchronously.
+    func getContainer(
+        for package: PackageReference,
+        updateStrategy: ContainerUpdateStrategy,
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer
+}
 
+public extension PackageContainerProvider {
     @available(*, noasync, message: "Use the async alternative")
     func getContainer(
         for package: PackageReference,
@@ -205,25 +212,12 @@ public protocol PackageContainerProvider {
         observabilityScope: ObservabilityScope,
         on queue: DispatchQueue,
         completion: @escaping @Sendable (Result<PackageContainer, Error>) -> Void
-    )
-}
-
-public extension PackageContainerProvider {
-    func getContainer(
-        for package: PackageReference,
-        updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue
-    ) async throws -> PackageContainer {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getContainer(
+    ) {
+        queue.asyncResult(completion) {
+            try await self.getContainer(
                 for: package,
                 updateStrategy: updateStrategy,
-                observabilityScope: observabilityScope,
-                on: queue,
-                completion: {
-                    continuation.resume(with: $0)
-                }
+                observabilityScope: observabilityScope
             )
         }
     }

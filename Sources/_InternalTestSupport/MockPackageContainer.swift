@@ -171,14 +171,11 @@ public struct MockPackageContainerProvider: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Swift.Error>
-        ) -> Void
-    ) {
-        queue.async {
-            completion(self.containersByIdentifier[package].map { .success($0) } ??
-                .failure(StringError("unknown module \(package)")))
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer {
+        guard let container = self.containersByIdentifier[package] else {
+            throw StringError("unknown module \(package)")
         }
+        return container
     }
 }
