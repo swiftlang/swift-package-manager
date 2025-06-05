@@ -1,24 +1,30 @@
 # Writing a command plugin
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Create a command plugin to provide commands that extend the package manager.
 
 ## Overview
 
-The first step when writing a package plugin is to decide what kind of plugin you need.  If your goal is to generate source files that should be part of a build, or to perform other actions at the start of every build, implement a build tool plugin.  If your goal is to provide actions that users can perform at any time and that are not associated with a build, implement a command plugin.
+The first step when writing a package plugin is to decide what kind of plugin you need.  
 
-A plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package.
+Implement a command plugin to provide actions that users can perform at any time and that are not associated with a build.
 
-### Command plugins
+> Note: If your goal is to generate source files that should be part of a build, or to perform other actions at the start of every build, implement a build tool plugin.
+> See <doc:WritingBuildToolPlugin> for details about creating a build tool plugin.
 
-Command plugins are invoked at will by the user, by invoking `swift` `package` `<command>` `<arguments>`.  They are unrelated to the build graph, and often perform their work by invoking to command line tools as subprocesses.
+Command plugins are invoked at will by the user, by invoking `swift` `package` `<command>` `<arguments>`.
+They are unrelated to the build graph, and often perform their work by invoking to command line tools as subprocesses.
 
 Command plugins are declared in a similar way to build tool plugins, except that they declare a `.command()` capability and implement a different entry point in the plugin script.
 
-A command plugin specifies the semantic intent of the command — this might be one of the predefined intents such “documentation generation” or “source code formatting”, or it might be a custom intent with a specialized verb that can be passed to the `swift` `package` command.  A command plugin can also specify any special permissions it needs, such as the permission to modify the files under the package directory.
+A command plugin specifies the semantic intent of the command — this might be one of the predefined intents such “documentation generation” or “source code formatting”, or it might be a custom intent with a specialized verb that can be passed to the `swift` `package` command.
+A command plugin can also specify any special permissions it needs, such as the permission to modify the files under the package directory.
 
-The command's intent declaration provides a way of grouping command plugins by their functional categories, so that package manager — or an IDE that supports package manager packages — can show the commands that are available for a particular purpose. For example, this approach supports having different command plugins for generating documentation for a package, while still allowing those different commands to be grouped and discovered by intent.
+The command's intent declaration provides a way of grouping command plugins by their functional categories, so that package manager — or an IDE that supports package manager packages — can show the commands that are available for a particular purpose.
+For example, this approach supports having different command plugins for generating documentation for a package, while still allowing those different commands to be grouped and discovered by intent.
 
-#### Declaring a command plugin in the package manifest
+A plugin is available to the package that defines it, and if there is a corresponding plugin product, it is also available to any other package that has a direct dependency on the package.
+
+### Declaring a command plugin in the package manifest
 
 The manifest of a package that declares a command plugin might look like:
 
@@ -59,9 +65,10 @@ let package = Package(
 )
 ```
 
-Here the plugin declares that its purpose is source code formatting, and specifically declares that it will need permission to modify files in the package directory.  Plugins are run in a sandbox that prevents network access and most file system access, but declarations about the need to write to the package add those permissions to the sandbox (after asking the user to approve).
+Here the plugin declares that its purpose is source code formatting, and specifically declares that it will need permission to modify files in the package directory.
+Plugins are run in a sandbox that prevents network access and most file system access, but declarations about the need to write to the package add those permissions to the sandbox (after asking the user to approve).
 
-#### Implementing the command plugin script
+### Implementing the command plugin script
 
 As with build tool plugins, the scripts that implement command plugins should be located under the `Plugins` subdirectory in the package.
 
@@ -123,21 +130,26 @@ struct MyCommandPlugin: CommandPlugin {
 }
 ```
 
-Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessarily operate on just a single target.  The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
+Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessarily operate on just a single target.
+The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
 
-Command plugins can also accept arguments, which can control options for the plugin's actions or can further narrow down what the plugin operates on.  This example supports the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
+Command plugins can also accept arguments, which can control options for the plugin's actions or can further narrow down what the plugin operates on.
+This example supports the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
 
-In the current version of Swift Package Manager, plugins can only use standard system libraries (and not those from other packages, such as SwiftArgumentParser).  Consequently, this plugin uses the built-in `ArgumentExtractor` helper in the *PackagePlugin* module to do simple argument extraction.
+In the current version of Swift Package Manager, plugins can only use standard system libraries (and not those from other packages, such as SwiftArgumentParser).
+Consequently, this plugin uses the built-in `ArgumentExtractor` helper in the *PackagePlugin* module to do simple argument extraction.
 
 ### Diagnostics
 
-Plugin entry points are marked `throws`, and any errors thrown from the entry point cause the plugin invocation to be marked as having failed.  The thrown error is presented to the user, and should include a clear description of what went wrong.
+Plugin entry points are marked `throws`, and any errors thrown from the entry point cause the plugin invocation to be marked as having failed.
+The thrown error is presented to the user, and should include a clear description of what went wrong.
 
 Additionally, plugins can use the `Diagnostics` API in PackagePlugin to emit warnings and errors that optionally include references to file paths and line numbers in those files.
 
 ### Debugging and Testing
 
-package manager doesn't currently have any specific support for debugging and testing plugins.  Many plugins act only as adapters that construct command lines for invoking the tools that do the real work — in the cases in which there is non-trivial code in a plugin, the best current approach is to factor out that code into separate source files that can be included in unit tests in the plugin package via symbolic links with relative paths.
+package manager doesn't currently have any specific support for debugging and testing plugins.
+Many plugins act only as adapters that construct command lines for invoking the tools that do the real work — in the cases in which there is non-trivial code in a plugin, the best current approach is to factor out that code into separate source files that can be included in unit tests in the plugin package via symbolic links with relative paths.
 
 ### Xcode Extensions to the PackagePlugin API
 
@@ -168,9 +180,9 @@ extension MyCommandPlugin: XcodeCommandPlugin {
 #endif
 ```
 
-The `XcodePluginContext` input structure is similar to the regular `PluginContext` structure, except that it provides access to an Xcode project that uses Xcode naming and semantics for the project model (which is somewhat different from that of package manager).  Some of the underlying types, such as `FileList`, `Path`, etc are the same for `PackagePlugin` and `XcodeProjectPlugin` types.
+The `XcodePluginContext` input structure is similar to the regular `PluginContext` structure, except that it provides access to an Xcode project that uses Xcode naming and semantics for the project model (which is somewhat different from that of package manager).
+Some of the underlying types, such as `FileList`, `Path`, etc are the same for `PackagePlugin` and `XcodeProjectPlugin` types.
 
 If any targets are chosen in the Xcode user interface, Xcode passes their names as `--target` arguments to the plugin.
 
 It is expected that other IDEs or custom environments that use package manager could similarly provide modules that define new entry points and extend the functionality of the core `PackagePlugin` APIs.
-

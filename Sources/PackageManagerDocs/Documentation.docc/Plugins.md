@@ -45,8 +45,12 @@ This determines the entry point through which package manager will call it, and 
 
 ## Topics
 
+### Enabling Plugins
+
 - <doc:EnableCommandPlugin>
 - <doc:EnableBuildPlugin>
+
+### Writing Plugins
 
 - <doc:WritingCommandPlugin>
 - <doc:WritingBuildToolPlugin>
