@@ -201,10 +201,16 @@ public class Product {
     @available(_PackageDescription, introduced: 6.0)
     public static func template(
         name: String,
-    ) -> Product {
+    ) -> [Product] {
         let templatePluginName = "\(name)Plugin"
-        let executableTemplateName = name
-        return Product.plugin(name: templatePluginName, targets: [templatePluginName])
+        return [Product.plugin(name: templatePluginName, targets: [templatePluginName]), Product.template(name: name)]
+
+    }
+
+    private static func template(
+        name: String
+    ) -> Product {
+        return Executable(name: name, targets: [name], settings: [])
     }
 }
 

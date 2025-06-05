@@ -17,7 +17,9 @@ struct TemplatePlugin: CommandPlugin {
         context: PluginContext,
         arguments: [String]
     ) async throws {
-        let tool = try context.tool(named: "GenerateStuff")
+
+        print(arguments)
+        let tool = try context.tool(named: "loo")
         let process = Process()
 
         process.executableURL = URL(filePath: tool.url.path())

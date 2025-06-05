@@ -37,7 +37,7 @@ struct PluginCommand: AsyncSwiftCommand {
     )
     var listCommands: Bool = false
 
-    struct PluginOptions: ParsableArguments {
+    public struct PluginOptions: ParsableArguments {
         @Flag(
             name: .customLong("allow-writing-to-package-directory"),
             help: "Allow the plugin to write to the package directory."
@@ -376,7 +376,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
         let buildEnvironment = buildParameters.buildEnvironment
-        let _ = try await pluginTarget.invoke(
+        let pluginOutput = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -395,6 +395,8 @@ struct PluginCommand: AsyncSwiftCommand {
             callbackQueue: delegateQueue,
             delegate: pluginDelegate
         )
+
+        print("plugin Output:", pluginOutput)
 
         // TODO: We should also emit a final line of output regarding the result.
     }

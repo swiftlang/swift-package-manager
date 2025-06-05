@@ -3,9 +3,8 @@ import PackageDescription
 
 let package = Package(
     name: "Dealer",
-    products: [.template(
-        name: "GenerateStuff"
-    ),],
+    products: Product.template(name: "loo")
+    ,
 
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
@@ -13,7 +12,7 @@ let package = Package(
 
     ],
     targets: Target.template(
-        name: "GenerateStuff",
+        name: "loo",
         dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system")
