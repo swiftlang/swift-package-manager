@@ -138,11 +138,11 @@ public final class SwiftModule: Module {
     }
 
     public var supportsTestableExecutablesFeature: Bool {
-        // Exclude macros from testable executables if they are built as dylibs.
+        // Exclude macros from testable executables if they are built as dylibs. john-to-revisit
         #if BUILD_MACROS_AS_DYLIBS
-        return type == .executable || type == .snippet
+        return type == .executable || type == .snippet || type == .template
         #else
-        return type == .executable || type == .macro || type == .snippet
+        return type == .executable || type == .macro || type == .snippet || type == .template
         #endif
     }
 }
