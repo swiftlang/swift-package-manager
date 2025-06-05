@@ -29,9 +29,9 @@ extension BuildSystemProvider.Kind {
             case .native:
                 return ["\(config)".lowercased()]
             case .swiftbuild:
-                return ["Products" , "\(config)\(suffix)".capitalized]
+                return ["Products" , "\(config)".capitalized + suffix]
             case .xcode:
-                return ["apple", "Products" , "\(config)\(suffix)".capitalized]
+                return ["apple", "Products" , "\(config)".capitalized + suffix]
         }
     }
 }
