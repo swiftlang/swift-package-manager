@@ -321,6 +321,8 @@ fileprivate extension SourceCodeFragment {
                 self.init(enum: "test", subnodes: params, multiline: true)
             case .macro:
                 self.init(enum: "macro", subnodes: params, multiline: true)
+            case .template:
+                self.init(enum: "template", subnodes: params, multiline: true)
             }
         }
     }
@@ -661,23 +663,25 @@ fileprivate extension SourceCodeFragment {
 
     init(from templateInitializationOptions: TargetDescription.TemplateInitializationOptions) {
         switch templateInitializationOptions {
-        case .packageInit(let templateType, let executable, let templatePermissions, let description):
+        case .packageInit(let templateType, let templatePermissions, let description):
             var params: [SourceCodeFragment] = []
 
             switch templateType {
-            case .regular:
+            case .library:
                 self.init(enum: "target", subnodes: params, multiline: true)
             case .executable:
                 self.init(enum: "executableTarget", subnodes: params, multiline: true)
-            case .test:
-                self.init(enum: "testTarget", subnodes: params, multiline: true)
+            case .tool:
+                self.init(enum: "tool", subnodes: params, multiline: true)
+            case .buildToolPlugin:
+                self.init(enum: "buildToolPlugin", subnodes: params, multiline: true)
+            case .commandPlugin:
+                self.init(enum: "commandPlugin", subnodes: params, multiline: true)
             case .macro:
                 self.init(enum: "macro", subnodes: params, multiline: true)
+            case .empty:
+                self.init(enum: "empty", subnodes: params, multiline: true)
             }
-            // Template type as an enum
-
-            // Executable fragment
-            params.append(SourceCodeFragment(key: "executable", subnode: .init(from: executable)))
 
             // Permissions, if any
             if let permissions = templatePermissions {
