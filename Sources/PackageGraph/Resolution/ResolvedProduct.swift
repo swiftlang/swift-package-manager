@@ -58,7 +58,7 @@ public struct ResolvedProduct {
     /// Note: This property is only valid for executable products.
     public var executableModule: ResolvedModule {
         get throws {
-            guard self.type == .executable || self.type == .snippet || self.type == .macro else {
+            guard self.type == .executable || self.type == .snippet || self.type == .macro || self.type == .template else { //john-to-revisit
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
             guard let underlyingExecutableModule = modules.map(\.underlying).executables.first,
