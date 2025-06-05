@@ -27,7 +27,7 @@ extension TargetDescription: ManifestSyntaxRepresentable {
         case .regular: "target"
         case .system: "systemLibrary"
         case .test: "testTarget"
-        case .template: "templateTarget"
+        case .template: "template"
         }
     }
 

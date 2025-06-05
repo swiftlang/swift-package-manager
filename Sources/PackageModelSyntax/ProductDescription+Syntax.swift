@@ -29,6 +29,7 @@ extension ProductDescription: ManifestSyntaxRepresentable {
         case .plugin: "plugin"
         case .snippet: "snippet"
         case .test: "test"
+        case .template: "template"
         }
     }
 
