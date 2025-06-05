@@ -212,7 +212,7 @@ public final class UserToolchain: Toolchain {
     private static func computeRuntimeLibraryPaths(targetInfo: JSON) throws -> [AbsolutePath] {
         var libraryPaths: [AbsolutePath] = []
 
-        for runtimeLibPath in try targetInfo.get("paths").getArray("runtimeLibraryPaths") {
+        for runtimeLibPath in (try? (try? targetInfo.get("paths"))?.getArray("runtimeLibraryPaths")) ?? [] {
             guard case .string(let value) = runtimeLibPath else {
                 continue
             }
