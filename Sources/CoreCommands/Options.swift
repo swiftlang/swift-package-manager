@@ -483,6 +483,12 @@ public struct BuildOptions: ParsableArguments {
     )
     public var swiftSDKSelector: String?
 
+    @Option(
+        name: .customLong("experimental-swift-sdk-alias"),
+        help: "Alias for a compatible Swift SDK to build with."
+    )
+    public var swiftSDKAlias: String?
+
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
