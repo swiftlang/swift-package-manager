@@ -1272,7 +1272,6 @@ public final class Target {
             pluginCapability: capability)
     }
 
-    //john-to-revisit documentation
     @available(_PackageDescription, introduced: 6.0)
     public static func template(
         name: String,
@@ -1292,12 +1291,12 @@ public final class Target {
     ) -> [Target] {
 
         let templatePluginName = "\(name)Plugin"
-        let templateExecutableName = name
+        let templateExecutableName = "\(name)"
 
         let (verb, description): (String, String)
         switch templateInitializationOptions {
         case .packageInit(_, _, let desc):
-            verb = "init-\(name.lowercased())"
+            verb = templateExecutableName
             description = desc
         }
 

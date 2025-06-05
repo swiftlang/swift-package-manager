@@ -191,6 +191,11 @@ extension SwiftPackageCommand {
                     // Implement or call your Registry-based template handler
                     print("TODO: Handle Registry template")
                 }
+
+
+                let parsedOptions = try PluginCommand.PluginOptions.parse(["--allow-writing-to-package-directory"])
+                try await PluginCommand.run(command: template, options: parsedOptions, arguments: ["--","--experimental-dump-help"], swiftCommandState: swiftCommandState)
+
             } else {
 
                 var supportedTestingLibraries = Set<TestingLibrary>()
