@@ -446,6 +446,9 @@ extension PackagePIFProjectBuilder {
                         indent: 1,
                         "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
                     )
+                case .template:
+                    //john-to-revisit
+                    break
                 }
 
             case .product(let productDependency, let packageConditions):
