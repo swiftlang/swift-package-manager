@@ -42,6 +42,9 @@ public final class UserToolchain: Toolchain {
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
 
+    /// An array of paths to use with binaries produced by this toolchain at run time.
+    public let runtimeLibraryPaths: [AbsolutePath]
+
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
         swiftSDK.pathsConfiguration.swiftResourcesPath
@@ -204,6 +207,24 @@ public final class UserToolchain: Toolchain {
                 "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
             )
         }
+    }
+
+    private static func computeRuntimeLibraryPaths(targetInfo: JSON) throws -> [AbsolutePath] {
+        var libraryPaths: [AbsolutePath] = []
+
+        for runtimeLibPath in try targetInfo.get("paths").getArray("runtimeLibraryPaths") {
+            guard case .string(let value) = runtimeLibPath else {
+                continue
+            }
+
+            guard let path = try? AbsolutePath(validating: value) else {
+                continue
+            }
+
+            libraryPaths.append(path)
+        }
+
+        return libraryPaths
     }
 
     private static func computeSwiftCompilerVersion(targetInfo: JSON) -> String? {
@@ -691,6 +712,9 @@ public final class UserToolchain: Toolchain {
 
         // Get compiler version information from target info
         self.swiftCompilerVersion = Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+
+        // Get the list of runtime libraries from the target info
+        self.runtimeLibraryPaths = try Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)
 
         // Use the triple from Swift SDK or compute the host triple from the target info
         var triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo)

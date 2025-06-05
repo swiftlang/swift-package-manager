@@ -31,6 +31,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     public let includeSearchPaths = [AbsolutePath]()
     public let librarySearchPaths = [AbsolutePath]()
+    public let runtimeLibraryPaths: [AbsolutePath] = [AbsolutePath]()
     public let swiftResourcesPath: AbsolutePath?
     public let swiftStaticResourcesPath: AbsolutePath? = nil
     public let sdkRootPath: AbsolutePath? = nil

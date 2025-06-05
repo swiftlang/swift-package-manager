@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -357,37 +357,11 @@ public final class PIFBuilder {
                         let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
                             prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
                             buildCommands: result.buildCommands.map( { buildCommand in
-                                var env: [String: String] = [:]
-                                for (key, value) in buildCommand.configuration.environment {
-                                    env[key.rawValue] = value
-                                }
+                                var newEnv: Environment = buildCommand.configuration.environment
 
-                                if let libDir = try? buildParameters.toolchain.toolchainLibDir {
-                                    var libPathVar: String? = nil
-                                    var libPathEntry: String? = nil
-                                    var libPathSeparator: String? = nil
-#if os(macOS)
-                                    libPathVar = "DYLD_LIBRARY_PATH"
-                                    libPathEntry = libDir.appending("swift").appending("macosx").pathString
-                                    libPathSeparator = ":"
-#elseif os(Linux)
-                                    libPathVar = "LD_LIBRARY_PATH"
-                                    libPathEntry = libDir.appending("swift").appending("linux").pathString
-                                    libPathSeparator = ":"
-#elseif os(Windows)
-                                    libPathVar = "PATH"
-                                    libPathEntry = libDir.pathString
-                                    libPathSeparator = ";"
-#endif
-
-                                    if let libPathVar, let libPathEntry, let libPathSeparator {
-                                        let existingEntry = env[libPathVar] ?? ""
-                                        if case var parts = existingEntry.split(separator: libPathSeparator).map({ String($0) }), !parts.contains(libPathEntry) {
-                                            parts.append(libPathEntry)
-                                            env[libPathVar] = parts.joined(separator: libPathSeparator)
-                                        }
-                                    } else {
-                                        observabilityScope.emit(warning: "Unable to set the library path for this platform. Some plugin build tools may not run without this.")
+                                if let runtimeLibPaths = try? buildParameters.toolchain.runtimeLibraryPaths {
+                                    for libPath in runtimeLibPaths {
+                                        newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
                                     }
                                 }
 
@@ -399,7 +373,7 @@ public final class PIFBuilder {
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
-                                    environment: env,
+                                    environment: .init(newEnv),
                                     workingDir: workingDir,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
