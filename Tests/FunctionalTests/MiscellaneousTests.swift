@@ -474,7 +474,11 @@ final class MiscellaneousTestCase: XCTestCase {
 
     func testEditModeEndToEnd() async throws {
         try await fixture(name: "Miscellaneous/Edit") { fixturePath in
+            #if os(Windows)
+            let prefix = fixturePath
+            #else
             let prefix = try resolveSymlinks(fixturePath)
+            #endif
             let appPath = fixturePath.appending("App")
 
             // prepare the dependencies as git repos
@@ -487,8 +491,12 @@ final class MiscellaneousTestCase: XCTestCase {
                 // make sure it builds
                 let output = try await executeSwiftBuild(appPath)
                 // package resolution output goes to stderr
-                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Foo"))"))
-                XCTAssertMatch(output.stderr, .contains("Creating working copy for \(prefix.appending("Foo"))"))
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Foo").pathString)"))
+                XCTAssertMatch(output.stderr, .contains("Fetched \(prefix.appending("Foo").pathString)"))
+                XCTAssertMatch(output.stderr, .contains("Creating working copy for \(prefix.appending("Foo").pathString)"))
+                XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Bar").pathString)"))
+                XCTAssertMatch(output.stderr, .contains("Fetched \(prefix.appending("Bar").pathString)"))
+                XCTAssertMatch(output.stderr, .contains("Creating working copy for \(prefix.appending("Bar").pathString)"))
                 // in "swift build" build output goes to stdout
                 XCTAssertMatch(output.stdout, .contains("Build complete!"))
             }
@@ -597,6 +605,12 @@ final class MiscellaneousTestCase: XCTestCase {
     func testPluginGeneratedResources() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        try XCTSkipOnWindows(
+            because: """
+            Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
 
         try await fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
             let result = try await SwiftPM.Run.execute(packagePath: path)
@@ -610,7 +624,7 @@ final class MiscellaneousTestCase: XCTestCase {
             await XCTAssertBuilds(fixturePath)
         }
     }
-    
+
     func testNoJSONOutputWithFlatPackageStructure() async throws {
         try await fixture(name: "Miscellaneous/FlatPackage") { package in
             // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
