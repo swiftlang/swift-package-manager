@@ -1271,11 +1271,13 @@ public final class Target {
             packageAccess: packageAccess,
             pluginCapability: capability)
     }
+}
 
-    @available(_PackageDescription, introduced: 6.0)
+public extension [Target] {
+    @available(_PackageDescription, introduced: 999.0.0)
     public static func template(
         name: String,
-        dependencies: [Dependency] = [],
+        dependencies: [Target.Dependency] = [],
         path: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
@@ -1286,8 +1288,8 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        plugins: [PluginUsage]? = nil,
-        templateInitializationOptions: TemplateInitializationOptions,
+        plugins: [Target.PluginUsage]? = nil,
+        templateInitializationOptions: Target.TemplateInitializationOptions,
     ) -> [Target] {
 
         let templatePluginName = "\(name)Plugin"
@@ -1345,7 +1347,7 @@ public final class Target {
             )
 
             // Plugin target that depends on the template
-            let pluginTarget = plugin(
+            let pluginTarget = Target.plugin(
                 name: templatePluginName,
                 capability: .command(
                     intent: .custom(verb: verb, description: description),
