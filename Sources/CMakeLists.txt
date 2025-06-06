@@ -10,6 +10,7 @@ add_compile_definitions(USE_IMPL_ONLY_IMPORTS)
 
 add_subdirectory(_AsyncFileSystem)
 add_subdirectory(Basics)
+add_subdirectory(BinarySymbols)
 add_subdirectory(Build)
 add_subdirectory(Commands)
 add_subdirectory(CompilerPluginSupport)

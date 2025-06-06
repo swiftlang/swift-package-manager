@@ -429,6 +429,15 @@ public final class UserToolchain: Toolchain {
         )
     }
 
+    /// Returns the path to llvm-objdump tool.
+    package func getLLVMObjdump() throws -> AbsolutePath {
+        try UserToolchain.getTool(
+            "llvm-objdump",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        )
+    }
+
     public func getSwiftAPIDigester() throws -> AbsolutePath {
         if let envValue = UserToolchain.lookup(
             variable: "SWIFT_API_DIGESTER",

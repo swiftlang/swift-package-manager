@@ -102,7 +102,9 @@ extension Toolchain {
 
             let features: JSON = try parsedSupportedFeatures.get("features")
 
-            let optional: [SwiftCompilerFeature] = try (features.get("optional") as [JSON]?)?.map { (json: JSON) in
+            let optionalFeatures = (try? features.getArray("optional")) ?? []
+
+            let optional: [SwiftCompilerFeature] = try optionalFeatures.map { json in
                 let name: String = try json.get("name")
                 let categories: [String]? = try json.getArrayIfAvailable("categories")
                 let migratable: Bool? = json.get("migratable")
@@ -114,13 +116,17 @@ extension Toolchain {
                     categories: categories ?? [name],
                     flagName: flagName
                 )
-            } ?? []
+            }
 
             let upcoming: [SwiftCompilerFeature] = try features.getArray("upcoming").map {
                 let name: String = try $0.get("name")
                 let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
-                let enabledIn: String = try $0.get("enabled_in")
+                let enabledIn = if let version = try? $0.get(String.self, forKey: "enabled_in") {
+                    version
+                } else {
+                    try String($0.get(Int.self, forKey: "enabled_in"))
+                }
 
                 guard let mode = SwiftLanguageVersion(string: enabledIn) else {
                     throw InternalError("Unknown swift language mode: \(enabledIn)")
