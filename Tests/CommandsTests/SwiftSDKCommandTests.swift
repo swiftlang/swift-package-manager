@@ -66,7 +66,7 @@ final class SwiftSDKCommandTests: CommandsTestCase {
 
                     // We only expect tool's output on the stdout stream.
                     XCTAssertMatch(
-                        stdout,
+                        stdout + "\nstderr:\n" + stderr,
                         .contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
                     )
 

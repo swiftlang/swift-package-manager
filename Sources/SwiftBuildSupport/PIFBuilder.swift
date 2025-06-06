@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -357,9 +357,12 @@ public final class PIFBuilder {
                         let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
                             prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
                             buildCommands: result.buildCommands.map( { buildCommand in
-                                var env: [String: String] = [:]
-                                for (key, value) in buildCommand.configuration.environment {
-                                    env[key.rawValue] = value
+                                var newEnv: Environment = buildCommand.configuration.environment
+
+                                if let runtimeLibPaths = try? buildParameters.toolchain.runtimeLibraryPaths {
+                                    for libPath in runtimeLibPaths {
+                                        newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+                                    }
                                 }
 
                                 let workingDir = buildCommand.configuration.workingDirectory
@@ -370,7 +373,7 @@ public final class PIFBuilder {
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
-                                    environment: env,
+                                    environment: .init(newEnv),
                                     workingDir: workingDir,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
