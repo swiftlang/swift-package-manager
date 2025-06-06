@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "6.1")
 }
 
 Print a list of IDs of available Swift SDKs available on the filesystem.
