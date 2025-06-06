@@ -1145,7 +1145,7 @@ if !shoudUseSwiftBuildFramework {
 
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/swiftlang/swift-build.git", branch: "revert-556-revert-499-owenv/test-discovery"),
         ]
     } else {
         package.dependencies += [
