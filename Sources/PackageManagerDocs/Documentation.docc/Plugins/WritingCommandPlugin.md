@@ -36,46 +36,46 @@ The manifest of a package that declares a command plugin might look like:
 import PackageDescription
 
 let package = Package(
-    name: "MyPluginPackage",
-    products: [
-        .plugin(
-            name: "MyCommandPlugin",
-            targets: [
-                "MyCommandPlugin"
-            ]
-        )
-    ],
-    dependencies: [
-        .package(
-            url: "https://github.com/example/sometool",
-            from: "0.1.0"
-        )
-    ],
-    targets: [
-        .plugin(
-            name: "MyCommandPlugin",
-            capability: .command(
-                intent: .sourceCodeFormatting(),
-                permissions: [
-                    .writeToPackageDirectory(reason: "This command reformats source files")
-                ]
-            ),
-            dependencies: [
-                .product(name: "SomeTool", package: "sometool"),
-            ]
-        )
-    ]
+  name: "MyPluginPackage",
+  products: [
+    .plugin(
+      name: "MyCommandPlugin",
+      targets: [
+        "MyCommandPlugin"
+      ]
+    )
+  ],
+  dependencies: [
+    .package(
+      url: "https://github.com/example/sometool",
+      from: "0.1.0"
+    )
+  ],
+  targets: [
+    .plugin(
+      name: "MyCommandPlugin",
+      capability: .command(
+        intent: .sourceCodeFormatting(),
+        permissions: [
+          .writeToPackageDirectory(reason: "This command reformats source files")
+        ]
+      ),
+      dependencies: [
+        .product(name: "SomeTool", package: "sometool"),
+      ]
+    )
+  ]
 )
 ```
 
-Here the plugin declares that its purpose is source code formatting, and specifically declares that it will need permission to modify files in the package directory.
-Plugins are run in a sandbox that prevents network access and most file system access, but declarations about the need to write to the package add those permissions to the sandbox (after asking the user to approve).
+In the above example, the plugin declares its purpose is source code formatting, and that it needs permission to modify files in the package directory.
+The package manager runs plugins in a sandbox that prevents network access and most file system access.
+Package manager allows additional permissions to allow network access or file system acess when you declare them after it receives approval from the user.
 
 ### Implementing the command plugin script
 
-As with build tool plugins, the scripts that implement command plugins should be located under the `Plugins` subdirectory in the package.
-
-For a command plugin the entry point of the plugin script is expected to conform to the `CommandPlugin` protocol:
+The source that implement command plugins should be located under the `Plugins` subdirectory in the package.
+Conform the entry point of the plugin to the `CommandPlugin` protocol:
 
 ```swift
 import PackagePlugin
@@ -83,64 +83,72 @@ import Foundation
 
 @main
 struct MyCommandPlugin: CommandPlugin {
+123456789012345678901234567890123456789012345678901234567890
+  func performCommand(
+    context: PluginContext,
+    arguments: [String]
+  ) throws {
+    // To invoke `sometool` to format code, start by locating it.
+    let sometool = try context.tool(named: "sometool")
 
-    func performCommand(
-        context: PluginContext,
-        arguments: [String]
-    ) throws {
-        // We'll be invoking `sometool` to format code, so start by locating it.
-        let sometool = try context.tool(named: "sometool")
+    // By convention, use a configuration file in the root 
+    // directory of the package. This allows package owners to 
+    // commit their format settings to their repository.
+    let configFile = context
+      .package
+      .directory
+      .appending(".sometoolconfig")
 
-        // By convention, use a configuration file in the root directory of the
-        // package. This allows package owners to commit their format settings
-        // to their repository.
-        let configFile = context.package.directory.appending(".sometoolconfig")
+    // Extract the target arguments (if there are none, assume all).
+    var argExtractor = ArgumentExtractor(arguments)
+    let targetNames = argExtractor.extractOption(named: "target")
+    let targets = targetNames.isEmpty
+      ? context.package.targets
+      : try context.package.targets(named: targetNames)
 
-        // Extract the target arguments (if there are none, we assume all).
-        var argExtractor = ArgumentExtractor(arguments)
-        let targetNames = argExtractor.extractOption(named: "target")
-        let targets = targetNames.isEmpty
-            ? context.package.targets
-            : try context.package.targets(named: targetNames)
+    // Iterate over the provided targets to format.
+    for target in targets {
+      // Skip any type of target that doesn't have 
+      // source files.
+      // Note: This could instead emit a warning or error.
+      guard let target = target.sourceModule else { continue }
 
-        // Iterate over the targets we've been asked to format.
-        for target in targets {
-            // Skip any type of target that doesn't have source files.
-            // Note: We could choose to instead emit a warning or error here.
-            guard let target = target.sourceModule else { continue }
+      // Invoke `sometool` on the target directory, passing 
+      // a configuration file from the package directory.
+      let sometoolExec = URL(fileURLWithPath: sometool.path.string)
+      let sometoolArgs = [
+        "--config",
+        "\(configFile)",
+        "--cache", 
+        "\(context.pluginWorkDirectory.appending("cache-dir"))",
+        "\(target.directory)"
+      ]
+      let process = try Process.run(sometoolExec, 
+                                    arguments: sometoolArgs)
+      process.waitUntilExit()
 
-            // Invoke `sometool` on the target directory, passing a configuration
-            // file from the package directory.
-            let sometoolExec = URL(fileURLWithPath: sometool.path.string)
-            let sometoolArgs = [
-                "--config", "\(configFile)",
-                "--cache", "\(context.pluginWorkDirectory.appending("cache-dir"))",
-                "\(target.directory)"
-            ]
-            let process = try Process.run(sometoolExec, arguments: sometoolArgs)
-            process.waitUntilExit()
-
-            // Check whether the subprocess invocation was successful.
-            if process.terminationReason == .exit && process.terminationStatus == 0 {
-                print("Formatted the source code in \(target.directory).")
-            }
-            else {
-                let problem = "\(process.terminationReason):\(process.terminationStatus)"
-                Diagnostics.error("Formatting invocation failed: \(problem)")
-            }
-        }
+      // Check whether the subprocess invocation was successful.
+      if process.terminationReason == .exit 
+        && process.terminationStatus == 0
+      {
+        print("Formatted the source code in \(target.directory).")
+      } else {
+        let problem = "\(process.terminationReason):\(process.terminationStatus)"
+        Diagnostics.error("Formatting invocation failed: \(problem)")
+      }
     }
+  }
 }
 ```
 
-Unlike build tool plugins, which are always applied to a single package target, a command plugin does not necessarily operate on just a single target.
+Unlike build tool plugins, which apply to a single package target, a command plugin does not necessarily operate on just a single target.
 The `context` parameter provides access to the inputs, including to a distilled version of the package graph rooted at the package to which the command plugin is applied.
 
-Command plugins can also accept arguments, which can control options for the plugin's actions or can further narrow down what the plugin operates on.
-This example supports the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
+Command plugins can accept arguments, which you use to control options for the plugin's actions or further narrow down what the plugin operates on.
+This example uses the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
 
-In the current version of Swift Package Manager, plugins can only use standard system libraries (and not those from other packages, such as SwiftArgumentParser).
-Consequently, this plugin uses the built-in `ArgumentExtractor` helper in the *PackagePlugin* module to do simple argument extraction.
+Plugins can only use standard system libraries, not those from other packages such as SwiftArgumentParser.
+Consequently, the plugin example uses the built-in `ArgumentExtractor` helper in the *PackagePlugin* module to extract the argument.
 
 ### Diagnostics
 
@@ -151,14 +159,17 @@ Additionally, plugins can use the `Diagnostics` API in PackagePlugin to emit war
 
 ### Debugging and Testing
 
-package manager doesn't currently have any specific support for debugging and testing plugins.
-Many plugins act only as adapters that construct command lines for invoking the tools that do the real work — in the cases in which there is non-trivial code in a plugin, the best current approach is to factor out that code into separate source files that can be included in unit tests in the plugin package via symbolic links with relative paths.
+Package manager doesn't currently have any specific support for debugging and testing plugins.
+Many plugins act as adapters that construct command lines for invoking the tools that do the real work.
+In the cases in which there is non-trivial code in a plugin, a good approach is to factor out that code into separate source files that can be included in unit tests using symbolic links with relative paths.
 
 ### Xcode Extensions to the PackagePlugin API
 
-When invoked in Apple’s Xcode IDE, plugins have access to a library module provided by Xcode called *XcodeProjectPlugin* — this module extends the *PackagePlugin* APIs to let plugins work on Xcode targets in addition to packages.
+When you invoke a plugin in Apple’s Xcode IDE, the plugins has access to a library module provided by Xcode called *XcodeProjectPlugin*. 
+This module extends the *PackagePlugin* APIs to let plugins work on Xcode targets in addition to packages.
 
-In order to write a plugin that works with packages in every environment and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.  For example:
+In order to write a plugin that works with packages in every environment, and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.
+For example:
 
 ```swift
 import PackagePlugin
@@ -166,7 +177,8 @@ import PackagePlugin
 @main
 struct MyCommandPlugin: CommandPlugin {
     /// This entry point is called when operating on a Swift package.
-    func performCommand(context: PluginContext, arguments: [String]) throws {
+    func performCommand(context: PluginContext,
+                        arguments: [String]) throws {
         debugPrint(context)
     }
 }
@@ -176,16 +188,18 @@ import XcodeProjectPlugin
 
 extension MyCommandPlugin: XcodeCommandPlugin {
     /// This entry point is called when operating on an Xcode project.
-    func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+    func performCommand(context: XcodePluginContext, 
+                        arguments: [String]) throws {
         debugPrint(context)
     }
 }
 #endif
 ```
 
-The `XcodePluginContext` input structure is similar to the regular `PluginContext` structure, except that it provides access to an Xcode project that uses Xcode naming and semantics for the project model (which is somewhat different from that of package manager).
-Some of the underlying types, such as `FileList`, `Path`, etc are the same for `PackagePlugin` and `XcodeProjectPlugin` types.
+The `XcodePluginContext` input structure is similar to the `PluginContext` structure, except that it provides access to an Xcode project. 
+The Xcode project uses Xcode naming and semantics for the project model, which is somewhat different from that of package manager.
+Some of the underlying types, such as `FileList`, or `Path`, are the same for `PackagePlugin` and `XcodeProjectPlugin`.
 
 If any targets are chosen in the Xcode user interface, Xcode passes their names as `--target` arguments to the plugin.
 
-It is expected that other IDEs or custom environments that use package manager could similarly provide modules that define new entry points and extend the functionality of the core `PackagePlugin` APIs.
+Other IDEs or custom environments that use the package manager could similarly provide modules that define new entry points and extend the functionality of the core `PackagePlugin` APIs.
