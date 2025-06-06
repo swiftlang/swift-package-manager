@@ -4,6 +4,7 @@ Interact with package registry and manage related configuration.
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.9")
 }
 
 ## Overview

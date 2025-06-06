@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.5")
 }
 
 Search for packages by keywords or module names.

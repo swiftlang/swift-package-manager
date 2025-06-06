@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "6.1")
 }
 
 Installs a given Swift SDK bundle to a location discoverable by SwiftPM.

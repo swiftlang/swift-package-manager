@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "6.1")
 }
 
 Prints all configuration properties currently applied to a given Swift SDK and target triple.
