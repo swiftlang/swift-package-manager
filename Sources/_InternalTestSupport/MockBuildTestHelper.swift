@@ -89,7 +89,6 @@ public func mockBuildParameters(
     canRenameEntrypointFunctionName: Bool = false,
     triple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
-    useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
@@ -114,7 +113,6 @@ public func mockBuildParameters(
         ),
         driverParameters: .init(
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
-            useExplicitModuleBuild: useExplicitModuleBuild
         ),
         linkingParameters: .init(
             linkerDeadStrip: linkerDeadStrip,
