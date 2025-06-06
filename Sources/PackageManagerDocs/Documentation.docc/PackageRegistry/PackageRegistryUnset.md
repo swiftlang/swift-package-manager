@@ -6,10 +6,6 @@
 
 Remove a configured registry.
 
-## Overview
-
-
-
 ### Usage
 
 ```

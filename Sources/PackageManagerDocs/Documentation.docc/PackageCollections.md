@@ -286,69 +286,18 @@ It keeps track of user's list of configured collections and preferences such as 
 }
 ```
 
-
-<!--## Signing and protecting package collections-->
-
-<!--Package collections [can be signed](<doc:PackageSecurity#Signed-package-collections>) to establish authenticity and protect their integrity. -->
-<!--Doing this is optional. -->
-<!--Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>).-->
-<!--If a package collection is signed, the signing certificate must meet a list of [requirements](<doc:PackageSecurity#Requirements-on-signing-certificate>). If these requirements are not met, Package manager will return an error.-->
-
-<!--[`package-collection-sign`](https://github.com/apple/swift-package-collection-generator/tree/main/Sources/PackageCollectionSigner) helps publishers sign their package collections. -->
-<!--To generate a signature one must provide:-->
-<!--- The package collection file to be signed-->
-<!--- A code signing certificate (DER-encoded)-->
-<!--- The certificate's private key (PEM-encoded)-->
-<!--- The certificate's chain in its entirety-->
-<!---->
-<!--A signed package collection has an extra `signature` object:-->
-<!---->
-<!--```json-->
-<!--{-->
-<!--  ...,-->
-<!--  "signature": {-->
-<!--    "signature": "<SIGNATURE>",-->
-<!--    "certificate": {-->
-<!--      "subject": {-->
-<!--        "commonName": "Jane Doe",-->
-<!--        ...-->
-<!--      },-->
-<!--      "issuer": {-->
-<!--        "commonName": "Sample CA",-->
-<!--        ...-->
-<!--      }-->
-<!--    }-->
-<!--  }-->
-<!--}-->
-<!--```-->
-<!---->
-<!--- The signature string (represented by `"<SIGNATURE>"`) is used to verify the contents of the collection file haven't been tampered with since it was signed when a Package manager user [adds the collection](<doc:PackageCollectionAdd#Signed-package-collections>) to their configured list of collections. It includes the certificate's public key and chain.-->
-<!--- `certificate` contains details extracted from the signing certificate. `subject.commonName` should be consistent with the name of the publisher so that it's recognizable by users. The root of the certificate must be [installed and trusted on users' machines](<doc:PackageCollectionAdd#trusted-root-certificates>).-->
-
-<!--### Requirements on signing certificate-->
-<!---->
-<!--Certificates used for signing package collections must meet the following requirements, which are checked and enforced during signature generation (publishers) and verification (Swift Package Manager users):-->
-<!--- The timestamp at which signing/verification is done must fall within the signing certificate's validity period.-->
-<!--- The certificate's "Extended Key Usage" extension must include "Code Signing".-->
-<!--- The certificate must use either 256-bit EC (recommended for enhanced security) or 2048-bit RSA key.-->
-<!--- The certificate must not be revoked. The certificate authority must support OCSP, which means the certificate must have the "Certificate Authority Information Access" extension that includes OCSP as a method, specifying the responder's URL.-->
-<!--- The certificate chain is valid and root certificate must be trusted.-->
-<!---->
-<!--Non-expired, non-revoked Swift Package Collection certificates from [developer.apple.com](https://developer.apple.com) satisfy all of the criteria above.-->
-
-<!--#### Trusted root certificates-->
-<!---->
-<!--With the `package-collection-sign` tool, the root certificate provided as input for signing a collection is automatically trusted. -->
-<!--When a Package manager user tries to add the collection, however, the root certificate must either be preinstalled with the OS (Apple platforms only) or found in the `~/.swiftpm/config/trust-root-certs` directory (all platforms) or shipped with the [certificate-pinning configuration](<doc:#Protecting-package-collections>), otherwise the [signature check](<doc:PackageCollectionAdd#Signed-package-collections>) will fail. Collection publishers should make the DER-encoded -->
-<!--root certificate(s) that they use downloadable so that users can adjust their setup if needed.-->
-
-
 ## Protecting package collections
+
+### Signing a collection
 
 Package collections [can be signed](<doc:PackageSecurity#Signed-package-collections>) to establish authenticity and protect their integrity. 
 Doing this is optional. 
 Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>).
 If a package collection is signed, the signing certificate must meet a list of [requirements](<doc:PackageSecurity#Requirements-on-signing-certificate>). If these requirements are not met, Package manager will return an error.
+
+For more details on the security features Package manager implements, see <doc:PackageSecurity>.
+
+### Security risks
 
 While signing can provide some degree of protection on package collections and reduce the risks of their contents being modified by malicious actors, it doesn't prevent the following attack vectors:
 - **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an unsigned collection and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.

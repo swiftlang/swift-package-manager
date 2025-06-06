@@ -31,16 +31,10 @@ Also refer to the [registry specification](<doc:RegistryServerSpecification#4.2.
 
 #### Package signing
  
-<!--A registry may support or require signing. -->
-<!--To sign a package release, package authors will need to set either the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand such that Package manager can locate the signing key and certificate.-->
+If a registry requires signing, package authors need to sign the package release by either setting the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand. 
+This allows Package manager to locate the signing key and certificate.
 
-<!--If the certificate chain's root and intermediates are known by Package manager, then package author would only need to provide the leaf signing certificate in `cert-chain-paths`. -->
-
-Otherwise, the entire certificate chain should be provided as `cert-chain-paths` so that all of the certificates will be included in the signature and make it possible for Package manager to reconstruct the certificate chain for validation later. 
-This is applicable to `signing-identity` as well (i.e., `signing-identity` can be used in combination with `cert-chain-paths` to provide the entire certificate chain).
-
-If the root of the signing certificate is not in Package manager's default trust store, package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:PackageSecurity#Trusted-vs.-untrusted-certificate>) directory, or else [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
-
+For more information on package signing, see <doc:PackageSecurity#Signed-packages-from-a-registry>. 
 
 ### Usage
 

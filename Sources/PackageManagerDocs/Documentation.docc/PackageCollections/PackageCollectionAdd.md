@@ -31,15 +31,9 @@ Added "Sample Package Collection" to your package collections.
 
 ### Signed package collections
 
-Publishers of a package collection may [sign a collection to protect its contents](<doc:PackageCollections#Signing-and-protecting-package-collections>) from being tampered with. 
-Package manager will check if a signed collection's signature is valid before importing it. If the validation check fails, it will return an error.
-
-For more details on signature validation, see <doc:PackageSecurity#Package-Collections>.
-
-<!--If a collection is signed, Package manager will check that the signature is valid before importing it and return an error if any of these fails:-->
-<!--- The file's contents, signature excluded, must match what was used to generate the signature. -->
-<!--In other words, this checks to see if the collection has been altered since it was signed.-->
-<!--- The signing certificate must meet all the [requirements](<doc:PackageCollections#Requirements-on-signing-certificate>).-->
+Publishers of a package collection may [sign a collection to protect its contents](<doc:PackageCollections#Protecting-package-collections>). 
+Package manager will check if a signed collection's signature is valid before importing it. 
+If the validation check fails, Package manager will return an error:
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -52,7 +46,7 @@ Users may continue adding the collection despite the error or preemptively skip 
 $ swift package-collection add https://www.example.com/packages.json --skip-signature-check
 ```
 
-For package collections hosted on the web, publishers may ask Package manager to [enforce the signature requirement](<doc:PackageCollections#Protecting-package-collections>). If a package collection is
+For package collections hosted on the web, publishers may ask Package manager to [enforce the signature requirement](<doc:PackageSecurity#Trusted-root-certificates>). If a package collection is
 expected to be signed but it isn't, users will see the following error message:
 
 ```bash
@@ -61,6 +55,8 @@ The collection is missing required signature, which means it might have been com
 ```
 
 Users should NOT add the package collection in this case.
+
+For more details on signature validation, see <doc:PackageSecurity#Signed-package-collections>.
 
 ##### Trusted root certificates
 
@@ -90,7 +86,7 @@ $ swift package-collection add https://www.example.com/packages.json
 The collection is not signed. If you would still like to add it please rerun 'add' with '--trust-unsigned'.
 ```
 
-To continue user must confirm their trust by passing the `--trust-unsigned` flag:
+To continue, users must confirm their trust by passing the `--trust-unsigned` flag:
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json --trust-unsigned
