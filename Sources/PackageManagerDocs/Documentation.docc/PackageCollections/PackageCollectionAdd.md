@@ -60,13 +60,7 @@ For more details on signature validation, see <doc:PackageSecurity#Signed-packag
 
 ##### Trusted root certificates
 
-<!--Since generating a collection signature requires a certificate, part of the signature check involves validating the certificate and its chain and making sure that the root certificate is trusted.-->
-<!---->
-<!--On Apple platforms, all root certificates that come preinstalled with the OS are automatically trusted. Users may include additional certificates to trust by placing -->
-<!--them in the `~/.swiftpm/config/trust-root-certs` directory. -->
-<!---->
-<!--On non-Apple platforms, there are no trusted root certificates by default other than those shipped with the [certificate-pinning configuration](<doc:PackageCollections#Protecting-package-collections>). Only those -->
-<!--found in `~/.swiftpm/config/trust-root-certs` are trusted. This means that the signature check will always fail unless the `trust-root-certs` directory is set up:-->
+Package manager [validates the certificate](<doc:PackageSecurity#Trusted-root-certificates>) of a signed collection as a part of its signature validation to make sure that the root certificate is trusted.
 
 ```bash
 $ swift package-collection add https://www.example.com/packages.json
@@ -74,8 +68,7 @@ The collection's signature cannot be verified due to missing configuration.
 ```
 
 Users can explicitly specify they trust a publisher and any collections they publish, by obtaining that publisher's root certificate and saving it to `~/.swiftpm/config/trust-root-certs`. The 
-root certificates must be DER-encoded. Since SwiftPM trusts all certificate chains under a root, depending on what roots are installed, some publishers may already be trusted implicitly and 
-users don't need to explicitly specify each one. 
+root certificates must be DER-encoded. Since Package manager trusts all certificate chains under a root, depending on what roots are installed, some publishers may already be trusted implicitly and users don't need to explicitly specify each one. 
 
 #### Unsigned package collections
 
