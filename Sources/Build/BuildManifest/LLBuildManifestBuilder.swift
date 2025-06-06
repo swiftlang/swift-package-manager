@@ -93,26 +93,17 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.plan.destinationBuildParameters.driverParameters.useExplicitModuleBuild {
-            // Explicit module builds use the integrated driver directly and
-            // require that every target's build jobs specify its dependencies explicitly to plan
-            // its build.
-            // Currently behind:
-            // --experimental-explicit-module-build
-            try addTargetsToExplicitBuildManifest()
-        } else {
-            // Create commands for all target descriptions in the plan.
-            for description in self.plan.targetMap {
-                switch description {
-                case .swift(let desc):
-                    try self.createSwiftCompileCommand(desc)
-                case .clang(let desc):
-                    if desc.buildParameters.prepareForIndexing == .off {
-                        try self.createClangCompileCommand(desc)
-                    } else {
-                        // Hook up the clang module target when preparing
-                        try self.createClangPrepareCommand(desc)
-                    }
+        // Create commands for all target descriptions in the plan.
+        for description in self.plan.targetMap {
+            switch description {
+            case .swift(let desc):
+                try self.createSwiftCompileCommand(desc)
+            case .clang(let desc):
+                if desc.buildParameters.prepareForIndexing == .off {
+                    try self.createClangCompileCommand(desc)
+                } else {
+                    // Hook up the clang module target when preparing
+                    try self.createClangPrepareCommand(desc)
                 }
             }
         }

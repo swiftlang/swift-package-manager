@@ -632,11 +632,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
         }
 
-        if parameters.useExplicitModuleBuild {
-            settings["CLANG_ENABLE_EXPLICIT_MODULES"] = "YES"
-            settings["SWIFT_ENABLE_EXPLICIT_MODULES"] = "YES"
-        }
-
         return settings
     }
 

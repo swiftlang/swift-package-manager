@@ -530,10 +530,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
-    /// Whether to use the explicit module build flow (with the integrated driver)
-    @Flag(name: .customLong("experimental-explicit-module-build"))
-    public var useExplicitModuleBuild: Bool = false
-
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
