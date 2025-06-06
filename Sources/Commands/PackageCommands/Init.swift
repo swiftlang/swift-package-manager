@@ -203,7 +203,7 @@ extension SwiftPackageCommand {
 
                 //will need to revisit this
                 let arguments = [
-                    "/Users/johnbute/Desktop/swift-pm-template/.build/arm64-apple-macosx/debug/swift-package", "plugin", template, "--allow-network-connections","local:1200",
+                    CommandLine.arguments[0], "plugin", template, "--allow-network-connections","local:1200",
                     "--", "--experimental-dump-help"
                 ]
                 let process = AsyncProcess(arguments: arguments)
