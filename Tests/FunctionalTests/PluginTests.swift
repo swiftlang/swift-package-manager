@@ -70,11 +70,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() async throws {
@@ -90,10 +92,12 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testUseOfPluginWithInternalExecutable() async throws {
@@ -111,11 +115,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ClientOfPluginWithInternalExecutable"), extraArgs: ["--build-system", "swiftbuild"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testInternalExecutableAvailableOnlyToPlugin() async throws {
@@ -151,11 +157,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"), extraArgs: ["--build-system", "swiftbuild"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
     
     func testBuildToolPluginDependencies() async throws {
@@ -194,10 +202,12 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testPluginScriptSandbox() async throws {
@@ -1146,11 +1156,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
+#endif
     }
 
     func testIncorrectDependencies() async throws {
@@ -1161,11 +1173,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
             XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
+#endif
     }
 
     func testSandboxViolatingBuildToolPluginCommands() async throws {
@@ -1203,11 +1217,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("TransitivePluginOnlyDependency"), extraArgs: ["--build-system", "swiftbuild"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testMissingPlugin() async throws {
@@ -1222,6 +1238,7 @@ final class PluginTests: XCTestCase {
             }
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             do {
                 try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
@@ -1229,6 +1246,7 @@ final class PluginTests: XCTestCase {
                 XCTAssert(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
         }
+#endif
     }
 
     func testPluginCanBeReferencedByProductName() async throws {
@@ -1242,11 +1260,13 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("PluginCanBeReferencedByProductName"), extraArgs: ["--build-system", "swiftbuild"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 
     func testPluginCanBeAffectedByXBuildToolsParameters() async throws {
@@ -1310,9 +1330,11 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath, extraArgs: ["--build-system", "swiftbuild"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+#endif
     }
 }
