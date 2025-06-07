@@ -198,19 +198,20 @@ public class Product {
         return Plugin(name: name, targets: targets)
     }
 
-    @available(_PackageDescription, introduced: 6.0)
+    fileprivate static func template(
+        name: String
+    ) -> Product {
+        return Executable(name: name, targets: [name], settings: [])
+    }
+}
+
+public extension [Product] {
+    @available(_PackageDescription, introduced: 999.0.0)
     public static func template(
         name: String,
     ) -> [Product] {
         let templatePluginName = "\(name)Plugin"
         return [Product.plugin(name: templatePluginName, targets: [templatePluginName]), Product.template(name: name)]
-
-    }
-
-    private static func template(
-        name: String
-    ) -> Product {
-        return Executable(name: name, targets: [name], settings: [])
     }
 }
 
