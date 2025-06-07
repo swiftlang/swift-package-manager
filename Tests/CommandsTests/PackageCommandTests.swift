@@ -3466,7 +3466,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
                 XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
-                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("debug/MyExecutable").pathString)))
+                switch buildSystemProvider {
+                case .native:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("debug/MyExecutable").pathString)))
+                case .swiftbuild:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("MyExecutable").pathString)))
+                case .xcode:
+                    XCTFail("unimplemented assertion for --build-system xcode")
+                }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
             }
 
@@ -3478,7 +3485,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
                 XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
-                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/MyExecutable").pathString)))
+                switch buildSystemProvider {
+                case .native:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/MyExecutable").pathString)))
+                case .swiftbuild:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("MyExecutable").pathString)))
+                case .xcode:
+                    XCTFail("unimplemented assertion for --build-system xcode")
+                }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
             }
 
@@ -3490,7 +3504,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
                 XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
-                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/libMyStaticLibrary").pathString)))
+                switch buildSystemProvider {
+                case .native:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/libMyStaticLibrary").pathString)))
+                case .swiftbuild:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("MyStaticLibrary").pathString)))
+                case .xcode:
+                    XCTFail("unimplemented assertion for --build-system xcode")
+                }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
             }
 
@@ -3502,11 +3523,18 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
                 XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
-#if os(Windows)                
-                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release\\MyDynamicLibrary")))
-#else
-                XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains("release/libMyDynamicLibrary")))
-#endif
+                switch buildSystemProvider {
+                case .native:
+                    #if os(Windows)
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/MyDynamicLibrary.dll").pathString)))
+                    #else
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("release/libMyDynamicLibrary").pathString)))
+                    #endif
+                case .swiftbuild:
+                    XCTAssertMatch(stdout, .and(.contains("artifact-path:"), .contains(RelativePath("MyDynamicLibrary").pathString)))
+                case .xcode:
+                    XCTFail("unimplemented assertion for --build-system xcode")
+                }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
             }
         }
@@ -4069,10 +4097,7 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testNoParameters() async throws {
         try await super.testNoParameters()
     }
-
-    override func testCommandPluginBuildingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails because plugin is not producing expected output to stdout.")
-    }
+    
     override func testCommandPluginBuildTestability() async throws {
         throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
     }
