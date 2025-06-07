@@ -193,49 +193,22 @@ extension SwiftPackageCommand {
                     print("TODO: Handle Registry template")
                 }
 
-                /*
-                let parsedOptions = try PluginCommand.PluginOptions.parse(["--allow-writing-to-package-directory"])
+                let packageGraph = try await swiftCommandState.loadPackageGraph()
+                let matchingPlugins = PluginCommand.findPlugins(matching: template, in: packageGraph, limitedTo: nil)
 
-
-                try await PluginCommand.run(command: template, options: parsedOptions, arguments: ["--","--experimental-dump-help"], swiftCommandState: swiftCommandState)
-
-                 */
-
-                //will need to revisit this
-                let arguments = [
-                    CommandLine.arguments[0], "plugin", template, "--allow-network-connections","local:1200",
-                    "--", "--experimental-dump-help"
-                ]
-                let process = AsyncProcess(arguments: arguments)
-
-                try process.launch()
-
-                let processResult = try await process.waitUntilExit()
-
-
-                guard processResult.exitStatus == .terminated(code: 0) else {
-                    throw try StringError(processResult.utf8stderrOutput())
-                }
-
-
-                switch processResult.output {
-                case .success(let outputBytes):
-                    let outputString = String(decoding: outputBytes, as: UTF8.self)
-
-
-                    guard let data = outputString.data(using: .utf8) else {
-                        fatalError("Could not convert output string to Data")
-                    }
+                let output = try await Self.run(
+                    plugin: matchingPlugins[0],
+                    package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
+                    packageGraph: packageGraph,
+                    //allowNetworkConnections: [.local(ports: [1200])],
+                    arguments: ["--experimental-dump-help"],
+                    swiftCommandState: swiftCommandState
+                )
                     
-                    do {
-                        let schema = try JSONDecoder().decode(ToolInfoV0.self, from: data)
-                    }
-
-                case .failure(let error):
-                    print("Failed to get output:", error)
+                do {
+                    let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
+                    print("OUTPUT: \(toolInfo)")
                 }
-
-
 
             } else {
 
@@ -267,6 +240,168 @@ extension SwiftPackageCommand {
             }
         }
 
+    static func run(
+        plugin: ResolvedModule,
+        package: ResolvedPackage,
+        packageGraph: ModulesGraph,
+        allowNetworkConnections: [SandboxNetworkPermission] = [],
+        arguments: [String],
+        swiftCommandState: SwiftCommandState
+    ) async throws -> Data {
+        let pluginTarget = plugin.underlying as! PluginModule
+
+        // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to this plugin in the workspace.
+        let pluginsDir = try swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
+            .appending(component: plugin.name)
+
+        // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
+        let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(
+            customPluginsDir: pluginsDir
+        )
+
+        // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
+        let outputDir = pluginsDir.appending("outputs")
+
+        // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
+        var writableDirectories = [outputDir]
+
+        // FIXME: decide whether this permission needs to be explicitly requested by the plugin target, or not
+        print("WRITABLE DIRECTORY: \(package.path)")
+        writableDirectories.append(package.path)
+
+        var allowNetworkConnections = allowNetworkConnections
+
+        // If the plugin requires permissions, we ask the user for approval.
+        if case .command(_, let permissions) = pluginTarget.capability {
+            try permissions.forEach {
+                let permissionString: String
+                let reasonString: String
+                let remedyOption: String
+
+                switch $0 {
+                case .writeToPackageDirectory(let reason):
+                    //guard !options.allowWritingToPackageDirectory else { return } // permission already granted
+                    permissionString = "write to the package directory"
+                    reasonString = reason
+                    remedyOption = "--allow-writing-to-package-directory"
+                case .allowNetworkConnections(let scope, let reason):
+                    guard scope != .none else { return } // no need to prompt
+                    //guard options.allowNetworkConnections != .init(scope) else { return } // permission already granted
+
+                    switch scope {
+                    case .all, .local:
+                        let portsString = scope.ports
+                            .isEmpty ? "on all ports" :
+                            "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
+                        permissionString = "allow \(scope.label) network connections \(portsString)"
+                    case .docker, .unixDomainSocket:
+                        permissionString = "allow \(scope.label) connections"
+                    case .none:
+                        permissionString = "" // should not be reached
+                    }
+
+                    reasonString = reason
+                    // FIXME compute the correct reason for the type of network connection
+                    remedyOption =
+                        "--allow-network-connections 'Network connection is needed'"
+                }
+
+                let problem = "Plugin ‘\(plugin.name)’ wants permission to \(permissionString)."
+                let reason = "Stated reason: “\(reasonString)”."
+                if swiftCommandState.outputStream.isTTY {
+                    // We can ask the user directly, so we do so.
+                    let query = "Allow this plugin to \(permissionString)?"
+                    swiftCommandState.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
+                    swiftCommandState.outputStream.flush()
+                    let answer = readLine(strippingNewline: true)
+                    // Throw an error if we didn't get permission.
+                    if answer?.lowercased() != "yes" {
+                        throw StringError("Plugin was denied permission to \(permissionString).")
+                    }
+                } else {
+                    // We can't ask the user, so emit an error suggesting passing the flag.
+                    let remedy = "Use `\(remedyOption)` to allow this."
+                    throw StringError([problem, reason, remedy].joined(separator: "\n"))
+                }
+
+                switch $0 {
+                case .writeToPackageDirectory:
+                    // Otherwise append the directory to the list of allowed ones.
+                    writableDirectories.append(package.path)
+                case .allowNetworkConnections(let scope, _):
+                    allowNetworkConnections.append(.init(scope))
+                }
+            }
+        }
+
+        // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
+        let readOnlyDirectories = writableDirectories
+            .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
+
+        // Use the directory containing the compiler as an additional search directory, and add the $PATH.
+        let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
+            + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
+
+        let buildParameters = try swiftCommandState.toolsBuildParameters
+        // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
+        let buildSystem = try await swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .native,
+            traitConfiguration: .init(),
+            cacheBuildManifest: false,
+            productsBuildParameters: swiftCommandState.productsBuildParameters,
+            toolsBuildParameters: buildParameters,
+            packageGraphLoader: { packageGraph }
+        )
+
+        let accessibleTools = try await plugin.preparePluginTools(
+            fileSystem: swiftCommandState.fileSystem,
+            environment: buildParameters.buildEnvironment,
+            for: try pluginScriptRunner.hostTriple
+        ) { name, _ in
+            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
+            try await buildSystem.build(subset: .product(name, for: .host))
+            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
+                $0.product.name == name && $0.buildParameters.destination == .host
+            }) {
+                return try builtTool.binaryPath
+            } else {
+                return nil
+            }
+        }
+
+        // Set up a delegate to handle callbacks from the command plugin.
+        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget, echoOutput: false)
+        let delegateQueue = DispatchQueue(label: "plugin-invocation")
+
+        // Run the command plugin.
+
+        // TODO: use region based isolation when swift 6 is available
+        let writableDirectoriesCopy = writableDirectories
+        let allowNetworkConnectionsCopy = allowNetworkConnections
+
+        let buildEnvironment = buildParameters.buildEnvironment
+        try await pluginTarget.invoke(
+            action: .performCommand(package: package, arguments: arguments),
+            buildEnvironment: buildEnvironment,
+            scriptRunner: pluginScriptRunner,
+            workingDirectory: swiftCommandState.originalWorkingDirectory,
+            outputDirectory: outputDir,
+            toolSearchDirectories: toolSearchDirs,
+            accessibleTools: accessibleTools,
+            writableDirectories: writableDirectoriesCopy,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnectionsCopy,
+            pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
+            sdkRootPath: buildParameters.toolchain.sdkRootPath,
+            fileSystem: swiftCommandState.fileSystem,
+            modulesGraph: packageGraph,
+            observabilityScope: swiftCommandState.observabilityScope,
+            callbackQueue: delegateQueue,
+            delegate: pluginDelegate
+        )
+
+        return pluginDelegate.lineBufferedOutput
+    }
 
         private func captureStdout(_ block: () async throws -> Void) async throws -> String {
             let originalStdout = dup(fileno(stdout))
