@@ -530,6 +530,7 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "PackageModelSyntax",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser"]),
             exclude: ["CMakeLists.txt"],
