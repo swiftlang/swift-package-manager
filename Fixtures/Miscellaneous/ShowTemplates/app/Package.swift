@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Dealer",
-    products: Product.template(name: "loo")
+    products: Product.template(name: "koo")
     ,
 
     dependencies: [
@@ -12,7 +12,7 @@ let package = Package(
 
     ],
     targets: Target.template(
-        name: "loo",
+        name: "koo",
         dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system")

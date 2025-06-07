@@ -31,7 +31,7 @@ struct HelloTemplateTool: ParsableCommand {
 
         let rootDir = FilePath(fs.currentDirectoryPath)
 
-        let mainFile = rootDir / "Soures" / name / "main.swift"
+        let mainFile = rootDir / "Generated" / name / "main.swift"
 
         try fs.createDirectory(atPath: mainFile.removingLastComponent().string, withIntermediateDirectories: true)
 
