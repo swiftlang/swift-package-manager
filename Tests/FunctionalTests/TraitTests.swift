@@ -18,6 +18,12 @@ import XCTest
 
 final class TraitTests: XCTestCase {
     func testTraits_whenNoFlagPassed() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -40,6 +46,12 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenTraitUnification() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -66,6 +78,12 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenTraitUnification_whenSecondTraitNotEnabled() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -90,6 +108,12 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraits() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -119,6 +143,13 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenDefaultTraitsDisabled() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -137,6 +168,12 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -158,6 +195,13 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenAllTraitsEnabled() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -187,6 +231,13 @@ final class TraitTests: XCTestCase {
     }
 
     func testTraits_whenAllTraitsEnabled_andDefaultTraitsDisabled() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -231,6 +282,12 @@ final class TraitTests: XCTestCase {
     }
 
     func testTests_whenNoFlagPassed() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Error during swift Run Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftTest(
                 fixturePath.appending("Example"),

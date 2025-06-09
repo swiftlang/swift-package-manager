@@ -67,10 +67,15 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     } else {
         failureCause = ""
     }
-    if (skipPlatformCi || skipSelfHostedCI) {
+    if (skipPlatformCi) {
         try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+    }
+
+    if (skipSelfHostedCI) {
         try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
-    } else {
+    }
+
+    if (!skipPlatformCi && !skipSelfHostedCI) {
         throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
     }
     #endif
