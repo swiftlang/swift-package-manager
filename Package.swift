@@ -81,6 +81,7 @@ let swiftPMProduct = (
         "LLBuildManifest",
         "SourceKitLSPAPI",
         "SPMLLBuild",
+        "SwiftBuildSupport",
     ]
 )
 
