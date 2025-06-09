@@ -382,6 +382,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v15: MacOSVersion = .init(string: "15.0")
+
+        /// The value that represents macOS 16.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v16: MacOSVersion = .init(string: "16.0")
     }
 
     /// The supported tvOS version.
@@ -455,6 +461,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v18: TVOSVersion = .init(string: "18.0")
+
+        /// The value that represents tvOS 19.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v19: TVOSVersion = .init(string: "19.0")
     }
 
     /// The supported Mac Catalyst version.
@@ -504,6 +516,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v18: MacCatalystVersion = .init(string: "18.0")
+
+        /// The value that represents Mac Catalyst 19.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v19: MacCatalystVersion = .init(string: "19.0")
     }
 
     /// The supported iOS version.
@@ -583,6 +601,14 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v18: IOSVersion = .init(string: "18.0")
+
+
+        /// The value that represents iOS 19.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v19: IOSVersion = .init(string: "19.0")
+
     }
 
     /// The supported watchOS version.
@@ -656,6 +682,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v11: WatchOSVersion = .init(string: "11.0")
+
+        /// The value that represents watchOS 12.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v12: WatchOSVersion = .init(string: "12.0")
     }
 
     /// The supported visionOS version.
@@ -681,6 +713,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v2: VisionOSVersion = .init(string: "2.0")
+
+        /// The value that represents visionOS 3.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v3: VisionOSVersion = .init(string: "3.0")
     }
 
     /// The supported DriverKit version.
@@ -730,6 +768,12 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.0.
         @available(_PackageDescription, introduced: 6.0)
         public static let v24: DriverKitVersion = .init(string: "24.0")
+
+        /// The value that represents DriverKit 25.0.
+        ///
+        /// - Since: First available in PackageDescription 6.2.
+        @available(_PackageDescription, introduced: 6.2)
+        public static let v25: DriverKitVersion = .init(string: "25.0")
     }
 
     /// A supported custom platform version.
