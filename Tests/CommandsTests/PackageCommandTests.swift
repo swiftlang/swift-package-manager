@@ -4091,4 +4091,9 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         try await super.testCommandPluginTargetBuilds()
     }
+
+    override func testCommandPluginPermissions() async throws {
+        try XCTExhibitsGitHubIssue(8782)
+        try await super.testCommandPluginPermissions()
+    }
 }
