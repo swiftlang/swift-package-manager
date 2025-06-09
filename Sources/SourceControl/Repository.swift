@@ -79,7 +79,7 @@ extension RepositorySpecifier: CustomStringConvertible {
 /// This protocol defines the lower level interface used to to access
 /// repositories. High-level clients should access repositories via a
 /// `RepositoryManager`.
-public protocol RepositoryProvider: Cancellable {
+public protocol RepositoryProvider: Cancellable, Sendable {
     /// Fetch the complete repository at the given location to `path`.
     ///
     /// - Parameters:
@@ -98,7 +98,7 @@ public protocol RepositoryProvider: Cancellable {
     ///     repository has previously been created via `fetch`.
     ///
     /// - Throws: If the repository is unable to be opened.
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) async throws -> Repository
 
     /// Create a working copy from a managed repository.
     ///
@@ -276,7 +276,7 @@ public protocol WorkingCheckout {
 }
 
 /// A single repository revision.
-public struct Revision: Hashable {
+public struct Revision: Hashable, Sendable {
     /// A precise identifier for a single repository revision, in a repository-specified manner.
     ///
     /// This string is intended to be opaque to the client, but understandable
@@ -289,7 +289,7 @@ public struct Revision: Hashable {
     }
 }
 
-public protocol FetchProgress {
+public protocol FetchProgress: Sendable {
     typealias Handler = (FetchProgress) -> Void
 
     var message: String { get }
