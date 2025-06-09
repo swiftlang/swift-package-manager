@@ -990,8 +990,7 @@ extension Workspace {
                     let container = try await self.packageContainerProvider.getContainer(
                         for: dependency.packageRef,
                         updateStrategy: .never,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                     if let customContainer = container as? CustomPackageContainer {
                         let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)
