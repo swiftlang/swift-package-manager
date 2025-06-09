@@ -207,7 +207,7 @@ public class Product {
 
 public extension [Product] {
     @available(_PackageDescription, introduced: 999.0.0)
-    public static func template(
+    static func template(
         name: String,
     ) -> [Product] {
         let templatePluginName = "\(name)Plugin"

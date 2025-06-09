@@ -27,6 +27,8 @@ struct HelloTemplateTool: ParsableCommand {
 
     //entrypoint of the template executable, that generates just a main.swift and a readme.md
     func run() throws {
+
+        print("we got here")
         let fs = FileManager.default
 
         let rootDir = FilePath(fs.currentDirectoryPath)

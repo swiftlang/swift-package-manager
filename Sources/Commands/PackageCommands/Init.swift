@@ -105,6 +105,30 @@ extension SwiftPackageCommand {
         // prompt user
         // run the executable with the command line stuff
 
+        /// Returns the resolved template path for a given template source.
+        func resolveTemplatePath() async throws -> Basics.AbsolutePath {
+            switch templateType {
+            case .local:
+                guard let path = templateDirectory else {
+                    throw InternalError("Template path must be specified for local templates.")
+                }
+                return path
+
+            case .git:
+                // TODO: Cache logic and smarter hashing
+                throw StringError("git-based templates not yet implemented")
+
+            case .registry:
+                // TODO: Lookup and download from registry
+                throw StringError("Registry-based templates not yet implemented")
+
+            case .none:
+                throw InternalError("Missing --template-type for --template")
+            }
+        }
+
+
+
         //first,
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
@@ -117,151 +141,87 @@ extension SwiftPackageCommand {
             // For macros this is reversed, since we don't support testing
             // macros with Swift Testing yet.
             if useTemplates {
-                guard let type = templateType else {
-                    throw InternalError("Template path must be specified when using the local template type.")
+                let resolvedTemplatePath = try await resolveTemplatePath()
+
+                let templateInitType = try await swiftCommandState.withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { workspace, root in
+                    return try await checkConditions(swiftCommandState)
                 }
 
-                switch type {
-                case .local:
+                var supportedTemplateTestingLibraries = Set<TestingLibrary>()
+                if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
+                    (templateInitType == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
+                    supportedTemplateTestingLibraries.insert(.xctest)
+                }
+                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
+                    (templateInitType != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
+                    supportedTemplateTestingLibraries.insert(.swiftTesting)
+                }
 
-                    guard let templatePath = templateDirectory else {
-                        throw InternalError("Template path must be specified when using the local template type.")
-                    }
+                let initTemplatePackage = try InitTemplatePackage(
+                    name: packageName,
+                    templateName: template,
+                    initMode: templateType ?? .local,
+                    templatePath: resolvedTemplatePath,
+                    fileSystem: swiftCommandState.fileSystem,
+                    packageType: templateInitType,
+                    supportedTestingLibraries: supportedTemplateTestingLibraries,
+                    destinationPath: cwd,
+                    installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
+                )
 
-                    /// Get the package initialization type based on templateInitializationOptions and check for if the template called is valid.
-                    let templateInitType = try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
-                        return try await checkConditions(swiftCommandState)
-                    }
+                try initTemplatePackage.setupTemplateManifest()
 
-                    var supportedTemplateTestingLibraries = Set<TestingLibrary>()
-                    if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
-                        (templateInitType == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
-                        supportedTemplateTestingLibraries.insert(.xctest)
-                    }
-                    if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-                        (templateInitType != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
-                        supportedTemplateTestingLibraries.insert(.swiftTesting)
-                    }
-
-                    let initTemplatePackage = try InitTemplatePackage(
-                        name: packageName,
-                        templateName: template,
-                        initMode: type,
-                        templatePath: templatePath,
-                        fileSystem: swiftCommandState.fileSystem,
-                        packageType: templateInitType,
-                        supportedTestingLibraries: supportedTemplateTestingLibraries,
-                        destinationPath: cwd,
-                        installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
-
+                // Build system setup
+                let buildSystem = try await swiftCommandState.withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+                    try await swiftCommandState.createBuildSystem(
+                        explicitProduct: buildOptions.product,
+                        traitConfiguration: .init(traitOptions: buildOptions.traits),
+                        shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
+                        productsBuildParameters: swiftCommandState.productsBuildParameters,
+                        toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+                        outputStream: TSCBasic.stdoutStream
                     )
-                    try initTemplatePackage.setupTemplateManifest()
+                }
 
-                    let buildSystem = try await swiftCommandState.withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { workspace, root in
+                guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
+                    throw ExitCode.failure
+                }
 
-                        try await swiftCommandState.createBuildSystem(
-                            explicitProduct: buildOptions.product,
-                            traitConfiguration: .init(traitOptions: buildOptions.traits),
-                            shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
-                            productsBuildParameters: swiftCommandState.productsBuildParameters,
-                            toolsBuildParameters: swiftCommandState.toolsBuildParameters,
-                            // command result output goes on stdout
-                            // ie "swift build" should output to stdout
-                            outputStream: TSCBasic.stdoutStream
-                        )
-
-                    }
-
-                    guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
+                try await swiftCommandState.withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+                    do {
+                        try await buildSystem.build(subset: subset)
+                    } catch _ as Diagnostics {
                         throw ExitCode.failure
                     }
-
-                    let _ = try await swiftCommandState.withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { workspace, root in
-                        do {
-                            try await buildSystem.build(subset: subset)
-                        }  catch _ as Diagnostics {
-                            throw ExitCode.failure
-                        }
-                    }
-
-                        /*
-                        let parsedOptions = try PluginCommand.PluginOptions.parse(["--allow-writing-to-package-directory"])
-
-
-                        try await PluginCommand.run(command: template, options: parsedOptions, arguments: ["--","--experimental-dump-help"], swiftCommandState: swiftCommandState)
-
-                         */
-
-                        //will need to revisit this
-                        let arguments = [
-                            "/Users/johnbute/Desktop/swift-pm-template/.build/arm64-apple-macosx/debug/swift-package", "plugin", template, "--allow-network-connections","local:1200",
-                            "--", "--experimental-dump-help"
-                        ]
-                        let process = AsyncProcess(arguments: arguments)
-
-                        try process.launch()
-
-                        let processResult = try await process.waitUntilExit()
-
-
-                        guard processResult.exitStatus == .terminated(code: 0) else {
-                            throw try StringError(processResult.utf8stderrOutput())
-                        }
-
-
-                        switch processResult.output {
-                        case .success(let outputBytes):
-                            let outputString = String(decoding: outputBytes, as: UTF8.self)
-
-
-                            guard let data = outputString.data(using: .utf8) else {
-                                fatalError("Could not convert output string to Data")
-                            }
-
-                            do {
-                                let schema = try JSONDecoder().decode(ToolInfoV0.self, from: data)
-                                let response = try initTemplatePackage.promptUser(tool: schema)
-
-
-                                let parsedOptions = try PluginCommand.PluginOptions.parse(["--allow-writing-to-package-directory"])
-
-
-                                try await PluginCommand.run(command: template, options: parsedOptions, arguments: response, swiftCommandState: swiftCommandState)
-
-                            } catch {
-                                print(error)
-                            }
-
-                        case .failure(let error):
-                            print("Failed to get output:", error)
-                        }
-
-
-
-
-                case .git:
-                    // Implement or call your Git-based template handler
-                    print("TODO: Handle Git template")
-                case .registry:
-                    // Implement or call your Registry-based template handler
-                    print("TODO: Handle Registry template")
                 }
 
                 let packageGraph = try await swiftCommandState.loadPackageGraph()
                 let matchingPlugins = PluginCommand.findPlugins(matching: template, in: packageGraph, limitedTo: nil)
 
+
+                
                 let output = try await Self.run(
                     plugin: matchingPlugins[0],
-                    package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
+                    package: packageGraph.rootPackages.first!,
                     packageGraph: packageGraph,
-                    //allowNetworkConnections: [.local(ports: [1200])],
-                    arguments: ["--experimental-dump-help"],
+                    arguments: ["--", "--experimental-dump-help"],
                     swiftCommandState: swiftCommandState
                 )
-                    
+
+                let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
+                let response = try initTemplatePackage.promptUser(tool: toolInfo)
                 do {
-                    let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-                    print("OUTPUT: \(toolInfo)")
+
+                    let _ = try await Self.run(
+                        plugin: matchingPlugins[0],
+                        package: packageGraph.rootPackages.first!,
+                        packageGraph: packageGraph,
+                        arguments: response,
+                        swiftCommandState: swiftCommandState,
+                        shouldPrint: true
+                    )
+
+
                 }
 
             } else {
@@ -321,7 +281,6 @@ extension SwiftPackageCommand {
         var writableDirectories = [outputDir]
 
         // FIXME: decide whether this permission needs to be explicitly requested by the plugin target, or not
-        print("WRITABLE DIRECTORY: \(package.path)")
         writableDirectories.append(package.path)
 
         var allowNetworkConnections = allowNetworkConnections
@@ -434,12 +393,19 @@ extension SwiftPackageCommand {
         let writableDirectoriesCopy = writableDirectories
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
+        guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
+            throw InternalError("Could not find the current working directory")
+        }
+
+        guard let workingDirectory = swiftCommandState.options.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory else {
+            throw InternalError("Could not find current working directory")
+        }
         let buildEnvironment = buildParameters.buildEnvironment
         try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
-            workingDirectory: swiftCommandState.originalWorkingDirectory,
+            workingDirectory: workingDirectory,
             outputDirectory: outputDir,
             toolSearchDirectories: toolSearchDirs,
             accessibleTools: accessibleTools,
