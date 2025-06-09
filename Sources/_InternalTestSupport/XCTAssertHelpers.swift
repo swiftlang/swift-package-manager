@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
@@ -318,6 +319,15 @@ public struct CommandExecutionError: Error {
     public let stderr: String
 }
 
+
+public func XCTExhibitsGitHubIssue(_ number: Int) throws {
+    let envVar = "SWIFTCI_EXHIBITS_GH_\(number)"
+
+    try XCTSkipIf(
+        ProcessInfo.processInfo.environment[envVar] != nil,
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+    )
+}
 /// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
 ///
 /// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
