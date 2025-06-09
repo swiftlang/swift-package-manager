@@ -49,7 +49,7 @@ final class PluginTests {
                 let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--vv", "--product", "MyLocalTool", "--build-system", "swiftbuild"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -294,6 +294,8 @@ final class PluginTests {
     }
 
     @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8794"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
     )
     func testBuildToolWithoutOutputs() async throws {
@@ -343,20 +345,28 @@ final class PluginTests {
             """)
         }
 
-        try await testWithTemporaryDirectory { tmpPath in
-            let packageDir = tmpPath.appending(components: "MyPackage")
-            let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
+        try await withKnownIssue {
+        for buildSystem in ["native", "swiftbuild"] {
+            try await testWithTemporaryDirectory { tmpPath in
+                let packageDir = tmpPath.appending(components: "MyPackage")
+                let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
 
-            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
-            let (_, stderr) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
-            #expect(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
-            #expect(!localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
+                try await withKnownIssue {
+                    try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
+                    let (_, stderr) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                    #expect(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
+                    #expect(!localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
+                } when: {
+                    buildSystem == "swiftbuild"
+                }
 
-            try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
-            let (_, stderr2) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
-            #expect(!stderr2.contains("error:"))
-            #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
+                try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
+                let (_, stderr2) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                #expect(!stderr2.contains("error:"))
+                #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
+            }
         }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -1182,13 +1192,16 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
     )
     func testSnippetSupport() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
-            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
-        }
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/Plugins") { path in
+                let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
+                #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+            }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
 
         try await withKnownIssue {
             // Try again with the Swift Build build system
@@ -1264,18 +1277,19 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
     )
     func testMissingPlugin() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            do {
-                try await executeSwiftBuild(fixturePath.appending("MissingPlugin"))
-            } catch SwiftPMError.executionFailure(_, _, let stderr) {
-                #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
-            }
-        }
-
         try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                do {
+                    try await executeSwiftBuild(fixturePath.appending("MissingPlugin"))
+                } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                    #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
+                }
+            }
+
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 do {
                     try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
