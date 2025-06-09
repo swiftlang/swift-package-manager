@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
@@ -321,4 +322,14 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+}
+
+
+public func XCTExhibitsGitHubIssue(_ number: Int) throws {
+    let envVar = "SWIFTCI_EXHIBITS_GH_\(number)"
+
+    try XCTSkipIf(
+        ProcessInfo.processInfo.environment[envVar] != nil,
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+    )
 }
