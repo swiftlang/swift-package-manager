@@ -686,14 +686,14 @@ final class PluginTests {
                       )
                     }
                     if expectFailure {
-                        try #require(!success, "expected command to fail, but it succeeded")
+                        #expect(!success, "expected command to fail, but it succeeded")
                     }
                     else {
-                        try #require(success, "expected command to succeed, but it failed")
+                        #expect(success, "expected command to succeed, but it failed")
                     }
                 }
                 catch {
-                    try #require(true == false, "error \(String(describing: error)) at \(file) and \(line)")
+                    Issue.record("error \(String(describing: error)) at \(file) and \(line)")
                 }
                 
                 // Check that we didn't end up with any completely empty diagnostics.
@@ -777,6 +777,7 @@ final class PluginTests {
     }
 
     @Test(
+        .bug("rdar://88792829"),
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
         .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on windows in CI")
     )
@@ -966,7 +967,7 @@ final class PluginTests {
                         do {
                             try scriptRunner.cancel(deadline: .now() + .seconds(5))
                         } catch {
-                            fatalError("Cancelling script runner should not fail: \(error)")
+                            Issue.record("Cancelling script runner should not fail: \(error)")
                         }
                     }
                 }
@@ -974,7 +975,7 @@ final class PluginTests {
                     do {
                         try await Task.sleep(nanoseconds: UInt64(DispatchTimeInterval.seconds(3).nanoseconds()!))
                     } catch {
-                        try #require(true == false, "The plugin should not finish within 3 seconds")
+                        Issue.record("The plugin should not finish within 3 seconds")
                     }
                 }
 
@@ -1236,17 +1237,17 @@ final class PluginTests {
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
     )
     func testSandboxViolatingBuildToolPluginCommands() async throws {
-        for buildSystem in ["native"] { // FIXME: enable swiftbuild testing once pre-build plugins are working
+        for buildSystem in [BuildSystemProvider.Kind.native] { // FIXME: enable swiftbuild testing once pre-build plugins are working
             // Check that the build fails with a sandbox violation by default.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem])) { error in
+                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, buildSystem: buildSystem)) { error in
                     XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
                 }
             }
 
             // Check that the build succeeds if we disable the sandbox.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--build-system", buildSystem, "--disable-sandbox"])
+                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"], buildSystem: buildSystem)
                 #expect(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
             }
         }
