@@ -633,8 +633,7 @@ final class PluginTests {
                 modules moduleNames: [String],
                 arguments: [String],
                 toolNamesToPaths: [String: AbsolutePath] = [:],
-                file: StaticString = #file,
-                line: UInt = #line,
+                sourceLocation: SourceLocation = #_sourceLocation,
                 expectFailure: Bool = false,
                 diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
             ) async throws {
@@ -693,7 +692,7 @@ final class PluginTests {
                     }
                 }
                 catch {
-                    Issue.record("error \(String(describing: error)) at \(file) and \(line)")
+                    Issue.record("error \(String(describing: error)) at \(sourceLocation)")
                 }
                 
                 // Check that we didn't end up with any completely empty diagnostics.
