@@ -217,8 +217,7 @@ extension SwiftPackageCommand {
                         package: packageGraph.rootPackages.first!,
                         packageGraph: packageGraph,
                         arguments: response,
-                        swiftCommandState: swiftCommandState,
-                        shouldPrint: true
+                        swiftCommandState: swiftCommandState
                     )
 
 
