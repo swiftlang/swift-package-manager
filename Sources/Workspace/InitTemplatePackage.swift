@@ -170,10 +170,11 @@ public final class InitTemplatePackage {
 
         static func prompt(for arguments: [ArgumentInfoV0]) -> [ArgumentResponse] {
             return arguments
-                .filter { $0.valueName != "help" }
+                .filter { $0.valueName != "help" && $0.shouldDisplay != false }
                 .map { arg in
                     let defaultText = arg.defaultValue.map { " (default: \($0))" } ?? ""
-                    let promptMessage = "\(arg.abstract ?? "")\(defaultText):"
+                    let allValuesText = (arg.allValues?.isEmpty == false) ? " [\(arg.allValues!.joined(separator: ", "))]" : ""
+                    let promptMessage = "\(arg.abstract ?? "")\(allValuesText)\(defaultText):"
 
                     var values: [String] = []
 
@@ -188,6 +189,10 @@ public final class InitTemplatePackage {
 
                         if arg.isRepeating {
                             while let input = readLine(), !input.isEmpty {
+                                if let allowed = arg.allValues, !allowed.contains(input) {
+                                    print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
+                                    continue
+                                }
                                 values.append(input)
                             }
                             if values.isEmpty, let def = arg.defaultValue {
@@ -196,6 +201,10 @@ public final class InitTemplatePackage {
                         } else {
                             let input = readLine()
                             if let input = input, !input.isEmpty {
+                                if let allowed = arg.allValues, !allowed.contains(input) {
+                                    print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
+                                    exit(1)
+                                }
                                 values = [input]
                             } else if let def = arg.defaultValue {
                                 values = [def]
