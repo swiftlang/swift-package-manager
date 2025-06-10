@@ -17,7 +17,7 @@ A build tool plugin can provide two kinds of commands:
 - term prebuild commands: commands that package manager runs before the build starts. Prebuild commands can generate an arbitrary number of output files with names that can't be predicted before running the command.
 - term build commands: commands that package manager incorporates into the build system's dependency graph and runs at the appropriate time during the build based on the existence and timestamps of their predefined inputs and outputs.
 
-> Note: If your goal is to provide an actions that you can perform at any time and are not associated with a build, implement a command plugin.
+> Note: If your goal is to provide an action that you can perform at any time and is not associated with a build, implement a command plugin.
 > See <doc:WritingCommandPlugin> for details about creating a command plugin.
 
 With both prebuild and build commands, it is important to note that the build tool plugin doesn't do the work, rather it constructs the commands that the build runs later, and it is those commands that perform the work.
@@ -28,7 +28,7 @@ A build tool plugin is available to the package that defines it, and if there is
 ### Build commands
 
 Prefer to create a build command over a prebuild command when the paths of all of the inputs and outputs are known before the command runs.
-Build tool command are more efficient because they provide the build system the information needed to efficiently decide when the build should invoke them.
+Build tool commands are more efficient because they provide the build system the information needed to efficiently decide when the build should invoke them.
 
 An example is a source translation tool that generates one output file (with a predictable name) for each input file.
 Other examples include when the build command controls the names of the outputs without having to first run the tool.
@@ -85,7 +85,7 @@ The [plugin target](https://developer.apple.com/documentation/packagedescription
 The capability of `.buildTool()` is the declaration that this defines a build tool plugin.
 The capability also indicates the entry point the plugin is expected to implement.
 
-When you declare a `plugin` product, that makes the plugin visible to other packages that have a dependencu on the package.
+When you declare a `plugin` product, that makes the plugin visible to other packages that have a dependency on the package.
 The name of the plugin doesn't have to match the name of the product, but they are often the same in order to avoid confusion.
 Only list the name of the plugin the target provides.
 If you only use the build tool plugin within the package, you don't need to declare a `plugin` product.
@@ -210,7 +210,7 @@ In the cases in which there is non-trivial code in a plugin, a good approach is 
 
 ### Xcode Extensions to the PackagePlugin API
 
-When you invoke a plugin in Apple’s Xcode IDE, the plugins has access to a library module provided by Xcode called *XcodeProjectPlugin*. 
+When you invoke a plugin in Apple’s Xcode IDE, the plugins have access to a library module provided by Xcode called *XcodeProjectPlugin*. 
 This module extends the *PackagePlugin* APIs to let plugins work on Xcode targets in addition to packages.
 
 In order to write a plugin that works with packages in every environment, and that conditionally works with Xcode projects when run in Xcode, the plugin should conditionally import the *XcodeProjectPlugin* module when it is available.

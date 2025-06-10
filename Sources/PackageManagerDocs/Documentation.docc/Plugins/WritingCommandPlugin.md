@@ -20,7 +20,7 @@ They are unrelated to the build graph, and often perform their work by invoking 
 
 Command plugins are declared in a similar way to build tool plugins, except that they declare a `.command()` capability and implement a different entry point in the plugin script.
 
-A command plugin specifies the semantic intent of the command — this might be one of the predefined intents such “documentation generation” or “source code formatting”, or it might be a custom intent with a specialized verb that can be passed to the `swift` `package` command.
+A command plugin specifies the semantic intent of the command — this might be one of the predefined intents such as “documentation generation” or “source code formatting”, or it might be a custom intent with a specialized verb that can be passed to the `swift` `package` command.
 A command plugin can also specify any special permissions it needs, such as the permission to modify the files under the package directory.
 
 The command's intent declaration provides a way of grouping command plugins by their functional categories, so that package manager — or an IDE that supports package manager packages — can show the commands that are available for a particular purpose.
@@ -74,7 +74,7 @@ Package manager allows additional permissions to allow network access or file sy
 
 ### Implementing the command plugin script
 
-The source that implement command plugins should be located under the `Plugins` subdirectory in the package.
+The source that implements command plugins should be located under the `Plugins` subdirectory in the package.
 Conform the entry point of the plugin to the `CommandPlugin` protocol:
 
 ```swift
@@ -147,12 +147,12 @@ The `context` parameter provides access to the inputs, including to a distilled 
 Command plugins can accept arguments, which you use to control options for the plugin's actions or further narrow down what the plugin operates on.
 This example uses the convention of passing `--target` to limit the scope of the plugin to a set of targets in the package.
 
-Plugins can only use standard system libraries, not those from other packages such as SwiftArgumentParser.
+Plugins can only use standard system libraries, not those from other packages such as `SwiftArgumentParser`.
 Consequently, the plugin example uses the built-in `ArgumentExtractor` helper in the *PackagePlugin* module to extract the argument.
 
 ### Diagnostics
 
-Plugin entry points are marked `throws`, and any errors thrown from the entry point cause the plugin invocation to be marked as having failed.
+Plugin entry points are marked `throws`, and any errors thrown from the entry point causes the plugin invocation to be marked as having failed.
 The thrown error is presented to the user, and should include a clear description of what went wrong.
 
 Additionally, plugins can use the `Diagnostics` API in PackagePlugin to emit warnings and errors that optionally include references to file paths and line numbers in those files.
