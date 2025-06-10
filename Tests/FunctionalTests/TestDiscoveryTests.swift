@@ -32,7 +32,7 @@ struct TestDiscoveryTests {
     @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
     func discovery(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
+            let (stdout, stderr) = try await executeSwiftTest(fixturePath, extraArgs: ["-vv"], buildSystem: buildSystem)
             // in "swift test" build output goes to stderr
             #expect(stderr.contains("Build complete!"))
             // in "swift test" test output goes to stdout
@@ -40,8 +40,7 @@ struct TestDiscoveryTests {
         }
     }
 
-    // FIXME: Fix --build-system swiftbuild link file list quoting on non-Darwin
-    @Test(arguments: [BuildSystemProvider.Kind.native])
+    @Test(.bug("https://github.com/swiftlang/swift-build/issues/13"), arguments: [BuildSystemProvider.Kind.native])
     func nonStandardName(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/hello world") { fixturePath in
             let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
@@ -64,7 +63,7 @@ struct TestDiscoveryTests {
     }
 
     // FIXME: eliminate extraneous warnings with --build-system swiftbuild
-    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native])
+    @Test(.bug("https://github.com/swiftlang/swift-build/issues/573"), .skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native])
     func discovery_whenNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
             let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
@@ -78,7 +77,7 @@ struct TestDiscoveryTests {
     }
 
     // FIXME: --build-system swiftbuild should support hand-authored entry points.
-    @Test(.skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native])
+    @Test(.bug("https://github.com/swiftlang/swift-build/issues/572"), .skipHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native])
     func entryPointOverride(_ buildSystem: BuildSystemProvider.Kind) async throws {
         for name in SwiftModule.testEntryPointNames {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
