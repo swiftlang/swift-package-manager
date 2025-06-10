@@ -699,7 +699,7 @@ final class PluginTests {
                 #expect(observability.diagnostics.first{ $0.message.isEmpty } == nil)
 
                 // Invoke the diagnostics checker for the plugin output.
-                testDiagnostics(delegate.diagnostics, problemsOnly: false, file: file, line: line, handler: diagnosticsChecker)
+                try expectDiagnostics(delegate.diagnostics, problemsOnly: false, sourceLocation: sourceLocation, handler: diagnosticsChecker)
             }
 
             // Invoke the command plugin that prints out various things it was given, and check them.
