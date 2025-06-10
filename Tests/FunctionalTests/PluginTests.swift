@@ -361,7 +361,8 @@ final class PluginTests {
                 }
 
                 try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
-                let (_, stderr2) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                let (stdout, stderr2) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                #expect(stdout.contains("Build complete!"))
                 #expect(!stderr2.contains("error:"))
                 #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
             }
