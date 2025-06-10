@@ -1196,20 +1196,16 @@ final class PluginTests {
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
     )
     func testSnippetSupport() async throws {
-        try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/Plugins") { path in
-                let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
-                #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
+            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
 
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { path in
-                let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
-                #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+        // Try again with the Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
+            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        }
     }
 
     @Test(
@@ -1281,23 +1277,22 @@ final class PluginTests {
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
     )
     func testMissingPlugin() async throws {
-        try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                do {
-                    try await executeSwiftBuild(fixturePath.appending("MissingPlugin"))
-                } catch SwiftPMError.executionFailure(_, _, let stderr) {
-                    #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
-                }
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try await executeSwiftBuild(fixturePath.appending("MissingPlugin"))
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
+        }
 
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                do {
-                    try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
-                } catch SwiftPMError.executionFailure(_, _, let stderr) {
-                    #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
-                }
+        // Try again with Swift Build build system
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            do {
+                try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
+            } catch SwiftPMError.executionFailure(_, _, let stderr) {
+                #expect(stderr.contains("error: 'missingplugin': no plugin named 'NonExistingPlugin' found"), "stderr:\n\(stderr)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+        }
     }
 
     @Test(

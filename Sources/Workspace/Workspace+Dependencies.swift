@@ -72,7 +72,6 @@ extension Workspace {
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
@@ -345,7 +344,6 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
@@ -403,8 +401,7 @@ extension Workspace {
                     _ = try await self.packageContainerProvider.getContainer(
                         for: resolvedPackage.packageRef,
                         updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                 }
             }
@@ -747,12 +744,10 @@ extension Workspace {
     ) async throws -> AbsolutePath {
         switch requirement {
         case .version(let version):
-            // FIXME: this should not block
             let container = try await packageContainerProvider.getContainer(
                 for: package,
                 updateStrategy: ContainerUpdateStrategy.never,
-                observabilityScope: observabilityScope,
-                on: .sharedConcurrent
+                observabilityScope: observabilityScope
             )
 
             if let container = container as? SourceControlPackageContainer {
@@ -1066,8 +1061,7 @@ extension Workspace {
                     packageContainerProvider.getContainer(
                         for: binding.package,
                         updateStrategy: .never,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                  as? SourceControlPackageContainer else {
                     throw InternalError(

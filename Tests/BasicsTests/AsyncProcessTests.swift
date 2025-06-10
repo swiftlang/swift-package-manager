@@ -389,12 +389,7 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testWorkingDirectory() throws {
-        guard #available(macOS 10.15, *) else {
-            // Skip this test since it's not supported in this OS.
-            return
-        }
-
-        #if os(Linux) || os(Android)
+        #if !os(Windows)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             // Skip this test since it's not supported in this OS.
             return

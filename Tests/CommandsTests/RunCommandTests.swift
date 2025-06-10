@@ -81,6 +81,12 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testUnknownProductAndArgumentPassing() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
             let (stdout, stderr) = try await execute(
                 ["secho", "1", "--hello", "world"], packagePath: fixturePath)
@@ -115,6 +121,12 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testUnreachableExecutable() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
         try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
             let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"))
             let outputLines = output.split(whereSeparator: { $0.isNewline })
@@ -246,6 +258,48 @@ class RunCommandNativeTests: RunCommandTestCase {
     override func testUsage() async throws {
         try await super.testUsage()
     }
+
+    override func testUnknownProductAndArgumentPassing() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+        try await super.testUnknownProductAndArgumentPassing()
+    }
+
+    override func testToolsetDebugger() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+        try await super.testToolsetDebugger()
+    }
+
+
+    override func testUnreachableExecutable() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+        try await super.testUnreachableExecutable()
+    }
+
+    override func testMultipleExecutableAndExplicitExecutable() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Invalid absolute path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+        try await super.testMultipleExecutableAndExplicitExecutable()
+    }
+
 }
 
 
