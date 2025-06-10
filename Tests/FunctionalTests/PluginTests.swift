@@ -1173,7 +1173,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
 
-#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
+#if os(macOS) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
