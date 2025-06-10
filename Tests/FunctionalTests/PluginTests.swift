@@ -582,7 +582,6 @@ final class PluginTests {
                 public func Foo() { }
                 """
             )
-
             let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
             try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
