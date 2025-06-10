@@ -29,7 +29,6 @@ public class Module {
         case plugin
         case snippet
         case `macro`
-        case template
     }
 
     /// A group a module belongs to that allows customizing access boundaries. A module is treated as
@@ -243,9 +242,14 @@ public class Module {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
+<<<<<<< HEAD
     /// Whether this module comes from a declaration in the manifest file
     /// or was synthesized (i.e. some test modules are synthesized).
     public let implicit: Bool
+=======
+    /// Whether or not this is a module that represents a template
+    public let template: Bool
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
 
     init(
         name: String,
@@ -262,7 +266,11 @@ public class Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
+<<<<<<< HEAD
         implicit: Bool
+=======
+        template: Bool
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -279,7 +287,20 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
+<<<<<<< HEAD
         self.implicit = implicit
+=======
+        self.template = template
+    }
+
+    @_spi(SwiftPMInternal)
+    public var isEmbeddedSwiftTarget: Bool {
+        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
+            return true
+        }
+
+        return false
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
     }
 }
 
@@ -311,7 +332,7 @@ public extension Sequence where Iterator.Element == Module {
             switch $0.type {
             case .binary:
                 return ($0 as? BinaryModule)?.containsExecutable == true
-            case .executable, .snippet, .macro, .template: //john-to-revisit
+            case .executable, .snippet, .macro:
                 return true
             default:
                 return false

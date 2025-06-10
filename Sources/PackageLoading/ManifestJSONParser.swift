@@ -499,7 +499,7 @@ extension ProductDescription {
         switch product.productType {
         case .executable:
             productType = .executable
-        case .plugin, .template:
+        case .plugin:
             productType = .plugin
         case .library(let type):
             productType = .library(.init(type))
@@ -568,8 +568,6 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
-        case .template:
-            self = .template
         }
     }
 }

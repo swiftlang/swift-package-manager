@@ -48,7 +48,11 @@ public final class SwiftModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
+<<<<<<< HEAD
             implicit: implicit
+=======
+            template: false // test modules cannot be templates
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
         )
     }
 
@@ -71,7 +75,11 @@ public final class SwiftModule: Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool,
+<<<<<<< HEAD
         implicit: Bool
+=======
+        template: Bool
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
@@ -89,7 +97,11 @@ public final class SwiftModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
+<<<<<<< HEAD
             implicit: implicit
+=======
+            template: template
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
         )
     }
 
@@ -138,16 +150,20 @@ public final class SwiftModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
+<<<<<<< HEAD
             implicit: true
+=======
+            template: false // Modules from test entry point files are not templates
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
         )
     }
 
     public var supportsTestableExecutablesFeature: Bool {
-        // Exclude macros from testable executables if they are built as dylibs. john-to-revisit
+        // Exclude macros from testable executables if they are built as dylibs.
         #if BUILD_MACROS_AS_DYLIBS
-        return type == .executable || type == .snippet || type == .template
+        return type == .executable || type == .snippet
         #else
-        return type == .executable || type == .macro || type == .snippet || type == .template
+        return type == .executable || type == .macro || type == .snippet
         #endif
     }
 }

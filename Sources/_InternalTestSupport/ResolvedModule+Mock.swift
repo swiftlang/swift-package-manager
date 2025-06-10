@@ -30,7 +30,8 @@ extension ResolvedModule {
                 dependencies: [],
                 packageAccess: false,
                 usesUnsafeFlags: false,
-                implicit: true
+                implicit: true,
+                template: false
             ),
             dependencies: deps.map { .module($0, conditions: conditions) },
             defaultLocalization: nil,

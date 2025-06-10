@@ -46,7 +46,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, let productDescription):
                 switch product.type {
-                case .executable, .snippet, .library(.dynamic), .macro, .template: //john-to-revisit
+                case .executable, .snippet, .library(.dynamic), .macro:
                     guard let productDescription else {
                         throw InternalError("No build description for product: \(product)")
                     }

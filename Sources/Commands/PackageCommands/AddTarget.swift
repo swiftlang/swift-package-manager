@@ -39,7 +39,6 @@ extension SwiftPackageCommand {
             case executable
             case test
             case macro
-            case template
         }
 
         package static let configuration = CommandConfiguration(

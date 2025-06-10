@@ -459,9 +459,6 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
-            case .template:
-                // john-to-revisit: makeTemplateproduct
-                try projectBuilder.makeMainModuleProduct(product)
             }
         }
 
@@ -498,11 +495,6 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 try projectBuilder.makeMacroModule(module)
-
-            case .template:
-                    // Skip template modules — they represent tools, not code to compile. john-to-revisit
-                    break
-
             }
         }
 
@@ -699,7 +691,7 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .library, .binary, .macro:
             self.init(name: module.name, packageName: packageName, type: .target)
 
-        case .systemModule, .plugin, .template: //john-to-revisit
+        case .systemModule, .plugin:
             return nil
         }
     }

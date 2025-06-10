@@ -237,7 +237,6 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
-        case .template: self = .template
         }
     }
 }
@@ -401,8 +400,6 @@ extension Serialization.Product {
             self.init(library)
         } else if let plugin = product as? PackageDescription.Product.Plugin {
             self.init(plugin)
-        } else if let template = product as? PackageDescription.Product.Template {
-            self.init(template)
         } else {
             fatalError("should not be reached")
         }
@@ -435,16 +432,6 @@ extension Serialization.Product {
         self.settings = []
         #endif
     }
-
-    init(_ template: PackageDescription.Product.Template) {
-        self.name = template.name
-        self.targets = template.targets
-        self.productType = .template
-        #if ENABLE_APPLE_PRODUCT_TYPES
-        self.settings = []
-        #endif
-    }
-
 }
 
 extension Serialization.Trait {

@@ -184,7 +184,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary, .template: //john-to-revisit
+        case .library, .test, .macro, .systemModule, .plugin, .binary:
             false
         }
     }
@@ -193,7 +193,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .template:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule:
             false
         }
     }
@@ -203,7 +203,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary, .template: //john-to-revisit
+        case .systemModule, .plugin, .binary:
             false
         }
     }
@@ -218,7 +218,6 @@ extension PackageModel.ProductType {
         case .library: .library
         case .plugin: .plugin
         case .macro: .macro
-        case .template: .template
         }
     }
 }
@@ -688,7 +687,7 @@ extension PackageGraph.ResolvedProduct {
     /// (e.g., executables have one executable module, test bundles have one test module, etc).
     var isMainModuleProduct: Bool {
         switch self.type {
-        case .executable, .snippet, .test, .template: //john-to-revisit
+        case .executable, .snippet, .test:
             true
         case .library, .macro, .plugin:
             false
@@ -706,7 +705,7 @@ extension PackageGraph.ResolvedProduct {
 
     var isExecutable: Bool {
         switch self.type {
-        case .executable, .snippet, .template: //john-to-revisit
+        case .executable, .snippet:
             true
         case .library, .test, .plugin, .macro:
             false
@@ -749,7 +748,7 @@ extension PackageGraph.ResolvedProduct {
     /// Shoud we link this product dependency?
     var isLinkable: Bool {
         switch self.type {
-        case .library, .executable, .snippet, .test, .macro, .template: //john-to-revisit
+        case .library, .executable, .snippet, .test, .macro:
             true
         case .plugin:
             false

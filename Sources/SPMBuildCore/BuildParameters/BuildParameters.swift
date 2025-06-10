@@ -307,15 +307,9 @@ public struct BuildParameters: Encodable {
         try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
-    package func templatePath(for name: String) throws -> Basics.RelativePath {
-        try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)") //John-to-revisit
-    }
-
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
     public func binaryRelativePath(for product: ResolvedProduct) throws -> Basics.RelativePath {
         switch product.type {
-        case .template:
-            return try templatePath(for: product.name) //john-to-revisit
         case .executable, .snippet:
             return try executablePath(for: product.name)
         case .library(.static):

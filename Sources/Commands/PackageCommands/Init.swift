@@ -655,12 +655,10 @@ extension SwiftPackageCommand {
             for product in products {
                 for targetName in product.targets {
                     if let target = targets.first(where: { _ in template == targetName }) {
-                        if target.type == .template {
-                            if let options = target.templateInitializationOptions {
+                        if let options = target.templateInitializationOptions {
 
-                                if case let .packageInit(templateType, _, _) = options {
-                                    return try .init(from: templateType)
-                                }
+                            if case let .packageInit(templateType, _, _) = options {
+                                return try .init(from: templateType)
                             }
                         }
                     }

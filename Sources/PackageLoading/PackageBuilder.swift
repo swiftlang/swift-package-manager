@@ -34,7 +34,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(moduleName: String, packages: [PackageIdentity])
 
     /// The referenced target could not be found.
-    case moduleNotFound(String, TargetDescription.TargetKind, shouldSuggestRelaxedSourceDir: Bool)
+    case moduleNotFound(String, TargetDescription.TargetKind, shouldSuggestRelaxedSourceDir: Bool, expectedLocation: String)
 
     /// The artifact for the binary target could not be found.
     case artifactNotFound(moduleName: String, expectedArtifactName: String)
@@ -112,22 +112,10 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let target, let packages):
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
             return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)’; target names need to be unique across the package graph"
-        case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
-            var folderName = ""
-            switch type {
-            case .test:
-                folderName = "Tests"
-            case .plugin:
-                folderName = "Plugins"
-            case .template:
-                folderName = "Templates"
-            default:
-                folderName = "Sources"
-            }
-
-            var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]
+        case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir, let expectedLocation):
+            var clauses = ["Source files for target \(target) should be located under '\(expectedLocation)/\(target)'"]
             if shouldSuggestRelaxedSourceDir {
-                clauses.append("'\(folderName)'")
+                clauses.append("'\(expectedLocation)'")
             }
             clauses.append("or a custom sources path can be set with the 'path' property in Package.swift")
             return clauses.joined(separator: ", ")
@@ -623,7 +611,6 @@ public final class PackageBuilder {
             fs: fileSystem,
             path: packagePath.appending(component: predefinedDirs.pluginTargetDir)
         )
-
         let predefinedTemplateTargetDirectory = PredefinedTargetDirectory(
             fs: fileSystem,
             path: packagePath.appending(component: predefinedDirs.templateTargetDir)
@@ -663,8 +650,12 @@ public final class PackageBuilder {
                     predefinedTestTargetDirectory
                 case .plugin:
                     predefinedPluginTargetDirectory
-                case .template:
-                    predefinedTemplateTargetDirectory
+                case .executable:
+                    if target.templateInitializationOptions != nil {
+                        predefinedTemplateTargetDirectory
+                    } else {
+                        predefinedTargetDirectory
+                    }
                 default:
                     predefinedTargetDirectory
                 }
@@ -695,7 +686,8 @@ public final class PackageBuilder {
                 target.name,
                 target.type,
                 shouldSuggestRelaxedSourceDir: self.manifest
-                    .shouldSuggestRelaxedSourceDir(type: target.type)
+                    .shouldSuggestRelaxedSourceDir(type: target.type),
+                expectedLocation: path.pathString
             )
         }
 
@@ -741,7 +733,8 @@ public final class PackageBuilder {
             throw ModuleError.moduleNotFound(
                 missingModuleName,
                 type,
-                shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type)
+                shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type),
+                expectedLocation: "Sources" // FIXME: this should provide the expected location of the module here
             )
         }
 
@@ -1076,8 +1069,6 @@ public final class PackageBuilder {
             moduleKind = .executable
         case .macro:
             moduleKind = .macro
-        case .template: //john-to-revisit
-            moduleKind = .template
         default:
             moduleKind = sources.computeModuleKind()
             if moduleKind == .executable && self.manifest.toolsVersion >= .v5_4 && self
@@ -1108,7 +1099,8 @@ public final class PackageBuilder {
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
-                implicit: false
+                implicit: false,
+                template: manifestTarget.templateInitializationOptions != nil
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1153,9 +1145,14 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
+<<<<<<< HEAD
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
+=======
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
+                template: manifestTarget.templateInitializationOptions != nil
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
             )
         }
     }
@@ -1714,10 +1711,6 @@ public final class PackageBuilder {
                 guard self.validatePluginProduct(product, with: modules) else {
                     continue
                 }
-            case .template: //john-to-revisit
-                guard self.validateTemplateProduct(product, with: modules) else {
-                    continue
-                }
             }
 
             try append(Product(package: self.identity, name: product.name, type: product.type, modules: modules))
@@ -1732,7 +1725,7 @@ public final class PackageBuilder {
             switch product.type {
             case .library, .plugin, .test, .macro:
                 return []
-            case .executable, .snippet, .template: //john-to-revisit
+            case .executable, .snippet:
                 return product.targets
             }
         })
@@ -1875,27 +1868,6 @@ public final class PackageBuilder {
             self.observabilityScope.emit(.pluginProductWithNoTargets(product: product.name))
             return false
         }
-        return true
-    }
-
-    private func validateTemplateProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
-        let nonTemplateTargets = targets.filter { $0.type != .template }
-        guard nonTemplateTargets.isEmpty else {
-            self.observabilityScope
-                .emit(.templateProductWithNonTemplateTargets(product: product.name,
-                                                  otherTargets: nonTemplateTargets.map(\.name)))
-            return false
-        }
-        guard !targets.isEmpty else {
-            self.observabilityScope.emit(.templateProductWithNoTargets(product: product.name))
-            return false
-        }
-
-        guard targets.count == 1 else {
-            self.observabilityScope.emit(.templateProductWithMultipleTemplates(product: product.name))
-            return false
-        }
-
         return true
     }
 
@@ -2050,7 +2022,11 @@ extension PackageBuilder {
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false,
+<<<<<<< HEAD
                     implicit: true
+=======
+                    template: false // Snippets are not templates
+>>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
                 )
             }
     }

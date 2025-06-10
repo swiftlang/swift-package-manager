@@ -903,7 +903,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             // Look for a target with the same module name as the one that's being imported.
             if let importedTarget = self._buildPlan?.targets.first(where: { $0.module.c99name == importedModule }) {
                 // For the moment we just check for executables that other targets try to import.
-                if importedTarget.module.type == .executable || importedTarget.module.type == .template { //john-to-revisit
+                if importedTarget.module.type == .executable {
                     return "module '\(importedModule)' is the main module of an executable, and cannot be imported by tests and other targets"
                 }
                 if importedTarget.module.type == .macro {
