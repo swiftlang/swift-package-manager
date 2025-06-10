@@ -29,7 +29,6 @@ public class Module {
         case plugin
         case snippet
         case `macro`
-        case template
     }
 
     /// A group a module belongs to that allows customizing access boundaries. A module is treated as
@@ -243,6 +242,9 @@ public class Module {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
+    /// Whether or not this is a module that represents a template
+    public let template: Bool
+
     init(
         name: String,
         potentialBundleName: String? = nil,
@@ -257,7 +259,8 @@ public class Module {
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
-        usesUnsafeFlags: Bool
+        usesUnsafeFlags: Bool,
+        template: Bool
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -274,6 +277,7 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
+        self.template = template
     }
 
     @_spi(SwiftPMInternal)
@@ -308,7 +312,7 @@ public extension Sequence where Iterator.Element == Module {
             switch $0.type {
             case .binary:
                 return ($0 as? BinaryModule)?.containsExecutable == true
-            case .executable, .snippet, .macro, .template: //john-to-revisit
+            case .executable, .snippet, .macro:
                 return true
             default:
                 return false

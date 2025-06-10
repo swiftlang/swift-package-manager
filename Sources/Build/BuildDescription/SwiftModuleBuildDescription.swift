@@ -146,7 +146,7 @@ public final class SwiftModuleBuildDescription {
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = [.coff, .macho, .elf].contains(triple.objectFormat) && self.toolsVersion >= .v5_5
-        let dirPath = ((target.type == .executable || target.type == .template) && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath //john-to-revisit
+        let dirPath = ((target.type == .executable) && !allowLinkingAgainstExecutables) ? self.tempsPath : self.modulesPath
         return dirPath.appending(component: "\(self.target.c99name).swiftmodule")
     }
 
@@ -201,7 +201,7 @@ public final class SwiftModuleBuildDescription {
         switch self.target.type {
         case .library, .test:
             return true
-        case .executable, .snippet, .macro, .template: //john-to-revisit
+        case .executable, .snippet, .macro: //john-to-revisit
             // This deactivates heuristics in the Swift compiler that treats single-file modules and source files
             // named "main.swift" specially w.r.t. whether they can have an entry point.
             //

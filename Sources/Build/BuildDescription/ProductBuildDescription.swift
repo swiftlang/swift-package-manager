@@ -222,7 +222,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 args += ["-Xlinker", "-install_name", "-Xlinker", relativePath]
             }
             args += self.deadStripArguments
-        case .executable, .snippet, .template: //john-to-revisit
+        case .executable, .snippet:
             // Link the Swift stdlib statically, if requested.
             // TODO: unify this logic with SwiftTargetBuildDescription.stdlibArguments
             if self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib {
@@ -256,8 +256,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             }
         case .plugin:
             throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
-        /*case .template: //john-to-do revist
-            throw InternalError("unexpectedly asked to generate linker arguments for a template product")*/
         }
 
         if let resourcesPath = self.buildParameters.toolchain.swiftResourcesPath(isStatic: isLinkingStaticStdlib) {
@@ -314,7 +312,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             switch self.product.type {
             case .library(let type):
                 useStdlibRpath = type == .dynamic
-            case .test, .executable, .snippet, .macro, .template: //john-to-revisit
+            case .test, .executable, .snippet, .macro:
                 useStdlibRpath = true
             case .plugin:
                 throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")

@@ -33,7 +33,7 @@ struct ShowTemplates: AsyncSwiftCommand {
         let rootPackages = packageGraph.rootPackages.map { $0.identity }
 
         let templates = packageGraph.allModules.filter({
-            $0.type == .template
+            $0.underlying.template
         }).map { module -> Template in
             if !rootPackages.contains(module.packageIdentity) {
                 return Template(package: module.packageIdentity.description, name: module.name)

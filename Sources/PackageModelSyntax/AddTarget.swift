@@ -161,7 +161,7 @@ public enum AddTarget {
         )
 
         let outerDirectory: String? = switch target.type {
-        case .binary, .plugin, .system, .template: nil
+        case .binary, .plugin, .system: nil
         case .executable, .regular, .macro: "Sources"
         case .test: "Tests"
         }
@@ -275,7 +275,7 @@ public enum AddTarget {
         }
 
         let sourceFileText: SourceFileSyntax = switch target.type {
-        case .binary, .plugin, .system, .template:
+        case .binary, .plugin, .system:
             fatalError("should have exited above")
 
         case .macro:
