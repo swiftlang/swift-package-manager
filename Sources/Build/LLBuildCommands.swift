@@ -15,6 +15,10 @@ import Foundation
 import LLBuildManifest
 import SPMBuildCore
 import SPMLLBuild
+import PackageModel
+
+import struct SwiftDriver.BuildRecordArguments
+import struct SwiftOptions.OptionTable
 
 import class TSCBasic.LocalFileOutputByteStream
 
@@ -426,13 +430,20 @@ final class PackageStructureCommand: CustomLLBuildCommand {
     /// For instance, building with or without `--verbose` should not cause a full rebuild.
     private func normalizeBuildParameters(
         _ buildParameters: BuildParameters
-    ) -> BuildParameters {
+    ) throws -> BuildParameters {
         var buildParameters = buildParameters
         buildParameters.outputParameters = BuildParameters.Output(
             isColorized: false,
             isVerbose: false
         )
         buildParameters.workers = 1
+
+        let optionTable = OptionTable()
+        let parsedOptions = try optionTable.parse(Array(buildParameters.flags.swiftCompilerFlags), for: .batch)
+        let buildRecordInfoHash = BuildRecordArguments.computeHash(parsedOptions)
+
+        buildParameters.flags.swiftCompilerFlags = [buildRecordInfoHash]
+
         return buildParameters
     }
 }
