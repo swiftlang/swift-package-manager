@@ -26,6 +26,7 @@ import PackageGraph
 import SPMBuildCore
 import XCBuildSupport
 import TSCBasic
+import SourceControl
 
 import ArgumentParserToolInfo
 
@@ -76,6 +77,9 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("template-path"), help: "Path to the local template.", completion: .directory)
         var templateDirectory: Basics.AbsolutePath?
 
+        @Option(name: .customLong("template-url"), help: "The git URL of the template.")
+        var templateURL: String?
+
         // Git-specific options
         @Option(help: "The exact package version to depend on.")
         var exact: Version?
@@ -115,8 +119,62 @@ extension SwiftPackageCommand {
                 return path
 
             case .git:
-                // TODO: Cache logic and smarter hashing
-                throw StringError("git-based templates not yet implemented")
+
+                var requirements : [PackageDependency.SourceControl.Requirement] = []
+
+                if let exact {
+                    requirements.append(.exact(exact))
+                }
+
+                if let branch {
+                    requirements.append(.branch(branch))
+                }
+
+                if let revision {
+                    requirements.append(.revision(revision))
+                }
+
+                if let from {
+                    requirements.append(.range(.upToNextMajor(from: from)))
+                }
+
+                if let upToNextMinorFrom {
+                    requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+                }
+
+                if requirements.count > 1 {
+                    throw StringError(
+                        "must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                    )
+                }
+
+                guard let firstRequirement = requirements.first else {
+                    throw StringError(
+                        "must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                    )
+                }
+
+                let requirement: PackageDependency.SourceControl.Requirement
+                if case .range(let range) = firstRequirement {
+                    if let to {
+                        requirement = .range(range.lowerBound ..< to)
+                    } else {
+                        requirement = .range(range)
+                    }
+                } else {
+                    requirement = firstRequirement
+
+                    if self.to != nil {
+                        throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
+                    }
+                }
+
+                if let templateURL = templateURL{
+                    print(try await getPackageFromGit(destination: templateURL, requirement: requirement))
+                    throw StringError("did not specify template URL")
+                } else {
+                    throw StringError("did not specify template URL")
+                }
 
             case .registry:
                 // TODO: Lookup and download from registry
@@ -199,7 +257,7 @@ extension SwiftPackageCommand {
                 let matchingPlugins = PluginCommand.findPlugins(matching: template, in: packageGraph, limitedTo: nil)
 
 
-                
+
                 let output = try await Self.run(
                     plugin: matchingPlugins[0],
                     package: packageGraph.rootPackages.first!,
@@ -253,175 +311,229 @@ extension SwiftPackageCommand {
             }
         }
 
+        func getPackageFromGit(destination: String, requirement: PackageDependency.SourceControl.Requirement) async throws -> Basics.AbsolutePath {
+            let repositoryProvider = GitRepositoryProvider()
 
-    static func run(
-        plugin: ResolvedModule,
-        package: ResolvedPackage,
-        packageGraph: ModulesGraph,
-        allowNetworkConnections: [SandboxNetworkPermission] = [],
-        arguments: [String],
-        swiftCommandState: SwiftCommandState
-    ) async throws -> Data {
-        let pluginTarget = plugin.underlying as! PluginModule
+            let fetchStandalonePackageByURL = {() async throws -> Basics.AbsolutePath in
+                let url = SourceControlURL(destination)
+                return try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: Basics.AbsolutePath) in
+                    let tempPath = tempDir.appending(component: url.lastPathComponent)
+                    let repositorySpecifier = RepositorySpecifier(url: url)
 
-        // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to this plugin in the workspace.
-        let pluginsDir = try swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
-            .appending(component: plugin.name)
+                    try repositoryProvider.fetch(
+                        repository: repositorySpecifier,
+                        to: tempPath,
+                        progressHandler: nil
+                    )
 
-        // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
-        let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(
-            customPluginsDir: pluginsDir
-        )
-
-        // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
-        let outputDir = pluginsDir.appending("outputs")
-
-        // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
-        var writableDirectories = [outputDir]
-
-        // FIXME: decide whether this permission needs to be explicitly requested by the plugin target, or not
-        writableDirectories.append(package.path)
-
-        var allowNetworkConnections = allowNetworkConnections
-
-        // If the plugin requires permissions, we ask the user for approval.
-        if case .command(_, let permissions) = pluginTarget.capability {
-            try permissions.forEach {
-                let permissionString: String
-                let reasonString: String
-                let remedyOption: String
-
-                switch $0 {
-                case .writeToPackageDirectory(let reason):
-                    //guard !options.allowWritingToPackageDirectory else { return } // permission already granted
-                    permissionString = "write to the package directory"
-                    reasonString = reason
-                    remedyOption = "--allow-writing-to-package-directory"
-                case .allowNetworkConnections(let scope, let reason):
-                    guard scope != .none else { return } // no need to prompt
-                    //guard options.allowNetworkConnections != .init(scope) else { return } // permission already granted
-
-                    switch scope {
-                    case .all, .local:
-                        let portsString = scope.ports
-                            .isEmpty ? "on all ports" :
-                            "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
-                        permissionString = "allow \(scope.label) network connections \(portsString)"
-                    case .docker, .unixDomainSocket:
-                        permissionString = "allow \(scope.label) connections"
-                    case .none:
-                        permissionString = "" // should not be reached
+                    guard try repositoryProvider.isValidDirectory(tempPath),
+                          let repository = repositoryProvider.open(
+                            repository: repositorySpecifier,
+                            at: tempPath
+                          ) as? GitRepository else {
+                        throw InternalError("Invalid directory at \(tempPath)")
                     }
 
-                    reasonString = reason
-                    // FIXME compute the correct reason for the type of network connection
-                    remedyOption =
-                        "--allow-network-connections 'Network connection is needed'"
-                }
+                    // If requirement is a range, find the latest tag that matches
+                    switch requirement {
+                    case .range(let versionRange):
+                        let tags = try repository.getTags()
+                        let versions = tags.compactMap { Version($0) }
+                        // Filter versions within range
+                        let filteredVersions = versions.filter { versionRange.contains($0) }
+                        guard let latestVersion = filteredVersions.max() else {
+                            throw InternalError("No tags found within the specified version range \(versionRange)")
+                        }
+                        // Checkout the latest version tag
+                        try repository.checkout(tag: latestVersion.description)
 
-                let problem = "Plugin ‘\(plugin.name)’ wants permission to \(permissionString)."
-                let reason = "Stated reason: “\(reasonString)”."
-                if swiftCommandState.outputStream.isTTY {
-                    // We can ask the user directly, so we do so.
-                    let query = "Allow this plugin to \(permissionString)?"
-                    swiftCommandState.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
-                    swiftCommandState.outputStream.flush()
-                    let answer = readLine(strippingNewline: true)
-                    // Throw an error if we didn't get permission.
-                    if answer?.lowercased() != "yes" {
-                        throw StringError("Plugin was denied permission to \(permissionString).")
+                    case .exact(let exactVersion):
+                        try repository.checkout(tag: exactVersion.description)
+
+                    case .branch(let branchName):
+
+                        throw InternalError("No branch option available for fetching a single commit")
+                    case .revision(let revision):
+                        try repository.checkout(revision: .init(identifier: revision))
                     }
-                } else {
-                    // We can't ask the user, so emit an error suggesting passing the flag.
-                    let remedy = "Use `\(remedyOption)` to allow this."
-                    throw StringError([problem, reason, remedy].joined(separator: "\n"))
-                }
 
-                switch $0 {
-                case .writeToPackageDirectory:
-                    // Otherwise append the directory to the list of allowed ones.
-                    writableDirectories.append(package.path)
-                case .allowNetworkConnections(let scope, _):
-                    allowNetworkConnections.append(.init(scope))
+
+                    // Return the absolute path of the fetched git repository
+                    return tempPath
                 }
             }
+
+            return try await fetchStandalonePackageByURL()
         }
 
-        // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
-        let readOnlyDirectories = writableDirectories
-            .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
+        static func run(
+            plugin: ResolvedModule,
+            package: ResolvedPackage,
+            packageGraph: ModulesGraph,
+            allowNetworkConnections: [SandboxNetworkPermission] = [],
+            arguments: [String],
+            swiftCommandState: SwiftCommandState
+        ) async throws -> Data {
+            let pluginTarget = plugin.underlying as! PluginModule
 
-        // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
+            // The `plugins` directory is inside the workspace's main data directory, and contains all temporary files related to this plugin in the workspace.
+            let pluginsDir = try swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
+                .appending(component: plugin.name)
+
+            // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
+            let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(
+                customPluginsDir: pluginsDir
+            )
+
+            // The `outputs` directory contains subdirectories for each combination of package and command plugin. Each usage of a plugin has an output directory that is writable by the plugin, where it can write additional files, and to which it can configure tools to write their outputs, etc.
+            let outputDir = pluginsDir.appending("outputs")
+
+            // Determine the set of directories under which plugins are allowed to write. We always include the output directory.
+            var writableDirectories = [outputDir]
+
+            // FIXME: decide whether this permission needs to be explicitly requested by the plugin target, or not
+            writableDirectories.append(package.path)
+
+            var allowNetworkConnections = allowNetworkConnections
+
+            // If the plugin requires permissions, we ask the user for approval.
+            if case .command(_, let permissions) = pluginTarget.capability {
+                try permissions.forEach {
+                    let permissionString: String
+                    let reasonString: String
+                    let remedyOption: String
+
+                    switch $0 {
+                    case .writeToPackageDirectory(let reason):
+                        //guard !options.allowWritingToPackageDirectory else { return } // permission already granted
+                        permissionString = "write to the package directory"
+                        reasonString = reason
+                        remedyOption = "--allow-writing-to-package-directory"
+                    case .allowNetworkConnections(let scope, let reason):
+                        guard scope != .none else { return } // no need to prompt
+                        //guard options.allowNetworkConnections != .init(scope) else { return } // permission already granted
+
+                        switch scope {
+                        case .all, .local:
+                            let portsString = scope.ports
+                                .isEmpty ? "on all ports" :
+                            "on ports: \(scope.ports.map { "\($0)" }.joined(separator: ", "))"
+                            permissionString = "allow \(scope.label) network connections \(portsString)"
+                        case .docker, .unixDomainSocket:
+                            permissionString = "allow \(scope.label) connections"
+                        case .none:
+                            permissionString = "" // should not be reached
+                        }
+
+                        reasonString = reason
+                        // FIXME compute the correct reason for the type of network connection
+                        remedyOption =
+                        "--allow-network-connections 'Network connection is needed'"
+                    }
+
+                    let problem = "Plugin ‘\(plugin.name)’ wants permission to \(permissionString)."
+                    let reason = "Stated reason: “\(reasonString)”."
+                    if swiftCommandState.outputStream.isTTY {
+                        // We can ask the user directly, so we do so.
+                        let query = "Allow this plugin to \(permissionString)?"
+                        swiftCommandState.outputStream.write("\(problem)\n\(reason)\n\(query) (yes/no) ".utf8)
+                        swiftCommandState.outputStream.flush()
+                        let answer = readLine(strippingNewline: true)
+                        // Throw an error if we didn't get permission.
+                        if answer?.lowercased() != "yes" {
+                            throw StringError("Plugin was denied permission to \(permissionString).")
+                        }
+                    } else {
+                        // We can't ask the user, so emit an error suggesting passing the flag.
+                        let remedy = "Use `\(remedyOption)` to allow this."
+                        throw StringError([problem, reason, remedy].joined(separator: "\n"))
+                    }
+
+                    switch $0 {
+                    case .writeToPackageDirectory:
+                        // Otherwise append the directory to the list of allowed ones.
+                        writableDirectories.append(package.path)
+                    case .allowNetworkConnections(let scope, _):
+                        allowNetworkConnections.append(.init(scope))
+                    }
+                }
+            }
+
+            // Make sure that the package path is read-only unless it's covered by any of the explicitly writable directories.
+            let readOnlyDirectories = writableDirectories
+                .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
+
+            // Use the directory containing the compiler as an additional search directory, and add the $PATH.
+            let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
-        let buildParameters = try swiftCommandState.toolsBuildParameters
-        // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
-        let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
-            traitConfiguration: .init(),
-            cacheBuildManifest: false,
-            productsBuildParameters: swiftCommandState.productsBuildParameters,
-            toolsBuildParameters: buildParameters,
-            packageGraphLoader: { packageGraph }
-        )
+            let buildParameters = try swiftCommandState.toolsBuildParameters
+            // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
+            let buildSystem = try await swiftCommandState.createBuildSystem(
+                explicitBuildSystem: .native,
+                traitConfiguration: .init(),
+                cacheBuildManifest: false,
+                productsBuildParameters: swiftCommandState.productsBuildParameters,
+                toolsBuildParameters: buildParameters,
+                packageGraphLoader: { packageGraph }
+            )
 
-        let accessibleTools = try await plugin.preparePluginTools(
-            fileSystem: swiftCommandState.fileSystem,
-            environment: buildParameters.buildEnvironment,
-            for: try pluginScriptRunner.hostTriple
-        ) { name, _ in
-            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try await buildSystem.build(subset: .product(name, for: .host))
-            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
-                $0.product.name == name && $0.buildParameters.destination == .host
-            }) {
-                return try builtTool.binaryPath
-            } else {
-                return nil
+            let accessibleTools = try await plugin.preparePluginTools(
+                fileSystem: swiftCommandState.fileSystem,
+                environment: buildParameters.buildEnvironment,
+                for: try pluginScriptRunner.hostTriple
+            ) { name, _ in
+                // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
+                try await buildSystem.build(subset: .product(name, for: .host))
+                if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.buildParameters.destination == .host
+                }) {
+                    return try builtTool.binaryPath
+                } else {
+                    return nil
+                }
             }
+
+            // Set up a delegate to handle callbacks from the command plugin.
+            let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget, echoOutput: false)
+            let delegateQueue = DispatchQueue(label: "plugin-invocation")
+
+            // Run the command plugin.
+
+            // TODO: use region based isolation when swift 6 is available
+            let writableDirectoriesCopy = writableDirectories
+            let allowNetworkConnectionsCopy = allowNetworkConnections
+
+            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find the current working directory")
+            }
+
+            guard let workingDirectory = swiftCommandState.options.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find current working directory")
+            }
+            let buildEnvironment = buildParameters.buildEnvironment
+            try await pluginTarget.invoke(
+                action: .performCommand(package: package, arguments: arguments),
+                buildEnvironment: buildEnvironment,
+                scriptRunner: pluginScriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDir,
+                toolSearchDirectories: toolSearchDirs,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectoriesCopy,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnectionsCopy,
+                pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
+                sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                fileSystem: swiftCommandState.fileSystem,
+                modulesGraph: packageGraph,
+                observabilityScope: swiftCommandState.observabilityScope,
+                callbackQueue: delegateQueue,
+                delegate: pluginDelegate
+            )
+
+            return pluginDelegate.lineBufferedOutput
         }
-
-        // Set up a delegate to handle callbacks from the command plugin.
-        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget, echoOutput: false)
-        let delegateQueue = DispatchQueue(label: "plugin-invocation")
-
-        // Run the command plugin.
-
-        // TODO: use region based isolation when swift 6 is available
-        let writableDirectoriesCopy = writableDirectories
-        let allowNetworkConnectionsCopy = allowNetworkConnections
-
-        guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-            throw InternalError("Could not find the current working directory")
-        }
-
-        guard let workingDirectory = swiftCommandState.options.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory else {
-            throw InternalError("Could not find current working directory")
-        }
-        let buildEnvironment = buildParameters.buildEnvironment
-        try await pluginTarget.invoke(
-            action: .performCommand(package: package, arguments: arguments),
-            buildEnvironment: buildEnvironment,
-            scriptRunner: pluginScriptRunner,
-            workingDirectory: workingDirectory,
-            outputDirectory: outputDir,
-            toolSearchDirectories: toolSearchDirs,
-            accessibleTools: accessibleTools,
-            writableDirectories: writableDirectoriesCopy,
-            readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnectionsCopy,
-            pkgConfigDirectories: swiftCommandState.options.locations.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.sdkRootPath,
-            fileSystem: swiftCommandState.fileSystem,
-            modulesGraph: packageGraph,
-            observabilityScope: swiftCommandState.observabilityScope,
-            callbackQueue: delegateQueue,
-            delegate: pluginDelegate
-        )
-
-        return pluginDelegate.lineBufferedOutput
-    }
 
         // first save current activeWorkspace
         //second switch activeWorkspace to the template Path
@@ -462,23 +574,23 @@ extension SwiftPackageCommand {
 }
 
 extension InitPackage.PackageType: ExpressibleByArgument {
-        init(from templateType: TargetDescription.TemplateType) throws {
-            switch templateType {
-            case .executable:
-                self = .executable
-            case .library:
-                self = .library
-            case .tool:
-                self = .tool
-            case .macro:
-                self = .macro
-            case .buildToolPlugin:
-                self = .buildToolPlugin
-            case .commandPlugin:
-                self = .commandPlugin
-            case .empty:
-                self = .empty
-    }
+    init(from templateType: TargetDescription.TemplateType) throws {
+        switch templateType {
+        case .executable:
+            self = .executable
+        case .library:
+            self = .library
+        case .tool:
+            self = .tool
+        case .macro:
+            self = .macro
+        case .buildToolPlugin:
+            self = .buildToolPlugin
+        case .commandPlugin:
+            self = .commandPlugin
+        case .empty:
+            self = .empty
+        }
     }
 
 }
