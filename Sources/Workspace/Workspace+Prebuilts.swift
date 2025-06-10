@@ -61,7 +61,7 @@ extension Workspace {
 
             public struct Artifact: Identifiable, Codable {
                 public let platform: Platform
-                public let checksum: String
+                public var checksum: String
 
                 public var id: Platform { platform }
 
