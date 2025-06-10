@@ -468,6 +468,7 @@ public final class InitPackage {
 
             var content = """
                 import PackagePlugin
+                import struct Foundation.URL
 
                 @main
 
@@ -484,8 +485,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return sourceFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return sourceFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -500,8 +501,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return target.inputFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return target.inputFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -510,14 +511,14 @@ public final class InitPackage {
 
                 extension \(typeName) {
                     /// Shared function that returns a configured build command if the input files is one that should be processed.
-                    func createBuildCommand(for inputPath: Path, in outputDirectoryPath: Path, with generatorToolPath: Path) -> Command? {
+                    func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
                         // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
-                        guard inputPath.extension == "my-input-suffix" else { return .none }
+                        guard inputPath.pathExtension == "my-input-suffix" else { return .none }
                         
                         // Return a command that will run during the build to generate the output file.
-                        let inputName = inputPath.lastComponent
-                        let outputName = inputPath.stem + ".swift"
-                        let outputPath = outputDirectoryPath.appending(outputName)
+                        let inputName = inputPath.lastPathComponent
+                        let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
+                        let outputPath = outputDirectoryPath.appendingPathComponent(outputName)
                         return .buildCommand(
                             displayName: "Generating \\(outputName) from \\(inputName)",
                             executable: generatorToolPath,
