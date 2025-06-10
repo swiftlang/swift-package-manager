@@ -96,7 +96,6 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
                 }
-                
 
             case .product(let productDependency, let packageConditions):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.

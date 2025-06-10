@@ -267,7 +267,7 @@ public struct ModulesGraph {
             })
             return try Dictionary(throwingUniqueKeysWithValues: testModuleDeps)
         }()
-        
+
         for module in rootModules where module.type == .executable {
             // Find all dependencies of this module within its package. Note that we do not traverse plugin usages.
             let dependencies = try topologicalSortIdentifiable(module.dependencies, successors: {

@@ -228,7 +228,6 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// as targets, but they are not directly included in the build graph.
     public let pluginDescriptions: [PluginBuildDescription]
 
-
     /// The build targets.
     public var targets: AnySequence<ModuleBuildDescription> {
         AnySequence(self.targetMap.values)

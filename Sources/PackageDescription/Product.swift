@@ -170,7 +170,7 @@ public class Product {
     }
 
     /// Defines a product that vends a package plugin target for use by clients of the package.
-    /// 
+    ///
     /// It is not necessary to define a product for a plugin that
     /// is only used within the same package where you define it. All the targets
     /// listed must be plugin targets in the same package as the product. Swift Package Manager
