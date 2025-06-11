@@ -109,25 +109,30 @@ extension SwiftPackageCommand {
             if useTemplates {
                 try await runTemplateInit(swiftCommandState: swiftCommandState, packageName: packageName, cwd: cwd)
             } else {
-                let supportedTestingLibraries = computeSupportedTestingLibraries(for: testLibraryOptions, initMode: initMode, swiftCommandState: swiftCommandState)
-                
-                let initPackage = try InitPackage(
-                    name: packageName,
-                    packageType: initMode,
-                    supportedTestingLibraries: supportedTestingLibraries,
-                    destinationPath: cwd,
-                    installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
-                    fileSystem: swiftCommandState.fileSystem
-                )
-                
-                initPackage.progressReporter = { message in
-                    print(message)
-                }
-                
-                try initPackage.writePackageStructure()
+                try runPackageInit(swiftCommandState: swiftCommandState, packageName: packageName, cwd: cwd)
             }
         }
-        
+
+        private func runPackageInit(swiftCommandState: SwiftCommandState, packageName: String, cwd: Basics.AbsolutePath) throws {
+            let supportedTestingLibraries = computeSupportedTestingLibraries(for: testLibraryOptions, initMode: initMode, swiftCommandState: swiftCommandState)
+
+            let initPackage = try InitPackage(
+                name: packageName,
+                packageType: initMode,
+                supportedTestingLibraries: supportedTestingLibraries,
+                destinationPath: cwd,
+                installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
+                fileSystem: swiftCommandState.fileSystem
+            )
+
+            initPackage.progressReporter = { message in
+                print(message)
+            }
+
+            try initPackage.writePackageStructure()
+
+        }
+
         private func runTemplateInit(swiftCommandState: SwiftCommandState, packageName: String, cwd: Basics.AbsolutePath) async throws {
             
             let resolvedTemplatePath: Basics.AbsolutePath
