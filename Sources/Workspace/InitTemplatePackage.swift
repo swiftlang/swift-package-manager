@@ -22,7 +22,7 @@ import ArgumentParserToolInfo
 
 public final class InitTemplatePackage {
 
-    var initMode: TemplateType
+    let packageDependency: MappablePackageDependency.Kind
 
     public var supportedTestingLibraries: Set<TestingLibrary>
 
@@ -85,7 +85,7 @@ public final class InitTemplatePackage {
     public init(
         name: String,
         templateName: String,
-        initMode: TemplateType,
+        initMode: MappablePackageDependency.Kind,
         templatePath: Basics.AbsolutePath,
         fileSystem: FileSystem,
         packageType: InitPackage.PackageType,
@@ -94,7 +94,7 @@ public final class InitTemplatePackage {
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
     ) {
         self.packageName = name
-        self.initMode = initMode
+        self.packageDependency = initMode
         self.templatePath = templatePath
         self.packageType = packageType
         self.supportedTestingLibraries = supportedTestingLibraries
@@ -130,7 +130,7 @@ public final class InitTemplatePackage {
         do {
             manifestContents = try fileSystem.readFileContents(manifestPath)
         } catch {
-            throw StringError("Cannot fin package manifest in \(manifestPath)")
+            throw StringError("Cannot find package manifest in \(manifestPath)")
         }
 
         let manifestSyntax = manifestContents.withData { data in
@@ -142,7 +142,7 @@ public final class InitTemplatePackage {
         }
 
         let editResult = try AddPackageDependency.addPackageDependency(
-            .fileSystem(name: nil, path: self.templatePath.pathString), to: manifestSyntax)
+            packageDependency, to: manifestSyntax)
 
         try editResult.applyEdits(to: fileSystem, manifest: manifestSyntax, manifestPath: manifestPath, verbose: false)
     }

@@ -120,58 +120,9 @@ extension SwiftPackageCommand {
 
             case .git:
 
-                var requirements : [PackageDependency.SourceControl.Requirement] = []
-
-                if let exact {
-                    requirements.append(.exact(exact))
-                }
-
-                if let branch {
-                    requirements.append(.branch(branch))
-                }
-
-                if let revision {
-                    requirements.append(.revision(revision))
-                }
-
-                if let from {
-                    requirements.append(.range(.upToNextMajor(from: from)))
-                }
-
-                if let upToNextMinorFrom {
-                    requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
-                }
-
-                if requirements.count > 1 {
-                    throw StringError(
-                        "must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
-                    )
-                }
-
-                guard let firstRequirement = requirements.first else {
-                    throw StringError(
-                        "must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
-                    )
-                }
-
-                let requirement: PackageDependency.SourceControl.Requirement
-                if case .range(let range) = firstRequirement {
-                    if let to {
-                        requirement = .range(range.lowerBound ..< to)
-                    } else {
-                        requirement = .range(range)
-                    }
-                } else {
-                    requirement = firstRequirement
-
-                    if self.to != nil {
-                        throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
-                    }
-                }
-
+                let requirement = try checkRequirements()
                 if let templateURL = templateURL{
-                    print(try await getPackageFromGit(destination: templateURL, requirement: requirement))
-                    throw StringError("did not specify template URL")
+                   return try await getPackageFromGit(destination: templateURL, requirement: requirement)
                 } else {
                     throw StringError("did not specify template URL")
                 }
@@ -205,6 +156,10 @@ extension SwiftPackageCommand {
                     return try await checkConditions(swiftCommandState)
                 }
 
+                if templateType == .git {
+                    try FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
+                }
+
                 var supportedTemplateTestingLibraries = Set<TestingLibrary>()
                 if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
                     (templateInitType == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
@@ -215,10 +170,25 @@ extension SwiftPackageCommand {
                     supportedTemplateTestingLibraries.insert(.swiftTesting)
                 }
 
+                func packageDependency() throws -> MappablePackageDependency.Kind {
+                    switch templateType {
+                    case .local:
+                        return .fileSystem(name: packageName, path: resolvedTemplatePath.asURL.path)
+
+                    case .git:
+                        guard let url = templateURL else {
+                            throw StringError("Missing Git url")
+                        }
+                        return try .sourceControl(name: packageName, location: url, requirement: checkRequirements())
+
+                    default:
+                        throw StringError("Not implemented yet")
+                    }
+                }
                 let initTemplatePackage = try InitTemplatePackage(
                     name: packageName,
                     templateName: template,
-                    initMode: templateType ?? .local,
+                    initMode: packageDependency(),
                     templatePath: resolvedTemplatePath,
                     fileSystem: swiftCommandState.fileSystem,
                     packageType: templateInitType,
@@ -311,60 +281,120 @@ extension SwiftPackageCommand {
             }
         }
 
-        func getPackageFromGit(destination: String, requirement: PackageDependency.SourceControl.Requirement) async throws -> Basics.AbsolutePath {
+        func checkRequirements() throws -> PackageDependency.SourceControl.Requirement {
+            var requirements : [PackageDependency.SourceControl.Requirement] = []
+
+            if let exact {
+                requirements.append(.exact(exact))
+            }
+
+            if let branch {
+                requirements.append(.branch(branch))
+            }
+
+            if let revision {
+                requirements.append(.revision(revision))
+            }
+
+            if let from {
+                requirements.append(.range(.upToNextMajor(from: from)))
+            }
+
+            if let upToNextMinorFrom {
+                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+            }
+
+            if requirements.count > 1 {
+                throw StringError(
+                    "must specify at most one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
+            }
+
+            guard let firstRequirement = requirements.first else {
+                throw StringError(
+                    "must specify one of --exact, --branch, --revision, --from, or --up-to-next-minor-from"
+                )
+            }
+
+            let requirement: PackageDependency.SourceControl.Requirement
+            if case .range(let range) = firstRequirement {
+                if let to {
+                    requirement = .range(range.lowerBound ..< to)
+                } else {
+                    requirement = .range(range)
+                }
+            } else {
+                requirement = firstRequirement
+
+                if self.to != nil {
+                    throw StringError("--to can only be specified with --from or --up-to-next-minor-from")
+                }
+            }
+            return requirement
+
+        }
+        func getPackageFromGit(
+            destination: String,
+            requirement: PackageDependency.SourceControl.Requirement
+        ) async throws -> Basics.AbsolutePath {
             let repositoryProvider = GitRepositoryProvider()
 
-            let fetchStandalonePackageByURL = {() async throws -> Basics.AbsolutePath in
-                let url = SourceControlURL(destination)
-                return try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: Basics.AbsolutePath) in
-                    let tempPath = tempDir.appending(component: url.lastPathComponent)
+            let fetchStandalonePackageByURL = { () async throws -> Basics.AbsolutePath in
+                try withTemporaryDirectory(removeTreeOnDeinit: false) { (tempDir: Basics.AbsolutePath) in
+                    let url = SourceControlURL(destination)
                     let repositorySpecifier = RepositorySpecifier(url: url)
 
-                    try repositoryProvider.fetch(
-                        repository: repositorySpecifier,
-                        to: tempPath,
-                        progressHandler: nil
-                    )
+                    // This is the working clone destination
+                    let bareCopyPath = tempDir.appending(component: "bare-copy")
 
-                    guard try repositoryProvider.isValidDirectory(tempPath),
-                          let repository = repositoryProvider.open(
-                            repository: repositorySpecifier,
-                            at: tempPath
-                          ) as? GitRepository else {
-                        throw InternalError("Invalid directory at \(tempPath)")
-                    }
+                    let workingCopyPath = tempDir.appending(component: "working-copy")
 
-                    // If requirement is a range, find the latest tag that matches
-                    switch requirement {
-                    case .range(let versionRange):
-                        let tags = try repository.getTags()
-                        let versions = tags.compactMap { Version($0) }
-                        // Filter versions within range
-                        let filteredVersions = versions.filter { versionRange.contains($0) }
-                        guard let latestVersion = filteredVersions.max() else {
-                            throw InternalError("No tags found within the specified version range \(versionRange)")
-                        }
-                        // Checkout the latest version tag
-                        try repository.checkout(tag: latestVersion.description)
+                    try repositoryProvider.fetch(repository: repositorySpecifier, to: bareCopyPath)
 
-                    case .exact(let exactVersion):
-                        try repository.checkout(tag: exactVersion.description)
+                    try FileManager.default.createDirectory(atPath: workingCopyPath.pathString, withIntermediateDirectories: true)
 
-                    case .branch(let branchName):
-
-                        throw InternalError("No branch option available for fetching a single commit")
-                    case .revision(let revision):
-                        try repository.checkout(revision: .init(identifier: revision))
-                    }
+                            // Validate directory (now should exist)
+                            guard try repositoryProvider.isValidDirectory(bareCopyPath) else {
+                                throw InternalError("Invalid directory at \(workingCopyPath)")
+                            }
 
 
-                    // Return the absolute path of the fetched git repository
-                    return tempPath
-                }
+
+                    try repositoryProvider.createWorkingCopyFromBare(repository: repositorySpecifier, sourcePath: bareCopyPath, at: workingCopyPath, editable: true)
+
+
+                    try FileManager.default.removeItem(at: bareCopyPath.asURL)
+
+                    return workingCopyPath
+
+                    // checkout according to requirement
+                    /*switch requirement {
+                     case .range(let versionRange):
+                     let tags = try repository.getTags()
+                     let versions = tags.compactMap { Version($0) }
+                     let filteredVersions = versions.filter { versionRange.contains($0) }
+                     guard let latestVersion = filteredVersions.max() else {
+                     throw InternalError("No tags found within the specified version range \(versionRange)")
+                     }
+                     try repository.checkout(tag: latestVersion.description)
+
+                     case .exact(let exactVersion):
+                     try repository.checkout(tag: exactVersion.description)
+
+                     case .branch(let branchName):
+                     throw InternalError("No branch option available for fetching a single commit")
+
+                     case .revision(let revision):
+                     try repository.checkout(revision: .init(identifier: revision))
+                     }
+
+                     */
+                 }
             }
 
             return try await fetchStandalonePackageByURL()
         }
+
 
         static func run(
             plugin: ResolvedModule,
