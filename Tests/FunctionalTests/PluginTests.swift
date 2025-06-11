@@ -1237,7 +1237,7 @@ final class PluginTests {
                 let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
                 #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
     }
 
     @Test(
