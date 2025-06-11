@@ -8,7 +8,7 @@ Set a custom registry.
 
 ## Overview
 
-This subcommand is used to assign a registry at project or user-level.
+Use this subcommand to assign a registry at project or user-level.
 
 ### Project-level
 
@@ -16,17 +16,17 @@ This subcommand is used to assign a registry at project or user-level.
 $ swift package-registry set https://packages.example.com 
 ```
 
-At the project level, the registry will be used for packages within the project with the registry settings stored in `.swiftpm/configuration/registries.json`.
+At the project level, package manager uses the registry for packages within the project with the registry settings stored in `.swiftpm/configuration/registries.json`.
 
 ### User-level
 
-When passing the `--global` option, the registry will be set at the user-level:
+When you pass the `--global` option, the package manager sets the registry at the user-level:
 
 ```bash
 $ swift package-registry set --global https://global.example.com 
 ```
 
-At the user level, the registry will be used for all projects for the user with the registry settings stored in `~/.swiftpm/configuration/registries.json`.
+At the user level, the package manager uses the registry for all projects for that user with the registry settings stored in `~/.swiftpm/configuration/registries.json`.
 
 
 ### Registry settings

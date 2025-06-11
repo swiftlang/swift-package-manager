@@ -4,11 +4,11 @@ Learn to create, publish and use Swift package collections.
 
 ## Overview
 
-Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that can be imported by SwiftPM to make discovery of existing packages easier. 
-They are authored as static JSON documents and can be published to the web or distributed to local file systems. 
+Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that package manager can import to make discovery of existing packages easier. 
+Author a package collection as a static JSON document and publish it to the web or distribute it on a local file system.
 
-Educators and community influencers can publish package collections to go along with course materials or blog posts, removing the friction of using packages for the first time and the cognitive overload of deciding which packages are useful for a particular task. 
-Enterprises may use collections to narrow the decision space for their internal engineering teams, focusing them on a trusted set of vetted packages.
+Educators and community influencers can publish package collections to go along with course materials or blog posts, making it easier for their readers to use packages for the first time, or choosing which packages to use for a particular task. 
+Enterprises may use collections to provide a trusted set of packages, or a collection of packages consistently used by a team.
 
 ### Using the package-collection CLI
 
@@ -290,7 +290,7 @@ It keeps track of user's list of configured collections and preferences such as 
 
 ### Signing a collection
 
-Package collections [can be signed](<doc:PackageSecurity#Signed-package-collections>) to establish authenticity and protect their integrity. 
+[Sign package collections](<doc:PackageSecurity#Signed-package-collections>) to establish authenticity and protect their integrity. 
 Doing this is optional. 
 Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>).
 If a package collection is signed, the signing certificate must meet a list of [requirements](<doc:PackageSecurity#Requirements-on-signing-certificate>). If these requirements are not met, Package manager will return an error.
@@ -303,7 +303,7 @@ While signing can provide some degree of protection on package collections and r
 - **Signature stripping**: This involves attackers removing signature from a signed collection, causing it to be downloaded as an unsigned collection and bypassing signature check. In this case, publishers should make it known that the collection is signed, and SwiftPM users should abort the `add` operation when the "unsigned" warning appears on a supposedly signed collection.
 - **Signature replacement**: Attackers may modify a collection then re-sign it using a different certificate, either pretend to be the same entity or as some other entity, and SwiftPM will accept it as long as the [signature is valid](<doc:PackageCollectionAdd#Signed-package-collections>).
 
-To defend against these attacks, Package manager has certificate-pinning configuration that allows collection publishers to:
+To defend against these attacks, package manager has certificate-pinning configuration that allows collection publishers to:
 - Require signature check on their collections — this defends against "signature stripping".
 - Restrict what certificate can be used for signing — this defends against "signature replacement".
 

@@ -8,14 +8,9 @@ Log out from a registry.
 
 ## Overview
 
-Credentials are removed from the operating system's credential store if supported, and the user-level configuration file (`registries.json`).
+Package manager removes credentials from the operating system's credential store if supported, and the user-level configuration file (`registries.json`).
 
-To avoid accidental removal of sensitive data, netrc file needs to be updated manually by the user.
-
-```bash
-SYNOPSIS
-    swift package-registry logout <url>
-```
+To avoid accidental removal of sensitive data, the `netrc` file needs to be updated manually by the user.
 
 ### Changes to registry configuration
 
@@ -43,7 +38,7 @@ The `authentication` key in the user-level `registries.json` file by default is 
 - `basic`: username and password
 - `token`: access token
 
-Credentials are to be specified in the native credential store of the operating system if supported, otherwise in the user-level netrc file.
+Specify credentials in the native credential store of the operating system if supported, otherwise in the user-level netrc file.
 
 See [credential storage](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#credential-storage) for more details on configuring credentials for each authentication type.
 

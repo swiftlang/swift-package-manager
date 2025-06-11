@@ -8,12 +8,12 @@ Log in to a registry.
 
 ## Overview
 
-The package manager will verify the credentials using the registry service's login API.
-If it returns a successful response, credentials will be persisted to the operating system's credential store (e.g., Keychain in macOS), or the user-level netrc file otherwise (which by default is located at `~/.netrc`).
-The user-level configuration file located at ~/.swiftpm/configuration/registries.json will also be updated.
+The package manager verifies the credentials using the registry service's login API.
+If it returns a successful response, the credentials are persisted to the operating system's credential store (for example, Keychain in macOS), or the user-level netrc file otherwise (which by default is located at `~/.netrc`).
+The user-level configuration file located at ~/.swiftpm/configuration/registries.json is also updated.
 
-`url` should be the registry's base URL (e.g., `https://example-registry.com`).
-In case the location of the login API is something other than /login (e.g., `https://example-registry.com/api/v1/login`), provide the full URL.
+The `url` should be the registry's base URL (for example, `https://example-registry.com`).
+If the location of the login API endpoint is not `/login` (for example, `https://example-registry.com/api/v1/login`), provide the full URL.
 
 The URL must be HTTPS.
 
@@ -24,12 +24,12 @@ The table below shows the supported authentication types and their required opti
 | Basic                   |  --username, --password   |
 | Token                   |  --token                  |
 
-The tool will analyze the provided options to determine the authentication type and prompt (i.e., interactive mode) for the password/token if it is missing.
+The tool analyzes the provided options to determine the authentication type and prompt (that is, interactive mode) for the password/token if it is missing.
 For example, if only `--username` is present, the tool assumes basic authentication and prompts for the password.
 
-For non-interactive mode, simply provide the `--password` or `--token` option as required or make sure the secret is present in credential storage.
+For non-interactive mode, provide the `--password` or `--token` option as required or make sure the secret is present in credential storage.
 
-If the operating system's credential store is not supported, the tool will prompt user for confirmation before writing credentials to the less secured netrc file.
+If the operating system's credential store is not supported, the tool prompts the user for confirmation before writing credentials to the less secure netrc file.
 Use `--no-confirm` to disable this confirmation.
 
 To force usage of netrc file instead of the operating system's credential store, pass the `--netrc` flag.
@@ -45,9 +45,9 @@ Login successful.
 Credentials have been saved to the operating system's secure credential store.
 ```
 
-An entry for `example-registry.com` would be added to Keychain.
+An entry for `example-registry.com` is added to Keychain.
 
-`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+Package manager updated `registries.json` to indicate that `example-registry.com` requires basic authentication:
 
 {
   "authentication": {
@@ -74,7 +74,7 @@ Continue? (Yes/No): Yes
 
 Credentials have been saved to netrc file.
 ```
-An entry for `example-registry.com` would be added to the netrc file:
+An entry for `example-registry.com` is added to the netrc file:
 
 ```bash
 machine example-registry.com
@@ -82,7 +82,7 @@ login jappleseed
 password alpine
 ```
 
-`registries.json` would be updated to indicate that example-registry.com requires basic authentication:
+Package manager updates `registries.json` to indicate that example-registry.com requires basic authentication:
 
 ```json
 {
@@ -113,7 +113,7 @@ Continue? (Yes/No): Yes
 Credentials have been saved to netrc file.
 ```
 
-An entry for `example-registry.com` would be added to the netrc file:
+An entry for `example-registry.com` is added to the netrc file:
 
 ```bash
 machine example-registry.com
@@ -121,7 +121,7 @@ login jappleseed
 password alpine
 ```
 
-`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+Package manager updates `registries.json` to indicate that `example-registry.com` requires basic authentication:
 
 ```json
 {
@@ -147,14 +147,14 @@ Login successful.
 Credentials have been saved to netrc file.
 ```
 
-An entry for `example-registry.com` would be added to the netrc file:
+An entry for `example-registry.com` is added to the netrc file:
 
 ```bash
 machine example-registry.com
 login jappleseed
 password alpine
 ```
-`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+Package manager updates `registries.json` to indicate that `example-registry.com` requires basic authentication:
 
 ```json
 {
@@ -179,14 +179,14 @@ password alpine
 Login successful.
 Credentials have been saved to netrc file.
 ```
-An entry for `example-registry.com` would be added to the netrc file:
+An entry for `example-registry.com` is added to the netrc file:
 
 ```bash
 machine example-registry.com
 login jappleseed
 password alpine
 ```
-`registries.json` would be updated to indicate that `example-registry.com` requires basic authentication:
+Package manager updates `registries.json` to indicate that `example-registry.com` requires basic authentication:
 
 ```json
 {
@@ -207,14 +207,14 @@ password alpine
 > swift package-registry login https://example-registry.com \
     --token jappleseedstoken
 ```
-An entry for `example-registry.com` would be added to the operating system's credential store if supported, or the user-level netrc file otherwise:
+An entry for `example-registry.com` is added to the operating system's credential store if supported, or the user-level netrc file otherwise:
 
 ```bash
 machine example-registry.com
 login token
 password jappleseedstoken
 ```
-`registries.json` would be updated to indicate that `example-registry.com` requires token authentication:
+Package manager updates `registries.json` to indicate that `example-registry.com` requires token authentication:
 
 ```json
 {

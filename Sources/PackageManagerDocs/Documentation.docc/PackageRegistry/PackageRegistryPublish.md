@@ -14,20 +14,20 @@ If authentication is required for package publication, package authors should [c
 
 ### Publisher TOFU
 
-Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, Package manager will perform publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
+Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, package manager performs publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
 
-The `--resolver-signing-entity-checking` option controls whether publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
+The `--resolver-signing-entity-checking` option controls whether a publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
 
 For more details on trust-on-first-use, see <doc:PackageSecurity#Trust-on-First-Use>.
 
 #### Package release metadata
 
 Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the `publish` subcommand.
-Otherwise, by default Package manager looks for a file named `package-metadata.json` in the package directory.
+Otherwise, package manager looks for a file named `package-metadata.json` in the package directory.
 
 Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.
 
-Also refer to the [registry specification](<doc:RegistryServerSpecification#4.2.2.-Package-release-metadata-standards>) for any additional requirements.
+Refer to the [registry specification](<doc:RegistryServerSpecification#4.2.2.-Package-release-metadata-standards>) for any additional requirements.
 
 #### Package signing
  

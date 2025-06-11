@@ -33,7 +33,7 @@ Added "Sample Package Collection" to your package collections.
 
 Publishers of a package collection may [sign a collection to protect its contents](<doc:PackageCollections#Protecting-package-collections>). 
 Package manager will check if a signed collection's signature is valid before importing it. 
-If the validation check fails, Package manager will return an error:
+If the validation check fails, the package manager returns an error:
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -46,8 +46,8 @@ Users may continue adding the collection despite the error or preemptively skip 
 $ swift package-collection add https://www.example.com/packages.json --skip-signature-check
 ```
 
-For package collections hosted on the web, publishers may ask Package manager to [enforce the signature requirement](<doc:PackageSecurity#Trusted-root-certificates>). If a package collection is
-expected to be signed but it isn't, users will see the following error message:
+For package collections hosted on the web, publishers may ask package manager to [enforce the signature requirement](<doc:PackageSecurity#Trusted-root-certificates>). 
+If a package collection is expected to be signed but it isn't, users will see the following error message:
 
 ```bash
 $ swift package-collection add https://www.example.com/bad-packages.json
@@ -68,7 +68,7 @@ The collection's signature cannot be verified due to missing configuration.
 ```
 
 Users can explicitly specify they trust a publisher and any collections they publish, by obtaining that publisher's root certificate and saving it to `~/.swiftpm/config/trust-root-certs`. The 
-root certificates must be DER-encoded. Since Package manager trusts all certificate chains under a root, depending on what roots are installed, some publishers may already be trusted implicitly and users don't need to explicitly specify each one. 
+root certificates must be DER-encoded. Since package manager trusts all certificate chains under a root, depending on what roots are installed, some publishers may already be trusted implicitly and users don't need to explicitly specify each one. 
 
 #### Unsigned package collections
 
