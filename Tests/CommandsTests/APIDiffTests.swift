@@ -328,6 +328,17 @@ class APIDiffTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+
+    func testAPIDiffPackageWithPlugin() async throws {
+        try skipIfApiDigesterUnsupportedOrUnset()
+        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            let packageRoot = fixturePath.appending("WithPlugin")
+            let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot)
+            XCTAssertMatch(output, .contains("No breaking changes detected in TargetLib"))
+        }
+    }
+
+
     func testBadTreeish() async throws {
         try skipIfApiDigesterUnsupportedOrUnset()
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
