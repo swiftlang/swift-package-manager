@@ -188,11 +188,16 @@ fileprivate func macOSSandboxProfile(
     }
     // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
     else if strictness == .writableTemporaryDirectory {
+        var stableCacheDirectories: [AbsolutePath] = []
         // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
-        for tmpDir in ["/tmp", NSTemporaryDirectory(), try tmpCacheDirectory()] {
-            writableDirectoriesExpression += try [
-                "(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))",
-            ]
+        for tmpDir in threadSafeDarwinCacheDirectories {
+            let resolved = try resolveSymlinks(tmpDir)
+            if !stableCacheDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                stableCacheDirectories.append(resolved)
+                writableDirectoriesExpression += [
+                    "(subpath \(resolved.quotedAsSubpathForSandboxProfile))",
+                ]
+            }
         }
     }
 
@@ -224,9 +229,10 @@ fileprivate func macOSSandboxProfile(
             // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
             if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
                 for directory in itemReplacementDirectories {
-                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: directory) }) {
-                        stableItemReplacementDirectories.append(directory)
-                        contents += "    (subpath \(try resolveSymlinks(directory).quotedAsSubpathForSandboxProfile))\n"
+                    let resolved = try resolveSymlinks(directory)
+                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                        stableItemReplacementDirectories.append(resolved)
+                        contents += "    (subpath \(resolved.quotedAsSubpathForSandboxProfile))\n"
                     }
                 }
             }
@@ -235,17 +241,6 @@ fileprivate func macOSSandboxProfile(
     }
 
     return contents
-}
-
-/// If the swift compiler is to be run in a sandbox it needs to be able to
-/// write to the temporary cache directory. LLVM uses 
-/// "\(NSTemporaryDirectory())/../C/clang/ModuleCache/", so reconstruct
-/// this base path out of the NSTemporaryDirectory().
-fileprivate func tmpCacheDirectory() throws -> String {
-    return try AbsolutePath(validating: NSTemporaryDirectory())
-        .appending("..")
-        .appending("C")
-        .pathString
 }
 
 extension AbsolutePath {
