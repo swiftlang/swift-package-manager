@@ -114,8 +114,12 @@ extension SwiftPackageCommand {
             } else {
                 let graph = try await buildSystem.getPackageGraph()
                 for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package) && buildDescription.module.type != .plugin
+                    where graph.isRootPackage(buildDescription.package)
                 {
+                    let module = buildDescription.module
+                    guard module.type != .plugin, !module.implicit else {
+                        continue
+                    }
                     modules.append(buildDescription)
                 }
             }
