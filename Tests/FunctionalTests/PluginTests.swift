@@ -158,16 +158,28 @@ final class PluginTests {
     )
     func testInternalExecutableAvailableOnlyToPlugin() async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable") { error in
-                #expect(
-                    error.stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(error.stderr)"
-                )
+            let error = try await #require(throws: SwiftPMError.self, "Illegally used internal executable") {
+                try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable"))
             }
+
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                Issue.record("Unexpected error type: \(error.interpolationDescription)")
+                return
+            }
+
+            #expect(
+                    stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(stderr)"
+            )
         }
 
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable"
-) { error in
+            let error =  try await #require(throws: SwiftPMError.self, "Illegally used internal executable") {
+                try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable"))
+            }
+
+            guard case SwiftPMError.executionFailure(_, _, _) = error else {
+                Issue.record("Unexpected error type: \(error.interpolationDescription)")
+                return
             }
         }
     }
@@ -579,7 +591,7 @@ final class PluginTests {
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
             #expect(packageGraph.packages.count == 2, "\(packageGraph.packages)")
             #expect(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
             let package = try #require(packageGraph.rootPackages.first)
@@ -766,7 +778,7 @@ final class PluginTests {
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
             // Make sure that the use of plugins doesn't bleed into the use of plugins by tools.
             let testTargetMappings = try packageGraph.computeTestModulesForExecutableModules()
@@ -865,7 +877,7 @@ final class PluginTests {
                 rootInput: rootInput,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
             #expect(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             #expect(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
             let package: ResolvedPackage = try #require(packageGraph.rootPackages.first)
@@ -1236,9 +1248,11 @@ final class PluginTests {
         for buildSystem in [BuildSystemProvider.Kind.native] { // FIXME: enable swiftbuild testing once pre-build plugins are working
             // Check that the build fails with a sandbox violation by default.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, buildSystem: buildSystem)) { error in
-                    XCTAssertMatch("\(error)", .contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+                let error = try await #require(throws: Error.self) {
+                    try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, buildSystem: buildSystem)
                 }
+
+                #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
             }
 
             // Check that the build succeeds if we disable the sandbox.
