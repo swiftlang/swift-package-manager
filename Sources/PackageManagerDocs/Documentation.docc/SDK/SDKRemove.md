@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "6.1")
 }
 
 Removes a previously installed Swift SDK bundle from the filesystem.
