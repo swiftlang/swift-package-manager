@@ -86,7 +86,7 @@ struct TemplatePluginRunner {
             ?? swiftCommandState.fileSystem.currentWorkingDirectory
             ?? { throw InternalError("Could not determine working directory") }()
 
-        try await pluginTarget.invoke(
+        let _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildParams.buildEnvironment,
             scriptRunner: pluginScriptRunner,
