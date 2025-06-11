@@ -360,36 +360,33 @@ extension SwiftPackageCommand {
 
 
 
-                    try repositoryProvider.createWorkingCopyFromBare(repository: repositorySpecifier, sourcePath: bareCopyPath, at: workingCopyPath, editable: true)
+                    let repository = try repositoryProvider.createWorkingCopyFromBare(repository: repositorySpecifier, sourcePath: bareCopyPath, at: workingCopyPath, editable: true)
 
 
                     try FileManager.default.removeItem(at: bareCopyPath.asURL)
 
+                    switch requirement {
+                    case .range(let versionRange):
+                        let tags = try repository.getTags()
+                        let versions = tags.compactMap { Version($0) }
+                        let filteredVersions = versions.filter { versionRange.contains($0) }
+                        guard let latestVersion = filteredVersions.max() else {
+                            throw InternalError("No tags found within the specified version range \(versionRange)")
+                        }
+                        try repository.checkout(tag: latestVersion.description)
+
+                    case .exact(let exactVersion):
+                        try repository.checkout(tag: exactVersion.description)
+
+                    case .branch(let branchName):
+                        try repository.checkout(branch: branchName)
+
+                    case .revision(let revision):
+                        try repository.checkout(revision: .init(identifier: revision))
+                    }
+
                     return workingCopyPath
-
-                    // checkout according to requirement
-                    /*switch requirement {
-                     case .range(let versionRange):
-                     let tags = try repository.getTags()
-                     let versions = tags.compactMap { Version($0) }
-                     let filteredVersions = versions.filter { versionRange.contains($0) }
-                     guard let latestVersion = filteredVersions.max() else {
-                     throw InternalError("No tags found within the specified version range \(versionRange)")
-                     }
-                     try repository.checkout(tag: latestVersion.description)
-
-                     case .exact(let exactVersion):
-                     try repository.checkout(tag: exactVersion.description)
-
-                     case .branch(let branchName):
-                     throw InternalError("No branch option available for fetching a single commit")
-
-                     case .revision(let revision):
-                     try repository.checkout(revision: .init(identifier: revision))
-                     }
-
-                     */
-                 }
+                }
             }
 
             return try await fetchStandalonePackageByURL()
@@ -654,7 +651,7 @@ extension SwiftPackageCommand {
 
             for product in products {
                 for targetName in product.targets {
-                    if let target = targets.first(where: { _ in template == targetName }) {
+                    if let target = targets.first(where: { $0.name == template }) {
                         if let options = target.templateInitializationOptions {
 
                             if case let .packageInit(templateType, _, _) = options {
