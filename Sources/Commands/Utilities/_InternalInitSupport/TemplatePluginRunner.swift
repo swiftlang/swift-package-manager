@@ -1,9 +1,14 @@
+//===----------------------------------------------------------------------===//
 //
-//  TemplatePluginRunner.swift
-//  SwiftPM
+// This source file is part of the Swift open source project
 //
-//  Created by John Bute on 2025-06-11.
+// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
 //
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
 
 import ArgumentParser
 import Basics
@@ -12,20 +17,48 @@ import Basics
 import CoreCommands
 
 import PackageModel
-import Workspace
 import SPMBuildCore
 import TSCUtility
+import Workspace
 
 import Foundation
 import PackageGraph
-import SPMBuildCore
-import XCBuildSupport
-import TSCBasic
 import SourceControl
+import SPMBuildCore
+import TSCBasic
+import XCBuildSupport
 
+/// A utility that runs a plugin target within the context of a resolved Swift package.
+///
+/// This is used to perform plugin invocations involved in template initialization scripts—
+/// with proper sandboxing, permissions, and build system support.
+///
+/// The plugin must be part of a resolved package graph, and the invocation is handled
+/// asynchronously through SwiftPM’s plugin infrastructure.
 
-struct TemplatePluginRunner {
-
+enum TemplatePluginRunner {
+    /// Runs the given plugin target with the specified arguments and environment context.
+    ///
+    /// This function performs the following steps:
+    /// 1. Validates and prepares plugin metadata and permissions.
+    /// 2. Prepares the plugin working directory and toolchain.
+    /// 3. Resolves required plugin tools, building any products referenced by the plugin.
+    /// 4. Invokes the plugin via the configured script runner with sandboxing.
+    ///
+    /// - Parameters:
+    ///   - plugin: The resolved plugin module to run.
+    ///   - package: The resolved package to which the plugin belongs.
+    ///   - packageGraph: The complete graph of modules used by the build.
+    ///   - arguments: Arguments to pass to the plugin at invocation time.
+    ///   - swiftCommandState: The current Swift command state including environment, toolchain, and workspace.
+    ///   - allowNetworkConnections: A list of pre-authorized network permissions for the plugin sandbox.
+    ///
+    /// - Returns: A `Data` value representing the plugin’s buffered stdout output.
+    ///
+    /// - Throws:
+    ///   - `InternalError` if expected components (e.g., plugin module or working directory) are missing.
+    ///   - `StringError` if permission is denied by the user or plugin configuration is invalid.
+    ///   - Any other error thrown during tool resolution, plugin script execution, or build system creation.
     static func run(
         plugin: ResolvedModule,
         package: ResolvedPackage,
@@ -51,12 +84,13 @@ struct TemplatePluginRunner {
             state: swiftCommandState
         )
 
-        let readOnlyDirs = writableDirs.contains(where: { package.path.isDescendantOfOrEqual(to: $0) }) ? [] : [package.path]
+        let readOnlyDirs = writableDirs
+            .contains(where: { package.path.isDescendantOfOrEqual(to: $0) }) ? [] : [package.path]
         let toolSearchDirs = try defaultToolSearchDirectories(using: swiftCommandState)
 
         let buildParams = try swiftCommandState.toolsBuildParameters
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: .native, // FIXME: This should be based on BuildSystemProvider.
             traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
@@ -66,10 +100,13 @@ struct TemplatePluginRunner {
 
         let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: swiftCommandState.fileSystem,
-            environment: try swiftCommandState.toolsBuildParameters.buildEnvironment,
-            for: try pluginScriptRunner.hostTriple
+            environment: swiftCommandState.toolsBuildParameters.buildEnvironment,
+            for: pluginScriptRunner.hostTriple
         ) { name, _ in
-            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneraxtion of implicit executables with the same name as the target if there isn't an explicit one.
+            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies
+            // are not supported within a package, so if the tool happens to be from the same package, we instead find
+            // the executable that corresponds to the product. There is always one, because of autogeneraxtion of
+            // implicit executables with the same name as the target if there isn't an explicit one.
             try await buildSystem.build(subset: .product(name, for: .host))
             if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
                 $0.product.name == name && $0.buildParameters.destination == .host
@@ -109,6 +146,7 @@ struct TemplatePluginRunner {
         return delegate.lineBufferedOutput
     }
 
+    /// Safely casts a `ResolvedModule` to a `PluginModule`, or throws if invalid.
     private static func castToPlugin(_ plugin: ResolvedModule) throws -> PluginModule {
         guard let pluginTarget = plugin.underlying as? PluginModule else {
             throw InternalError("Expected PluginModule")
@@ -116,16 +154,21 @@ struct TemplatePluginRunner {
         return pluginTarget
     }
 
+    /// Returns the plugin working directory for the specified plugin name.
     private static func pluginDirectory(for name: String, in state: SwiftCommandState) throws -> Basics.AbsolutePath {
         try state.getActiveWorkspace().location.pluginWorkingDirectory.appending(component: name)
     }
 
+    /// Resolves default tool search directories including the toolchain path and user $PATH.
     private static func defaultToolSearchDirectories(using state: SwiftCommandState) throws -> [Basics.AbsolutePath] {
         let toolchainPath = try state.getTargetToolchain().swiftCompilerPath.parentDirectory
         let envPaths = Basics.getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: nil)
         return [toolchainPath] + envPaths
     }
 
+    /// Prompts for and grants plugin permissions as specified in the plugin manifest.
+    ///
+    /// This supports terminal-based interactive prompts and non-interactive failure modes.
     private static func requestPluginPermissions(
         from plugin: PluginModule,
         pluginName: String,
@@ -137,17 +180,23 @@ struct TemplatePluginRunner {
         guard case .command(_, let permissions) = plugin.capability else { return }
 
         for permission in permissions {
-            let (desc, reason, remedy) = describe(permission)
+            let (desc, reason, remedy) = self.describe(permission)
 
             if state.outputStream.isTTY {
-                state.outputStream.write("Plugin '\(pluginName)' wants permission to \(desc).\nStated reason: “\(reason)”.\nAllow? (yes/no) ".utf8)
+                state.outputStream
+                    .write(
+                        "Plugin '\(pluginName)' wants permission to \(desc).\nStated reason: “\(reason)”.\nAllow? (yes/no) "
+                            .utf8
+                    )
                 state.outputStream.flush()
 
                 guard readLine()?.lowercased() == "yes" else {
                     throw StringError("Permission denied: \(desc)")
                 }
             } else {
-                throw StringError("Plugin '\(pluginName)' requires: \(desc).\nReason: “\(reason)”.\nUse \(remedy) to allow.")
+                throw StringError(
+                    "Plugin '\(pluginName)' requires: \(desc).\nReason: “\(reason)”.\nUse \(remedy) to allow."
+                )
             }
 
             switch permission {
@@ -159,15 +208,16 @@ struct TemplatePluginRunner {
         }
     }
 
+    /// Describes a plugin permission request with a description, reason, and CLI remedy flag.
     private static func describe(_ permission: PluginPermission) -> (String, String, String) {
         switch permission {
         case .writeToPackageDirectory(let reason):
             return ("write to the package directory", reason, "--allow-writing-to-package-directory")
         case .allowNetworkConnections(let scope, let reason):
             let ports = scope.ports.map(String.init).joined(separator: ", ")
-            let desc = scope.ports.isEmpty ? "allow \(scope.label) connections" : "allow \(scope.label) on ports: \(ports)"
+            let desc = scope.ports
+                .isEmpty ? "allow \(scope.label) connections" : "allow \(scope.label) on ports: \(ports)"
             return (desc, reason, "--allow-network-connections")
         }
     }
 }
-

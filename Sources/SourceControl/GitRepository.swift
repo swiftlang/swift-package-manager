@@ -271,7 +271,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             )
         }
         return try self.openWorkingCopy(at: destinationPath)
-
     }
 
 
