@@ -772,6 +772,20 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func checkout(branch: String) throws {
+        guard self.isWorkingRepo else {
+            throw InternalError("This operation is only valid in a working repository")
+        }
+        // use barrier for write operations
+        try self.lock.withLock {
+            try callGit(
+                "checkout",
+                branch,
+                failureMessage: "Couldn't check out branch '\(branch)'"
+            )
+        }
+    }
+
     public func archive(to path: AbsolutePath) throws {
         guard self.isWorkingRepo else {
             throw InternalError("This operation is only valid in a working repository")
