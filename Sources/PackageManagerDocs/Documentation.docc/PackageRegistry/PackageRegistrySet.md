@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.9")
 }
 
 Set a custom registry.

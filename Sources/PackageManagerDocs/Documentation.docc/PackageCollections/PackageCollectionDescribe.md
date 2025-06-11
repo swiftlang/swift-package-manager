@@ -2,6 +2,7 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.5")
 }
 
 Get metadata for a collection or a package included in an imported collection.

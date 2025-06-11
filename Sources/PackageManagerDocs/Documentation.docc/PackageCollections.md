@@ -1,5 +1,9 @@
 # Package Collections
 
+@Metadata {
+    @Available("Swift", introduced: "5.5")
+}
+
 Learn to create, publish and use Swift package collections.
 
 ## Overview
