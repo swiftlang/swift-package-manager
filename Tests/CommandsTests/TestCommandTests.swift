@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,198 +10,404 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 import Basics
 import Commands
-import SPMBuildCore
+import struct SPMBuildCore.BuildSystemProvider
 import PackageModel
 import _InternalTestSupport
 import TSCTestSupport
-import XCTest
+import Testing
 
-class TestCommandTestCase: CommandsBuildProviderTestCase {
-    override func setUpWithError() throws {
-        try XCTSkipIf(type(of: self) == TestCommandTestCase.self, "Skipping this test since it will be run in subclasses that will provide different build systems to test.")
-    }
+@Suite(
+    .serialized,  // to limit the number of swift executable running.
+    .tags(
+        Tag.TestSize.large,
+        Tag.Feature.Command.Test,
+    )
+)
+struct TestCommandTestCase {
 
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
+        configuration: BuildConfiguration = .debug,
+        buildSystem: BuildSystemProvider.Kind,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
         try await executeSwiftTest(
             packagePath,
+            configuration: configuration,
             extraArgs: args,
             throwIfCommandFails: throwIfCommandFails,
-            buildSystem: buildSystemProvider
+            buildSystem: buildSystem,
         )
     }
 
-    func testUsage() async throws {
-        let stdout = try await execute(["-help"]).stdout
-        XCTAssert(stdout.contains("USAGE: swift test"), "got stdout:\n" + stdout)
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func usage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let stdout = try await execute(["-help"], buildSystem: buildSystem).stdout
+        #expect(stdout.contains("USAGE: swift test"), "got stdout:\n\(stdout)")
     }
 
-    func testExperimentalXunitMessageFailureArgumentIsHidden() async throws {
-        let stdout = try await execute(["--help"]).stdout
-        XCTAssertFalse(
-            stdout.contains("--experimental-xunit-message-failure"),
-            "got stdout:\n" + stdout
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func experimentalXunitMessageFailureArgumentIsHidden(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let stdout = try await execute(["--help"], buildSystem: buildSystem).stdout
+        #expect(
+            !stdout.contains("--experimental-xunit-message-failure"),
+            "got stdout:\n\(stdout)",
         )
-        XCTAssertFalse(
-            stdout.contains("When Set, enabled an experimental message failure content (XCTest only)."),
-            "got stdout:\n" + stdout
+        #expect(
+            !stdout.contains("When Set, enabled an experimental message failure content (XCTest only)."),
+            "got stdout:\n\(stdout)",
         )
     }
 
-    func testSeeAlso() async throws {
-        let stdout = try await execute(["--help"]).stdout
-        XCTAssert(stdout.contains("SEE ALSO: swift build, swift run, swift package"), "got stdout:\n" + stdout)
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func seeAlso(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let stdout = try await execute(["--help"], buildSystem: buildSystem).stdout
+        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift package"), "got stdout:\n\(stdout)")
     }
 
-    func testVersion() async throws {
-        let stdout = try await execute(["--version"]).stdout
-        XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func version(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let stdout = try await execute(["--version"], buildSystem: buildSystem).stdout
+        let versionRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
+        #expect(stdout.contains(versionRegex))
     }
 
-    func testToolsetRunner() async throws {
-        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            #if os(Windows)
-                let win32 = ".win32"
-            #else
-                let win32 = ""
-            #endif
-            let (stdout, stderr) = try await execute(
+    @Test(
+        .SWBINTTODO("Windows: Driver threw unable to load output file map"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func toolsetRunner(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Windows: Driver threw unable to load output file map") {
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                #if os(Windows)
+                    let win32 = ".win32"
+                #else
+                    let win32 = ""
+                #endif
+                let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath.appending("toolset\(win32).json").pathString)"],
-                    packagePath: fixturePath
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
                 )
-            // We only expect tool's output on the stdout stream.
-            XCTAssertMatch(stdout, .contains("sentinel"))
-            XCTAssertMatch(stdout, .contains("\(fixturePath)"))
+                // We only expect tool's output on the stdout stream.
+                #expect(stdout.contains("sentinel"))
+                #expect(stdout.contains("\(fixturePath)"))
 
-            // swift-build-tool output should go to stderr.
-            XCTAssertMatch(stderr, .regex("Compiling"))
-            XCTAssertMatch(stderr, .contains("Linking"))
-        }
-    }
-
-    func testNumWorkersParallelRequirement() async throws {
-        #if !os(macOS)
-        // Running swift-test fixtures on linux is not yet possible.
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
-        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await execute(["--num-workers", "1"])) { error in
-                XCTAssertMatch(error.stderr, .contains("error: --num-workers must be used with --parallel"))
-            }
-        }
-    }
-
-    func testNumWorkersValue() async throws {
-        #if !os(macOS)
-        // Running swift-test fixtures on linux is not yet possible.
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
-        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await execute(["--parallel", "--num-workers", "0"])) { error in
-                XCTAssertMatch(error.stderr, .contains("error: '--num-workers' must be greater than zero"))
-            }
-        }
-    }
-
-    func testEnableDisableTestability() async throws {
-        // default should run with testability
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-            do {
-                let result = try await execute(["--vv"], packagePath: fixturePath)
-                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
-            }
-        }
-
-        // disabled
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(try await execute(["--disable-testable-imports", "--vv"], packagePath: fixturePath)) { error in
-                XCTAssertMatch(error.stderr, .contains("was not compiled for testing"))
-            }
-        }
-
-        // enabled
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-            do {
-                let result = try await execute(["--enable-testable-imports", "--vv"], packagePath: fixturePath)
-                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
-            }
-        }
-    }
-
-    func testWithReleaseConfiguration() async throws {
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
-            do {
-                let result = try await execute(["-c", "release", "--vv"], packagePath: fixturePath)
-                XCTAssertMatch(result.stderr, .contains("-enable-testing"))
-            }
-        }
-    }
-
-    func testSwiftTestParallel() async throws {
-        try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
-            // First try normal serial testing.
-            await XCTAssertThrowsCommandExecutionError(try await execute([], packagePath: fixturePath)) { error in
-                // in "swift test" test output goes to stdout
-                XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
-                XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
-            }
-
-            // Try --no-parallel.
-            await XCTAssertThrowsCommandExecutionError(try await execute(["--no-parallel"], packagePath: fixturePath)) { error in
-                // in "swift test" test output goes to stdout
-                XCTAssertMatch(error.stdout, .contains("Executed 2 tests"))
-                XCTAssertNoMatch(error.stdout, .contains("[3/3]"))
-            }
-
-            // Run tests in parallel.
-            await XCTAssertThrowsCommandExecutionError(try await execute(["--parallel"], packagePath: fixturePath)) { error in
-                // in "swift test" test output goes to stdout
-                XCTAssertMatch(error.stdout, .contains("testExample1"))
-                XCTAssertMatch(error.stdout, .contains("testExample2"))
-                XCTAssertNoMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
-                XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                XCTAssertMatch(error.stdout, .contains("[3/3]"))
-            }
-
-            do {
-                let xUnitOutput = fixturePath.appending("result.xml")
-                // Run tests in parallel with verbose output.
-                await XCTAssertThrowsCommandExecutionError(
-                    try await execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath)
-                ) { error in
-                    // in "swift test" test output goes to stdout
-                    XCTAssertMatch(error.stdout, .contains("testExample1"))
-                    XCTAssertMatch(error.stdout, .contains("testExample2"))
-                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsTests' passed"))
-                    XCTAssertMatch(error.stdout, .contains("'ParallelTestsFailureTests' failed"))
-                    XCTAssertMatch(error.stdout, .contains("[3/3]"))
+                // swift-build-tool output should go to stderr.
+                withKnownIssue {
+                    #expect(stderr.contains("Compiling"))
+                } when: {
+                    buildSystem == .swiftbuild
                 }
 
-                // Check the xUnit output.
-                XCTAssertFileExists(xUnitOutput)
-                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-                XCTAssertMatch(contents, .contains("tests=\"3\" failures=\"1\""))
-                XCTAssertMatch(contents, .regex("time=\"[0-9]+\\.[0-9]+\""))
-                XCTAssertNoMatch(contents, .contains("time=\"0.0\""))
+                withKnownIssue {
+                    #expect(stderr.contains("Linking"))
+                } when: {
+                    buildSystem == .swiftbuild
+                }
             }
+        } when: {
+            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
+                // || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
-    func testSwiftTestXMLOutputWhenEmpty() async throws {
-        try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
-            let xUnitOutput = fixturePath.appending("result.xml")
-            // Run tests in parallel with verbose output.
-            _ = try await execute(["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString], packagePath: fixturePath).stdout
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func numWorkersParallelRequirement(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await execute(
+                    ["--num-workers", "1"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                )
+            }
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
 
-            // Check the xUnit output.
-            XCTAssertFileExists(xUnitOutput)
-            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
-            XCTAssertMatch(contents, .contains("tests=\"0\" failures=\"0\""))
+            #expect(
+                stderr.contains("error: --num-workers must be used with --parallel"),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func numWorkersValueSetToZeroRaisesAnError(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await execute(["--parallel", "--num-workers", "0"], buildSystem: buildSystem, throwIfCommandFails: true)
+            }
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+            #expect(
+                stderr.contains("error: '--num-workers' must be greater than zero"),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func enableDisableTestabilityDefaultShouldRunWithTestability(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withKnownIssue("fails to build the package") {
+            // default should run with testability
+            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+                let result = try await execute(
+                    ["--vv"],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                #expect(result.stderr.contains("-enable-testing"))
+            }
+        } when: {
+            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
+                || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+        }
+    }
+
+    @Test(
+        .SWBINTTODO("Test currently fails due to 'error: build failed'"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func enableDisableTestabilityDisabled(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        // disabled
+        try await withKnownIssue("fails to build", isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await execute(
+                        ["--disable-testable-imports", "--vv"],
+                        packagePath: fixturePath,
+                        buildSystem: buildSystem,
+                    )
+                }
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+
+                #expect(
+                    stderr.contains("was not compiled for testing"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func enableDisableTestabilityEnabled(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("failes to build the package", isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
+            try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+                let result = try await execute(["--enable-testable-imports", "--vv"], packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(result.stderr.contains("-enable-testing"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestParallel_SerialTesting(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+                // First try normal serial testing.
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await executeSwiftTest(fixturePath, extraArgs: [], throwIfCommandFails: true, buildSystem: buildSystem)
+                    try await executeSwiftTest(fixturePath, extraArgs: [], throwIfCommandFails: true, buildSystem: buildSystem)
+                }
+                guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+                #expect(stdout.contains("Executed 2 tests"))
+                #expect(!stdout.contains("[3/3]"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestParallel_NoParallelArgument(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+                // Try --no-parallel.
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await execute(["--no-parallel"], packagePath: fixturePath, buildSystem: buildSystem)
+                }
+                guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+                #expect(stdout.contains("Executed 2 tests"))
+                #expect(!stdout.contains("[3/3]"))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestParallel_ParallelArgument(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+                // Run tests in parallel.
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await execute(["--parallel"], packagePath: fixturePath, buildSystem: buildSystem)
+                }
+                guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+                #expect(stdout.contains("testExample1"))
+                #expect(stdout.contains("testExample2"))
+                #expect(!stdout.contains("'ParallelTestsTests' passed"))
+                #expect(stdout.contains("'ParallelTestsFailureTests' failed"))
+                #expect(stdout.contains("[3/3]"))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestParallel_ParallelArgumentWithXunitOutputGeneration(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
+                let xUnitOutput = fixturePath.appending("result.xml")
+                // Run tests in parallel with verbose output.
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await execute(
+                        [
+                            "--parallel",
+                            "--verbose",
+                            "--xunit-output",
+                            xUnitOutput.pathString,
+                        ],
+                        packagePath: fixturePath,
+                        buildSystem: buildSystem,
+                    )
+                }
+                guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+                #expect(stdout.contains("testExample1"))
+                #expect(stdout.contains("testExample2"))
+                #expect(stdout.contains("'ParallelTestsTests' passed"))
+                #expect(stdout.contains("'ParallelTestsFailureTests' failed"))
+                #expect(stdout.contains("[3/3]"))
+
+                // Check the xUnit output.
+                #expect(localFileSystem.exists(xUnitOutput), "\(xUnitOutput) does not exist")
+                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+                #expect(contents.contains("tests=\"3\" failures=\"1\""))
+                let timeRegex = try Regex("time=\"[0-9]+\\.[0-9]+\"")
+                #expect(contents.contains(timeRegex))
+                #expect(!contents.contains("time=\"0.0\""))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestXMLOutputWhenEmpty(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
+                let xUnitOutput = fixturePath.appending("result.xml")
+                // Run tests in parallel with verbose output.
+                _ = try await execute(
+                    ["--parallel", "--verbose", "--xunit-output", xUnitOutput.pathString],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                ).stdout
+
+                // Check the xUnit output.
+                #expect(localFileSystem.exists(xUnitOutput))
+                let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+                #expect(contents.contains("tests=\"0\" failures=\"0\""))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 
@@ -211,388 +417,560 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
 
         var fileSuffix: String {
             switch self {
-                case .XCTest: return ""
-                case .SwiftTesting: return "-swift-testing"
+            case .XCTest: return ""
+            case .SwiftTesting: return "-swift-testing"
             }
         }
     }
-    func _testSwiftTestXMLOutputFailureMessage(
+
+    public typealias SwiftTestXMLOutputData = (
         fixtureName: String,
         testRunner: TestRunner,
         enableExperimentalFlag: Bool,
-        matchesPattern: [StringPattern]
+        matchesPattern: [String],
+        id: String
+    )
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+        [
+            (
+                fixtureName: "Miscellaneous/TestSingleFailureXCTest",
+                testRunner: TestRunner.XCTest,
+                enableExperimentalFlag: true,
+                matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
+                id: "Single XCTest Test Failure Message With Flag Enabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
+                testRunner: TestRunner.SwiftTesting,
+                enableExperimentalFlag: true,
+                matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
+                id: "Single Swift Testing Test Failure Message With Flag Enabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestSingleFailureXCTest",
+                testRunner: TestRunner.XCTest,
+                enableExperimentalFlag: false,
+                matchesPattern: ["failure"],
+                id: "Single XCTest Test Failure Message With Flag Disabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
+                testRunner: TestRunner.SwiftTesting,
+                enableExperimentalFlag: false,
+                matchesPattern: ["Purposely failing &amp; validating XML espace &quot;'&lt;&gt;"],
+                id: "Single Swift Testing Test Failure Message With Flag Disabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestMultipleFailureXCTest",
+                testRunner: TestRunner.XCTest,
+                enableExperimentalFlag: true,
+                matchesPattern: [
+                    "Test failure 1",
+                    "Test failure 2",
+                    "Test failure 3",
+                    "Test failure 4",
+                    "Test failure 5",
+                    "Test failure 6",
+                    "Test failure 7",
+                    "Test failure 8",
+                    "Test failure 9",
+                    "Test failure 10",
+                ],
+                id: "Single Multiple Test Failure Message With Flag Enabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
+                testRunner: TestRunner.SwiftTesting,
+                enableExperimentalFlag: true,
+                matchesPattern: [
+                    "ST Test failure 1",
+                    "ST Test failure 2",
+                    "ST Test failure 3",
+                    "ST Test failure 4",
+                    "ST Test failure 5",
+                    "ST Test failure 6",
+                    "ST Test failure 7",
+                    "ST Test failure 8",
+                    "ST Test failure 9",
+                    "ST Test failure 10",
+                ],
+                id: "Multiple Swift Testing Test Failure Message With Flag Enabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestMultipleFailureXCTest",
+                testRunner: TestRunner.XCTest,
+                enableExperimentalFlag: false,
+                matchesPattern: [
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                    "failure",
+                ],
+                id: "Multiple XCTest Tests Failure Message With Flag Disabled",
+            ),
+            (
+                fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
+                testRunner: TestRunner.SwiftTesting,
+                enableExperimentalFlag: false,
+                matchesPattern: [
+                    "ST Test failure 1",
+                    "ST Test failure 2",
+                    "ST Test failure 3",
+                    "ST Test failure 4",
+                    "ST Test failure 5",
+                    "ST Test failure 6",
+                    "ST Test failure 7",
+                    "ST Test failure 8",
+                    "ST Test failure 9",
+                    "ST Test failure 10",
+                ],
+                id: "Multiple Swift Testing Tests Failure Message With Flag Disabled",
+            ),
+        ]
+    )
+    func swiftTestXMLOutputFailureMessage(
+        buildSystem: BuildSystemProvider.Kind,
+        tcdata: SwiftTestXMLOutputData,
     ) async throws {
-        try XCTSkipOnWindows(because: "result-swift-testing.xml doesn't exist in file system, needs investigation")
-        try await fixture(name: fixtureName) { fixturePath in
-            // GIVEN we have a Package with a failing \(testRunner) test cases
-            let xUnitOutput = fixturePath.appending("result.xml")
-            let xUnitUnderTest = fixturePath.appending("result\(testRunner.fileSuffix).xml")
+        // windows issue not recorded for:
+        //   - native, single, XCTest, experimental true
+        //   - native, single, XCTest, experimental false
+        try await withKnownIssue( isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
+            try await fixture(name: tcdata.fixtureName) { fixturePath in
+                // GIVEN we have a Package with a failing \(testRunner) test cases
+                let xUnitOutput = fixturePath.appending("result.xml")
+                let xUnitUnderTest = fixturePath.appending("result\(tcdata.testRunner.fileSuffix).xml")
 
-            // WHEN we execute swift-test in parallel while specifying xUnit generation
-            let extraCommandArgs = enableExperimentalFlag ? ["--experimental-xunit-message-failure"]: []
-            let (stdout, stderr) = try await execute(
-                [
-                    "--parallel",
-                    "--verbose",
-                    "--enable-swift-testing",
-                    "--enable-xctest",
-                    "--xunit-output",
-                    xUnitOutput.pathString
-                ] + extraCommandArgs,
-                packagePath: fixturePath,
-                throwIfCommandFails: false
-            )
+                // WHEN we execute swift-test in parallel while specifying xUnit generation
+                let extraCommandArgs = tcdata.enableExperimentalFlag ? ["--experimental-xunit-message-failure"] : []
+                let (stdout, stderr) = try await execute(
+                    [
+                        "--parallel",
+                        "--verbose",
+                        "--enable-swift-testing",
+                        "--enable-xctest",
+                        "--xunit-output",
+                        xUnitOutput.pathString,
+                    ] + extraCommandArgs,
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false,
+                )
 
-            if !FileManager.default.fileExists(atPath: xUnitUnderTest.pathString) {
-                // If the build failed then produce a output dump of what happened during the execution
-                print("\(stdout)")
-                print("\(stderr)")
+                if !FileManager.default.fileExists(atPath: xUnitUnderTest.pathString) {
+                    // If the build failed then produce an output dump of what happened during the execution
+                    print("\(stdout)")
+                    print("\(stderr)")
+                }
+
+                // THEN we expect \(xUnitUnderTest) to exists
+                #expect(FileManager.default.fileExists(atPath: xUnitUnderTest.pathString))
+                let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
+                // AND that the xUnit file has the expected contents
+                for match in tcdata.matchesPattern {
+                    #expect(contents.contains(match))
+                }
+            }
+        } when: {
+            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
+                || ProcessInfo.hostOperatingSystem == .windows
+                || (buildSystem == .swiftbuild && .macOS == ProcessInfo.hostOperatingSystem && tcdata.testRunner == .SwiftTesting)
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestFilter(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
+                let (stdout, _) = try await execute(["--filter", ".*1"], packagePath: fixturePath, buildSystem: buildSystem)
+                // in "swift test" test output goes to stdout
+                #expect(stdout.contains("testExample1"))
+                #expect(!stdout.contains("testExample2"))
+                #expect(!stdout.contains("testExample3"))
+                #expect(!stdout.contains("testExample4"))
             }
 
-            // THEN we expect \(xUnitUnderTest) to exists
-            XCTAssertFileExists(xUnitUnderTest)
-            let contents: String = try localFileSystem.readFileContents(xUnitUnderTest)
-            // AND that the xUnit file has the expected contents
-            for match in matchesPattern {
-                XCTAssertMatch(contents, match)
+            try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
+                let (stdout, _) = try await execute(["--filter", "SomeTests", "--skip", ".*1", "--filter", "testExample3"], packagePath: fixturePath, buildSystem: buildSystem)
+                // in "swift test" test output goes to stdout
+                #expect(!stdout.contains("testExample1"))
+                #expect(stdout.contains("testExample2"))
+                #expect(stdout.contains("testExample3"))
+                #expect(!stdout.contains("testExample4"))
             }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 
-    func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestSingleFailureXCTest",
-            testRunner: .XCTest,
-            enableExperimentalFlag: true,
-            matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
-            testRunner: .SwiftTesting,
-            enableExperimentalFlag: true,
-            matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
-        )
-    }
-    func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestSingleFailureXCTest",
-            testRunner: .XCTest,
-            enableExperimentalFlag: false,
-            matchesPattern: [.contains("failure")]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestSingleFailureSwiftTesting",
-            testRunner: .SwiftTesting,
-            enableExperimentalFlag: false,
-            matchesPattern: [.contains("Purposely failing &amp; validating XML espace &quot;'&lt;&gt;")]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestMultipleFailureXCTest",
-            testRunner: .XCTest,
-            enableExperimentalFlag: true,
-            matchesPattern: [
-                .contains("Test failure 1"),
-                .contains("Test failure 2"),
-                .contains("Test failure 3"),
-                .contains("Test failure 4"),
-                .contains("Test failure 5"),
-                .contains("Test failure 6"),
-                .contains("Test failure 7"),
-                .contains("Test failure 8"),
-                .contains("Test failure 9"),
-                .contains("Test failure 10")
-            ]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
-            testRunner: .SwiftTesting,
-            enableExperimentalFlag: true,
-            matchesPattern: [
-                .contains("ST Test failure 1"),
-                .contains("ST Test failure 2"),
-                .contains("ST Test failure 3"),
-                .contains("ST Test failure 4"),
-                .contains("ST Test failure 5"),
-                .contains("ST Test failure 6"),
-                .contains("ST Test failure 7"),
-                .contains("ST Test failure 8"),
-                .contains("ST Test failure 9"),
-                .contains("ST Test failure 10")
-            ]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestMultipleFailureXCTest",
-            testRunner: .XCTest,
-            enableExperimentalFlag: false,
-            matchesPattern: [
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure"),
-                .contains("failure")
-            ]
-        )
-    }
-
-    func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        try await self._testSwiftTestXMLOutputFailureMessage(
-            fixtureName: "Miscellaneous/TestMultipleFailureSwiftTesting",
-            testRunner: .SwiftTesting,
-            enableExperimentalFlag: false,
-            matchesPattern: [
-                .contains("ST Test failure 1"),
-                .contains("ST Test failure 2"),
-                .contains("ST Test failure 3"),
-                .contains("ST Test failure 4"),
-                .contains("ST Test failure 5"),
-                .contains("ST Test failure 6"),
-                .contains("ST Test failure 7"),
-                .contains("ST Test failure 8"),
-                .contains("ST Test failure 9"),
-                .contains("ST Test failure 10")
-            ]
-        )
-    }
-
-    func testSwiftTestFilter() async throws {
-        try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await execute(["--filter", ".*1"], packagePath: fixturePath)
-            // in "swift test" test output goes to stdout
-            XCTAssertMatch(stdout, .contains("testExample1"))
-            XCTAssertNoMatch(stdout, .contains("testExample2"))
-            XCTAssertNoMatch(stdout, .contains("testExample3"))
-            XCTAssertNoMatch(stdout, .contains("testExample4"))
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
+        .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestSkip(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
+                let (stdout, _) = try await execute(["--skip", "SomeTests"], packagePath: fixturePath, buildSystem: buildSystem)
+                // in "swift test" test output goes to stdout
+                #expect(!stdout.contains("testExample1"))
+                #expect(!stdout.contains("testExample2"))
+                #expect(stdout.contains("testExample3"))
+                #expect(stdout.contains("testExample4"))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
 
-        try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await execute(["--filter", "SomeTests", "--skip", ".*1", "--filter", "testExample3"], packagePath: fixturePath)
-            // in "swift test" test output goes to stdout
-            XCTAssertNoMatch(stdout, .contains("testExample1"))
-            XCTAssertMatch(stdout, .contains("testExample2"))
-            XCTAssertMatch(stdout, .contains("testExample3"))
-            XCTAssertNoMatch(stdout, .contains("testExample4"))
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
+                let (stdout, _) = try await execute(
+                    [
+                        "--filter",
+                        "ExampleTests",
+                        "--skip",
+                        ".*2",
+                        "--filter",
+                        "MoreTests",
+                        "--skip", "testExample3",
+                    ],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                )
+                // in "swift test" test output goes to stdout
+                #expect(stdout.contains("testExample1"))
+                #expect(!stdout.contains("testExample2"))
+                #expect(!stdout.contains("testExample3"))
+                #expect(stdout.contains("testExample4"))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+        }
+
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
+                let (stdout, _) = try await execute(["--skip", "Tests"], packagePath: fixturePath, buildSystem: buildSystem)
+                // in "swift test" test output goes to stdout
+                #expect(!stdout.contains("testExample1"))
+                #expect(!stdout.contains("testExample2"))
+                #expect(!stdout.contains("testExample3"))
+                #expect(!stdout.contains("testExample4"))
+            }
+        } when: {
+            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 
-    func testSwiftTestSkip() async throws {
-        try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await execute(["--skip", "SomeTests"], packagePath: fixturePath)
-            // in "swift test" test output goes to stdout
-            XCTAssertNoMatch(stdout, .contains("testExample1"))
-            XCTAssertNoMatch(stdout, .contains("testExample2"))
-            XCTAssertMatch(stdout, .contains("testExample3"))
-            XCTAssertMatch(stdout, .contains("testExample4"))
-        }
+    @Test(
+        .SWBINTTODO("Fails to find test executable"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func enableTestDiscoveryDeprecation(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Fails to find test executable") {
+            let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
+            // should emit when LinuxMain is present
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(stderr.contains("warning: '--enable-test-discovery' option is deprecated"))
+            }
 
-        try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await execute(["--filter", "ExampleTests", "--skip", ".*2", "--filter", "MoreTests", "--skip", "testExample3"], packagePath: fixturePath)
-            // in "swift test" test output goes to stdout
-            XCTAssertMatch(stdout, .contains("testExample1"))
-            XCTAssertNoMatch(stdout, .contains("testExample2"))
-            XCTAssertNoMatch(stdout, .contains("testExample3"))
-            XCTAssertMatch(stdout, .contains("testExample4"))
-        }
-
-        try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
-            let (stdout, _) = try await execute(["--skip", "Tests"], packagePath: fixturePath)
-            // in "swift test" test output goes to stdout
-            XCTAssertNoMatch(stdout, .contains("testExample1"))
-            XCTAssertNoMatch(stdout, .contains("testExample2"))
-            XCTAssertNoMatch(stdout, .contains("testExample3"))
-            XCTAssertNoMatch(stdout, .contains("testExample4"))
+            #if canImport(Darwin)
+                let expected = true
+            // should emit when LinuxMain is not present
+            #else
+                // should not emit when LinuxMain is present
+                let expected = false
+            #endif
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
+                let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(stderr.contains("warning: '--enable-test-discovery' option is deprecated") == expected)
+            }
+        } when: {
+            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
         }
     }
 
-    func testEnableTestDiscoveryDeprecation() async throws {
-        let compilerDiagnosticFlags = ["-Xswiftc", "-Xfrontend", "-Xswiftc", "-Rmodule-interface-rebuild"]
-        #if canImport(Darwin)
-        // should emit when LinuxMain is present
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
+    @Test(
+        .SWBINTTODO("Fails to find test executable"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func listWithoutBuildingFirst(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Fails to find test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                try await withKnownIssue("Fails to find test executable") {
+                    let (stdout, stderr) = try await execute(["list"], packagePath: fixturePath, buildSystem: buildSystem)
+                    // build was run
+                    #expect(stderr.contains("Build complete!"))
 
-        // should emit when LinuxMain is not present
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
+                    // getting the lists
+                    #expect(stdout.contains("SimpleTests.SimpleTests/testExample1"))
+                    #expect(stdout.contains("SimpleTests.SimpleTests/test_Example2"))
+                    #expect(stdout.contains("SimpleTests.SimpleTests/testThrowing"))
+                } when: {
+                    buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSmokeTestPipeline
+                }
+            }
+        } when: {
+            // buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
+            || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
         }
-        #else
-        // should emit when LinuxMain is present
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-        // should not emit when LinuxMain is present
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            try localFileSystem.writeFileContents(fixturePath.appending(components: "Tests", SwiftModule.defaultTestEntryPointName), bytes: "fatalError(\"boom\")")
-            let (_, stderr) = try await execute(["--enable-test-discovery"] + compilerDiagnosticFlags, packagePath: fixturePath)
-            XCTAssertNoMatch(stderr, .contains("warning: '--enable-test-discovery' option is deprecated"))
-        }
-        #endif
     }
 
-    func testList() async throws {
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (stdout, stderr) = try await execute(["list"], packagePath: fixturePath)
-            // build was run
-            XCTAssertMatch(stderr, .contains("Build complete!"))
-            // getting the lists
-            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
-            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
-            XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
-        }
-
+    @Test(
+        .SWBINTTODO("Fails to find test executable when run in self-hosted pipeline"),
+        .SWBINTTODO("Linux: fails to build with --build-test in Smoke Tests"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func listBuildFirstThenList(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
             // build first
-            do {
-                let (stdout, _) = try await SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
-                XCTAssertMatch(stdout, .contains("Build complete!"))
+            try await withKnownIssue("Fails to save attachment") {
+                // This might be intermittently failing on windows
+                let (buildStdout, _) = try await executeSwiftBuild(fixturePath, extraArgs: ["--build-tests"], buildSystem: buildSystem)
+                #expect(buildStdout.contains("Build complete!"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
+
             // list
-            do {
-                let (stdout, stderr) = try await execute(["list"], packagePath: fixturePath)
+            try await withKnownIssue("Fails to find test executable", isIntermittent: (.linux == ProcessInfo.hostOperatingSystem)) {
+                let (listStdout, listStderr) = try await execute(["list"], packagePath: fixturePath, buildSystem: buildSystem)
                 // build was run
-                XCTAssertMatch(stderr, .contains("Build complete!"))
+                #expect(listStderr.contains("Build complete!"))
                 // getting the lists
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/testExample1"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/test_Example2"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
+            } when: {
+                (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
             }
         }
+    }
 
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            // build first
-            do {
-                let (stdout, _) = try await SwiftPM.Build.execute(["--build-tests"], packagePath: fixturePath)
-                XCTAssertMatch(stdout, .contains("Build complete!"))
-            }
-            // list while skipping build
-            do {
-                let (stdout, stderr) = try await execute(["list", "--skip-build"], packagePath: fixturePath)
+    @Test(
+        .SWBINTTODO("Fails to find test executable"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func listBuildFirstThenListWhileSkippingBuild(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Failes to find test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                // build first
+                try await withKnownIssue("Failed to save attachment") {
+                    // This might be intermittently failing on windows
+                    let (buildStdout, _) = try await executeSwiftBuild(fixturePath, extraArgs: ["--build-tests"], buildSystem: buildSystem)
+                    #expect(buildStdout.contains("Build complete!"))
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+
+                // list while skipping build
+                let (listStdout, listStderr) = try await execute(["list", "--skip-build"], packagePath: fixturePath, buildSystem: buildSystem)
                 // build was not run
-                XCTAssertNoMatch(stderr, .contains("Build complete!"))
+                #expect(!listStderr.contains("Build complete!"))
                 // getting the lists
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testExample1"))
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/test_Example2"))
-                XCTAssertMatch(stdout, .contains("SimpleTests.SimpleTests/testThrowing"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/testExample1"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/test_Example2"))
+                #expect(listStdout.contains("SimpleTests.SimpleTests/testThrowing"))
             }
+        } when: {
+            buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem
         }
     }
 
-    func testListWithSkipBuildAndNoBuildArtifacts() async throws {
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func listWithSkipBuildAndNoBuildArtifacts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            await XCTAssertThrowsCommandExecutionError(
-                try await execute(["list", "--skip-build"], packagePath: fixturePath, throwIfCommandFails: true)
-            ) { error in
-                XCTAssertMatch(error.stderr, .contains("Test build artifacts were not found in the build folder"))
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await execute(
+                    ["list", "--skip-build"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
             }
-        }
-    }
-
-    func testBasicSwiftTestingIntegration() async throws {
-#if !canImport(TestingDisabled)
-        try XCTSkipUnless(
-            nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
-            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
-        )
-#endif
-
-        try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
-            do {
-                let (stdout, _) = try await execute(["--enable-swift-testing", "--disable-xctest"], packagePath: fixturePath)
-                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
             }
+            #expect(
+                stderr.contains("Test build artifacts were not found in the build folder"),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
         }
     }
 
-    func testBasicSwiftTestingIntegration_ExperimentalFlag() async throws {
-#if !canImport(TestingDisabled)
-        try XCTSkipUnless(
-            nil != Environment.current["SWIFT_PM_SWIFT_TESTING_TESTS_ENABLED"],
-            "Skipping \(#function) because swift-testing tests are not explicitly enabled"
-        )
-#endif
-
-        try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
-            do {
-                let (stdout, _) = try await execute(["--enable-experimental-swift-testing", "--disable-xctest"], packagePath: fixturePath)
-                XCTAssertMatch(stdout, .contains(#"Test "SOME TEST FUNCTION" started"#))
+    @Test(
+        .SWBINTTODO("Fails to find test executable"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func basicSwiftTestingIntegration(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Fails to find the test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--enable-swift-testing", "--disable-xctest"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                )
+                #expect(
+                    stdout.contains(#"Test "SOME TEST FUNCTION" started"#),
+                    "Expectation not met.  got '\(stdout)'\nstderr: '\(stderr)'"
+                )
             }
+        } when: {
+            buildSystem == .swiftbuild
         }
     }
 
-#if !canImport(Darwin)
-    func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
-        let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await execute(strictConcurrencyFlags, packagePath: fixturePath)
-            XCTAssertNoMatch(stderr, .contains("is not concurrency-safe"))
-        }
-    }
-#endif
-
-#if !canImport(Darwin)
-    func testGeneratedMainIsExistentialAnyClean() async throws {
-        let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await execute(existentialAnyFlags, packagePath: fixturePath)
-            XCTAssertNoMatch(stderr, .contains("error: use of protocol"))
-        }
-    }
-#endif
-
-    func testLibraryEnvironmentVariable() async throws {
-        try XCTSkipOnWindows(because: "produces a filepath that is too long, needs investigation")
-        try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
-            var extraEnv = Environment()
-            if try UserToolchain.default.swiftTestingPath != nil {
-              extraEnv["CONTAINS_SWIFT_TESTING"] = "1"
+    @Test(
+        .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
+        .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func generatedMainIsConcurrencySafe_XCTest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await execute(strictConcurrencyFlags, packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(!stderr.contains("is not concurrency-safe"))
             }
-            await XCTAssertAsyncNoThrow(try await SwiftPM.Test.execute(packagePath: fixturePath, env: extraEnv))
+        } when: {
+            buildSystem == .swiftbuild
+        }
+    }
+    @Test(
+        .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
+        .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func generatedMainIsExistentialAnyClean(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue {
+            let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await execute(existentialAnyFlags, packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(!stderr.contains("error: use of protocol"))
+            }
+        } when: {
+            buildSystem == .swiftbuild
         }
     }
 
-    func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
-        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
-            let (_, stderr) = try await execute(["--disable-swift-testing"], packagePath: fixturePath)
-            XCTAssertNoMatch(stderr, .contains("No matching test cases were run"))
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func libraryEnvironmentVariable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("produces a filepath that is too long, needs investigation", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
+                var extraEnv = Environment()
+                if try UserToolchain.default.swiftTestingPath != nil {
+                    extraEnv["CONTAINS_SWIFT_TESTING"] = "1"
+                }
+                await #expect(throws: Never.self) {
+                    try await executeSwiftTest(fixturePath, env: extraEnv, buildSystem: buildSystem)
+                }
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
-    func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        try XCTSkipIfPlatformCI()
-        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
-        // Test for GitHub Issue #6605
-        // GIVEN we have a Swift Package that has a fatalError building the tests
-        let expected = 1
-        try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
-            // WHEN swift-test is executed
-            await XCTAssertAsyncThrowsError(try await self.execute([], packagePath: fixturePath)) { error in
+    @Test(
+        .SWBINTTODO("Fails to find test executable"),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func XCTestOnlyDoesNotLogAboutNoMatchingTests(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Fails to find test executable") {
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await execute(["--disable-swift-testing"], packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(!stderr.contains("No matching test cases were run"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/6605", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func fatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Windows path issue", isIntermittent: true) {
+            // GIVEN we have a Swift Package that has a fatalError building the tests
+            let expected = 1
+            try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
+                // WHEN swift-test is executed
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await self.execute(
+                        [],
+                        packagePath: fixturePath,
+                        buildSystem: buildSystem,
+                    )
+                }
+
                 // THEN I expect a failure
-                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = error else {
-                    XCTFail("Building the package was expected to fail, but it was successful")
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                    Issue.record("Building the package was expected to fail, but it was successful.")
                     return
                 }
 
@@ -602,132 +980,19 @@ class TestCommandTestCase: CommandsBuildProviderTestCase {
                 let actualNumMatches = stdoutMatches + stderrMatches
 
                 // AND a fatal error message is printed \(expected) times
-                XCTAssertEqual(
-                    actualNumMatches,
-                    expected,
-                    [
-                        "Actual (\(actualNumMatches)) is not as expected (\(expected))",
-                        "stdout: \(stdout.debugDescription)",
-                        "stderr: \(stderr.debugDescription)"
-                    ].joined(separator: "\n")
+                let expectationMessage = [
+                    "Actual (\(actualNumMatches)) is not as expected (\(expected))",
+                    "stdout: \(stdout.debugDescription)",
+                    "stderr: \(stderr.debugDescription)",
+                ].joined(separator: "\n")
+                #expect(
+                    actualNumMatches == expected,
+                    "\(expectationMessage)",
                 )
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
-}
-
-class TestCommandNativeTests: TestCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .native
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
-    }
-}
-
-
-class TestCommandSwiftBuildTests: TestCommandTestCase {
-    override open var buildSystemProvider: BuildSystemProvider.Kind {
-        return .swiftbuild
-    }
-
-    override func testUsage() async throws {
-        try await super.testUsage()
-    }
-
-    override func testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation() async throws {
-        try await super.testFatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation()
-    }
-
-    override func testListWithSkipBuildAndNoBuildArtifacts() async throws {
-        try await super.testListWithSkipBuildAndNoBuildArtifacts()
-    }
-
-    override func testList() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
-    }
-
-    override func testEnableTestDiscoveryDeprecation() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
-    }
-
-    override func testEnableDisableTestability() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails due to 'error: build failed'")
-    }
-
-    override func testToolsetRunner() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, as some assertions are not met")
-    }
-
-    override func testWithReleaseConfiguration() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails with 'error: toolchain is invalid: could not find CLI tool `swiftpm-testing-helper` at any of these directories: [..., ...]'")
-    }
-
-    override func testXCTestOnlyDoesNotLogAboutNoMatchingTests() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
-    }
-
-    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails assertion as the there is a different error message 'error: no tests found; create a target in the 'Tests' directory'")
-    }
-
-    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
-    }
-
-    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
-    }
-
-    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledSwiftTesting() async throws {
-        throw XCTSkip("SWBINTTODO: Test currently fails, further investigation is needed")
-    }
-
-#if !canImport(Darwin)
-    override func testGeneratedMainIsExistentialAnyClean() async throws {
-        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
-    }
-#endif
-
-#if !canImport(Darwin)
-    override func testGeneratedMainIsConcurrencySafe_XCTest() async throws {
-        throw XCTSkip("SWBINTTODO: This is a PIF builder missing GUID problem. Further investigation is needed.")
-    }
-#endif
-
-#if !os(macOS)
-    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestXMLOutputVerifySingleTestFailureMessageWithFlagEnabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestXMLOutputVerifyMultipleTestFailureMessageWithFlagDisabledXCTest() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestSkip() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestXMLOutputWhenEmpty() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestFilter() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-
-    override func testSwiftTestParallel() async throws {
-        throw XCTSkip("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms: https://github.com/swiftlang/swift-package-manager/issues/8479")
-    }
-#endif
 }
