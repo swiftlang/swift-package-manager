@@ -8,12 +8,13 @@
 
 add_library(Commands
   PackageCommands/AddDependency.swift
-  PackageCommands/AddProduct.swift 
+  PackageCommands/AddProduct.swift
   PackageCommands/AddTarget.swift
   PackageCommands/AddTargetDependency.swift
   PackageCommands/AddSetting.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
+  PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/CompletionCommand.swift
   PackageCommands/ComputeChecksum.swift
   PackageCommands/Config.swift
@@ -59,6 +60,7 @@ target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   ArgumentParser
   Basics
+  BinarySymbols
   Build
   CoreCommands
   LLBuildManifest
