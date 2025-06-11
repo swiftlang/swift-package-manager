@@ -7348,6 +7348,94 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             }
         }
     }
+
+    func testImplicitModules() async throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/A/Sources/AMacro/macro.swift",
+            "/A/Sources/AExecutable/main.swift",
+            "/A/Sources/ASystemLib/module.modulemap",
+            "/A/Plugins/APlugin/main.swift",
+            "/A/Tests/ATargetTests/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    dependencies: [
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget"),
+                        TargetDescription(
+                            name: "AMacro",
+                            dependencies: [],
+                            type: .`macro`
+                        ),
+                        TargetDescription(
+                            name: "AExecutable",
+                            dependencies: ["ATarget"],
+                            type: .executable
+                        ),
+                        TargetDescription(
+                            name: "APlugin",
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        TargetDescription(
+                            name: "ASystemLib",
+                            type: .system
+                        ),
+                        TargetDescription(
+                            name: "ATargetTests",
+                            dependencies: ["ATarget"],
+                            type: .test
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+
+        struct ExpectedTarget: Hashable, Equatable {
+            let name: String
+            let implicit: Bool
+        }
+
+        var expectedTargets: Set<ExpectedTarget> = [
+            .init(name: "ATarget", implicit: false),
+            .init(name: "AMacro", implicit: false),
+            .init(name: "AExecutable", implicit: false),
+            .init(name: "ATargetTests", implicit: false),
+            .init(name: "APackageTests", implicit: true),
+        ]
+        #if !os(macOS)
+        expectedTargets.insert(.init(name: "APackageDiscoveredTests", implicit: true))
+        #endif
+        XCTAssertEqual(
+            Set(result.targetMap.map { ExpectedTarget(name: $0.module.name, implicit: $0.module.implicit) }),
+            expectedTargets
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "APlugin")?.implicit,
+            false
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "ASystemLib")?.implicit,
+            false
+        )
+    }
 }
 
 class BuildPlanNativeTests: BuildPlanTestCase {

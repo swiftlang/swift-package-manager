@@ -49,7 +49,8 @@ public final class BinaryModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: false
         )
     }
 
