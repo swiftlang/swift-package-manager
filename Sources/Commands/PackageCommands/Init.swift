@@ -78,7 +78,7 @@ extension SwiftPackageCommand {
 
         /// The type of template to use: `registry`, `git`, or `local`.
         @Option(name: .customLong("template-type"), help: "Template type: registry, git, local.")
-        var templateType: InitTemplatePackage.TemplateType?
+        var templateSource: InitTemplatePackage.TemplateSource?
 
         /// Path to a local template.
         @Option(name: .customLong("template-path"), help: "Path to the local template.", completion: .directory)
@@ -165,7 +165,7 @@ extension SwiftPackageCommand {
             let resolvedTemplatePath: Basics.AbsolutePath
             var requirement: PackageDependency.SourceControl.Requirement?
 
-            switch self.templateType {
+            switch self.templateSource {
             case .git:
                 requirement = try DependencyRequirementResolver(
                     exact: self.exact,
@@ -177,7 +177,7 @@ extension SwiftPackageCommand {
                 ).resolve()
 
                 resolvedTemplatePath = try await TemplatePathResolver(
-                    templateType: self.templateType,
+                    templateSource: self.templateSource,
                     templateDirectory: self.templateDirectory,
                     templateURL: self.templateURL,
                     requirement: requirement
@@ -185,7 +185,7 @@ extension SwiftPackageCommand {
 
             case .local, .registry:
                 resolvedTemplatePath = try await TemplatePathResolver(
-                    templateType: self.templateType,
+                    templateSource: self.templateSource,
                     templateDirectory: self.templateDirectory,
                     templateURL: self.templateURL,
                     requirement: nil
@@ -202,7 +202,7 @@ extension SwiftPackageCommand {
 
             // Clean up downloaded package after execution.
             defer {
-                if templateType == .git {
+                if templateSource == .git {
                     try? FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
                 }
             }
@@ -293,7 +293,7 @@ extension SwiftPackageCommand {
             requirement: PackageDependency.SourceControl.Requirement?,
             resolvedTemplatePath: Basics.AbsolutePath
         ) throws -> MappablePackageDependency.Kind {
-            switch self.templateType {
+            switch self.templateSource {
             case .local:
                 return .fileSystem(name: self.packageName, path: resolvedTemplatePath.asURL.path)
 
@@ -335,4 +335,4 @@ extension InitPackage.PackageType: ExpressibleByArgument {
     }
 }
 
-extension InitTemplatePackage.TemplateType: ExpressibleByArgument {}
+extension InitTemplatePackage.TemplateSource: ExpressibleByArgument {}

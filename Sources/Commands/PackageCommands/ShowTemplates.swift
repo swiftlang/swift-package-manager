@@ -86,7 +86,7 @@ struct ShowTemplates: AsyncSwiftCommand {
 
             // Download and resolve the Git-based template.
             let resolver = TemplatePathResolver(
-                templateType: .git,
+                templateSource: .git,
                 templateDirectory: nil,
                 templateURL: templateURL,
                 requirement: requirement

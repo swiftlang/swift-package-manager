@@ -29,8 +29,8 @@ import Workspace
 /// Used during package initialization (e.g., via `swift package init --template`).
 
 struct TemplatePathResolver {
-    /// The type of template to resolve (e.g., local, git, registry).
-    let templateType: InitTemplatePackage.TemplateSource?
+    /// The source of template to resolve (e.g., local, git, registry).
+    let templateSource: InitTemplatePackage.TemplateSource?
 
     /// The local path to a template directory, used for `.local` templates.
     let templateDirectory: Basics.AbsolutePath?
@@ -48,7 +48,7 @@ struct TemplatePathResolver {
     /// - `StringError` if required values (e.g., path, URL, requirement) are missing,
     /// or if the template type is unsupported or unspecified.
     func resolve() async throws -> Basics.AbsolutePath {
-        switch self.templateType {
+        switch self.templateSource {
         case .local:
             guard let path = templateDirectory else {
                 throw StringError("Template path must be specified for local templates.")
