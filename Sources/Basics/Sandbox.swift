@@ -188,8 +188,8 @@ fileprivate func macOSSandboxProfile(
     }
     // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
     else if strictness == .writableTemporaryDirectory {
-        // Add `subpath` expressions for the regular and the Foundation temporary directories.
-        for tmpDir in ["/tmp", NSTemporaryDirectory()] {
+        // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
+        for tmpDir in ["/tmp", NSTemporaryDirectory(), try tmpCacheDirectory()] {
             writableDirectoriesExpression += try [
                 "(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))",
             ]
@@ -217,12 +217,12 @@ fileprivate func macOSSandboxProfile(
     // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
+        var stableItemReplacementDirectories: [AbsolutePath] = []
         for path in writableDirectories {
             contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
             
             // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
             if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
-                var stableItemReplacementDirectories: [AbsolutePath] = []
                 for directory in itemReplacementDirectories {
                     if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: directory) }) {
                         stableItemReplacementDirectories.append(directory)
@@ -235,6 +235,17 @@ fileprivate func macOSSandboxProfile(
     }
 
     return contents
+}
+
+/// If the swift compiler is to be run in a sandbox it needs to be able to
+/// write to the temporary cache directory. LLVM uses 
+/// "\(NSTemporaryDirectory())/../C/clang/ModuleCache/", so reconstruct
+/// this base path out of the NSTemporaryDirectory().
+fileprivate func tmpCacheDirectory() throws -> String {
+    return try AbsolutePath(validating: NSTemporaryDirectory())
+        .appending("..")
+        .appending("C")
+        .pathString
 }
 
 extension AbsolutePath {
