@@ -33,6 +33,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:UsingShellCompletion>
 - <doc:SwiftPMAsALibrary>
 - <doc:ModuleAliasing>
+- <doc:UsingSwiftPackageRegistry>
 - <doc:PackageCollections>
 
 <!-- ### Command Plugins -->
@@ -55,3 +56,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:SwiftPackageRegistryCommands>
 - <doc:SwiftPackageCollectionCommands>
 - <doc:SwiftRun>
+
+### Design
+
+- <doc:RegistryServerSpecification>
