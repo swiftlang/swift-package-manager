@@ -46,7 +46,8 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            template: false // test modules cannot be templates
         )
     }
 
@@ -68,7 +69,8 @@ public final class SwiftModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
-        usesUnsafeFlags: Bool
+        usesUnsafeFlags: Bool,
+        template: Bool
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
@@ -85,7 +87,8 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
-            usesUnsafeFlags: usesUnsafeFlags
+            usesUnsafeFlags: usesUnsafeFlags,
+            template: template
         )
     }
 
@@ -133,16 +136,17 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            template: false // Modules from test entry point files are not templates
         )
     }
 
     public var supportsTestableExecutablesFeature: Bool {
-        // Exclude macros from testable executables if they are built as dylibs. john-to-revisit
+        // Exclude macros from testable executables if they are built as dylibs.
         #if BUILD_MACROS_AS_DYLIBS
-        return type == .executable || type == .snippet || type == .template
+        return type == .executable || type == .snippet
         #else
-        return type == .executable || type == .macro || type == .snippet || type == .template
+        return type == .executable || type == .macro || type == .snippet
         #endif
     }
 }

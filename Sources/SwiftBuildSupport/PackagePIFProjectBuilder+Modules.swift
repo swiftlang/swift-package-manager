@@ -95,12 +95,7 @@ extension PackagePIFProjectBuilder {
                         platformFilters: dependencyPlatformFilters
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
-                case .template: //john-to-revisit
-                    // Template targets are used as tooling, not build dependencies.
-                    // Plugins will invoke them when needed.
-                    break
                 }
-                
 
             case .product(let productDependency, let packageConditions):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
@@ -701,8 +696,6 @@ extension PackagePIFProjectBuilder {
                         indent: 1,
                         "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID)'"
                     )
-                case .template: //john-to-revisit
-                    break
                 }
 
             case .product(let productDependency, let packageConditions):

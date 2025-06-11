@@ -940,10 +940,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                  return evaluationResult // Return the result containing the error output
             }
 
-
             // Read the JSON output that was emitted by libPackageDescription.
             let jsonOutput: String = try localFileSystem.readFileContents(jsonOutputFile)
             evaluationResult.manifestJSON = jsonOutput
+
             // withTemporaryDirectory handles cleanup automatically
             return evaluationResult
         }

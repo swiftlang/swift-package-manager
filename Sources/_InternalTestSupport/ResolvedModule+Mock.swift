@@ -29,7 +29,8 @@ extension ResolvedModule {
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],
                 packageAccess: false,
-                usesUnsafeFlags: false
+                usesUnsafeFlags: false,
+                template: false
             ),
             dependencies: deps.map { .module($0, conditions: conditions) },
             defaultLocalization: nil,

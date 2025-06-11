@@ -386,7 +386,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
 
     private func addTarget(for product: ResolvedProduct) throws {
         switch product.type {
-        case .executable, .snippet, .test, .template: //john-to-revisit
+        case .executable, .snippet, .test:
             try self.addMainModuleTarget(for: product)
         case .library:
             self.addLibraryTarget(for: product)
@@ -413,8 +413,6 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             return
         case .macro:
             // Macros are not supported when using XCBuild, similar to package plugins.
-            return
-        case .template: //john-to-revisit
             return
         }
     }
@@ -1615,8 +1613,6 @@ extension ProductType {
             .plugin
         case .macro:
             .macro
-        case .template:
-            .template
         }
     }
 }

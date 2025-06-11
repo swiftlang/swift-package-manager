@@ -39,8 +39,6 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
-        /// A target that provides a Swift template
-        case template
     }
 
     /// The different types of a target's dependency on another entity.
@@ -295,7 +293,7 @@ public final class Target {
         self.templateInitializationOptions = templateInitializationOptions
 
         switch type {
-        case .regular, .executable, .test:
+        case .regular, .test:
             precondition(
                 url == nil &&
                 pkgConfig == nil &&
@@ -303,6 +301,14 @@ public final class Target {
                 pluginCapability == nil &&
                 checksum == nil &&
                 templateInitializationOptions == nil
+            )
+        case .executable:
+            precondition(
+                url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil &&
+                checksum == nil
             )
         case .system:
             precondition(
@@ -364,14 +370,6 @@ public final class Target {
                 cSettings == nil &&
                 cxxSettings == nil &&
                 templateInitializationOptions == nil
-            )
-        case .template:
-            precondition(
-                url == nil &&
-                pkgConfig == nil &&
-                providers == nil &&
-                pluginCapability == nil &&
-                checksum == nil
             )
         }
     }
@@ -1336,7 +1334,7 @@ public extension [Target] {
                 sources: sources,
                 resources: resources,
                 publicHeadersPath: publicHeadersPath,
-                type: .template,
+                type: .executable,
                 packageAccess: packageAccess,
                 cSettings: cSettings,
                 cxxSettings: cxxSettings,
@@ -1689,7 +1687,7 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
 /// The type of permission a plug-in requires.
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
-@available(_PackageDescription, introduced: 6.0)
+@available(_PackageDescription, introduced: 999.0)
 public enum TemplatePermissions {
     /// Create a permission to make network connections.
     ///
@@ -1697,7 +1695,7 @@ public enum TemplatePermissions {
     /// to the user at the time of request for approval, explaining why the plug-in is requesting access.
     ///   - Parameter scope: The scope of the permission.
     ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
-    @available(_PackageDescription, introduced: 6.0)
+    @available(_PackageDescription, introduced: 999.0)
     case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
 
 }
@@ -1705,7 +1703,7 @@ public enum TemplatePermissions {
 /// The scope of a network permission.
 ///
 /// The scope can be none, local connections only, or all connections.
-@available(_PackageDescription, introduced: 5.9)
+@available(_PackageDescription, introduced: 999.0)
 public enum TemplateNetworkPermissionScope {
     /// Do not allow network access.
     case none

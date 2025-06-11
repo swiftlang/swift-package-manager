@@ -283,7 +283,7 @@ private func checkAllDependenciesAreUsed(
 
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
-            guard !dependency.products.contains(where: { $0.type == .executable || $0.type == .template}) else { //john-to-revisit
+            guard !dependency.products.contains(where: { $0.type == .executable }) else {
                 continue
             }
             // Skip this check if this dependency is a system module because system module packages

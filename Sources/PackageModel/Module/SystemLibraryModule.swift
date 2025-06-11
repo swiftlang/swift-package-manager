@@ -49,7 +49,8 @@ public final class SystemLibraryModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            template: false // System libraries are not templates
         )
     }
 }
