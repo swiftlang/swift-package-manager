@@ -293,7 +293,7 @@ It keeps track of user's list of configured collections and preferences such as 
 [Sign package collections](<doc:PackageSecurity#Signed-package-collections>) to establish authenticity and protect their integrity. 
 Doing this is optional. 
 Users will be prompted for confirmation before they can add an [unsigned collection](<doc:PackageCollectionAdd#Unsigned-package-collections>).
-If a package collection is signed, the signing certificate must meet a list of [requirements](<doc:PackageSecurity#Requirements-on-signing-certificate>). If these requirements are not met, Package manager will return an error.
+The signing certificate you use to sign a package collection must meet a list of [requirements](<doc:PackageSecurity#Requirements-on-signing-certificate>). If these requirements are not met, the package manager returns an error.
 
 For more details on the security features Package manager implements, see <doc:PackageSecurity>.
 
