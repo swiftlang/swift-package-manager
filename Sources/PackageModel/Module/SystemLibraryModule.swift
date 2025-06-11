@@ -25,9 +25,6 @@ public final class SystemLibraryModule: Module {
     /// List of system package providers, if any.
     public let providers: [SystemPackageProviderDescription]?
 
-    /// True if this system library should become implicit dependency of its dependent packages.
-    public let isImplicit: Bool
-
     public init(
         name: String,
         path: AbsolutePath,
@@ -38,7 +35,6 @@ public final class SystemLibraryModule: Module {
         let sources = Sources(paths: [], root: path)
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.isImplicit = isImplicit
         super.init(
             name: name,
             type: .systemModule,
@@ -49,7 +45,8 @@ public final class SystemLibraryModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: isImplicit
         )
     }
 }

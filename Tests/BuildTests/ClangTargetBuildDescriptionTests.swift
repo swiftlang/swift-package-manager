@@ -61,7 +61,8 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
             type: .library,
             path: .root,
             sources: .init(paths: [.root.appending(component: "foo.c")], root: .root),
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: true
         )
     }
 

@@ -1079,7 +1079,8 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1124,7 +1125,8 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         }
     }
@@ -1903,7 +1905,8 @@ extension PackageBuilder {
                     packageAccess: false,
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
-                    usesUnsafeFlags: false
+                    usesUnsafeFlags: false,
+                    implicit: true
                 )
             }
     }
