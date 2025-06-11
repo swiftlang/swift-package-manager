@@ -422,11 +422,6 @@ public final class SwiftCommandState {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope
-                .emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
-        }
-
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
@@ -879,7 +874,6 @@ public final class SwiftCommandState {
                 explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
                     .modeParameter,
                 useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem

@@ -81,6 +81,7 @@ let swiftPMProduct = (
         "LLBuildManifest",
         "SourceKitLSPAPI",
         "SPMLLBuild",
+        "SwiftBuildSupport",
     ]
 )
 
@@ -338,6 +339,19 @@ let package = Package(
             ]
         ),
 
+        .target(
+            /** API for inspecting symbols defined in binaries */
+            name: "BinarySymbols",
+            dependencies: [
+                "Basics",
+                .product(name: "TSCBasic", package: "swift-tools-support-core"),
+            ],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
         // MARK: Project Model
 
         .target(
@@ -466,7 +480,8 @@ let package = Package(
         // MARK: Documentation
 
         .target(
-            name: "PackageManagerDocs"
+            name: "PackageManagerDocs",
+            exclude: ["README.md"],
         ),
 
         // MARK: Package Manager Functionality
@@ -597,6 +612,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Basics",
+                "BinarySymbols",
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
@@ -958,6 +974,10 @@ let package = Package(
             dependencies: ["SwiftFixIt", "_InternalTestSupport"]
         ),
         .testTarget(
+            name: "BinarySymbolsTests",
+            dependencies: ["BinarySymbols", "_InternalTestSupport"]
+        ),
+        .testTarget(
             name: "XCBuildSupportTests",
             dependencies: ["XCBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"],
             exclude: ["Inputs/Foo.pc"]
@@ -1080,7 +1100,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.5.1")),
         .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),

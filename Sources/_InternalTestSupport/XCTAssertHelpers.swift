@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
@@ -67,10 +68,15 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     } else {
         failureCause = ""
     }
-    if (skipPlatformCi || skipSelfHostedCI) {
+    if (skipPlatformCi) {
         try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+    }
+
+    if (skipSelfHostedCI) {
         try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
-    } else {
+    }
+
+    if (!skipPlatformCi && !skipSelfHostedCI) {
         throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
     }
     #endif
@@ -318,20 +324,12 @@ public struct CommandExecutionError: Error {
     public let stderr: String
 }
 
-/// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
-///
-/// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
-///
-/// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
-public func XCTSkipIfWorkingDirectoryUnsupported() throws {
-    func unavailable() throws {
-        throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8560: Thread-safe process working directory support is unavailable on this platform.")
-    }
-    #if os(Linux)
-    if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
-        try unavailable()
-    }
-    #elseif os(OpenBSD)
-    try unavailable()
-    #endif
+
+public func XCTExhibitsGitHubIssue(_ number: Int) throws {
+    let envVar = "SWIFTCI_EXHIBITS_GH_\(number)"
+
+    try XCTSkipIf(
+        ProcessInfo.processInfo.environment[envVar] != nil,
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+    )
 }

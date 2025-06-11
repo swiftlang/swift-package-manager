@@ -588,10 +588,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
-        // support for --enable-parseable-module-interfaces
-        if buildParameters.driverParameters.enableParseableModuleInterfaces {
-            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        func reportConflict(_ a: String, _ b: String) throws -> String {
+            throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
+        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -604,6 +607,77 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         params.activeRunDestination = runDestination
 
         return params
+    }
+
+    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
+        var settings: [String: String] = [:]
+        // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
+        // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
+        // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
+        return settings
+    }
+
+    private static func constructDriverSettingsOverrides(from parameters: BuildParameters.Driver) -> [String: String] {
+        var settings: [String: String] = [:]
+        switch parameters.explicitTargetDependencyImportCheckingMode {
+        case .none:
+            break
+        case .warn:
+            settings["DIAGNOSE_MISSING_TARGET_DEPENDENCIES"] = "YES"
+        case .error:
+            settings["DIAGNOSE_MISSING_TARGET_DEPENDENCIES"] = "YES_ERROR"
+        }
+
+        if parameters.enableParseableModuleInterfaces {
+            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        }
+
+        return settings
+    }
+
+    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+        var settings: [String: String] = [:]
+
+        if parameters.linkerDeadStrip {
+            settings["DEAD_CODE_STRIPPING"] = "YES"
+        }
+
+        switch parameters.linkTimeOptimizationMode {
+        case .full:
+            settings["LLVM_LTO"] = "YES"
+            settings["SWIFT_LTO"] = "YES"
+        case .thin:
+            settings["LLVM_LTO"] = "YES_THIN"
+            settings["SWIFT_LTO"] = "YES_THIN"
+        case nil:
+            break
+        }
+
+        // TODO: shouldDisableLocalRpath
+        // TODO: shouldLinkStaticSwiftStdlib
+
+        return settings
+    }
+
+    private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
+        var settings: [String: String] = [:]
+        // TODO: enableCodeCoverage
+        // explicitlyEnabledTestability
+
+        switch parameters.explicitlyEnabledTestability {
+        case true:
+            settings["ENABLE_TESTABILITY"] = "YES"
+        case false:
+            settings["ENABLE_TESTABILITY"] = "NO"
+        default:
+            break
+        }
+
+        // TODO: experimentalTestOutput
+        // TODO: explicitlyEnabledDiscovery
+        // TODO: explicitlySpecifiedPath
+
+        return settings
     }
 
     private func getPIFBuilder() async throws -> PIFBuilder {

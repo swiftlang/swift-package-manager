@@ -878,105 +878,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #endif
     }
 
-    func testExplicitSwiftPackageBuild() async throws {
-        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
-        try XCTSkipIf(true)
-        try await withTemporaryDirectory { path in
-            // Create a test package with three targets:
-            // A -> B -> C
-            let fs = localFileSystem
-            try fs.changeCurrentWorkingDirectory(to: path)
-            let testDirPath = path.appending("ExplicitTest")
-            let buildDirPath = path.appending(".build")
-            let sourcesPath = testDirPath.appending("Sources")
-            let aPath = sourcesPath.appending("A")
-            let bPath = sourcesPath.appending("B")
-            let cPath = sourcesPath.appending("C")
-            let main = aPath.appending("main.swift")
-            let aSwift = aPath.appending("A.swift")
-            let bSwift = bPath.appending("B.swift")
-            let cSwift = cPath.appending("C.swift")
-            try localFileSystem.writeFileContents(main, string: "baz();")
-            try localFileSystem.writeFileContents(
-                aSwift,
-                string:
-                """
-                import B;\
-                import C;\
-                public func baz() { bar() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                bSwift,
-                string:
-                """
-                import C;
-                public func bar() { foo() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                cSwift,
-                string:
-                "public func foo() {}"
-            )
-
-            // Plan package build with explicit module build
-            let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadModulesGraph(
-                fileSystem: fs,
-                manifests: [
-                    Manifest.createRootManifest(
-                        displayName: "ExplicitTest",
-                        path: testDirPath,
-                        targets: [
-                            TargetDescription(name: "A", dependencies: ["B"]),
-                            TargetDescription(name: "B", dependencies: ["C"]),
-                            TargetDescription(name: "C", dependencies: []),
-                        ]
-                    ),
-                ],
-                observabilityScope: observability.topScope
-            )
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            do {
-                let plan = try await mockBuildPlan(
-                    config: .release,
-                    triple: UserToolchain.default.targetTriple,
-                    toolchain: UserToolchain.default,
-                    graph: graph,
-                    driverParameters: .init(
-                        useExplicitModuleBuild: true
-                    ),
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-
-                let yaml = buildDirPath.appending("release.yaml")
-                let llbuild = LLBuildManifestBuilder(
-                    plan,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observability.topScope
-                )
-                try llbuild.generateManifest(at: yaml)
-                let contents: String = try localFileSystem.readFileContents(yaml)
-
-                // A few basic checks
-                XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
-                XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
-                XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-                XCTAssertMatch(contents, .contains("A-dependencies"))
-                XCTAssertMatch(contents, .contains("B-dependencies"))
-                XCTAssertMatch(contents, .contains("C-dependencies"))
-            } catch Driver.Error.unableToDecodeFrontendTargetInfo {
-                // If the toolchain being used is sufficiently old, the integrated driver
-                // will not be able to parse the `-print-target-info` output. In which case,
-                // we cannot yet rely on the integrated swift driver.
-                // This effectively guards the test from running on unsupported, older toolchains.
-                throw XCTSkip()
-            }
-        }
-    }
-
     func testSwiftConditionalDependency() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
@@ -7466,14 +7367,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
     }
 
     override func testPackageNameFlag() async throws {
-        try XCTSkipIfWorkingDirectoryUnsupported()
         try XCTSkipOnWindows(because: "Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-#if os(Linux)
-        // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
-        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
-        throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
-#endif
-
         try await super.testPackageNameFlag()
     }
 

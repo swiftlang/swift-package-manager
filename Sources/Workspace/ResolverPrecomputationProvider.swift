@@ -57,36 +57,32 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Error>) -> Void
-    ) {
-        queue.async {
-            // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
-                let container = LocalPackageContainer(
-                    package: package,
-                    manifest: manifest.manifest,
-                    dependency: manifest.dependency,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-                return completion(.success(container))
-            }
-
-            // Continue searching from the Workspace's root manifests.
-            if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
-                let container = LocalPackageContainer(
-                    package: package,
-                    manifest: rootPackage.manifest,
-                    dependency: nil,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-                return completion(.success(container))
-            }
-
-            // As we don't have anything else locally, error out.
-            completion(.failure(ResolverPrecomputationError.missingPackage(package: package)))
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer {
+        // Start by searching manifests from the Workspace's resolved dependencies.
+        if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
+            let container = LocalPackageContainer(
+                package: package,
+                manifest: manifest.manifest,
+                dependency: manifest.dependency,
+                currentToolsVersion: self.currentToolsVersion
+            )
+            return container
         }
+
+        // Continue searching from the Workspace's root manifests.
+        if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
+            let container = LocalPackageContainer(
+                package: package,
+                manifest: rootPackage.manifest,
+                dependency: nil,
+                currentToolsVersion: self.currentToolsVersion
+            )
+            return container
+        }
+
+        // As we don't have anything else locally, error out.
+        throw ResolverPrecomputationError.missingPackage(package: package)
     }
 }
 

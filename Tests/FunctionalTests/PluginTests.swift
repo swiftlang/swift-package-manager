@@ -70,7 +70,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
@@ -92,7 +92,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
@@ -115,7 +115,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ClientOfPluginWithInternalExecutable"), extraArgs: ["--build-system", "swiftbuild"])
@@ -136,13 +136,11 @@ final class PluginTests: XCTestCase {
             }
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath.appending("InvalidUseOfInternalPluginExecutable")), "Illegally used internal executable"
 ) { error in
             }
         }
-#endif
     }
     
     func testLocalBuildToolPluginUsingRemoteExecutable() async throws {
@@ -159,7 +157,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"), extraArgs: ["--build-system", "swiftbuild"])
@@ -182,7 +180,7 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if os(macOS)
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBuildToolPluginDependencies"), extraArgs: ["--build-system", "swiftbuild"])
@@ -204,15 +202,12 @@ final class PluginTests: XCTestCase {
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
-/*
-FIXME: Determine the cause of the compile error.
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 #endif
-*/
     }
 
     func testPluginScriptSandbox() async throws {
@@ -1161,7 +1156,7 @@ FIXME: Determine the cause of the compile error.
             XCTAssert(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
@@ -1178,7 +1173,7 @@ FIXME: Determine the cause of the compile error.
             XCTAssert(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if os(macOS) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
@@ -1222,7 +1217,7 @@ FIXME: Determine the cause of the compile error.
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("TransitivePluginOnlyDependency"), extraArgs: ["--build-system", "swiftbuild"])
@@ -1243,7 +1238,7 @@ FIXME: Determine the cause of the compile error.
             }
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             do {
                 try await executeSwiftBuild(fixturePath.appending("MissingPlugin"), extraArgs: ["--build-system", "swiftbuild"])
@@ -1265,7 +1260,7 @@ FIXME: Determine the cause of the compile error.
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("PluginCanBeReferencedByProductName"), extraArgs: ["--build-system", "swiftbuild"])
@@ -1295,7 +1290,7 @@ FIXME: Determine the cause of the compile error.
             XCTAssert(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if os(macOS)
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending(component: "MySourceGenPlugin"),
@@ -1318,8 +1313,7 @@ FIXME: Determine the cause of the compile error.
             let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug)
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
-
-#if os(macOS) // See https://github.com/swiftlang/swift-package-manager/issues/8416 for errors running build tools on Linux
+#if os(macOS)
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
@@ -1335,5 +1329,12 @@ FIXME: Determine the cause of the compile error.
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
+
+#if !os(Windows) // https://github.com/swiftlang/swift-package-manager/issues/8774
+        try await fixture(name: "Miscellaneous/Plugins/DependentPlugins") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(fixturePath, extraArgs: ["--build-system", "swiftbuild"])
+            XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+#endif
     }
 }

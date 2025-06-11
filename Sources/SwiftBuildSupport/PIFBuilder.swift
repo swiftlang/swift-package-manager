@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -257,7 +257,7 @@ public final class PIFBuilder {
             var packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = []
             
             for package in sortedPackages {
-                var buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
+                var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
 
                 for module in package.modules {
                     // Apply each build tool plugin used by the target in order,
@@ -357,9 +357,12 @@ public final class PIFBuilder {
                         let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
                             prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
                             buildCommands: result.buildCommands.map( { buildCommand in
-                                var env: [String: String] = [:]
-                                for (key, value) in buildCommand.configuration.environment {
-                                    env[key.rawValue] = value
+                                var newEnv: Environment = buildCommand.configuration.environment
+
+                                if let runtimeLibPaths = try? buildParameters.toolchain.runtimeLibraryPaths {
+                                    for libPath in runtimeLibPaths {
+                                        newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+                                    }
                                 }
 
                                 let workingDir = buildCommand.configuration.workingDirectory
@@ -370,7 +373,7 @@ public final class PIFBuilder {
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
-                                    environment: env,
+                                    environment: .init(newEnv),
                                     workingDir: workingDir,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
@@ -388,7 +391,11 @@ public final class PIFBuilder {
 
                         // Add a BuildToolPluginInvocationResult to the mapping.
                         buildToolPluginResults.append(result2)
-                        buildToolPluginResultsByTargetName[module.name] = result2
+                        if var existingResults = buildToolPluginResultsByTargetName[module.name] {
+                            existingResults.append(result2)
+                        } else {
+                            buildToolPluginResultsByTargetName[module.name] = [result2]
+                        }
                     }
                 }
 
