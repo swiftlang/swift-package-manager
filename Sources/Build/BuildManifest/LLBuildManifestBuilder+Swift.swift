@@ -442,12 +442,12 @@ extension LLBuildManifestBuilder {
             }
 
             // Depend on the binary for executable targets.
-            if (module.type == .executable || module.type == .template) && prepareForIndexing == .off {//john-to-revisit
+            if module.type == .executable && prepareForIndexing == .off {
                 // FIXME: Optimize. Build plan could build a mapping between executable modules
                 // and their products to speed up search here, which is inefficient if the plan
                 // contains a lot of products.
                 if let productDescription = try plan.productMap.values.first(where: {
-                    try ($0.product.type == .executable || $0.product.type == .template) && //john-to-revisit
+                    try $0.product.type == .executable &&
                         $0.product.executableModule.id == module.id &&
                         $0.destination == description.destination
                 }) {
@@ -481,7 +481,7 @@ extension LLBuildManifestBuilder {
 
             case .product(let product, let productDescription):
                 switch product.type {
-                case .executable, .snippet, .library(.dynamic), .macro, .template: //john-to-revisit
+                case .executable, .snippet, .library(.dynamic), .macro:
                     guard let productDescription else {
                         throw InternalError("No description for product: \(product)")
                     }

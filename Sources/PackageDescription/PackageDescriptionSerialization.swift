@@ -180,7 +180,6 @@ enum Serialization {
         case binary
         case plugin
         case `macro`
-        case template
     }
 
     enum PluginCapability: Codable {
@@ -286,7 +285,6 @@ enum Serialization {
             case executable
             case library(type: LibraryType)
             case plugin
-            case template
         }
 
         let name: String

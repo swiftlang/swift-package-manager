@@ -111,7 +111,6 @@ struct BuildCommandOptions: ParsableArguments {
     /// Swift VSCode plugin. They will be removed in a future update.
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
-
     */
 
     /// Specifies the traits to build.

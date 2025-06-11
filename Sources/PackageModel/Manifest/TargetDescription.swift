@@ -24,7 +24,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
-        case template
     }
 
     /// Represents a target's dependency on another entity.
@@ -255,7 +254,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     ) throws {
         let targetType = String(describing: type)
         switch type {
-        case .regular, .executable, .test:
+        case .regular, .test:
             if url != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
@@ -293,7 +292,37 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 value: String(describing: templateInitializationOptions!)
                 )
             }
-
+        case .executable:
+            if url != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "url",
+                value: url ?? "<nil>"
+            ) }
+            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pkgConfig",
+                value: pkgConfig ?? "<nil>"
+            ) }
+            if providers != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "providers",
+                value: String(describing: providers!)
+            ) }
+            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "pluginCapability",
+                value: String(describing: pluginCapability!)
+            ) }
+            if checksum != nil { throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "checksum",
+                value: checksum ?? "<nil>"
+            ) }
         case .system:
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -520,45 +549,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 value: String(describing: templateInitializationOptions!)
                 )
             }
-        case .template:
-            // List forbidden properties for `.template` targets
-            if url != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "url",
-                value: url ?? "<nil>"
-            ) }
-            if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "pkgConfig",
-                value: pkgConfig ?? "<nil>"
-            ) }
-            if providers != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "providers",
-                value: String(describing: providers!)
-            ) }
-            if pluginCapability != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "pluginCapability",
-                value: String(describing: pluginCapability!)
-            ) }
-            if checksum != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "checksum",
-                value: checksum ?? "<nil>"
-            ) } 
-            if templateInitializationOptions == nil { throw Error.disallowedPropertyInTarget( //john-to-revisit
-                targetName: name,
-                targetType: targetType,
-                propertyName: "templateInitializationOptions",
-                value: String(describing: templateInitializationOptions)
-            ) }
-
         }
 
         self.name = name
@@ -759,5 +749,3 @@ private enum Error: LocalizedError, Equatable {
         }
     }
 }
-
-

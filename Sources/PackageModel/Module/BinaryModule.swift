@@ -49,7 +49,8 @@ public final class BinaryModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            template: false // TODO: determine whether binary modules can be templates or not
         )
     }
 

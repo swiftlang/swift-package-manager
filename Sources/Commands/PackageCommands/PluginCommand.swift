@@ -37,7 +37,7 @@ struct PluginCommand: AsyncSwiftCommand {
     )
     var listCommands: Bool = false
 
-    public struct PluginOptions: ParsableArguments {
+    struct PluginOptions: ParsableArguments {
         @Flag(
             name: .customLong("allow-writing-to-package-directory"),
             help: "Allow the plugin to write to the package directory."
@@ -363,7 +363,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
         let buildEnvironment = buildParameters.buildEnvironment
-        let pluginOutput = try await pluginTarget.invoke(
+        _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,
