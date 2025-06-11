@@ -25,11 +25,13 @@ import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
+    let buildSystem: BuildSystemProvider.Kind
     let plugin: PluginModule
     var lineBufferedOutput: Data
 
-    init(swiftCommandState: SwiftCommandState, plugin: PluginModule) {
+    init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
+        self.buildSystem = buildSystem
         self.plugin = plugin
         self.lineBufferedOutput = Data()
     }
@@ -167,7 +169,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: .init(),
             cacheBuildManifest: false,
@@ -398,7 +400,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystem,
             traitConfiguration: TraitConfiguration(enableAllTraits: true),
             cacheBuildManifest: false
         )
