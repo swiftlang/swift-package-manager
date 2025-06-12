@@ -180,6 +180,12 @@ public struct ResolvedModule {
         })
     }
 
+    /// Whether this module comes from a declaration in the manifest file
+    /// or was synthesized (i.e. some test modules are synthesized).
+    public var implicit: Bool {
+        self.underlying.implicit
+    }
+
     /// Create a resolved module instance.
     public init(
         packageIdentity: PackageIdentity,
