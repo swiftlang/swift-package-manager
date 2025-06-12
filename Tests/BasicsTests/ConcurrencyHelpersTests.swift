@@ -36,16 +36,13 @@ struct ConcurrencyHelpersTest {
                         lock.withLock {
                             expected[index] = value
                         }
-                        cache.memoize(index) {
-                            value
-                        }
-                        cache.memoize(index) {
-                            Int.random(in: Int.min ..< Int.max)
-                        }
+                        cache.memoize(index) { value }
+                        cache.memoize(index) { Int.random(in: Int.min ..< Int.max) }
                     }
                 }
 
-                try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
+                sync.wait()
+
                 expected.forEach { key, value in
                     #expect(cache[key] == value)
                 }
@@ -71,179 +68,78 @@ struct ConcurrencyHelpersTest {
                         cache.append(value)
                     }
                 }
+                sync.wait()
 
-                try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
                 let expectedSorted = expected.sorted()
-                let resultsSorted = cache.get().sorted()
+                let resultsSorted  = cache.get().sorted()
                 #expect(expectedSorted == resultsSorted)
             }
         }
-    }
-
-    @Test
-    func threadSafeBox() throws {
-        let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
-        for _ in 0 ..< 100 {
-            let sync = DispatchGroup()
-
-            var winner: Int?
-            let lock = NSLock()
-
-            let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
-
-            let cache = ThreadSafeBox<Int>()
-            for index in 0 ..< 1000 {
-                queue.async(group: sync) {
-                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
-                    serial.async(group: sync) {
-                        lock.withLock {
-                            if winner == nil {
-                                winner = index
-                            }
-                        }
-                        cache.memoize {
-                            index
-                        }
-                    }
-                }
-            }
-
-            try #require(sync.wait(timeout: .now() + .seconds(2)) == .success)
-            #expect(cache.get() == winner)
-        }
-    }
-
-    @Suite
-    struct AsyncOperationQueueTests {
-        fileprivate actor ResultsTracker {
-            var results = [Int]()
-            var maxConcurrent = 0
-            var currentConcurrent = 0
-
-            func incrementConcurrent() {
-                currentConcurrent += 1
-                maxConcurrent = max(maxConcurrent, currentConcurrent)
-            }
-
-            func decrementConcurrent() {
-                currentConcurrent -= 1
-            }
-
-            func appendResult(_ value: Int) {
-                results.append(value)
-            }
-        }
 
         @Test
-        func limitsConcurrentOperations() async throws {
-            let queue = AsyncOperationQueue(concurrentTasks: 5)
+        func threadSafeBox() throws {
+            let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
+            for _ in 0 ..< 100 {
+                let sync = DispatchGroup()
 
-            let totalTasks = 20
-            let tracker = ResultsTracker()
+                var winner: Int?
+                let lock = NSLock()
 
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0..<totalTasks {
-                    group.addTask {
-                        try await queue.withOperation {
-                            await tracker.incrementConcurrent()
-                            try? await Task.sleep(nanoseconds: 5_000_000)
-                            await tracker.decrementConcurrent()
-                            await tracker.appendResult(index)
-                        }
-                    }
-                }
-                try await group.waitForAll()
-            }
+                let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
 
-            let maxConcurrent = await tracker.maxConcurrent
-            let results = await tracker.results
-
-            // Check that at no point did we exceed 5 concurrent operations
-            #expect(maxConcurrent == 5)
-            #expect(results.count == totalTasks)
-        }
-
-        @Test
-        func passesThroughWhenUnderConcurrencyLimit() async throws {
-            let queue = AsyncOperationQueue(concurrentTasks: 5)
-
-            let totalTasks = 5
-            let tracker = ResultsTracker()
-
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0..<totalTasks {
-                    group.addTask {
-                        try await queue.withOperation {
-                            await tracker.incrementConcurrent()
-                            try? await Task.sleep(nanoseconds: 5_000_000)
-                            await tracker.decrementConcurrent()
-                            await tracker.appendResult(index)
-                        }
-                    }
-                }
-                try await group.waitForAll()
-            }
-
-            let maxConcurrent = await tracker.maxConcurrent
-            let results = await tracker.results
-
-            // Check that we never exceeded the concurrency limit
-            #expect(maxConcurrent <= 5)
-            #expect(results.count == totalTasks)
-        }
-
-        @Test
-        func handlesImmediateCancellation() async throws {
-            let queue = AsyncOperationQueue(concurrentTasks: 5)
-            let totalTasks = 20
-            let tracker = ResultsTracker()
-
-            await #expect(throws: _Concurrency.CancellationError.self) {
-                try await withThrowingTaskGroup(of: Void.self) { group in
-                    // Cancel the task group immediately
-                    group.cancelAll()
-
-                    for index in 0..<totalTasks {
-                        group.addTask {
-                            try await queue.withOperation {
-                                if Task.isCancelled {
-                                    throw _Concurrency.CancellationError()
+                let cache = ThreadSafeBox<Int>()
+                for index in 0 ..< 1000 {
+                    queue.async(group: sync) {
+                        Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
+                        serial.async(group: sync) {
+                            lock.withLock {
+                                if winner == nil {
+                                    winner = index
                                 }
-                                await tracker.incrementConcurrent()
-                                // sleep for a long time to ensure cancellation can occur.
-                                // If this is too short the cancellation may be triggered after
-                                // all tasks have completed.
-                                try await Task.sleep(nanoseconds: 10_000_000_000)
-                                await tracker.decrementConcurrent()
-                                await tracker.appendResult(index)
                             }
+                            cache.memoize { index }
                         }
                     }
-                    try await group.waitForAll()
+                }
+                sync.wait()
+
+                #expect(cache.get() == winner)
+            }
+        }
+
+
+        @Suite
+        struct AsyncOperationQueueTests {
+            fileprivate actor ResultsTracker {
+                var results = [Int]()
+                var maxConcurrent = 0
+                var currentConcurrent = 0
+
+                func incrementConcurrent() {
+                    currentConcurrent += 1
+                    maxConcurrent = max(maxConcurrent, currentConcurrent)
+                }
+
+                func decrementConcurrent() {
+                    currentConcurrent -= 1
+                }
+
+                func appendResult(_ value: Int) {
+                    results.append(value)
                 }
             }
 
-            let maxConcurrent = await tracker.maxConcurrent
-            let results = await tracker.results
+            @Test
+            func limitsConcurrentOperations() async throws {
+                let queue = AsyncOperationQueue(concurrentTasks: 5)
 
-            #expect(maxConcurrent <= 5)
-            #expect(results.count < totalTasks)
-        }
+                let totalTasks = 20
+                let tracker = ResultsTracker()
 
-        @Test
-        func handlesCancellationDuringWait() async throws {
-            let queue = AsyncOperationQueue(concurrentTasks: 5)
-            let totalTasks = 20
-            let tracker = ResultsTracker()
-
-            await #expect(throws: _Concurrency.CancellationError.self) {
                 try await withThrowingTaskGroup(of: Void.self) { group in
                     for index in 0..<totalTasks {
                         group.addTask {
                             try await queue.withOperation {
-                                if Task.isCancelled {
-                                    throw _Concurrency.CancellationError()
-                                }
                                 await tracker.incrementConcurrent()
                                 try? await Task.sleep(nanoseconds: 5_000_000)
                                 await tracker.decrementConcurrent()
@@ -251,19 +147,119 @@ struct ConcurrencyHelpersTest {
                             }
                         }
                     }
+                    try await group.waitForAll()
+                }
 
-                    group.addTask { [group] in
-                        group.cancelAll()
+                let maxConcurrent = await tracker.maxConcurrent
+                let results = await tracker.results
+
+                // Check that at no point did we exceed 5 concurrent operations
+                #expect(maxConcurrent == 5)
+                #expect(results.count == totalTasks)
+            }
+
+            @Test
+            func passesThroughWhenUnderConcurrencyLimit() async throws {
+                let queue = AsyncOperationQueue(concurrentTasks: 5)
+
+                let totalTasks = 5
+                let tracker = ResultsTracker()
+
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for index in 0..<totalTasks {
+                        group.addTask {
+                            try await queue.withOperation {
+                                await tracker.incrementConcurrent()
+                                try? await Task.sleep(nanoseconds: 5_000_000)
+                                await tracker.decrementConcurrent()
+                                await tracker.appendResult(index)
+                            }
+                        }
                     }
                     try await group.waitForAll()
                 }
+
+                let maxConcurrent = await tracker.maxConcurrent
+                let results = await tracker.results
+
+                // Check that we never exceeded the concurrency limit
+                #expect(maxConcurrent <= 5)
+                #expect(results.count == totalTasks)
             }
 
-            let maxConcurrent = await tracker.maxConcurrent
-            let results = await tracker.results
+            @Test
+            func handlesImmediateCancellation() async throws {
+                let queue = AsyncOperationQueue(concurrentTasks: 5)
+                let totalTasks = 20
+                let tracker = ResultsTracker()
 
-            #expect(maxConcurrent <= 5)
-            #expect(results.count < totalTasks)
+                await #expect(throws: _Concurrency.CancellationError.self) {
+                    try await withThrowingTaskGroup(of: Void.self) { group in
+                        // Cancel the task group immediately
+                        group.cancelAll()
+
+                        for index in 0..<totalTasks {
+                            group.addTask {
+                                try await queue.withOperation {
+                                    if Task.isCancelled {
+                                        throw _Concurrency.CancellationError()
+                                    }
+                                    await tracker.incrementConcurrent()
+                                    // sleep for a long time to ensure cancellation can occur.
+                                    // If this is too short the cancellation may be triggered after
+                                    // all tasks have completed.
+                                    try await Task.sleep(nanoseconds: 10_000_000_000)
+                                    await tracker.decrementConcurrent()
+                                    await tracker.appendResult(index)
+                                }
+                            }
+                        }
+                        try await group.waitForAll()
+                    }
+                }
+
+                let maxConcurrent = await tracker.maxConcurrent
+                let results = await tracker.results
+
+                #expect(maxConcurrent <= 5)
+                #expect(results.count < totalTasks)
+            }
+
+            @Test
+            func handlesCancellationDuringWait() async throws {
+                let queue = AsyncOperationQueue(concurrentTasks: 5)
+                let totalTasks = 20
+                let tracker = ResultsTracker()
+
+                await #expect(throws: _Concurrency.CancellationError.self) {
+                    try await withThrowingTaskGroup(of: Void.self) { group in
+                        for index in 0..<totalTasks {
+                            group.addTask {
+                                try await queue.withOperation {
+                                    if Task.isCancelled {
+                                        throw _Concurrency.CancellationError()
+                                    }
+                                    await tracker.incrementConcurrent()
+                                    try? await Task.sleep(nanoseconds: 5_000_000)
+                                    await tracker.decrementConcurrent()
+                                    await tracker.appendResult(index)
+                                }
+                            }
+                        }
+
+                        group.addTask { [group] in
+                            group.cancelAll()
+                        }
+                        try await group.waitForAll()
+                    }
+                }
+
+                let maxConcurrent = await tracker.maxConcurrent
+                let results = await tracker.results
+
+                #expect(maxConcurrent <= 5)
+                #expect(results.count < totalTasks)
+            }
         }
     }
 }
