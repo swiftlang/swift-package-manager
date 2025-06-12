@@ -117,8 +117,6 @@ extension SwiftPackageCommand {
         @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
 
-
-
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw InternalError("Could not find the current working directory")
@@ -167,62 +165,34 @@ extension SwiftPackageCommand {
             packageName: String,
             cwd: Basics.AbsolutePath
         ) async throws {
-            let resolvedTemplatePath: Basics.AbsolutePath
-            var registryRequirement: PackageDependency.Registry.Requirement?
-            var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
-
-            switch self.templateSource {
-            case .git:
-                sourceControlRequirement = try DependencyRequirementResolver(
-                    exact: self.exact,
-                    revision: self.revision,
-                    branch: self.branch,
-                    from: self.from,
-                    upToNextMinorFrom: self.upToNextMinorFrom,
-                    to: self.to
-                ).resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
-
-
-                resolvedTemplatePath = try await TemplatePathResolver(
-                    templateSource: self.templateSource,
-                    templateDirectory: self.templateDirectory,
-                    templateURL: self.templateURL,
-                    sourceControlRequirement: sourceControlRequirement,
-                    registryRequirement: nil,
-                    packageIdentity: nil
-                ).resolve(swiftCommandState: swiftCommandState)
-
-            case .local:
-                resolvedTemplatePath = try await TemplatePathResolver(
-                    templateSource: self.templateSource,
-                    templateDirectory: self.templateDirectory,
-                    templateURL: self.templateURL,
-                    sourceControlRequirement: nil,
-                    registryRequirement: nil,
-                    packageIdentity: nil
-                ).resolve(swiftCommandState: swiftCommandState)
-            case .registry:
-
-                registryRequirement = try DependencyRequirementResolver(
-                    exact: self.exact,
-                    revision: self.revision,
-                    branch: self.branch,
-                    from: self.from,
-                    upToNextMinorFrom: self.upToNextMinorFrom,
-                    to: self.to
-                ).resolve(for: .registry) as? PackageDependency.Registry.Requirement
-
-                resolvedTemplatePath = try await TemplatePathResolver(
-                    templateSource: self.templateSource,
-                    templateDirectory: self.templateDirectory,
-                    templateURL: self.templateURL,
-                    sourceControlRequirement: nil,
-                    registryRequirement: registryRequirement,
-                    packageIdentity: templatePackageID
-                ).resolve(swiftCommandState: swiftCommandState)
-            case .none:
-                throw StringError("Missing template type")
+            guard let source = templateSource else {
+                throw ValidationError("No template source specified.")
             }
+
+            let requirementResolver = DependencyRequirementResolver(
+                exact: exact,
+                revision: revision,
+                branch: branch,
+                from: from,
+                upToNextMinorFrom: upToNextMinorFrom,
+                to: to
+            )
+
+            let registryRequirement: PackageDependency.Registry.Requirement? =
+                try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
+
+            let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
+                try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
+
+            let resolvedTemplatePath = try await TemplatePathResolver(
+                source: templateSource,
+                templateDirectory: templateDirectory,
+                templateURL: templateURL,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                packageIdentity: templatePackageID,
+                swiftCommandState: swiftCommandState
+            ).resolve()
 
             let templateInitType = try await swiftCommandState
                 .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
@@ -231,8 +201,11 @@ extension SwiftPackageCommand {
 
             // Clean up downloaded package after execution.
             defer {
-                if templateSource == .git || templateSource == .registry {
+                if templateSource == .git {
                     try? FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
+                } else if templateSource == .registry {
+                    let parentDirectoryURL = resolvedTemplatePath.parentDirectory.asURL
+                    try? FileManager.default.removeItem(at: parentDirectoryURL)
                 }
             }
 
@@ -242,10 +215,23 @@ extension SwiftPackageCommand {
                 swiftCommandState: swiftCommandState
             )
 
+            let builder = DefaultPackageDependencyBuilder(
+                templateSource: source,
+                packageName: packageName,
+                templateURL: self.templateURL,
+                templatePackageID: self.templatePackageID
+            )
+
+            let dependencyKind = try builder.makePackageDependency(
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                resolvedTemplatePath: resolvedTemplatePath
+            )
+
             let initTemplatePackage = try InitTemplatePackage(
                 name: packageName,
                 templateName: template,
-                initMode: packageDependency(sourceControlRequirement: sourceControlRequirement, registryRequirement: registryRequirement, resolvedTemplatePath: resolvedTemplatePath),
+                initMode: dependencyKind,
                 templatePath: resolvedTemplatePath,
                 fileSystem: swiftCommandState.fileSystem,
                 packageType: templateInitType,
@@ -315,45 +301,6 @@ extension SwiftPackageCommand {
                 }
             }
             throw InternalError("Could not find template \(self.template)")
-        }
-
-        /// Transforms the author's package into the required dependency
-        private func packageDependency(
-            sourceControlRequirement: PackageDependency.SourceControl.Requirement? = nil,
-            registryRequirement: PackageDependency.Registry.Requirement? = nil,
-            resolvedTemplatePath: Basics.AbsolutePath
-        ) throws -> MappablePackageDependency.Kind {
-            switch self.templateSource {
-            case .local:
-                return .fileSystem(name: self.packageName, path: resolvedTemplatePath.asURL.path)
-
-            case .git:
-                guard let url = templateURL else {
-                    throw StringError("Missing Git url")
-                }
-
-                guard let gitRequirement = sourceControlRequirement else {
-                    throw StringError("Missing Git requirement")
-                }
-                return .sourceControl(name: self.packageName, location: url, requirement: gitRequirement)
-
-            case .registry:
-
-                guard let packageID = templatePackageID else {
-                    throw StringError("Missing Package ID")
-                }
-
-
-                guard let packageRegistryRequirement = registryRequirement else {
-                    throw StringError("Missing Registry requirement")
-                }
-
-                return .registry(id: packageID, requirement: packageRegistryRequirement)
-
-            default:
-                throw StringError("Missing template source type")
-            }
-
         }
     }
 }

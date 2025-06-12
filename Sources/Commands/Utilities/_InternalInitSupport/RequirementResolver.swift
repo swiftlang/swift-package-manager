@@ -14,24 +14,29 @@ import PackageModel
 import TSCBasic
 import TSCUtility
 
-/// A utility for resolving a single, well-formed source control dependency requirement
-/// based on mutually exclusive versioning inputs such as `exact`, `branch`, `revision`,
-/// or version ranges (`from`, `upToNextMinorFrom`, `to`).
-///
-/// This is typically used to translate user-specified version inputs (e.g., from the command line)
-/// into a concrete `PackageDependency.SourceControl.Requirement` that SwiftPM can understand.
-///
-/// Only one of the following fields should be non-nil:
-/// - `exact`: A specific version (e.g., 1.2.3).
-/// - `revision`: A specific VCS revision (e.g., commit hash).
-/// - `branch`: A named branch (e.g., "main").
-/// - `from`: Lower bound of a version range with an upper bound inferred as the next major version.
-/// - `upToNextMinorFrom`: Lower bound of a version range with an upper bound inferred as the next minor version.
-///
-/// Optionally, a `to` value can be specified to manually cap the upper bound of a version range,
-/// but it must be combined with `from` or `upToNextMinorFrom`.
+/// A protocol defining an interface for resolving package dependency requirements
+/// based on a user’s input (such as version, branch, or revision).
+protocol DependencyRequirementResolving {
+    /// Resolves the requirement for the specified dependency type.
+    ///
+    /// - Parameter type: The type of dependency (`.sourceControl` or `.registry`) to resolve.
+    /// - Returns: A resolved requirement (`SourceControl.Requirement` or `Registry.Requirement`) as `Any`.
+    /// - Throws: `StringError` if resolution fails due to invalid or conflicting input.
+    func resolve(for type: DependencyType) throws -> Any
+}
 
-struct DependencyRequirementResolver {
+/// A utility for resolving a single, well-formed package dependency requirement
+/// from mutually exclusive versioning inputs, such as:
+/// - `exact`: A specific version (e.g., 1.2.3)
+/// - `branch`: A branch name (e.g., "main")
+/// - `revision`: A commit hash or VCS revision
+/// - `from` / `upToNextMinorFrom`: Lower bounds for version ranges
+/// - `to`: An optional upper bound that refines a version range
+///
+/// This resolver ensures only one form of versioning input is specified and validates combinations like `to` with
+/// `from`.
+
+struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// An exact version to use.
     let exact: Version?
 
@@ -50,51 +55,78 @@ struct DependencyRequirementResolver {
     /// An optional manual upper bound for the version range. Must be used with `from` or `upToNextMinorFrom`.
     let to: Version?
 
-    /// Resolves the provided requirement fields into a concrete `PackageDependency.SourceControl.Requirement`.
+    /// Resolves a concrete requirement based on the provided fields and target dependency type.
     ///
-    /// - Returns: A valid, single requirement representing a source control constraint.
-    /// - Throws: A `StringError` if:
-    ///   - More than one requirement type is provided.
-    ///   - None of the requirement fields are set.
-    ///   - A `to` value is provided without a corresponding `from` or `upToNextMinorFrom`.
+    /// - Parameter type: The dependency type to resolve (`.sourceControl` or `.registry`).
+    /// - Returns: A resolved requirement object (`PackageDependency.SourceControl.Requirement` or
+    /// `PackageDependency.Registry.Requirement`).
+    /// - Throws: `StringError` if the inputs are invalid, ambiguous, or incomplete.
 
     func resolve(for type: DependencyType) throws -> Any {
-        // Resolve all possibilities first
-        var allGitRequirements: [PackageDependency.SourceControl.Requirement] = []
-        if let v = exact { allGitRequirements.append(.exact(v)) }
-        if let b = branch { allGitRequirements.append(.branch(b)) }
-        if let r = revision { allGitRequirements.append(.revision(r)) }
-        if let f = from { allGitRequirements.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { allGitRequirements.append(.range(.upToNextMinor(from: u))) }
-
-        // For Registry, only exact or range allowed:
-        var allRegistryRequirements: [PackageDependency.Registry.Requirement] = []
-        if let v = exact { allRegistryRequirements.append(.exact(v)) }
-
         switch type {
         case .sourceControl:
-            guard allGitRequirements.count == 1, let requirement = allGitRequirements.first else {
-                throw StringError("Specify exactly one source control version requirement.")
-            }
-            if case .range(let range) = requirement, let upper = to {
-                return PackageDependency.SourceControl.Requirement.range(range.lowerBound ..< upper)
-            } else if self.to != nil {
-                throw StringError("--to requires --from or --up-to-next-minor-from")
-            }
-            return requirement
-
+            try self.resolveSourceControlRequirement()
         case .registry:
-            guard allRegistryRequirements.count == 1, let requirement = allRegistryRequirements.first else {
-                throw StringError("Specify exactly one registry version requirement.")
-            }
-            // Registry does not support `to` separately, so range should already consider upper bound
-            return requirement
+            try self.resolveRegistryRequirement()
         }
+    }
+
+    /// Internal helper for resolving a source control (Git) requirement.
+    ///
+    /// - Returns: A valid `PackageDependency.SourceControl.Requirement`.
+    /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
+    /// `upToNextMinorFrom`.
+    private func resolveSourceControlRequirement() throws -> PackageDependency.SourceControl.Requirement {
+        var requirements: [PackageDependency.SourceControl.Requirement] = []
+        if let v = exact { requirements.append(.exact(v)) }
+        if let b = branch { requirements.append(.branch(b)) }
+        if let r = revision { requirements.append(.revision(r)) }
+        if let f = from { requirements.append(.range(.upToNextMajor(from: f))) }
+        if let u = upToNextMinorFrom { requirements.append(.range(.upToNextMinor(from: u))) }
+
+        guard requirements.count == 1, let requirement = requirements.first else {
+            throw StringError("Specify exactly one source control version requirement.")
+        }
+
+        if case .range(let range) = requirement, let upper = to {
+            return .range(range.lowerBound ..< upper)
+        } else if self.to != nil {
+            throw StringError("--to requires --from or --up-to-next-minor-from")
+        }
+
+        return requirement
+    }
+
+    /// Internal helper for resolving a registry-based requirement.
+    ///
+    /// - Returns: A valid `PackageDependency.Registry.Requirement`.
+    /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
+    /// range.
+    private func resolveRegistryRequirement() throws -> PackageDependency.Registry.Requirement {
+        var requirements: [PackageDependency.Registry.Requirement] = []
+
+        if let v = exact { requirements.append(.exact(v)) }
+        if let f = from { requirements.append(.range(.upToNextMajor(from: f))) }
+        if let u = upToNextMinorFrom { requirements.append(.range(.upToNextMinor(from: u))) }
+
+        guard requirements.count == 1, let requirement = requirements.first else {
+            throw StringError("Specify exactly one source control version requirement.")
+        }
+
+        if case .range(let range) = requirement, let upper = to {
+            return .range(range.lowerBound ..< upper)
+        } else if self.to != nil {
+            throw StringError("--to requires --from or --up-to-next-minor-from")
+        }
+
+        return requirement
     }
 }
 
-
+/// Enum representing the type of dependency to resolve.
 enum DependencyType {
+    /// A source control dependency, such as a Git repository.
     case sourceControl
+    /// A registry dependency, typically resolved from a package registry.
     case registry
 }
