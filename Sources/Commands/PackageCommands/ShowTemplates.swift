@@ -37,6 +37,9 @@ struct ShowTemplates: AsyncSwiftCommand {
     @Option(name: .customLong("template-url"), help: "The git URL of the template.")
     var templateURL: String?
 
+    @Option(name: .customLong("package-id"), help: "The package identifier of the template")
+    var templatePackageID: String?
+
     /// Output format for the templates list.
     ///
     /// Can be either `.flatlist` (default) or `.json`.
@@ -96,6 +99,29 @@ struct ShowTemplates: AsyncSwiftCommand {
             packagePath = try await resolver.resolve(swiftCommandState: swiftCommandState)
             shouldDeleteAfter = true
 
+        } else if let packageID = self.templatePackageID {
+
+            let requirement = try DependencyRequirementResolver(
+                exact: exact,
+                revision: revision,
+                branch: branch,
+                from: from,
+                upToNextMinorFrom: upToNextMinorFrom,
+                to: to
+            ).resolve(for: .registry) as? PackageDependency.Registry.Requirement
+
+            // Download and resolve the Git-based template.
+            let resolver = TemplatePathResolver(
+                templateSource: .registry,
+                templateDirectory: nil,
+                templateURL: nil,
+                sourceControlRequirement: nil,
+                registryRequirement: requirement,
+                packageIdentity: packageID
+            )
+
+            packagePath = try await resolver.resolve(swiftCommandState: swiftCommandState)
+            shouldDeleteAfter = true
         } else {
             // Use the current working directory.
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
