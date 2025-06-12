@@ -591,6 +591,7 @@ let package = Package(
                 "XCBuildSupport",
                 "SwiftBuildSupport",
                 "SwiftFixIt",
+                "PackageRegistry",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [

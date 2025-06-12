@@ -17,6 +17,11 @@ import SourceControl
 import TSCBasic
 import TSCUtility
 import Workspace
+import CoreCommands
+import PackageRegistry
+import ArgumentParser
+import PackageFingerprint
+import PackageSigning
 
 /// A utility responsible for resolving the path to a package template,
 /// based on the provided template type and associated configuration.
@@ -39,7 +44,13 @@ struct TemplatePathResolver {
     let templateURL: String?
 
     /// The versioning requirement for the Git repository (e.g., exact version, branch, revision, or version range).
-    let requirement: PackageDependency.SourceControl.Requirement?
+    let sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+
+    /// The versioning requirement for the registry package (e.g., exact version).
+    let registryRequirement: PackageDependency.Registry.Requirement?
+
+    /// The package identifier of the package in package-registry
+    let packageIdentity: String?
 
     /// Resolves the template path by downloading or validating it based on the template type.
     ///
@@ -47,7 +58,7 @@ struct TemplatePathResolver {
     /// - Throws:
     /// - `StringError` if required values (e.g., path, URL, requirement) are missing,
     /// or if the template type is unsupported or unspecified.
-    func resolve() async throws -> Basics.AbsolutePath {
+    func resolve(swiftCommandState: SwiftCommandState) async throws -> Basics.AbsolutePath {
         switch self.templateSource {
         case .local:
             guard let path = templateDirectory else {
@@ -60,24 +71,124 @@ struct TemplatePathResolver {
                 throw StringError("Missing Git URL for git template.")
             }
 
-            guard let gitRequirement = requirement else {
+            guard let requirement = sourceControlRequirement else {
                 throw StringError("Missing version requirement for git template.")
             }
 
-            return try await GitTemplateFetcher(destination: url, requirement: gitRequirement).fetch()
+            return try await GitTemplateFetcher(source: url, requirement: requirement).fetch()
 
         case .registry:
-            throw StringError("Registry templates not supported yet.")
+
+            guard let packageID = packageIdentity else {
+                throw StringError("Missing package identity for registry template")
+            }
+
+            guard let requirement = registryRequirement else {
+                throw StringError("Missing version requirement for registry template.")
+            }
+
+            return try await RegistryTemplateFetcher().fetch(swiftCommandState: swiftCommandState, packageIdentity: packageID, requirement: requirement)
 
         case .none:
             throw StringError("Missing --template-type.")
         }
     }
 
+    struct RegistryTemplateFetcher {
+
+
+        func fetch(swiftCommandState: SwiftCommandState, packageIdentity: String, requirement: PackageDependency.Registry.Requirement) async throws -> Basics.AbsolutePath {
+
+            return try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
+
+                let configuration = try TemplatePathResolver.RegistryTemplateFetcher.getRegistriesConfig(swiftCommandState, global: true)
+                let registryConfiguration = configuration.configuration
+
+                let authorizationProvider: AuthorizationProvider?
+                authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider()
+
+
+                let registryClient = RegistryClient(
+                    configuration: registryConfiguration,
+                    fingerprintStorage: .none,
+                    fingerprintCheckingMode: .strict,
+                    skipSignatureValidation: false,
+                    signingEntityStorage: .none,
+                    signingEntityCheckingMode: .strict,
+                    authorizationProvider: authorizationProvider,
+                    delegate: .none,
+                    checksumAlgorithm: SHA256()
+                )
+
+
+                let package = PackageIdentity.plain(packageIdentity)
+
+                switch requirement {
+                case .exact(let version):
+                    try await registryClient.downloadSourceArchive(
+                        package: package,
+                        version: Version(0, 0, 0),
+                        destinationPath: tempDir.appending(component: packageIdentity),
+                        progressHandler: nil,
+                        timeout: nil,
+                        fileSystem: swiftCommandState.fileSystem,
+                        observabilityScope: swiftCommandState.observabilityScope
+                    )
+
+                default: fatalError("Unsupported requirement: \(requirement)")
+
+                }
+
+                // Unpack directory and bring it to temp directory level.
+                let contents = try swiftCommandState.fileSystem.getDirectoryContents(tempDir)
+                guard let extractedDir = contents.first else {
+                    throw StringError("No directory found after extraction.")
+                }
+                let extractedPath = tempDir.appending(component: extractedDir)
+
+                for item in try swiftCommandState.fileSystem.getDirectoryContents(extractedPath) {
+                    let src = extractedPath.appending(component: item)
+                    let dst = tempDir.appending(component: item)
+                    try swiftCommandState.fileSystem.move(from: src, to: dst)
+                }
+
+                // Optionally remove the now-empty subdirectory
+                try swiftCommandState.fileSystem.removeFileTree(extractedPath)
+
+                return tempDir
+            }
+        }
+
+            static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Registries {
+                if global {
+                    let sharedRegistriesFile = Workspace.DefaultLocations.registriesConfigurationFile(
+                        at: swiftCommandState.sharedConfigurationDirectory
+                    )
+                    // Workspace not needed when working with user-level registries config
+                    return try .init(
+                        fileSystem: swiftCommandState.fileSystem,
+                        localRegistriesFile: .none,
+                        sharedRegistriesFile: sharedRegistriesFile
+                    )
+                } else {
+                    let workspace = try swiftCommandState.getActiveWorkspace()
+                    return try .init(
+                        fileSystem: swiftCommandState.fileSystem,
+                        localRegistriesFile: workspace.location.localRegistriesConfigurationFile,
+                        sharedRegistriesFile: workspace.location.sharedRegistriesConfigurationFile
+                    )
+                }
+            }
+
+
+
+    }
+
+
     /// A helper that fetches a Git-based template repository and checks out the specified version or revision.
     struct GitTemplateFetcher {
         /// The Git URL of the remote repository.
-        let destination: String
+        let source: String
 
         /// The source control requirement used to determine which version/branch/revision to check out.
         let requirement: PackageDependency.SourceControl.Requirement
@@ -90,7 +201,7 @@ struct TemplatePathResolver {
             let fetchStandalonePackageByURL = { () async throws -> Basics.AbsolutePath in
                 try withTemporaryDirectory(removeTreeOnDeinit: false) { (tempDir: Basics.AbsolutePath) in
 
-                    let url = SourceControlURL(destination)
+                    let url = SourceControlURL(source)
                     let repositorySpecifier = RepositorySpecifier(url: url)
                     let repositoryProvider = GitRepositoryProvider()
 

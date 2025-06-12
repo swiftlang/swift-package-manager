@@ -58,25 +58,43 @@ struct DependencyRequirementResolver {
     ///   - None of the requirement fields are set.
     ///   - A `to` value is provided without a corresponding `from` or `upToNextMinorFrom`.
 
-    func resolve() throws -> PackageDependency.SourceControl.Requirement {
-        var all: [PackageDependency.SourceControl.Requirement] = []
+    func resolve(for type: DependencyType) throws -> Any {
+        // Resolve all possibilities first
+        var allGitRequirements: [PackageDependency.SourceControl.Requirement] = []
+        if let v = exact { allGitRequirements.append(.exact(v)) }
+        if let b = branch { allGitRequirements.append(.branch(b)) }
+        if let r = revision { allGitRequirements.append(.revision(r)) }
+        if let f = from { allGitRequirements.append(.range(.upToNextMajor(from: f))) }
+        if let u = upToNextMinorFrom { allGitRequirements.append(.range(.upToNextMinor(from: u))) }
 
-        if let v = exact { all.append(.exact(v)) }
-        if let b = branch { all.append(.branch(b)) }
-        if let r = revision { all.append(.revision(r)) }
-        if let f = from { all.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { all.append(.range(.upToNextMinor(from: u))) }
+        // For Registry, only exact or range allowed:
+        var allRegistryRequirements: [PackageDependency.Registry.Requirement] = []
+        if let v = exact { allRegistryRequirements.append(.exact(v)) }
 
-        guard all.count == 1, let requirement = all.first else {
-            throw StringError("Specify exactly one version requirement.")
+        switch type {
+        case .sourceControl:
+            guard allGitRequirements.count == 1, let requirement = allGitRequirements.first else {
+                throw StringError("Specify exactly one source control version requirement.")
+            }
+            if case .range(let range) = requirement, let upper = to {
+                return PackageDependency.SourceControl.Requirement.range(range.lowerBound ..< upper)
+            } else if self.to != nil {
+                throw StringError("--to requires --from or --up-to-next-minor-from")
+            }
+            return requirement
+
+        case .registry:
+            guard allRegistryRequirements.count == 1, let requirement = allRegistryRequirements.first else {
+                throw StringError("Specify exactly one registry version requirement.")
+            }
+            // Registry does not support `to` separately, so range should already consider upper bound
+            return requirement
         }
-
-        if case .range(let range) = requirement, let upper = to {
-            return .range(range.lowerBound ..< upper)
-        } else if self.to != nil {
-            throw StringError("--to requires --from or --up-to-next-minor-from")
-        }
-
-        return requirement
     }
+}
+
+
+enum DependencyType {
+    case sourceControl
+    case registry
 }

@@ -82,16 +82,18 @@ struct ShowTemplates: AsyncSwiftCommand {
                 from: from,
                 upToNextMinorFrom: upToNextMinorFrom,
                 to: to
-            ).resolve()
+            ).resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
 
             // Download and resolve the Git-based template.
             let resolver = TemplatePathResolver(
                 templateSource: .git,
                 templateDirectory: nil,
                 templateURL: templateURL,
-                requirement: requirement
+                sourceControlRequirement: requirement,
+                registryRequirement: nil,
+                packageIdentity: nil
             )
-            packagePath = try await resolver.resolve()
+            packagePath = try await resolver.resolve(swiftCommandState: swiftCommandState)
             shouldDeleteAfter = true
 
         } else {
