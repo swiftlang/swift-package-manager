@@ -4106,11 +4106,12 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
         throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
     }
 
+#if !os(macOS)
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Requires PIF generation to adopt new test runner product type")
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         try await super.testCommandPluginTestingCallbacks()
     }
+#endif
 
     override func testCommandPluginTargetBuilds() async throws {
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
