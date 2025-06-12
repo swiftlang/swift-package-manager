@@ -76,71 +76,86 @@ struct ShowTemplates: AsyncSwiftCommand {
         let packagePath: Basics.AbsolutePath
         var shouldDeleteAfter = false
 
-        if let templateURL = self.templateURL {
-            // Resolve dependency requirement based on provided options.
-            let requirement = try DependencyRequirementResolver(
-                exact: exact,
-                revision: revision,
-                branch: branch,
-                from: from,
-                upToNextMinorFrom: upToNextMinorFrom,
-                to: to
-            ).resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
+        let requirementResolver = DependencyRequirementResolver(
+            exact: exact,
+            revision: revision,
+            branch: branch,
+            from: from,
+            upToNextMinorFrom: upToNextMinorFrom,
+            to: to
+        )
 
+        let registryRequirement: PackageDependency.Registry.Requirement? =
+            try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
+
+        let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
+            try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
+
+        var resolvedTemplatePath: Basics.AbsolutePath
+
+        var templateSource: InitTemplatePackage.TemplateSource
+        if let templateURL = self.templateURL {
             // Download and resolve the Git-based template.
-            let resolver = TemplatePathResolver(
-                templateSource: .git,
+            resolvedTemplatePath = try await TemplatePathResolver(
+                source: .git,
                 templateDirectory: nil,
                 templateURL: templateURL,
-                sourceControlRequirement: requirement,
-                registryRequirement: nil,
-                packageIdentity: nil
-            )
-            packagePath = try await resolver.resolve(swiftCommandState: swiftCommandState)
-            shouldDeleteAfter = true
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                packageIdentity: self.templatePackageID,
+                swiftCommandState: swiftCommandState
+            ).resolve()
+
+            templateSource = .git
 
         } else if let packageID = self.templatePackageID {
-
-            let requirement = try DependencyRequirementResolver(
-                exact: exact,
-                revision: revision,
-                branch: branch,
-                from: from,
-                upToNextMinorFrom: upToNextMinorFrom,
-                to: to
-            ).resolve(for: .registry) as? PackageDependency.Registry.Requirement
-
             // Download and resolve the Git-based template.
-            let resolver = TemplatePathResolver(
-                templateSource: .registry,
+            resolvedTemplatePath = try await TemplatePathResolver(
+                source: .registry,
                 templateDirectory: nil,
                 templateURL: nil,
-                sourceControlRequirement: nil,
-                registryRequirement: requirement,
-                packageIdentity: packageID
-            )
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                packageIdentity: self.templatePackageID,
+                swiftCommandState: swiftCommandState
+            ).resolve()
 
-            packagePath = try await resolver.resolve(swiftCommandState: swiftCommandState)
-            shouldDeleteAfter = true
+            templateSource = .registry
+
         } else {
             // Use the current working directory.
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw InternalError("No template URL provided and no current directory")
             }
-            packagePath = cwd
+
+            resolvedTemplatePath = try await TemplatePathResolver(
+                source: .local,
+                templateDirectory: cwd,
+                templateURL: nil,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                packageIdentity: nil,
+                swiftCommandState: swiftCommandState
+            ).resolve()
+
+            templateSource = .local
         }
 
         // Clean up downloaded package after execution.
         defer {
-            if shouldDeleteAfter {
-                try? FileManager.default.removeItem(atPath: packagePath.pathString)
+            if templateSource == .git {
+                try? FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
+            } else if templateSource == .registry {
+                let parentDirectoryURL = resolvedTemplatePath.parentDirectory.asURL
+                try? FileManager.default.removeItem(at: parentDirectoryURL)
             }
         }
 
         // Load the package graph.
-        let packageGraph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: packagePath) { _, _ in
-            try await swiftCommandState.loadPackageGraph()
-        }
+        let packageGraph = try await swiftCommandState
+            .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
+                try await swiftCommandState.loadPackageGraph()
+            }
 
         let rootPackages = packageGraph.rootPackages.map(\.identity)
 
