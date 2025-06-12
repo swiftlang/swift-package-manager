@@ -6617,6 +6617,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await self.sanitizerTest(.scudo, expectedName: "scudo")
     }
 
+    func testFuzzerSanitizer() async throws {
+        try await self.sanitizerTest(.fuzzer, expectedName: "fuzzer")
+    }
+
     func testSnippets() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -6723,6 +6727,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let clib = try result.moduleBuildDescription(for: "clib").clang().basicArguments(isCXX: false)
         XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
+
+        if sanitizer == .fuzzer {
+            XCTAssertMatch(exe, ["-parse-as-library"])
+            XCTAssertNoMatch(exe, ["-Xlinker", "alias", "_main"])
+            XCTAssertMatch(lib, ["-parse-as-library"])
+            XCTAssertNoMatch(lib, ["-Xlinker", "alias", "_main"])
+            XCTAssertNoMatch(clib, ["-parse-as-library"])
+        }
 
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
