@@ -34,7 +34,7 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             for execName in executables {
-                let (output, _) = try await executeSwiftRun(fixturePath, execName)
+                let (output, _) = try await executeSwiftRun(fixturePath, execName, buildSystem: .native)
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }

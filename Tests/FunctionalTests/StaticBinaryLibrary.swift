@@ -27,7 +27,8 @@ struct StaticBinaryLibraryTests {
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath.appending("Static").appending("Package1"),
                     "Example",
-                    extraArgs: ["--experimental-prune-unused-dependencies"]
+                    extraArgs: ["--experimental-prune-unused-dependencies"],
+                    buildSystem: .native,
                 )
                 #expect(stdout == """
                 42
