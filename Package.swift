@@ -830,6 +830,14 @@ let package = Package(
                 .unsafeFlags(["-static"]),
             ]
         ),
+        .target(
+            /** SwiftPM internal test suite support library */
+            name: "_IntegrationTestSupport",
+            dependencies: [
+                "_InternalTestSupport",
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+            ],
+        ),
 
         .target(
             /** Test for thread-sanitizer. */
@@ -1033,6 +1041,15 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "_InternalTestSupport"
             ]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "_IntegrationTestSupport",
+                "_InternalTestSupport",
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+            ],
         ),
         .testTarget(
             name: "CommandsTests",

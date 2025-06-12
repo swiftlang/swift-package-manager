@@ -21,16 +21,6 @@ import struct TSCBasic.StringError
 import struct TSCUtility.SerializedDiagnostics
 
 #if os(macOS)
-func nextItem<T: Equatable>(in array: [T], after item: T) -> T? {
-    for (index, element) in array.enumerated() {
-        if element == item {
-            let nextIndex = index + 1
-            return nextIndex < array.count ? array[nextIndex] : nil
-        }
-    }
-    return nil // Item not found or it's the last item
-}
-
 package func macOSBundleRoot() throws -> AbsolutePath {
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return try AbsolutePath(validating: bundle.bundlePath).parentDirectory
