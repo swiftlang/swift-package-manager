@@ -154,55 +154,56 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testSwiftRunSIGINT() throws {
-        try XCTSkipIfPlatformCI(because: "This seems to be flaky in CI")
-        try XCTSkipIfselfHostedCI(because: "This seems to be flaky in CI")
-        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
-            let mainFilePath = fixturePath.appending("main.swift")
-            try localFileSystem.removeFileTree(mainFilePath)
-            try localFileSystem.writeFileContents(
-                mainFilePath,
-                string: """
-                import Foundation
+        // try XCTSkipIfPlatformCI(because: "This seems to be flaky in CI")
+        // try XCTSkipIfselfHostedCI(because: "This seems to be flaky in CI")
 
+        try fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            // write the test executable
+            let mainFile = fixturePath.appending("main.swift")
+            try localFileSystem.removeFileTree(mainFile)
+            try localFileSystem.writeFileContents(mainFile, string: """
+                import Foundation
                 print("sleeping")
                 fflush(stdout)
-
                 Thread.sleep(forTimeInterval: 10)
                 print("done")
-                """
-            )
+                """)
 
-            let sync = DispatchGroup()
-            let outputHandler = OutputHandler(sync: sync)
-
+            let startedExp = expectation(description: "Process prints 'sleeping'")
             var environment = Environment.current
             environment["SWIFTPM_EXEC_NAME"] = "swift-run"
             let process = AsyncProcess(
-                arguments: [SwiftPM.Run.xctestBinaryPath.pathString, "--package-path", fixturePath.pathString],
+                arguments: [
+                    SwiftPM.Run.xctestBinaryPath.pathString,
+                    "--package-path", fixturePath.pathString
+                ],
                 environment: environment,
-                outputRedirection: .stream(stdout: outputHandler.handle(bytes:), stderr: outputHandler.handle(bytes:))
+                outputRedirection: .stream(
+                    stdout: { bytes in
+                        // convert bytes -> string line
+                        if let line = String(data: Data(bytes), encoding: .utf8)?
+                                         .trimmingCharacters(in: .newlines),
+                           line == "sleeping"
+                        {
+                            startedExp.fulfill()
+                        }
+                    },
+                    stderr: { _ in /* ignore */ }
+                )
             )
 
-            sync.enter()
             try process.launch()
-
-            // wait for the process to start
-            if case .timedOut = sync.wait(timeout: .now() + 60) {
-                return XCTFail("timeout waiting for process to start")
-            }
-
-            // interrupt the process
-            print("interrupting")
+            wait(for: [startedExp], timeout: 10.0)
             process.signal(SIGINT)
 
-            // check for interrupt result
             let result = try process.waitUntilExit()
-#if os(Windows)
+        #if os(Windows)
             XCTAssertEqual(result.exitStatus, .abnormal(exception: 2))
-#else
+        #else
             XCTAssertEqual(result.exitStatus, .signalled(signal: SIGINT))
-#endif
+        #endif
         }
+    }
 
         class OutputHandler {
             let sync: DispatchGroup
@@ -248,7 +249,7 @@ class RunCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-}
+
 
 class RunCommandNativeTests: RunCommandTestCase {
     override open var buildSystemProvider: BuildSystemProvider.Kind {
