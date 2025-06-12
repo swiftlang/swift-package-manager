@@ -614,7 +614,8 @@ let package = Package(
                 "XCBuildSupport",
                 "SwiftBuildSupport",
                 "SwiftFixIt",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
+                "PackageRegistry",
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
