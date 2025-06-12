@@ -59,3 +59,50 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 }
+
+extension Trait where Self == Testing.Bug {
+    public static func SWBINTTODO(_ comment: Comment) -> Self {
+        bug(nil, id: 0, comment)
+    }
+}
+extension Tag {
+    public enum TestSize {}
+    public enum Feature {}
+    @Tag public static var UserWorkflow: Tag
+}
+
+extension Tag.TestSize {
+    @Tag public static var small: Tag
+    @Tag public static var medium: Tag
+    @Tag public static var large: Tag
+}
+
+extension Tag.Feature {
+    public enum Command {}
+    public enum PackageType {}
+
+    @Tag public static var CodeCoverage: Tag
+    @Tag public static var Resource: Tag
+    @Tag public static var SpecialCharacters: Tag
+}
+
+
+extension Tag.Feature.Command {
+    public enum Package {}
+    @Tag public static var Build: Tag
+    @Tag public static var Test: Tag
+    @Tag public static var Run: Tag
+}
+
+extension Tag.Feature.Command.Package {
+    @Tag public static var Init: Tag
+}
+extension Tag.Feature.PackageType {
+    @Tag public static var Library: Tag
+     @Tag public static var Executable: Tag
+     @Tag public static var Tool: Tag
+     @Tag public static var Plugin: Tag
+     @Tag public static var BuildToolPlugin: Tag
+     @Tag public static var CommandPlugin: Tag
+     @Tag public static var Macro: Tag
+ }
