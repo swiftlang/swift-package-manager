@@ -321,7 +321,7 @@ public func executeSwiftRun(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind
 ) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(
         configuration: configuration,
