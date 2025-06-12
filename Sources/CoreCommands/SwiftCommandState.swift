@@ -869,7 +869,7 @@ public final class SwiftCommandState {
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
-                ),
+                ) && !options.build.sanitizers.contains(.fuzzer),
                 enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
                 explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
                     .modeParameter,
