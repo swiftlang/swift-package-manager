@@ -23,7 +23,7 @@ import Workspace
 import Testing
 import Foundation
 
-@Suite
+@Suite(.serialized)
 final class PluginTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
@@ -1237,7 +1237,7 @@ final class PluginTests {
                 let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
                 #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .windows || isInCiEnvironment }
     }
 
     @Test(
