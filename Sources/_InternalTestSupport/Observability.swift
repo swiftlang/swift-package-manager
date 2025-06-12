@@ -112,7 +112,7 @@ public func expectNoDiagnostics(
     if diagnostics.isEmpty { return }
 
     let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
-    Issue.record("Found unexpected diagnostics: \n\(description) \(sourceLocation.fileName):\(sourceLocation.line)")
+    Issue.record("Found unexpected diagnostics: \n\(description)", sourceLocation: sourceLocation)
 }
 
 public func testDiagnostics(

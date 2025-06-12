@@ -46,7 +46,7 @@ final class PluginTests {
         try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--vv", "--product", "MyLocalTool", "--build-system", "swiftbuild"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool", "--build-system", "swiftbuild"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
@@ -90,7 +90,11 @@ final class PluginTests {
                 #expect(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
+        try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
@@ -115,7 +119,11 @@ final class PluginTests {
                 #expect(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
+        try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
@@ -199,7 +207,11 @@ final class PluginTests {
                 #expect(stdout.contains("Compiling MyLibrary generated.swift"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
+        try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"), extraArgs: ["--build-system", "swiftbuild"])
@@ -226,17 +238,17 @@ final class PluginTests {
                 #expect(stdout.contains("Compiling MyLocalTool foo.swift"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-
-            try await withKnownIssue {
-                // Try again with the Swift Build build system
-                try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                    let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBuildToolPluginDependencies"), extraArgs: ["--vv", "--build-system", "swiftbuild"])
-                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-                }
-            } when: { ProcessInfo.hostOperatingSystem == .linux }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
+
+        try await withKnownIssue {
+            // Try again with the Swift Build build system
+            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBuildToolPluginDependencies"), extraArgs: ["--build-system", "swiftbuild"])
+                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            }
+        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
     }
 
     @Test(
@@ -253,7 +265,11 @@ final class PluginTests {
                 #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
+        try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
@@ -358,27 +374,27 @@ final class PluginTests {
         }
 
         try await withKnownIssue {
-        for buildSystem in ["native", "swiftbuild"] {
-            try await testWithTemporaryDirectory { tmpPath in
-                let packageDir = tmpPath.appending(components: "MyPackage")
-                let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
+            for buildSystem in ["native", "swiftbuild"] {
+                try await testWithTemporaryDirectory { tmpPath in
+                    let packageDir = tmpPath.appending(components: "MyPackage")
+                    let pathOfGeneratedFile = packageDir.appending(components: [".build", "plugins", "outputs", "mypackage", "SomeTarget", "destination", "Plugin", "best.txt"])
 
-                try await withKnownIssue {
-                    try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
-                    let (_, stderr) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
-                    #expect(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
-                    #expect(!localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
-                } when: {
-                    buildSystem == "swiftbuild"
+                    try await withKnownIssue {
+                        try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
+                        let (_, stderr) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                        #expect(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
+                        #expect(!localFileSystem.exists(pathOfGeneratedFile), "plugin generated file unexpectedly exists at \(pathOfGeneratedFile.pathString)")
+                    } when: {
+                        buildSystem == "swiftbuild"
+                    }
+
+                    try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
+                    let (stdout, stderr2) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+                    #expect(stdout.contains("Build complete!"))
+                    #expect(!stderr2.contains("error:"))
+                    #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
                 }
-
-                try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
-                let (stdout, stderr2) = try await executeSwiftBuild(packageDir, extraArgs: ["--build-system", buildSystem], env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
-                #expect(stdout.contains("Build complete!"))
-                #expect(!stderr2.contains("error:"))
-                #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
             }
-        }
         } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
@@ -701,11 +717,11 @@ final class PluginTests {
                         #expect(!success, "expected command to fail, but it succeeded")
                     }
                     else {
-                        #expect(success, "expected command to succeed, but it failed")
+                        #expect(success, "expected command to succeed, but it failed", sourceLocation: sourceLocation)
                     }
                 }
                 catch {
-                    Issue.record("error \(String(describing: error)) at \(sourceLocation)")
+                    Issue.record("error \(String(describing: error))", sourceLocation: sourceLocation)
                 }
                 
                 // Check that we didn't end up with any completely empty diagnostics.
@@ -1349,20 +1365,20 @@ final class PluginTests {
                 #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
             }
-
-            try await withKnownIssue {
-                try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                    let (stdout, stderr) = try await executeSwiftBuild(
-                        fixturePath.appending(component: "MySourceGenPlugin"),
-                        configuration: .Debug,
-                        extraArgs: ["--vv", "--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE", "--build-system", "swiftbuild"]
-                    )
-                    #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                    #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                }
-            } when: { ProcessInfo.hostOperatingSystem == .linux }
         } when: { ProcessInfo.hostOperatingSystem == .windows }
+
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftBuild(
+                    fixturePath.appending(component: "MySourceGenPlugin"),
+                    configuration: .Debug,
+                    extraArgs: ["--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE", "--build-system", "swiftbuild"]
+                )
+                #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+            }
+        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
     }
 
     @Test(
@@ -1376,17 +1392,17 @@ final class PluginTests {
                 let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug)
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
 
             try await withKnownIssue {
                 // Try again with the Swift Build build system
                 try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
-                    let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--vv", "--build-system", "swiftbuild"])
+                    let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
                     #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
                 }
-            } when: { ProcessInfo.hostOperatingSystem == .linux }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
+            } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
