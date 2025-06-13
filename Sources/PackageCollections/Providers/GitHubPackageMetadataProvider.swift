@@ -23,18 +23,18 @@ import protocol TSCBasic.Closable
 
 import struct TSCUtility.Version
 
-struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
+package struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     private static let apiHostPrefix = "api."
     private static let service = Model.Package.Author.Service(name: "GitHub")
 
-    let configuration: Configuration
+    package let configuration: Configuration
     private let observabilityScope: ObservabilityScope
     private let httpClient: LegacyHTTPClient
     private let decoder: JSONDecoder
 
     private let cache: SQLiteBackedCache<CacheValue>?
 
-    init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope, httpClient: LegacyHTTPClient? = nil) {
+    package init(configuration: Configuration = .init(), observabilityScope: ObservabilityScope, httpClient: LegacyHTTPClient? = nil) {
         self.configuration = configuration
         self.observabilityScope = observabilityScope
         self.httpClient = httpClient ?? Self.makeDefaultHTTPClient()
@@ -52,11 +52,11 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
         }
     }
 
-    func close() throws {
+    package func close() throws {
         try self.cache?.close()
     }
 
-    func get(
+    package func get(
         identity: PackageModel.PackageIdentity,
         location: String
     ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
@@ -233,7 +233,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     }
 
     // FIXME: use URL instead of string
-    internal static func apiURL(_ url: String) -> URL? {
+    package static func apiURL(_ url: String) -> URL? {
         do {
             let regex = try NSRegularExpression(pattern: #"([^/@]+)[:/]([^:/]+)/([^/.]+)(\.git)?$"#, options: .caseInsensitive)
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
@@ -315,7 +315,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
     }
 }
 
-enum GitHubPackageMetadataProviderError: Error, Equatable {
+package enum GitHubPackageMetadataProviderError: Error, Equatable {
     case invalidSourceControlURL(String)
     case invalidResponse(URL, String)
     case permissionDenied(URL)

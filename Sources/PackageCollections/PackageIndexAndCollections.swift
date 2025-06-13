@@ -54,7 +54,7 @@ public struct PackageIndexAndCollections: Closable {
         self.observabilityScope = observabilityScope
     }
     
-    init(index: PackageIndexProtocol, collections: PackageCollectionsProtocol, observabilityScope: ObservabilityScope) {
+    package init(index: PackageIndexProtocol, collections: PackageCollectionsProtocol, observabilityScope: ObservabilityScope) {
         self.index = index
         self.collections = collections
         self.observabilityScope = observabilityScope

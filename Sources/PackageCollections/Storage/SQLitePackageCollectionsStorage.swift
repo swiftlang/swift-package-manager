@@ -24,14 +24,14 @@ import TSCUtility
 
 import protocol TSCBasic.Closable
 
-final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
+package final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable {
     private static let packageCollectionsTableName = "package_collections"
     private static let packagesFTSName = "fts_packages"
     private static let targetsFTSNameV0 = "fts_targets" // TODO: remove as this has been replaced by v1
     private static let targetsFTSNameV1 = "fts_targets_1"
 
-    let fileSystem: FileSystem
-    let location: SQLite.Location
+    package let fileSystem: FileSystem
+    package let location: SQLite.Location
     let configuration: Configuration
 
     private let observabilityScope: ObservabilityScope
@@ -50,14 +50,14 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     private let ftsLock = NSLock()
     // FTS not supported on some platforms; the code falls back to "slow path" in that case
     // marked internal for testing
-    internal let useSearchIndices = ThreadSafeBox<Bool>()
+    package let useSearchIndices = ThreadSafeBox<Bool>()
 
     // Targets have in-memory trie in addition to SQLite FTS as optimization
     private let targetTrie = Trie<CollectionPackage>()
     private var targetTrieReady: Bool?
     private let populateTargetTrieLock = NSLock()
 
-    init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
+    package init(location: SQLite.Location? = nil, configuration: Configuration = .init(), observabilityScope: ObservabilityScope) {
         self.location = location ?? (try? .path(localFileSystem.swiftPMCacheDirectory.appending(components: "package-collection.db"))) ?? .memory
         switch self.location {
         case .path, .temporary:
@@ -85,7 +85,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func close() throws {
+    package func close() throws {
         func retryClose(db: SQLite, exponentialBackoff: inout ExponentialBackoff) throws {
             let semaphore = DispatchSemaphore(value: 0)
             let callback = { (result: Result<Void, Error>) in
@@ -134,7 +134,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection {
+    package func put(collection: PackageCollectionsModel.Collection) async throws -> PackageCollectionsModel.Collection {
 
         let dbCollection = try? await self.get(identifier: collection.identifier)
 
@@ -158,7 +158,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         return collection
     }
 
-    func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws {
+    package func remove(identifier: PackageCollectionsModel.CollectionIdentifier) async throws {
         // write to db
         let query = "DELETE FROM \(Self.packageCollectionsTableName) WHERE key = ?;"
         try self.executeStatement(query) { statement -> Void in
@@ -176,7 +176,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         self.cache[identifier] = nil
     }
 
-    func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection {
+    package func get(identifier: PackageCollectionsModel.CollectionIdentifier) async throws -> PackageCollectionsModel.Collection {
         // try read to cache
         if let collection = self.cache[identifier] {
             return collection
@@ -196,7 +196,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
+    package func list(identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil) async throws -> [PackageCollectionsModel.Collection] {
         // try read to cache
         let cached = identifiers?.compactMap { self.cache[$0] }
         if let cached, cached.count > 0, cached.count == identifiers?.count {
@@ -255,7 +255,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         return collections
     }
 
-    func searchPackages(
+    package func searchPackages(
         identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
         query: String
     ) async throws -> PackageCollectionsModel.PackageSearchResult {
@@ -352,7 +352,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         })
     }
 
-    func findPackage(
+    package func findPackage(
         identifier: PackageModel.PackageIdentity,
         collectionIdentifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil
     ) async throws -> (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier]) {
@@ -420,7 +420,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         return (packages: packages, collections: filteredCollections.map { $0.identifier })
     }
 
-    func searchTargets(
+    package func searchTargets(
         identifiers: [PackageCollectionsModel.CollectionIdentifier]? = nil,
         query: String,
         type: PackageCollectionsModel.TargetSearchType
@@ -728,7 +728,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             self.useSearchIndices.get() ?? false
         }
     }
-    internal func populateTargetTrie() async throws {
+    package func populateTargetTrie() async throws {
         try await withCheckedThrowingContinuation { continuation in
             self.populateTargetTrie(callback: {
                 continuation.resume(with: $0)
@@ -851,7 +851,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     // for testing
-    internal func resetCache() {
+    package func resetCache() {
         self.cache.clear()
     }
 
@@ -1038,13 +1038,13 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
         }
     }
 
-    struct Configuration {
-        var batchSize: Int
+    package struct Configuration {
+        package var batchSize: Int
         var initializeTargetTrie: Bool
 
         fileprivate var underlying: SQLite.Configuration
 
-        init(initializeTargetTrie: Bool = true) {
+        package init(initializeTargetTrie: Bool = true) {
             self.batchSize = 100
             self.initializeTargetTrie = initializeTargetTrie
 
