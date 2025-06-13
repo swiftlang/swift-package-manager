@@ -23,7 +23,7 @@ public struct Snippet {
         path.basenameWithoutExt
     }
 
-    init(parsing source: String, path: AbsolutePath) {
+    package init(parsing source: String, path: AbsolutePath) {
         let extractor = PlainTextSnippetExtractor(source: source)
         self.path = path
         self.explanation = extractor.explanation
