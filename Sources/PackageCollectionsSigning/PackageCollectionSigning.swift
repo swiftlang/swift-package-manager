@@ -129,7 +129,7 @@ public actor PackageCollectionSigning: PackageCollectionSigner, PackageCollectio
         self.observabilityScope = observabilityScope
     }
 
-    init(certPolicy: CertificatePolicy, observabilityScope: ObservabilityScope) {
+    package init(certPolicy: CertificatePolicy, observabilityScope: ObservabilityScope) {
         // These should be set through the given CertificatePolicy
         self.trustedRootCertsDir = nil
         self.additionalTrustedRootCerts = nil

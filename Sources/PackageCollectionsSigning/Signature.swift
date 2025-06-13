@@ -38,24 +38,24 @@ import X509
 // The logic in this source file loosely follows https://www.rfc-editor.org/rfc/rfc7515.html
 // for JSON Web Signature (JWS).
 
-struct Signature {
-    let header: Header
-    let payload: Data
+package struct Signature {
+    package let header: Header
+    package let payload: Data
     let signature: Data
 }
 
 extension Signature {
-    enum Algorithm: String, Codable {
+    package enum Algorithm: String, Codable {
         case RS256 // RSASSA-PKCS1-v1_5 using SHA-256
         case ES256 // ECDSA using P-256 and SHA-256
     }
 
-    struct Header: Equatable, Codable {
+    package struct Header: Equatable, Codable {
         // https://www.rfc-editor.org/rfc/rfc7515.html#section-4.1.1
-        let algorithm: Algorithm
+        package let algorithm: Algorithm
 
         /// Base64 encoded certificate chain
-        let certChain: [String]
+        package let certChain: [String]
 
         enum CodingKeys: String, CodingKey {
             case algorithm = "alg"
@@ -66,9 +66,9 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTSerializer.swift
 extension Signature {
-    static let rsaSigningPadding = _RSA.Signing.Padding.insecurePKCS1v1_5
+    package static let rsaSigningPadding = _RSA.Signing.Padding.insecurePKCS1v1_5
 
-    static func generate(
+    package static func generate(
         payload: some Encodable,
         certChainData: [Data],
         jsonEncoder: JSONEncoder,
@@ -102,9 +102,9 @@ extension Signature {
 
 // Reference: https://github.com/vapor/jwt-kit/blob/master/Sources/JWTKit/JWTParser.swift
 extension Signature {
-    typealias CertChainValidate = ([Data]) async throws -> [Certificate]
+    package typealias CertChainValidate = ([Data]) async throws -> [Certificate]
 
-    static func parse(
+    package static func parse(
         _ signature: String,
         certChainValidate: CertChainValidate,
         jsonDecoder: JSONDecoder
@@ -113,7 +113,7 @@ extension Signature {
         return try await Self.parse(bytes, certChainValidate: certChainValidate, jsonDecoder: jsonDecoder)
     }
 
-    static func parse(
+    package static func parse(
         _ signature: some DataProtocol,
         certChainValidate: CertChainValidate,
         jsonDecoder: JSONDecoder
@@ -180,7 +180,7 @@ extension Signature {
     }
 }
 
-enum SignatureError: Error {
+package enum SignatureError: Error {
     case malformedSignature
     case invalidSignature
     case invalidPublicKey
