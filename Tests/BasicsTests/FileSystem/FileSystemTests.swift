@@ -13,7 +13,7 @@ import Foundation
 import TSCTestSupport
 import Testing
 
-@testable import Basics
+import Basics
 
 struct FileSystemTests {
     @Test

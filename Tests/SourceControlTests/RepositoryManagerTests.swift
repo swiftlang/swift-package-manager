@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 import _Concurrency
 import PackageModel
 import _InternalTestSupport

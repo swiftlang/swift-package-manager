@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 import XCTest
 import _InternalTestSupport // for XCTSkipOnWindows
 
