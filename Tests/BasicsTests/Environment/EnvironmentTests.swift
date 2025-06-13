@@ -12,7 +12,6 @@
 import Foundation
 
 @_spi(SwiftPMInternal)
-@testable
 import Basics
 
 import Testing

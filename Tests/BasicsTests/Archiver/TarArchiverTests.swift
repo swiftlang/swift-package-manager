@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import struct Basics.TarArchiver
+import struct Basics.TarArchiver
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import _InternalTestSupport
 import XCTest

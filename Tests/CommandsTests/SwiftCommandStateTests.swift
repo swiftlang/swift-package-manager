@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 @testable import Build
 @testable import Commands
 @testable import CoreCommands
