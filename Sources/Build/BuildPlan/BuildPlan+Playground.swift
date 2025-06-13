@@ -51,7 +51,8 @@ extension BuildPlan {
                     sources: entryPointSources,
                     dependencies: playgroundProduct.underlying.modules.map { .module($0, conditions: []) },
                     packageAccess: true, // playground target is allowed access to package decls
-                    usesUnsafeFlags: false
+                    usesUnsafeFlags: false,
+                    implicit: true // implicitly created for swift play
                 )
                 let entryPointResolvedTarget = ResolvedModule(
                     packageIdentity: playgroundProduct.packageIdentity,
