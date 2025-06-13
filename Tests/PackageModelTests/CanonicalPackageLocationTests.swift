@@ -12,7 +12,7 @@
 
 import XCTest
 
-@testable import PackageModel
+import PackageModel
 
 final class CanonicalPackageLocationTests: XCTestCase {
     func testCaseInsensitivity() {

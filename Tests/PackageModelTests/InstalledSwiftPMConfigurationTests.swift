@@ -12,7 +12,7 @@
 
 import XCTest
 
-@testable import PackageModel
+import PackageModel
 
 final class InstalledSwiftPMConfigurationTests: XCTestCase {
     func testVersionDescription() {

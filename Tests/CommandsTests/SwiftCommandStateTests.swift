@@ -19,7 +19,7 @@ import Build
 import func PackageGraph.loadModulesGraph
 
 import _InternalTestSupport
-@testable import PackageModel
+import PackageModel
 import XCTest
 
 import ArgumentParser

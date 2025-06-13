@@ -17,7 +17,7 @@ import Build
 import PackageGraph
 
 import PackageLoading
-@testable import PackageModel
+import PackageModel
 import SPMBuildCore
 import _InternalBuildTestSupport
 import _InternalTestSupport

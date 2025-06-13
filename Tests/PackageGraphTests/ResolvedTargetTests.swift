@@ -13,7 +13,7 @@
 import XCTest
 
 import PackageGraph
-@testable import PackageModel
+import PackageModel
 import _InternalTestSupport
 
 private func XCTAssertEqualTargetIDs(

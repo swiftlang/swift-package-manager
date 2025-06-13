@@ -23,7 +23,7 @@ import PackageGraph
 import PackageLoading
 
 @_spi(SwiftPMInternal)
-@testable import PackageModel
+import PackageModel
 
 import SPMBuildCore
 import _InternalBuildTestSupport

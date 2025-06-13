@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Build
-@testable import PackageModel
+import PackageModel
 
 import Basics
 import LLBuildManifest
