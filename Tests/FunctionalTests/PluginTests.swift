@@ -14,7 +14,7 @@ import Basics
 import _Concurrency
 
 @_spi(SwiftPMInternal)
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 import PackageModel
 @testable import SPMBuildCore

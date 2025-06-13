@@ -13,7 +13,7 @@
 import _InternalTestSupport
 import Basics
 import PackageFingerprint
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
