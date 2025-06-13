@@ -13,7 +13,7 @@
 import Basics
 import _Concurrency
 import OrderedCollections
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 @testable import PackageModel
 import SourceControl
