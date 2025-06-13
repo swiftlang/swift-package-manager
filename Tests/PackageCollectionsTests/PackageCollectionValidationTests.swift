@@ -13,7 +13,7 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollections
+import PackageCollections
 @testable import PackageCollectionsModel
 import PackageModel
 
