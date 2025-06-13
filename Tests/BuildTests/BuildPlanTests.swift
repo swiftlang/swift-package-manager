@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import Build
+import Build
 
 @testable
 @_spi(SwiftPMInternal)
