@@ -21,7 +21,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
 
     /// Creates a package identity from a string.
     /// - Parameter value: A string used to identify a package.
-    init(_ value: String) {
+    package init(_ value: String) {
         self.description = value
     }
 
@@ -296,7 +296,7 @@ extension PackageIdentity {
 
 // MARK: -
 
-struct PackageIdentityParser {
+package struct PackageIdentityParser {
     /// A textual representation of this instance.
     public let description: String
 
