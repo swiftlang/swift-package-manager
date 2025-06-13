@@ -14,7 +14,7 @@ import Foundation
 import XCTest
 
 import PackageCollections
-@testable import PackageCollectionsModel
+import PackageCollectionsModel
 import PackageModel
 
 class PackageCollectionValidationTests: XCTestCase {
