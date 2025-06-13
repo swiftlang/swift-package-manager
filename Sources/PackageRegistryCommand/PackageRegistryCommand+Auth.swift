@@ -97,9 +97,9 @@ private func readpassword(_ prompt: String) throws -> String {
 #endif
 
 extension PackageRegistryCommand {
-    struct Login: AsyncSwiftCommand {
+    package struct Login: AsyncSwiftCommand {
 
-        static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
+        package static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
             // Login URL must be HTTPS
             var loginURLComponents = URLComponents(url: registryURL, resolvingAgainstBaseURL: true)
             loginURLComponents?.scheme = "https"
@@ -112,7 +112,7 @@ extension PackageRegistryCommand {
             return loginURL
         }
 
-        static let configuration = CommandConfiguration(
+        package static let configuration = CommandConfiguration(
             abstract: "Log in to a registry."
         )
 
@@ -123,7 +123,7 @@ extension PackageRegistryCommand {
         static let passwordBufferSize = Self.maxPasswordLength + 2
 
         @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
+        package var globalOptions: GlobalOptions
 
         @Argument(help: "The registry URL.")
         var url: URL?
@@ -152,7 +152,9 @@ extension PackageRegistryCommand {
 
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
-        func run(_ swiftCommandState: SwiftCommandState) async throws {
+        package init() {}
+
+        package func run(_ swiftCommandState: SwiftCommandState) async throws {
             // We need to be able to read/write credentials
             // Make sure credentials store is available before proceeding
             let authorizationProvider: AuthorizationProvider?
