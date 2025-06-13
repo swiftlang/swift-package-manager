@@ -38,6 +38,11 @@ public struct Toolset: Equatable {
 
         /// Command-line options to be passed to the tool when it's invoked.
         public internal(set) var extraCLIOptions: [String]
+
+        package init(path: AbsolutePath? = nil, extraCLIOptions: [String] = []) {
+            self.path = path
+            self.extraCLIOptions = extraCLIOptions
+        }
     }
 
     /// A dictionary of known tools in this toolset.
@@ -46,10 +51,18 @@ public struct Toolset: Equatable {
     /// An array of paths specified as `rootPath` in toolset files from which this toolset was formed. May be used
     /// for locating tools that aren't currently listed in ``Toolset/KnownTool``.
     public internal(set) var rootPaths: [AbsolutePath] = []
+
+    package init(
+        knownTools: [KnownTool: ToolProperties] = [:],
+        rootPaths: [AbsolutePath] = []
+    ) {
+        self.knownTools = knownTools
+        self.rootPaths = rootPaths
+    }
 }
 
 extension Toolset.ToolProperties {
-    init(path: AbsolutePath) {
+    package init(path: AbsolutePath) {
         self.init(path: path, extraCLIOptions: [])
     }
 }
