@@ -13,7 +13,7 @@
 import Basics
 import Build
 @testable import Commands
-@testable import CoreCommands
+import CoreCommands
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import CoreCommands
+import CoreCommands
 @testable import Commands
 import Foundation
 

@@ -13,7 +13,7 @@
 import Build
 import Foundation
 @testable import Commands
-@testable import CoreCommands
+import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
 import TSCBasic
