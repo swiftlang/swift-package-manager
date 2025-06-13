@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
 @_spi(SwiftPMInternal)
 import _InternalTestSupport
 
