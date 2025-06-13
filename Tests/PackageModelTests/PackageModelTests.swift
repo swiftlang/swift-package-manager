@@ -13,7 +13,7 @@
 import Basics
 
 @_spi(SwiftPMInternal)
-@testable import PackageModel
+import PackageModel
 
 import func TSCBasic.withTemporaryFile
 import XCTest
