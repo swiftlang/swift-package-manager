@@ -145,7 +145,7 @@ extension RegistryConfiguration {
         }
 
         // for testing
-        init(
+        package init(
             default: Global,
             registryOverrides: [String: RegistryOverride] = [:],
             scopeOverrides: [PackageIdentity.Scope: ScopePackageOverride] = [:],
@@ -165,7 +165,7 @@ extension RegistryConfiguration {
             }
 
             // for testing
-            init(signing: Signing) {
+            package init(signing: Signing) {
                 self.signing = signing
             }
         }
