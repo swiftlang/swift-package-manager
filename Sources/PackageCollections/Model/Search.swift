@@ -18,6 +18,10 @@ extension PackageCollectionsModel {
         /// Result items of the search
         public let items: [Item]
 
+        package init(items: [Item]) {
+            self.items = items
+        }
+
         /// Represents a search result item
         public struct Item: Encodable {
             // Merged package metadata from across collections
@@ -30,7 +34,7 @@ extension PackageCollectionsModel {
             /// Package indexes that contain the package
             public internal(set) var indexes: [URL]
             
-            init(
+            package init(
                 package: PackageCollectionsModel.Package,
                 collections: [PackageCollectionsModel.CollectionIdentifier] = [],
                 indexes: [URL] = []
