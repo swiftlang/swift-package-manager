@@ -424,14 +424,19 @@ struct PluginCommand: AsyncSwiftCommand {
         }
     }
 
-    static func findPlugins(matching verb: String, in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [ResolvedModule] {
+    static func findPlugins(matching verb: String?, in graph: ModulesGraph, limitedTo packageIdentity: String?) -> [ResolvedModule] {
         // Find and return the command plugins that match the command.
-        Self.availableCommandPlugins(in: graph, limitedTo: packageIdentity).filter {
+        let plugins = Self.availableCommandPlugins(in: graph, limitedTo: packageIdentity).filter {
             let plugin = $0.underlying as! PluginModule
             // Filter out any non-command plugins and any whose verb is different.
             guard case .command(let intent, _) = plugin.capability else { return false }
+
+            guard let verb else { return true }
+
             return verb == intent.invocationVerb
         }
+
+        return plugins
     }
 }
 
