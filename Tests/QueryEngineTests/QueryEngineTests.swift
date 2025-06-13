@@ -15,7 +15,7 @@ import _AsyncFileSystem
 import Basics
 import Crypto
 import struct Foundation.Data
-@testable import QueryEngine
+import QueryEngine
 import struct SystemPackage.FilePath
 import _InternalTestSupport
 import Testing
