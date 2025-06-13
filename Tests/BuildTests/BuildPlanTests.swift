@@ -13,7 +13,6 @@
 import Basics
 import Build
 
-@testable
 @_spi(SwiftPMInternal)
 import DriverSupport
 
