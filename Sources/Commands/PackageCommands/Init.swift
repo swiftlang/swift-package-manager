@@ -257,6 +257,16 @@ extension SwiftPackageCommand {
                 throw ValidationError("No templates were found that match the name \(template)")
             }
 
+            guard matchingPlugins.count == 1 else {
+                let templateNames = matchingPlugins.compactMap { module in
+                    let plugin = module.underlying as! PluginModule
+                    guard case .command(let intent, _) = plugin.capability else { return Optional<String>.none }
+
+                    return intent.invocationVerb
+                }
+                throw ValidationError("More than one template was found in the package. Please use `--template` to select from one of the available templates: \(templateNames.joined(separator: ", "))")
+            }
+
             let output = try await TemplatePluginRunner.run(
                 plugin: commandPlugin,
                 package: packageGraph.rootPackages.first!,
