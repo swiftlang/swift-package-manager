@@ -122,7 +122,7 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
-    var destination: BuildParameters.Destination {
+    package var destination: BuildParameters.Destination {
         switch self {
         case .swift(let buildDescription):
             buildDescription.destination
@@ -162,6 +162,11 @@ extension ModuleBuildDescription: Identifiable {
     public struct ID: Hashable {
         let moduleID: ResolvedModule.ID
         let destination: BuildParameters.Destination
+
+        package init(moduleID: ResolvedModule.ID, destination: BuildParameters.Destination) {
+            self.moduleID = moduleID
+            self.destination = destination
+        }
     }
 
     public var id: ID {
