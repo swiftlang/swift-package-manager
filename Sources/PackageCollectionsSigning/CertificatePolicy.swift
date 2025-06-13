@@ -54,7 +54,7 @@ public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
 
 // MARK: - Certificate policies
 
-protocol CertificatePolicy {
+package protocol CertificatePolicy {
     /// Validates the given certificate chain.
     ///
     /// - Parameters:
@@ -71,11 +71,11 @@ extension CertificatePolicy {
     /// - Parameters:
     ///   - certChain: The certificate being verified must be the first element of the array, with its issuer the next
     ///                element and so on, and the root CA certificate is last.
-    func validate(certChain: [Certificate]) async throws {
+    package func validate(certChain: [Certificate]) async throws {
         try await self.validate(certChain: certChain, validationTime: Date())
     }
 
-    func verify(
+    package func verify(
         certChain: [Certificate],
         trustedRoots: [Certificate]?,
         @PolicyBuilder policies: () -> some VerifierPolicy,
@@ -114,7 +114,7 @@ extension CertificatePolicy {
     }
 }
 
-enum CertificatePolicyError: Error, Equatable {
+package enum CertificatePolicyError: Error, Equatable {
     case noTrustedRootCertsConfigured
     case emptyCertChain
     case invalidCertChain
@@ -128,7 +128,7 @@ enum CertificatePolicyError: Error, Equatable {
 ///   - The certificate must use either 256-bit EC (recommended) or 2048-bit RSA key.
 ///   - The certificate must not be revoked. The certificate authority must support OCSP.
 ///   - The certificate chain is valid and root certificate must be trusted.
-struct DefaultCertificatePolicy: CertificatePolicy {
+package struct DefaultCertificatePolicy: CertificatePolicy {
     let trustedRoots: [Certificate]
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
@@ -146,7 +146,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
     ///                                 user configured and dynamic, while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - expectedSubjectOrganizationalUnit: The subject organizational unit name that must match if specified.
-    init(
+    package init(
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
@@ -168,7 +168,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
         self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date) async throws {
+    package func validate(certChain: [Certificate], validationTime: Date) async throws {
         guard !certChain.isEmpty else {
             throw CertificatePolicyError.emptyCertChain
         }
@@ -202,7 +202,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
 ///
 /// This has the same requirements as `DefaultCertificatePolicy` plus additional
 /// marker extensions for Swift Package Collection certifiicates.
-struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
+package struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     let trustedRoots: [Certificate]
     let expectedSubjectUserID: String?
     let expectedSubjectOrganizationalUnit: String?
@@ -220,7 +220,7 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
     ///                                 user configured and dynamic, while this is configured by SwiftPM and static.
     ///   - expectedSubjectUserID: The subject user ID that must match if specified.
     ///   - expectedSubjectOrganizationalUnit: The subject organizational unit name that must match if specified.
-    init(
+    package init(
         trustedRootCertsDir: URL?,
         additionalTrustedRootCerts: [Certificate]?,
         expectedSubjectUserID: String? = nil,
@@ -242,7 +242,7 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
         self.observabilityScope = observabilityScope
     }
 
-    func validate(certChain: [Certificate], validationTime: Date) async throws {
+    package func validate(certChain: [Certificate], validationTime: Date) async throws {
         guard !certChain.isEmpty else {
             throw CertificatePolicyError.emptyCertChain
         }
@@ -353,13 +353,13 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
 // MARK: - Verifier policies
 
 /// Policy for code signing certificates.
-struct _CodeSigningPolicy: VerifierPolicy {
-    let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = [
+package struct _CodeSigningPolicy: VerifierPolicy {
+    package let verifyingCriticalExtensions: [ASN1ObjectIdentifier] = [
         ASN1ObjectIdentifier.X509ExtensionID.keyUsage,
         ASN1ObjectIdentifier.X509ExtensionID.extendedKeyUsage,
     ]
 
-    func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
+    package func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
         let isCodeSigning = (
             try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)
         ) ?? false
@@ -368,6 +368,8 @@ struct _CodeSigningPolicy: VerifierPolicy {
         }
         return .meetsPolicy
     }
+
+    package init() {}
 }
 
 /// Policy for revocation check via OCSP.
