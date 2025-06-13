@@ -12,7 +12,7 @@
 
 import Foundation
 import Basics
-@testable import Commands
+import Commands
 import CoreCommands
 import PackageGraph
 import PackageLoading

@@ -12,7 +12,7 @@
 
 import Build
 import Foundation
-@testable import Commands
+import Commands
 import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
