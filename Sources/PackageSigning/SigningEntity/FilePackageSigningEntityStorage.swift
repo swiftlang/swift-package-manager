@@ -20,7 +20,7 @@ import struct TSCUtility.Version
 
 public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
     let fileSystem: FileSystem
-    let directoryPath: Basics.AbsolutePath
+    package let directoryPath: Basics.AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -231,7 +231,7 @@ private enum StorageModel {
 }
 
 extension PackageIdentity {
-    var signedVersionsFilename: String {
+    package var signedVersionsFilename: String {
         "\(self.description).json"
     }
 }
