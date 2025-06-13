@@ -21,7 +21,7 @@ import PackageLoading
 @_spi(SwiftPMInternal)
 import PackageModel
 
-@testable import SPMBuildCore
+import SPMBuildCore
 import _InternalBuildTestSupport
 import _InternalTestSupport
 import Workspace

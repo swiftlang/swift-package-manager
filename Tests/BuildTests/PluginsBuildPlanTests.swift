@@ -12,7 +12,7 @@
 
 import Basics
 import _InternalTestSupport
-@testable import SPMBuildCore
+import SPMBuildCore
 import XCTest
 import PackageModel
 

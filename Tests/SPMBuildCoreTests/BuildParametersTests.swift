@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import SPMBuildCore
+import SPMBuildCore
 import Basics
 import struct PackageModel.BuildEnvironment
 import _InternalTestSupport
