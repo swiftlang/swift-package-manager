@@ -1,5 +1,35 @@
 # Swift Package Manager Project
 
+## Swift Package Manager Templates
+
+This branch has an experimental SwiftPM template feature that you can use to experiment. Here's how you can try it out.
+
+First, you need to build this package and produce SwiftPM binaries with the template support:
+
+```
+swift build
+```
+
+Now you can go to an empty directory and use an example template to make a package like this:
+
+```
+<path_to_swiftpm_dir>/.build/debug/swift-package init --template PartsService --template-type git --template-url git@github.pie.apple.com:jbute/simple-template-example.git
+```
+
+There's also a template maker that will help you to write your own template. Here's how you can generate your own template:
+
+```
+<path_to_swiftpm_dir>/.build/debug/swift-package init --template TemplateMaker --template-type git --template-url git@github.pie.apple.com:christie-mcgee/template.git
+```
+
+Once you've customized your template then you can test it from an empty directory:
+
+```
+<path_to_swiftpm_dir>/.build/debug/swift-package init --template MyTemplate --template-type local --template-path <path_to_your_template_pkg>
+```
+
+## About SwiftPM
+
 The Swift Package Manager is a tool for managing distribution of source code, aimed at making it easy to share your code and reuse others’ code. The tool directly addresses the challenges of compiling and linking Swift packages, managing dependencies, versioning, and supporting flexible distribution and collaboration models.
 
 We’ve designed the system to make it easy to share packages on services like GitHub, but packages are also great for private personal development, sharing code within a team, or at any other granularity.
