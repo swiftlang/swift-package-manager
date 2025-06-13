@@ -122,7 +122,7 @@ public class RegistryPackageContainer: PackageContainer {
     }
 
     // marked internal for testing
-    internal func loadManifest(version: Version) async throws -> Manifest {
+    package func loadManifest(version: Version) async throws -> Manifest {
         let result = try await self.getAvailableManifestsFilesystem(version: version)
 
         let manifests = result.manifests
