@@ -22,13 +22,13 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
-protocol SignatureValidationDelegate {
+package protocol SignatureValidationDelegate {
     func onUnsigned(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
     func onUntrusted(registry: Registry, package: PackageIdentity, version: Version, completion: (Bool) -> Void)
 }
 
-struct SignatureValidation {
-    typealias Delegate = SignatureValidationDelegate
+package struct SignatureValidation {
+    package typealias Delegate = SignatureValidationDelegate
 
     private let skipSignatureValidation: Bool
     private let signingEntityTOFU: PackageSigningEntityTOFU
@@ -40,7 +40,7 @@ struct SignatureValidation {
         case passthrough(Error)
     }
 
-    init(
+    package init(
         skipSignatureValidation: Bool,
         signingEntityStorage: PackageSigningEntityStorage?,
         signingEntityCheckingMode: SigningEntityCheckingMode,
@@ -58,7 +58,7 @@ struct SignatureValidation {
     }
 
     // MARK: - source archive
-    func validate(
+    package func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -313,7 +313,7 @@ struct SignatureValidation {
     }
 
     // MARK: - manifests
-    func validate(
+    package func validate(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
