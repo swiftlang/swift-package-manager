@@ -16,6 +16,7 @@ import Basics
 import class Foundation.Bundle
 #endif
 import SPMBuildCore
+import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
 
@@ -47,7 +48,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 
 public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isInCiEnvironment {
+    if CiEnvironment.runningInSmokeTestPipeline {
         let failureCause = reason ?? "Skipping because the test is being run on CI"
         throw XCTSkip(failureCause, file: file, line: line)
     }
@@ -55,7 +56,7 @@ public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticStrin
 
 public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isSelfHostedCiEnvironment {
+    if CiEnvironment.runningInSelfHostedPipeline {
         throw XCTSkip(reason, file: file, line: line)
     }
 }
@@ -145,7 +146,7 @@ package func XCTAssertAsyncNoThrow<T>(
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
-    configurations: Set<Configuration> = [.Debug, .Release],
+    configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -175,7 +176,7 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],

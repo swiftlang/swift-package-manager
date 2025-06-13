@@ -19,7 +19,7 @@ import Testing
 struct GitRepositoryProviderTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
-        .disabled(if: isSelfHostedCiEnvironment && ProcessInfo.hostOperatingSystem == .windows),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
     )
     func isValidDirectory() throws {
         try testWithTemporaryDirectory { sandbox in
@@ -52,7 +52,7 @@ struct GitRepositoryProviderTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
-        .disabled(if: isSelfHostedCiEnvironment && ProcessInfo.hostOperatingSystem == .windows),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
     )
     func isValidDirectoryThrowsPrintableError() throws {
         try testWithTemporaryDirectory { temp in
@@ -70,7 +70,7 @@ struct GitRepositoryProviderTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
-        .disabled(if: isSelfHostedCiEnvironment && ProcessInfo.hostOperatingSystem == .windows),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
     )
     func gitShellErrorIsPrintable() throws {
         let stdOut = "An error from Git - stdout"
@@ -99,7 +99,7 @@ struct GitRepositoryProviderTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
-        .disabled(if: isSelfHostedCiEnvironment && ProcessInfo.hostOperatingSystem == .windows),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
     )
     func gitShellErrorEmptyStdOut() throws {
         let stdErr = "An error from Git - stderr"
@@ -119,7 +119,7 @@ struct GitRepositoryProviderTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
-        .disabled(if: isSelfHostedCiEnvironment && ProcessInfo.hostOperatingSystem == .windows),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
     )
     func gitShellErrorEmptyStdErr() throws {
         let stdOut = "An error from Git - stdout"
