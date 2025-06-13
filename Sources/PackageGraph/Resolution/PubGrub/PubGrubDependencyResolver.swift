@@ -26,7 +26,7 @@ public struct PubGrubDependencyResolver {
     public typealias Constraint = PackageContainerConstraint
 
     /// the mutable state that get computed
-    internal final class State {
+    package final class State {
         /// The root package reference.
         let root: DependencyResolutionNode
 
@@ -44,7 +44,7 @@ public struct PubGrubDependencyResolver {
 
         private let lock = NSLock()
 
-        init(root: DependencyResolutionNode,
+        package init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
              solution: PartialSolution = PartialSolution())
         {
@@ -53,7 +53,7 @@ public struct PubGrubDependencyResolver {
             self.solution = solution
         }
 
-        func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
+        package func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
                 // log("incompat: \(incompatibility) \(location)")
                 for package in incompatibility.terms.map(\.node) {
@@ -69,7 +69,7 @@ public struct PubGrubDependencyResolver {
         }
 
         /// Find all incompatibilities containing a positive term for a given package.
-        func positiveIncompatibilities(for node: DependencyResolutionNode) -> [Incompatibility]? {
+        package func positiveIncompatibilities(for node: DependencyResolutionNode) -> [Incompatibility]? {
             self.lock.withLock {
                 guard let all = self.incompatibilities[node] else {
                     return nil
@@ -80,7 +80,7 @@ public struct PubGrubDependencyResolver {
             }
         }
 
-        func decide(_ node: DependencyResolutionNode, at version: Version) {
+        package func decide(_ node: DependencyResolutionNode, at version: Version) {
             let term = Term(node, .exact(version))
             self.lock.withLock {
                 assert(term.isValidDecision(for: self.solution))
@@ -88,7 +88,7 @@ public struct PubGrubDependencyResolver {
             }
         }
 
-        func derive(_ term: Term, cause: Incompatibility) {
+        package func derive(_ term: Term, cause: Incompatibility) {
             self.lock.withLock {
                 self.solution.derive(term, cause: cause)
             }
@@ -209,7 +209,7 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
+    package func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
         let inputs = try await self.processInputs(root: root, with: constraints)
 
@@ -511,7 +511,7 @@ public struct PubGrubDependencyResolver {
     /// partial solution.
     /// If a conflict is found, the conflicting incompatibility is returned to
     /// resolve the conflict on.
-    internal func propagate(state: State, node: DependencyResolutionNode) throws {
+    package func propagate(state: State, node: DependencyResolutionNode) throws {
         var changed: OrderedCollections.OrderedSet<DependencyResolutionNode> = [node]
 
         while !changed.isEmpty {
@@ -575,7 +575,7 @@ public struct PubGrubDependencyResolver {
     // Based on:
     // https://github.com/dart-lang/pub/tree/master/doc/solver.md#conflict-resolution
     // https://github.com/dart-lang/pub/blob/master/lib/src/solver/version_solver.dart#L201
-    internal func resolve(state: State, conflict: Incompatibility) throws -> Incompatibility {
+    package func resolve(state: State, conflict: Incompatibility) throws -> Incompatibility {
         self.delegate?.conflict(conflict: conflict)
 
         var incompatibility = conflict
@@ -703,7 +703,7 @@ public struct PubGrubDependencyResolver {
         }
     }
 
-    internal func makeDecision(
+    package func makeDecision(
         state: State
     ) async throws -> DependencyResolutionNode? {
         // If there are no more undecided terms, version solving is complete.
@@ -771,7 +771,7 @@ public struct PubGrubDependencyResolver {
     }
 }
 
-internal enum LogLocation: String {
+package enum LogLocation: String {
     case topLevel = "top level"
     case unitPropagation = "unit propagation"
     case decisionMaking = "decision making"
