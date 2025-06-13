@@ -12,7 +12,7 @@
 
 import Basics
 import CoreCommands
-@testable import Commands
+import Commands
 import Foundation
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
