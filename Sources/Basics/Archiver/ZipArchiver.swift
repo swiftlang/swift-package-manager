@@ -29,10 +29,10 @@ public struct ZipArchiver: Archiver, Cancellable {
 
     /// Absolute path to the Windows tar in the system folder
     #if os(Windows)
-        internal let windowsTar: String
+        package let windowsTar: String
     #else
-        internal let unzip = "unzip"
-        internal let zip = "zip"
+        package let unzip = "unzip"
+        package let zip = "zip"
     #endif
 
     #if os(FreeBSD)
