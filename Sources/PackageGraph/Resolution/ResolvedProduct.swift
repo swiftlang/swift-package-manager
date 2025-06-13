@@ -196,6 +196,11 @@ extension ResolvedProduct: Identifiable {
     public struct ID: Hashable {
         public let productName: String
         let packageIdentity: PackageIdentity
+
+        package init(productName: String, packageIdentity: PackageIdentity) {
+            self.productName = productName
+            self.packageIdentity = packageIdentity
+        }
     }
 
     public var id: ID {
