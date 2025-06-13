@@ -12,7 +12,7 @@
 
 @_spi(ProcessEnvironmentBlockShim)
 import Basics
-@testable import SourceControl
+import SourceControl
 import _InternalTestSupport
 import XCTest
 
