@@ -14,7 +14,7 @@ import Foundation
 
 import Basics
 import PackageModel
-@testable import PackageRegistry
+import PackageRegistry
 import PackageSigning
 import _InternalTestSupport
 import XCTest
