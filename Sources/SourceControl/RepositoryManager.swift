@@ -541,6 +541,11 @@ extension RepositoryManager {
         public let fromCache: Bool
         /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
+
+        package init(fromCache: Bool, updatedCache: Bool) {
+            self.fromCache = fromCache
+            self.updatedCache = updatedCache
+        }
     }
 }
 
@@ -609,7 +614,7 @@ extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
 
 extension RepositorySpecifier {
     // relative path where the repository should be stored
-    internal func storagePath() throws -> Basics.RelativePath {
+    package func storagePath() throws -> Basics.RelativePath {
         return try RelativePath(validating: self.fileSystemIdentifier)
     }
 
