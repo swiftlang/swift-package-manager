@@ -65,7 +65,7 @@ public class LLBuildManifestBuilder {
     public internal(set) var manifest: LLBuildManifest = .init()
 
     /// Mapping from Swift compiler path to Swift get version files.
-    var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
+    package var swiftGetVersionFiles = [AbsolutePath: AbsolutePath]()
 
     /// Create a new builder with a build plan.
     public init(

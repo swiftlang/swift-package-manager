@@ -731,7 +731,7 @@ extension BuildPlan {
     ///
     /// Note that warnings emitted by the the plugin itself will be returned in the `BuildToolPluginInvocationResult`
     /// structures for later showing to the user, and not added directly to the diagnostics engine.
-    static func invokeBuildToolPlugins(
+    package static func invokeBuildToolPlugins(
         for module: ResolvedModule,
         destination: BuildParameters.Destination,
         configuration: PluginConfiguration,

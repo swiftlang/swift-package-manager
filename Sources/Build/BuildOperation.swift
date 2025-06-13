@@ -610,7 +610,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Compute the llbuild target name using the given subset.
-    func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
+    package func computeLLBuildTargetName(for subset: BuildSubset) async throws -> String {
         func inferTestDestination(
             testModule: ResolvedModule,
             graph: ModulesGraph
@@ -1056,7 +1056,7 @@ extension BuildDescription {
 }
 
 extension BuildSubset {
-    func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
+    package func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
         case .allIncludingTests:
             return Array(graph.reachableModules)
