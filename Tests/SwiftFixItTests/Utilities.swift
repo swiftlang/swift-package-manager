@@ -14,7 +14,6 @@ import _InternalTestSupport
 import struct Basics.AbsolutePath
 import var Basics.localFileSystem
 import struct Foundation.UUID
-@testable
 import SwiftFixIt
 import class SwiftSyntax.SourceLocationConverter
 import Testing
