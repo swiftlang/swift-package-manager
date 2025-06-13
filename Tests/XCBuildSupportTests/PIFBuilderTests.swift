@@ -21,7 +21,7 @@ import PackageModel
 import SPMBuildCore
 import _InternalTestSupport
 import _InternalBuildTestSupport
-@testable import XCBuildSupport
+import XCBuildSupport
 import XCTest
 
 final class PIFBuilderTests: XCTestCase {
