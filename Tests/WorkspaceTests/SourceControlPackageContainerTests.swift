@@ -18,7 +18,7 @@ import PackageLoading
 import PackageModel
 import SourceControl
 import _InternalTestSupport
-@testable import Workspace
+import Workspace
 import XCTest
 
 import enum TSCUtility.Git

@@ -20,7 +20,7 @@ import PackageRegistry
 import PackageSigning
 import SourceControl
 import SPMBuildCore
-@testable import Workspace
+import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
