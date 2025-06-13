@@ -381,7 +381,7 @@ public final class PIFBuilder {
                                         self.parameters.disableSandbox ?
                                             nil :
                                             .init(
-                                                strictness: .default,
+                                                strictness: .writableTemporaryDirectory,
                                                 writableDirectories: writableDirectories,
                                                 readOnlyDirectories: buildCommand.inputFiles
                                             )
