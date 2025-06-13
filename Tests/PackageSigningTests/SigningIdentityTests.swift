@@ -17,7 +17,7 @@ import XCTest
 import _CryptoExtras // For RSA
 import Basics
 import Crypto
-@testable import PackageSigning
+import PackageSigning
 import _InternalTestSupport
 import X509
 
