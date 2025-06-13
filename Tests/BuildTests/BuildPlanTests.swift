@@ -18,7 +18,7 @@ import Basics
 import DriverSupport
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageLoading
 
