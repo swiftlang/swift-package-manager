@@ -12,7 +12,7 @@
 
 import XCTest
 
-@testable import PackageCollections
+import PackageCollections
 
 class ValidationMessageTests: XCTestCase {
     func testMessageToError() {

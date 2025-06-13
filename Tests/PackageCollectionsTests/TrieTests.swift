@@ -12,7 +12,7 @@
 
 import Testing
 
-@testable import PackageCollections
+import PackageCollections
 
 @Suite struct TrieTests {
     @Test func testContains() {
