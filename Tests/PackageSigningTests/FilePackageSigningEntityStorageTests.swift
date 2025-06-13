@@ -14,7 +14,7 @@ import Foundation
 
 import Basics
 import PackageModel
-@testable import PackageSigning
+import PackageSigning
 import _InternalTestSupport
 import Testing
 
