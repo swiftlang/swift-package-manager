@@ -17,8 +17,13 @@ import SPMBuildCore
 import SPMLLBuild
 import PackageModel
 
-import struct SwiftDriver.BuildRecordArguments
-import struct SwiftOptions.OptionTable
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import SwiftDriver
+@_implementationOnly import SwiftOptions
+#else
+import SwiftDriver
+import SwiftOptions
+#endif
 
 import class TSCBasic.LocalFileOutputByteStream
 
@@ -442,6 +447,8 @@ final class PackageStructureCommand: CustomLLBuildCommand {
         let parsedOptions = try optionTable.parse(Array(buildParameters.flags.swiftCompilerFlags), for: .batch)
         let buildRecordInfoHash = BuildRecordArguments.computeHash(parsedOptions)
 
+        // Replace the swiftCompilerFlags with a hash of themselves where arguments that
+        // do not affect incremental builds are removed.
         buildParameters.flags.swiftCompilerFlags = [buildRecordInfoHash]
 
         return buildParameters
