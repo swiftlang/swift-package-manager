@@ -190,8 +190,8 @@ fileprivate func macOSSandboxProfile(
     else if strictness == .writableTemporaryDirectory {
         var stableCacheDirectories: [AbsolutePath] = []
         // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
-        for tmpDir in threadSafeDarwinCacheDirectories {
-            let resolved = try resolveSymlinks(tmpDir)
+        for tmpDir in (["/tmp"] + threadSafeDarwinCacheDirectories.map(\.pathString)) {
+            let resolved = try resolveSymlinks(AbsolutePath(validating: tmpDir))
             if !stableCacheDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
                 stableCacheDirectories.append(resolved)
                 writableDirectoriesExpression += [
