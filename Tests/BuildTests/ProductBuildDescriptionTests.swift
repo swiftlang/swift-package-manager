@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
 import Build
 
 import class Basics.InMemoryFileSystem
