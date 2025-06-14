@@ -680,7 +680,12 @@ private func createResolvedPackages(
         // Get all implicit system library dependencies in this package.
         let implicitSystemLibraryDeps = packageBuilder.dependencies
             .flatMap(\.modules)
-            .filter(\.module.implicit)
+            .filter {
+                if case let systemLibrary as SystemLibraryModule = $0.module {
+                    return systemLibrary.implicit
+                }
+                return false
+            }
 
         let packageDoesNotSupportProductAliases = packageBuilder.package.doesNotSupportProductAliases
         let lookupByProductIDs = !packageDoesNotSupportProductAliases &&
