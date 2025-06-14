@@ -868,6 +868,51 @@ final class ManifestSourceGenerationTests: XCTestCase {
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
     }
 
+    func testManifestGenerationWithWarningControlFlags() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_2,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "swiftTarget",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cTarget",
+                    settings: [
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cxxTarget",
+                    settings: [
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
+    }
+
     func testDefaultIsolation() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
 
