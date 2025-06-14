@@ -15,11 +15,15 @@ import class PackageModel.Package
 import class PackageModel.Product
 import class PackageModel.Module
 
-struct MermaidPackageSerializer {
+package struct MermaidPackageSerializer {
     let package: Package
     var shouldIncludeLegend = false
 
-    var renderedMarkdown: String {
+    package init(package: Package) {
+        self.package = package
+    }
+
+    package var renderedMarkdown: String {
         var subgraphs = OrderedDictionary<String, [Edge]>()
         subgraphs[package.identity.description] = package.products.productTargetEdges
         

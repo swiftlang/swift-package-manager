@@ -13,7 +13,7 @@ import Foundation
 
 import Basics
 import _InternalTestSupport
-@testable import SourceControl
+import SourceControl
 import Testing
 
 struct GitRepositoryProviderTests {

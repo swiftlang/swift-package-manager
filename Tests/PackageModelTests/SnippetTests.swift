@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import PackageModel
+import PackageModel
 import XCTest
 
 class SnippetTests: XCTestCase {

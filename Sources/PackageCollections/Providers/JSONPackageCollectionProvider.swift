@@ -30,13 +30,13 @@ import struct TSCUtility.Version
 
 private typealias JSONModel = PackageCollectionModel.V1
 
-struct JSONPackageCollectionProvider: PackageCollectionProvider {
+package struct JSONPackageCollectionProvider: PackageCollectionProvider {
     // TODO: This can be removed when the `Security` framework APIs that the `PackageCollectionsSigning`
     // module depends on are available on all Apple platforms.
     #if os(macOS) || os(Linux) || os(Windows) || os(Android) || os(FreeBSD)
-    static let isSignatureCheckSupported = true
+    package static let isSignatureCheckSupported = true
     #else
-    static let isSignatureCheckSupported = false
+    package static let isSignatureCheckSupported = false
     #endif
 
     static let defaultCertPolicyKeys: [CertificatePolicyKey] = [.default]
@@ -50,7 +50,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
     private let signatureValidator: PackageCollectionSignatureValidator
     private let sourceCertPolicy: PackageCollectionSourceCertificatePolicy
 
-    init(
+    package init(
         configuration: Configuration = .init(),
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -73,7 +73,7 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         self.decoder = JSONDecoder.makeWithDefaults()
     }
 
-    func get(_ source: Model.CollectionSource) async throws -> Model.Collection {
+    package func get(_ source: Model.CollectionSource) async throws -> Model.Collection {
         guard case .json = source.type else {
             throw InternalError(
                 "JSONPackageCollectionProvider can only be used for fetching 'json' package collections"

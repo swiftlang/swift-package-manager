@@ -10,20 +10,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
-@testable import Build
+import Basics
+import Build
 
-@testable
 @_spi(SwiftPMInternal)
 import DriverSupport
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageLoading
 
 @_spi(SwiftPMInternal)
-@testable import PackageModel
+import PackageModel
 
 import SPMBuildCore
 import _InternalBuildTestSupport

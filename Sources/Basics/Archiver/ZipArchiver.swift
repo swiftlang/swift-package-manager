@@ -31,8 +31,8 @@ public struct ZipArchiver: Archiver, Cancellable {
     #if os(Windows)
         internal let windowsTar: String
     #else
-        internal let unzip = "unzip"
-        internal let zip = "zip"
+        package let unzip = "unzip"
+        package let zip = "zip"
     #endif
 
     #if os(FreeBSD)

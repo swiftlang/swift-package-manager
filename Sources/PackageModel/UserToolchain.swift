@@ -508,7 +508,7 @@ public final class UserToolchain: Toolchain {
     }
 #endif
 
-    internal static func deriveSwiftCFlags(
+    package static func deriveSwiftCFlags(
         triple: Basics.Triple,
         swiftSDK: SwiftSDK,
         environment: Environment,

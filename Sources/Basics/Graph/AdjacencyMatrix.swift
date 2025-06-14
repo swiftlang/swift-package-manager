@@ -18,7 +18,7 @@
 /// edge exists.
 ///
 /// See https://en.wikipedia.org/wiki/Adjacency_matrix for more details.
-struct AdjacencyMatrix {
+package struct AdjacencyMatrix {
     let columns: Int
     let rows: Int
     private var bytes: [UInt8]
@@ -27,7 +27,7 @@ struct AdjacencyMatrix {
     /// - Parameters:
     ///   - rows: Number of rows in the matrix.
     ///   - columns: Number of columns in the matrix.
-    init(rows: Int, columns: Int) {
+    package init(rows: Int, columns: Int) {
         self.columns = columns
         self.rows = rows
         
@@ -35,7 +35,7 @@ struct AdjacencyMatrix {
         self.bytes = .init(repeating: 0, count: quotient + (remainder > 0 ? 1 : 0))
     }
 
-    var bitCount: Int {
+    package var bitCount: Int {
         bytes.count * 8
     }
 
@@ -44,7 +44,7 @@ struct AdjacencyMatrix {
         return (byteOffset: totalBitOffset / 8, bitOffsetInByte: totalBitOffset % 8)
     }
 
-    subscript(row: Int, column: Int) -> Bool {
+    package subscript(row: Int, column: Int) -> Bool {
         get {
             let (byteOffset, bitOffsetInByte) = calculateOffsets(row: row, column: column)
 

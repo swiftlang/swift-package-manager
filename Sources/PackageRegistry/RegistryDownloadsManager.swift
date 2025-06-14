@@ -365,6 +365,11 @@ extension RegistryDownloadsManager {
         public let fromCache: Bool
         /// Indicates whether the repository was already present in the cache and updated or if a clean fetch was performed.
         public let updatedCache: Bool
+
+        package init(fromCache: Bool, updatedCache: Bool) {
+            self.fromCache = fromCache
+            self.updatedCache = updatedCache
+        }
     }
 }
 
@@ -385,7 +390,7 @@ extension PackageIdentity {
         return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
     }
 
-    internal func downloadPath(version: Version) throws -> Basics.RelativePath {
+    package func downloadPath(version: Version) throws -> Basics.RelativePath {
         try self.downloadPath().appending(component: version.description)
     }
 }

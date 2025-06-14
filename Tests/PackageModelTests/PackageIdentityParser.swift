@@ -12,7 +12,7 @@
 
 import XCTest
 
-@testable import PackageModel
+import PackageModel
 
 final class PackageIdentityParserTests: XCTestCase {
     func testPackageIdentityDescriptions() {

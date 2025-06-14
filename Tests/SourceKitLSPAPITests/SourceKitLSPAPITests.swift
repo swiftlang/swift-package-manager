@@ -17,7 +17,7 @@ import Build
 import PackageGraph
 
 import PackageModel
-@testable import SourceKitLSPAPI
+import SourceKitLSPAPI
 import SPMBuildCore
 import _InternalTestSupport
 import XCTest
