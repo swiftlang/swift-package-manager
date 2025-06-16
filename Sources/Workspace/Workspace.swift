@@ -484,7 +484,7 @@ public class Workspace {
         let dependencyMapper = customDependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver)
         let checksumAlgorithm = customChecksumAlgorithm ?? SHA256()
 
-        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider()
+        let repositoryProvider = customRepositoryProvider ?? GitRepositoryProvider(useGitLFS: configuration.useGitLFS)
         let repositoryManager = customRepositoryManager ?? RepositoryManager(
             fileSystem: fileSystem,
             path: location.repositoriesDirectory,

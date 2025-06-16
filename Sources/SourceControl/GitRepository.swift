@@ -86,10 +86,13 @@ private struct GitShellHelper {
 public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
     private let git: GitShellHelper
+    private let useGitLFS: Bool
 
     private var repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
 
-    public init() {
+    public init(useGitLFS: Bool = false) {
+        self.useGitLFS = useGitLFS
+
         // helper to cancel outstanding processes
         self.cancellator = Cancellator(observabilityScope: .none)
         // helper to abstract shelling out to git
@@ -202,22 +205,42 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             progress: progressHandler
         )
 
+        if self.useGitLFS {
+            // Fetches LFS files if the repository is using Git LFS.
+            try self.fetchGitLFSFiles(repository: repository, at: path)
+        }
+    }
+
+    private func fetchGitLFSFiles(
+        repository: RepositorySpecifier,
+        at path: Basics.AbsolutePath,
+        progress: FetchProgress.Handler? = nil
+    ) throws {
+        // Check to see if the .gitattributes file contains the configuration for git-lfs.
+        guard let output = try? self.callGit(
+            ["-C", path.pathString, "--no-pager", "show", "HEAD:.gitattributes"],
+            repository: repository
+        ), output.contains("=lfs") else {
+            return
+        }
+
         do {
             try self.callGit(
-                [
-                    "-C",
-                    path.pathString,
-                    "lfs",
-                    "fetch"
-                ],
+                ["-C", path.pathString, "lfs", "fetch", "--all"],
                 repository: repository,
-                failureMessage: "Failed to fetch Git LFS files for \(repository.location)"
+                failureMessage: "Failed to fetch Git LFS files for \(repository.location)",
+                progress: progress
             )
-        } catch {
-            // Ignore the error if lfs fetch fails, likely the repository either isn't using
-            // git lfs or it isn't installed.
-
-            // TODO: If the repo _is_ using git lfs and it isn't installed can we show a nice error?
+        } catch let error as GitCloneError  {
+            if error.interpolationDescription.contains("'lfs' is not a git command") {
+                // throw an error with a more friendly message indicating that the user needs to install git-lfs
+                throw GitCloneError(
+                    repository: repository,
+                    message: "Git LFS is not installed. Please install Git LFS to use this dependency",
+                    result: error.result
+                )
+            }
+            throw error
         }
     }
 

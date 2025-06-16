@@ -294,6 +294,7 @@ public class RepositoryManager: Cancellable {
     ) async throws -> FetchDetails {
         var cacheUsed = false
         var cacheUpdated = false
+        var fetchedFromProvider = false
 
         // utility to update progress
         func updateFetchProgress(progress: FetchProgress) -> Void {
@@ -327,6 +328,7 @@ public class RepositoryManager: Cancellable {
                             }
                             cacheUsed = true
                         } else {
+                            fetchedFromProvider = true
                             try self.provider.fetch(repository: handle.repository, to: cachedRepositoryPath, progressHandler: updateFetchProgress(progress:))
                         }
                         cacheUpdated = true
@@ -355,14 +357,21 @@ public class RepositoryManager: Cancellable {
                     try self.provider.copy(from: cachedRepositoryPath, to: repositoryPath)
                 } else {
                     cacheUsed = false
-                    // Fetch without populating the cache in the case of an error.
-                    observabilityScope.emit(
-                        warning: "skipping cache due to an error",
-                        underlyingError: error
-                    )
-                    // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
-                    try? self.fileSystem.removeFileTree(repositoryPath)
-                    try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+
+                    if fetchedFromProvider {
+                        // The error was produced from the fetch, don't try and fetch
+                        // again just propagate the error.
+                        throw error
+                    } else {
+                        // Fetch without populating the cache in the case of an error.
+                        observabilityScope.emit(
+                            warning: "skipping cache due to an error",
+                            underlyingError: error
+                        )
+                        // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
+                        try? self.fileSystem.removeFileTree(repositoryPath)
+                        try self.provider.fetch(repository: handle.repository, to: repositoryPath, progressHandler: updateFetchProgress(progress:))
+                    }
                 }
             }
         } else {
