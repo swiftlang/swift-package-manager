@@ -1206,6 +1206,21 @@ final class PluginTests: XCTestCase {
         }
     }
 
+#if os(macOS)
+    func testBuildToolPluginSwiftFileExecutable() async throws {
+        for buildSystem in ["native", "swiftbuild"] {
+            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftBuild(fixturePath.appending("SwiftFilePlugin"), configuration: .Debug, extraArgs: ["--build-system", buildSystem, "--verbose"])
+                if buildSystem == "native" {
+                    XCTAssertTrue(stdout.contains("Hello, Build Tool Plugin!"), "stdout:\n\(stdout)")
+                } else {
+                    XCTAssertTrue(stderr.contains("Hello, Build Tool Plugin!"), "stderr:\n\(stderr)")
+                }
+            }
+        }
+    }
+#endif
+
     func testTransitivePluginOnlyDependency() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
