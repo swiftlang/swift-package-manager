@@ -1396,13 +1396,13 @@ final class PluginTests {
             ProcessInfo.hostOperatingSystem == .windows
         }
 
-            try await withKnownIssue {
-                // Try again with the Swift Build build system
-                try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
-                    let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
-                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-                }
-            } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
+        try await withKnownIssue {
+            // Try again with the Swift Build build system
+            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
+                let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
+                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            }
+        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(

@@ -10,11 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
 import SPMBuildCore
+import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
 
@@ -54,7 +56,7 @@ public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticStrin
 
 public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isSelfHostedCiEnvironment {
+    if CiEnvironment.runningInSelfHostedPipeline {
         throw XCTSkip(reason, file: file, line: line)
     }
 }
@@ -144,7 +146,7 @@ package func XCTAssertAsyncNoThrow<T>(
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
-    configurations: Set<Configuration> = [.Debug, .Release],
+    configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -174,7 +176,7 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -321,4 +323,14 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+}
+
+
+public func XCTExhibitsGitHubIssue(_ number: Int) throws {
+    let envVar = "SWIFTCI_EXHIBITS_GH_\(number)"
+
+    try XCTSkipIf(
+        ProcessInfo.processInfo.environment[envVar] != nil,
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+    )
 }

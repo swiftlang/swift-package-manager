@@ -19,6 +19,8 @@ import CoreCommands
 
 import Foundation
 
+import OrderedCollections
+
 import PackageGraph
 import PackageModel
 
@@ -29,18 +31,15 @@ import var TSCBasic.stdoutStream
 
 struct MigrateOptions: ParsableArguments {
     @Option(
-        name: .customLong("targets"),
+        name: .customLong("target"),
+        parsing: .upToNextOption,
         help: "The targets to migrate to specified set of features."
     )
-    var _targets: String?
-
-    var targets: Set<String>? {
-        self._targets.flatMap { Set($0.components(separatedBy: ",")) }
-    }
+    var targets: [String] = []
 
     @Option(
         name: .customLong("to-feature"),
-        parsing: .unconditionalSingleValue,
+        parsing: .upToNextOption,
         help: "The Swift language upcoming/experimental feature to migrate to."
     )
     var features: [String]
@@ -85,9 +84,11 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
+            let uniqueTargets = OrderedSet(self.options.targets)
+
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
-                targets: self.options.targets,
+                targets: uniqueTargets,
                 features: features
             )
 
@@ -95,8 +96,8 @@ extension SwiftPackageCommand {
             // whole project to get diagnostic files.
 
             print("> Starting the build")
-            if let targets = self.options.targets {
-                for target in targets {
+            if !uniqueTargets.isEmpty {
+                for target in uniqueTargets {
                     try await buildSystem.build(subset: .target(target))
                 }
             } else {
@@ -107,15 +108,20 @@ extension SwiftPackageCommand {
             let buildPlan = try buildSystem.buildPlan
 
             var modules: [any ModuleBuildDescription] = []
-            if let targets = self.options.targets {
-                for buildDescription in buildPlan.buildModules where targets.contains(buildDescription.module.name) {
+            if !uniqueTargets.isEmpty {
+                for buildDescription in buildPlan.buildModules
+                    where uniqueTargets.contains(buildDescription.module.name) {
                     modules.append(buildDescription)
                 }
             } else {
                 let graph = try await buildSystem.getPackageGraph()
                 for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package) && buildDescription.module.type != .plugin
+                    where graph.isRootPackage(buildDescription.package)
                 {
+                    let module = buildDescription.module
+                    guard module.type != .plugin, !module.implicit else {
+                        continue
+                    }
                     modules.append(buildDescription)
                 }
             }
@@ -176,7 +182,7 @@ extension SwiftPackageCommand {
 
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
-            targets: Set<String>? = .none,
+            targets: OrderedSet<String>,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
@@ -190,7 +196,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            if let targets {
+            if !targets.isEmpty {
                 targets.lazy.compactMap {
                     modulesGraph.module(for: $0)
                 }.forEach(addFeaturesToModule)
@@ -204,6 +210,9 @@ extension SwiftPackageCommand {
 
             return try await swiftCommandState.createBuildSystem(
                 traitConfiguration: .init(),
+                // Don't attempt to cache manifests with temporary
+                // feature flags added just for migration purposes.
+                cacheBuildManifest: false,
                 productsBuildParameters: destinationBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 // command result output goes on stdout

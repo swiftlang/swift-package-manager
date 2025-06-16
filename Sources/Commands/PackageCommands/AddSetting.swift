@@ -44,7 +44,7 @@ extension SwiftPackageCommand {
 
         @Option(
             name: .customLong("swift"),
-            parsing: .unconditionalSingleValue,
+            parsing: .upToNextOption,
             help: "The Swift language setting(s) to add. Supported settings: \(SwiftSetting.allCases.map(\.rawValue).joined(separator: ", "))."
         )
         var _swiftSettings: [String]

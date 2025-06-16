@@ -198,6 +198,10 @@ public final class SwiftModuleBuildDescription {
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
     var needsToBeParsedAsLibrary: Bool {
+        if buildParameters.sanitizers.sanitizers.contains(.fuzzer) {
+            return true
+        }
+
         switch self.target.type {
         case .library, .test:
             return true

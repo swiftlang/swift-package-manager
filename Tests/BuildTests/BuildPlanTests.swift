@@ -878,105 +878,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #endif
     }
 
-    func testExplicitSwiftPackageBuild() async throws {
-        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
-        try XCTSkipIf(true)
-        try await withTemporaryDirectory { path in
-            // Create a test package with three targets:
-            // A -> B -> C
-            let fs = localFileSystem
-            try fs.changeCurrentWorkingDirectory(to: path)
-            let testDirPath = path.appending("ExplicitTest")
-            let buildDirPath = path.appending(".build")
-            let sourcesPath = testDirPath.appending("Sources")
-            let aPath = sourcesPath.appending("A")
-            let bPath = sourcesPath.appending("B")
-            let cPath = sourcesPath.appending("C")
-            let main = aPath.appending("main.swift")
-            let aSwift = aPath.appending("A.swift")
-            let bSwift = bPath.appending("B.swift")
-            let cSwift = cPath.appending("C.swift")
-            try localFileSystem.writeFileContents(main, string: "baz();")
-            try localFileSystem.writeFileContents(
-                aSwift,
-                string:
-                """
-                import B;\
-                import C;\
-                public func baz() { bar() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                bSwift,
-                string:
-                """
-                import C;
-                public func bar() { foo() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                cSwift,
-                string:
-                "public func foo() {}"
-            )
-
-            // Plan package build with explicit module build
-            let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadModulesGraph(
-                fileSystem: fs,
-                manifests: [
-                    Manifest.createRootManifest(
-                        displayName: "ExplicitTest",
-                        path: testDirPath,
-                        targets: [
-                            TargetDescription(name: "A", dependencies: ["B"]),
-                            TargetDescription(name: "B", dependencies: ["C"]),
-                            TargetDescription(name: "C", dependencies: []),
-                        ]
-                    ),
-                ],
-                observabilityScope: observability.topScope
-            )
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            do {
-                let plan = try await mockBuildPlan(
-                    config: .release,
-                    triple: UserToolchain.default.targetTriple,
-                    toolchain: UserToolchain.default,
-                    graph: graph,
-                    driverParameters: .init(
-                        useExplicitModuleBuild: true
-                    ),
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-
-                let yaml = buildDirPath.appending("release.yaml")
-                let llbuild = LLBuildManifestBuilder(
-                    plan,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observability.topScope
-                )
-                try llbuild.generateManifest(at: yaml)
-                let contents: String = try localFileSystem.readFileContents(yaml)
-
-                // A few basic checks
-                XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
-                XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
-                XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-                XCTAssertMatch(contents, .contains("A-dependencies"))
-                XCTAssertMatch(contents, .contains("B-dependencies"))
-                XCTAssertMatch(contents, .contains("C-dependencies"))
-            } catch Driver.Error.unableToDecodeFrontendTargetInfo {
-                // If the toolchain being used is sufficiently old, the integrated driver
-                // will not be able to parse the `-print-target-info` output. In which case,
-                // we cannot yet rely on the integrated swift driver.
-                // This effectively guards the test from running on unsupported, older toolchains.
-                throw XCTSkip()
-            }
-        }
-    }
-
     func testSwiftConditionalDependency() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
@@ -6716,6 +6617,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await self.sanitizerTest(.scudo, expectedName: "scudo")
     }
 
+    func testFuzzerSanitizer() async throws {
+        try await self.sanitizerTest(.fuzzer, expectedName: "fuzzer")
+    }
+
     func testSnippets() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -6822,6 +6727,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let clib = try result.moduleBuildDescription(for: "clib").clang().basicArguments(isCXX: false)
         XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
+
+        if sanitizer == .fuzzer {
+            XCTAssertMatch(exe, ["-parse-as-library"])
+            XCTAssertNoMatch(exe, ["-Xlinker", "alias", "_main"])
+            XCTAssertMatch(lib, ["-parse-as-library"])
+            XCTAssertNoMatch(lib, ["-Xlinker", "alias", "_main"])
+            XCTAssertNoMatch(clib, ["-parse-as-library"])
+        }
 
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
@@ -7434,6 +7347,94 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 }
             }
         }
+    }
+
+    func testImplicitModules() async throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/A/Sources/AMacro/macro.swift",
+            "/A/Sources/AExecutable/main.swift",
+            "/A/Sources/ASystemLib/module.modulemap",
+            "/A/Plugins/APlugin/main.swift",
+            "/A/Tests/ATargetTests/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    dependencies: [
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget"),
+                        TargetDescription(
+                            name: "AMacro",
+                            dependencies: [],
+                            type: .`macro`
+                        ),
+                        TargetDescription(
+                            name: "AExecutable",
+                            dependencies: ["ATarget"],
+                            type: .executable
+                        ),
+                        TargetDescription(
+                            name: "APlugin",
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        TargetDescription(
+                            name: "ASystemLib",
+                            type: .system
+                        ),
+                        TargetDescription(
+                            name: "ATargetTests",
+                            dependencies: ["ATarget"],
+                            type: .test
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+
+        struct ExpectedTarget: Hashable, Equatable {
+            let name: String
+            let implicit: Bool
+        }
+
+        var expectedTargets: Set<ExpectedTarget> = [
+            .init(name: "ATarget", implicit: false),
+            .init(name: "AMacro", implicit: false),
+            .init(name: "AExecutable", implicit: false),
+            .init(name: "ATargetTests", implicit: false),
+            .init(name: "APackageTests", implicit: true),
+        ]
+        #if !os(macOS)
+        expectedTargets.insert(.init(name: "APackageDiscoveredTests", implicit: true))
+        #endif
+        XCTAssertEqual(
+            Set(result.targetMap.map { ExpectedTarget(name: $0.module.name, implicit: $0.module.implicit) }),
+            expectedTargets
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "APlugin")?.implicit,
+            false
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "ASystemLib")?.implicit,
+            false
+        )
     }
 }
 

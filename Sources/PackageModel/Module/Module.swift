@@ -242,6 +242,10 @@ public class Module {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
+    /// Whether this module comes from a declaration in the manifest file
+    /// or was synthesized (i.e. some test modules are synthesized).
+    public let implicit: Bool
+
     init(
         name: String,
         potentialBundleName: String? = nil,
@@ -256,7 +260,8 @@ public class Module {
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
-        usesUnsafeFlags: Bool
+        usesUnsafeFlags: Bool,
+        implicit: Bool
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -273,6 +278,7 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
+        self.implicit = implicit
     }
 }
 

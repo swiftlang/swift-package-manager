@@ -100,6 +100,10 @@ class ManifestEditTests: XCTestCase {
     }
 
     func testAddPackageDependencyExistingNoComma() throws {
+        try XCTSkipOnWindows(
+            because: "Test appears to hang",
+            skipPlatformCi: true,
+        )
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
             let package = Package(

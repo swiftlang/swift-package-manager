@@ -81,6 +81,7 @@ let swiftPMProduct = (
         "LLBuildManifest",
         "SourceKitLSPAPI",
         "SPMLLBuild",
+        "SwiftBuildSupport",
     ]
 )
 
@@ -105,11 +106,13 @@ let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_
 let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
+let swiftTSCTestSupportDeps: [Target.Dependency]
 
 if shoudUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
+    swiftTSCTestSupportDeps = []
 } else {
     swiftDriverDeps = [
         .product(name: "SwiftDriver", package: "swift-driver")
@@ -119,6 +122,9 @@ if shoudUseSwiftBuildFramework {
     ]
     swiftToolsCoreSupportAutoDeps = [
         .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core")
+    ]
+    swiftTSCTestSupportDeps = [
+        .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
     ]
 }
 let package = Package(
@@ -343,8 +349,7 @@ let package = Package(
             name: "BinarySymbols",
             dependencies: [
                 "Basics",
-                .product(name: "TSCBasic", package: "swift-tools-support-core"),
-            ],
+            ] + swiftTSCBasicsDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -818,10 +823,9 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
-                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
-            ],
+            ] + swiftTSCTestSupportDeps,
             swiftSettings: [
                 .unsafeFlags(["-static"]),
             ]
@@ -1095,12 +1099,10 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.4.0")),
-        .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.5.1")),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
@@ -1110,11 +1112,15 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // For use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
+    if !swiftDriverDeps.isEmpty {
+        package.dependencies += [
+            .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
+            .package(url: "https://github.com/swiftlang/swift-driver.git", branch: relatedDependenciesBranch),
+        ]
+    }
 } else {
     package.dependencies += [
-        .package(path: "../swift-tools-support-core"),
         .package(path: "../swift-argument-parser"),
-        .package(path: "../swift-driver"),
         .package(path: "../swift-crypto"),
         .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
@@ -1122,6 +1128,13 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
+    if !swiftDriverDeps.isEmpty {
+        package.dependencies += [
+            .package(path: "../swift-tools-support-core"),
+            .package(path: "../swift-driver"),
+        ]
+    }
+
 }
 
 /// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
