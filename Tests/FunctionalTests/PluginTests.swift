@@ -33,7 +33,7 @@ final class PluginTests {
     func testUseOfBuildToolPluginTargetByExecutableInSamePackage() async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
                 #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
@@ -46,7 +46,7 @@ final class PluginTests {
         try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool", "--build-system", "swiftbuild"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool", "--build-system", "swiftbuild"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
@@ -84,7 +84,7 @@ final class PluginTests {
     func testUseOfBuildToolPluginProductByExecutableAcrossPackages() async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--product", "MyTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .debug, extraArgs: ["--product", "MyTool"])
                 #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
@@ -97,7 +97,7 @@ final class PluginTests {
         try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenClient"), configuration: .debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: {
@@ -113,7 +113,7 @@ final class PluginTests {
     func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--product", "MyOtherLocalTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .debug, extraArgs: ["--product", "MyOtherLocalTool"])
                 #expect(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
@@ -126,7 +126,7 @@ final class PluginTests {
         try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MySourceGenPlugin"), configuration: .debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: {
@@ -259,7 +259,7 @@ final class PluginTests {
     func testContrivedTestCases() async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
                 #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
                 #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
@@ -271,7 +271,7 @@ final class PluginTests {
 
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("ContrivedTestPlugin"), configuration: .debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: {
@@ -285,14 +285,14 @@ final class PluginTests {
     )
     func testPluginScriptSandbox() async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
             #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
 
         // Try again with Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool"])
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("SandboxTesterPlugin"), configuration: .debug, extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool"])
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
@@ -303,7 +303,7 @@ final class PluginTests {
     )
     func testUseOfVendedBinaryTool() async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
             #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
@@ -315,7 +315,7 @@ final class PluginTests {
     )
     func testUseOfBinaryToolVendedAsProduct() async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("BinaryToolProductPlugin"), configuration: .Debug, extraArgs: ["--product", "MyLocalTool"])
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("BinaryToolProductPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
             #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
             #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
         }
@@ -756,7 +756,7 @@ final class PluginTests {
     )
     func testLocalAndRemoteToolDependencies() async throws {
         try await fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["plugin", "my-plugin"])
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("MyLibrary"), configuration: .debug, extraArgs: ["plugin", "my-plugin"])
             #expect(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
@@ -1226,13 +1226,13 @@ final class PluginTests {
     )
     func testSnippetSupport() async throws {
         try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["do-something"])
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .debug, extraArgs: ["do-something"])
             #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
 
         // Try again with the Swift Build build system
         try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .Debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("PluginsAndSnippets"), configuration: .debug, extraArgs: ["--build-system", "swiftbuild", "do-something"])
             #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
     }
@@ -1265,7 +1265,7 @@ final class PluginTests {
             // Check that the build fails with a sandbox violation by default.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
                 let error = try await #require(throws: Error.self) {
-                    try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, buildSystem: buildSystem)
+                    try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .debug, buildSystem: buildSystem)
                 }
 
                 #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
@@ -1273,7 +1273,7 @@ final class PluginTests {
 
             // Check that the build succeeds if we disable the sandbox.
             try await fixture(name: "Miscellaneous/Plugins/SandboxViolatingBuildToolPluginCommands") { path in
-                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .Debug, extraArgs: ["--disable-sandbox"], buildSystem: buildSystem)
+                let (stdout, stderr) = try await executeSwiftBuild(path.appending("MyLibrary"), configuration: .debug, extraArgs: ["--disable-sandbox"], buildSystem: buildSystem)
                 #expect(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
             }
         }
@@ -1357,7 +1357,7 @@ final class PluginTests {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending(component: "MySourceGenPlugin"),
-                    configuration: .Debug,
+                    configuration: .debug,
                     extraArgs: ["--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE"]
                 )
                 #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
@@ -1371,7 +1371,7 @@ final class PluginTests {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftBuild(
                     fixturePath.appending(component: "MySourceGenPlugin"),
-                    configuration: .Debug,
+                    configuration: .debug,
                     extraArgs: ["-v", "--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE", "--build-system", "swiftbuild"]
                 )
                 #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
@@ -1389,7 +1389,7 @@ final class PluginTests {
     func testURLBasedPluginAPI() async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug)
+                let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .debug)
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: {
@@ -1399,7 +1399,7 @@ final class PluginTests {
         try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .Debug, extraArgs: ["--build-system", "swiftbuild"])
+                let (stdout, _) = try await executeSwiftBuild(fixturePath, configuration: .debug, extraArgs: ["--build-system", "swiftbuild"])
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
