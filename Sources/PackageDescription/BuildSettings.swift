@@ -472,6 +472,9 @@ public struct SwiftSetting: Sendable {
     ///     inference. The only valid arguments are `MainActor.self` and `nil`.
     ///   - condition: A condition that restricts the application of the build
     ///     setting.
+    ///
+    /// The compiler defaults to inferring unannotated code as `nonisolated` if unspecified,
+    /// or if the `isolation` parameter is set to `nil`.
     @available(_PackageDescription, introduced: 6.2)
     public static func defaultIsolation(
         _ isolation: MainActor.Type?,
