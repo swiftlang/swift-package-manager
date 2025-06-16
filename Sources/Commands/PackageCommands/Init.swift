@@ -81,11 +81,11 @@ extension SwiftPackageCommand {
         var templateSource: InitTemplatePackage.TemplateSource?
 
         /// Path to a local template.
-        @Option(name: .customLong("template-path"), help: "Path to the local template.", completion: .directory)
+        @Option(name: .customLong("path"), help: "Path to the local template.", completion: .directory)
         var templateDirectory: Basics.AbsolutePath?
 
         /// Git URL of the template.
-        @Option(name: .customLong("template-url"), help: "The git URL of the template.")
+        @Option(name: .customLong("url"), help: "The git URL of the template.")
         var templateURL: String?
 
         @Option(name: .customLong("package-id"), help: "The package identifier of the template")
