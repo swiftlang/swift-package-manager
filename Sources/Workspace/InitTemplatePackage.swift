@@ -36,8 +36,6 @@ public final class InitTemplatePackage {
     /// The set of testing libraries supported by the generated package.
     public var supportedTestingLibraries: Set<TestingLibrary>
 
-    /// The name of the template to use.
-    let templateName: String
     /// The file system abstraction to use for file operations.
     let fileSystem: FileSystem
 
@@ -51,13 +49,12 @@ public final class InitTemplatePackage {
     var packageName: String
 
     /// The path to the template files.
-
     var templatePath: Basics.AbsolutePath
+
     /// The type of package to create (e.g., library, executable).
-
     let packageType: InitPackage.PackageType
-    /// Options used to configure package initialization.
 
+    /// Options used to configure package initialization.
     public struct InitPackageOptions {
         /// The type of package to create.
         public var packageType: InitPackage.PackageType
@@ -112,7 +109,6 @@ public final class InitTemplatePackage {
     ///   - installedSwiftPMConfiguration: Configuration from the SwiftPM toolchain.
     public init(
         name: String,
-        templateName: String,
         initMode: MappablePackageDependency.Kind,
         templatePath: Basics.AbsolutePath,
         fileSystem: FileSystem,
@@ -129,7 +125,6 @@ public final class InitTemplatePackage {
         self.destinationPath = destinationPath
         self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
-        self.templateName = templateName
     }
 
     /// Sets up the package manifest by creating the package structure and

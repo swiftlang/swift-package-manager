@@ -70,11 +70,11 @@ extension SwiftPackageCommand {
         var createPackagePath = true
 
         /// Name of a template to use for package initialization.
-        @Option(name: .customLong("template"), help: "Name of a template to initialize the package.")
-        var template: String = ""
+        @Option(name: .customLong("template"), help: "Name of a template to initialize the package, unspecified if the default template should be used.")
+        var template: String?
 
         /// Returns true if a template is specified.
-        var useTemplates: Bool { !self.template.isEmpty }
+        var useTemplates: Bool { self.templateSource != nil }
 
         /// The type of template to use: `registry`, `git`, or `local`.
         @Option(name: .customLong("template-type"), help: "Template type: registry, git, local.")
@@ -230,7 +230,6 @@ extension SwiftPackageCommand {
 
             let initTemplatePackage = try InitTemplatePackage(
                 name: packageName,
-                templateName: template,
                 initMode: dependencyKind,
                 templatePath: resolvedTemplatePath,
                 fileSystem: swiftCommandState.fileSystem,
@@ -252,8 +251,24 @@ extension SwiftPackageCommand {
             let packageGraph = try await swiftCommandState.loadPackageGraph()
             let matchingPlugins = PluginCommand.findPlugins(matching: self.template, in: packageGraph, limitedTo: nil)
 
+            guard let commandPlugin = matchingPlugins.first else {
+                guard let template = self.template else { throw ValidationError("No templates were found in \(packageName)") }
+
+                throw ValidationError("No templates were found that match the name \(template)")
+            }
+
+            guard matchingPlugins.count == 1 else {
+                let templateNames = matchingPlugins.compactMap { module in
+                    let plugin = module.underlying as! PluginModule
+                    guard case .command(let intent, _) = plugin.capability else { return Optional<String>.none }
+
+                    return intent.invocationVerb
+                }
+                throw ValidationError("More than one template was found in the package. Please use `--template` to select from one of the available templates: \(templateNames.joined(separator: ", "))")
+            }
+
             let output = try await TemplatePluginRunner.run(
-                plugin: matchingPlugins[0],
+                plugin: commandPlugin,
                 package: packageGraph.rootPackages.first!,
                 packageGraph: packageGraph,
                 arguments: ["--", "--experimental-dump-help"],
@@ -289,18 +304,16 @@ extension SwiftPackageCommand {
             let products = rootManifest.products
             let targets = rootManifest.targets
 
-            for product in products {
-                for targetName in product.targets {
-                    if let target = targets.first(where: { $0.name == template }) {
-                        if let options = target.templateInitializationOptions {
-                            if case .packageInit(let templateType, _, _) = options {
-                                return try .init(from: templateType)
-                            }
+            for _ in products {
+                if let target = targets.first(where: { template == nil || $0.name == template }) {
+                    if let options = target.templateInitializationOptions {
+                        if case .packageInit(let templateType, _, _) = options {
+                            return try .init(from: templateType)
                         }
                     }
                 }
             }
-            throw InternalError("Could not find template \(self.template)")
+            throw InternalError("Could not find \(self.template != nil ? "template \(self.template!)" :  "any templates in the package")")
         }
     }
 }
