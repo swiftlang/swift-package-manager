@@ -359,29 +359,27 @@ public final class PIFBuilder {
                             buildCommands: result.buildCommands.map( { buildCommand in
                                 var newEnv: Environment = buildCommand.configuration.environment
 
-                                if let runtimeLibPaths = try? buildParameters.toolchain.runtimeLibraryPaths {
-                                    for libPath in runtimeLibPaths {
-                                        newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
-                                    }
+                                let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+
+                                for libPath in runtimeLibPaths {
+                                    newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
                                 }
 
-                                let workingDir = buildCommand.configuration.workingDirectory
-
-                                let writableDirectories: [AbsolutePath] = buildCommand.outputFiles
+                                let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
                                 return PackagePIFBuilder.CustomBuildCommand(
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
                                     environment: .init(newEnv),
-                                    workingDir: workingDir,
+                                    workingDir: package.path,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
                                     sandboxProfile:
                                         self.parameters.disableSandbox ?
                                             nil :
                                             .init(
-                                                strictness: .default,
+                                                strictness: .writableTemporaryDirectory,
                                                 writableDirectories: writableDirectories,
                                                 readOnlyDirectories: buildCommand.inputFiles
                                             )
