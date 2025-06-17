@@ -1210,7 +1210,7 @@ final class PluginTests: XCTestCase {
     func testBuildToolPluginSwiftFileExecutable() async throws {
         for buildSystem in ["native", "swiftbuild"] {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, stderr) = try await executeSwiftBuild(fixturePath.appending("SwiftFilePlugin"), configuration: .Debug, extraArgs: ["--build-system", buildSystem, "--verbose"])
+                let (stdout, stderr) = try await executeSwiftBuild(fixturePath.appending("SwiftFilePlugin"), configuration: .debug, extraArgs: ["--build-system", buildSystem, "--verbose"])
                 if buildSystem == "native" {
                     XCTAssertTrue(stdout.contains("Hello, Build Tool Plugin!"), "stdout:\n\(stdout)")
                 } else {
