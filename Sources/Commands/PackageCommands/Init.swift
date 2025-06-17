@@ -77,11 +77,20 @@ extension SwiftPackageCommand {
         var template: String?
 
         /// Returns true if a template is specified.
-        var useTemplates: Bool { self.templateSource != nil }
+        var useTemplates: Bool { self.templateURL != nil || self.templatePackageID != nil || self.templateDirectory != nil }
 
         /// The type of template to use: `registry`, `git`, or `local`.
-        @Option(name: .customLong("template-type"), help: "Template type: registry, git, local.")
-        var templateSource: InitTemplatePackage.TemplateSource?
+        var templateSource: InitTemplatePackage.TemplateSource? {
+            if templateDirectory != nil {
+                .local
+            } else if templateURL != nil {
+                .git
+            } else if templatePackageID != nil {
+                .registry
+            } else {
+                nil
+            }
+        }
 
         /// Path to a local template.
         @Option(name: .customLong("path"), help: "Path to the local template.", completion: .directory)
@@ -355,5 +364,3 @@ extension InitPackage.PackageType: ExpressibleByArgument {
         }
     }
 }
-
-extension InitTemplatePackage.TemplateSource: ExpressibleByArgument {}
