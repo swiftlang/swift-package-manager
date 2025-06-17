@@ -201,12 +201,10 @@ public final class InitTemplatePackage {
     /// - Returns: An array of strings representing the command line arguments built from user input.
     /// - Throws: `TemplateError.noArguments` if the tool command has no arguments.
 
-    public func promptUser(tool: ToolInfoV0, arguments: String?) throws -> [String] {
+    public func promptUser(tool: ToolInfoV0, arguments: [String]) throws -> [String] {
         let allArgs = try convertArguments(from: tool.command)
 
-        let providedResponses = try arguments.flatMap {
-            try self.parseAndMatchArguments($0, definedArgs: allArgs)
-        } ?? []
+        let providedResponses = try self.parseAndMatchArguments(arguments, definedArgs: allArgs)
 
         let missingArgs = self.findMissingArguments(from: allArgs, excluding: providedResponses)
 
@@ -227,16 +225,15 @@ public final class InitTemplatePackage {
     ///  - Throws: Throws an unexpected argument if the user specifies an argument that does not match any arguments
     ///     defined by the template.
     private func parseAndMatchArguments(
-        _ input: String,
+        _ input: [String],
         definedArgs: [ArgumentInfoV0]
     ) throws -> [ArgumentResponse] {
-        let parsedTokens = self.parseArgs(input)
         var responses: [ArgumentResponse] = []
         var providedMap: [String: [String]] = [:]
         var index = 0
 
-        while index < parsedTokens.count {
-            let token = parsedTokens[index]
+        while index < input.count {
+            let token = input[index]
 
             if token.starts(with: "--") {
                 let name = String(token.dropFirst(2))
@@ -249,10 +246,10 @@ public final class InitTemplatePackage {
                     providedMap[name] = ["true"]
                 case .option:
                     index += 1
-                    guard index < parsedTokens.count else {
+                    guard index < input.count else {
                         throw TemplateError.missingValueForOption(name: name)
                     }
-                    providedMap[name] = [parsedTokens[index]]
+                    providedMap[name] = [input[index]]
                 default:
                     throw TemplateError.unexpectedNamedArgument(name: name)
                 }
@@ -447,38 +444,6 @@ public final class InitTemplatePackage {
                 return self.values
             }
         }
-    }
-
-    private func parseArgs(_ input: String) -> [String] {
-        var result: [String] = []
-
-        var current = ""
-        var inQuotes = false
-        var escapeNext = false
-
-        for char in input {
-            if escapeNext {
-                current.append(char)
-                escapeNext = false
-            } else if char == "\\" {
-                escapeNext = true
-            } else if char == "\"" {
-                inQuotes.toggle()
-            } else if char == " " && !inQuotes {
-                if !current.isEmpty {
-                    result.append(current)
-                    current = ""
-                }
-            } else {
-                current.append(char)
-            }
-        }
-
-        if !current.isEmpty {
-            result.append(current)
-        }
-
-        return result
     }
 }
 
