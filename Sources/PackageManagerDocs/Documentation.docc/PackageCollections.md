@@ -9,10 +9,10 @@ Learn to create, publish and use Swift package collections.
 ## Overview
 
 Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that package manager can import to make discovery of existing packages easier. 
-Author a package collection as a static JSON document and publish it to the web or distribute it on a local file system.
 
 Educators and community influencers can publish package collections to go along with course materials or blog posts, making it easier for their readers to use packages for the first time, or choosing which packages to use for a particular task. 
 Enterprises may use collections to provide a trusted set of packages, or a collection of packages consistently used by a team.
+Author a package collection as a static JSON document and publish it to the web or distribute it on a local file system.
 
 ### Using the package-collection CLI
 
