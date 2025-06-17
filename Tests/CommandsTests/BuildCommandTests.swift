@@ -1127,6 +1127,8 @@ struct BuildCommandTestCases {
 
     private static func buildSystemAndOutputLocation() throws -> [(BuildSystemProvider.Kind, Basics.RelativePath)] {
         return try SupportedBuildSystemOnPlatform.map { buildSystem in
+            let triple = try UserToolchain.default.targetTriple.withoutVersion()
+            let debugFolder = triple.platformName() == "macosx" ? "Debug" : "Debug-\(triple.platformName() ?? "unknown")"
             switch buildSystem {
                 case .xcode:
                     return (
@@ -1134,18 +1136,21 @@ struct BuildCommandTestCases {
                         try RelativePath(validating: ".build")
                             .appending("apple")
                             .appending("Products")
-                            .appending("Debug")
-                            .appending("ExecutableNew")
+                            .appending(debugFolder)
+                            .appending("ExecutableNew.swiftmodule")
+                            .appending("Project")
+                            .appending("\(triple).swiftsourceinfo")
                     )
                 case .swiftbuild:
-                    let triple = try UserToolchain.default.targetTriple.withoutVersion().tripleString
                     return (
                         .swiftbuild,
                         try RelativePath(validating: ".build")
-                            .appending(triple)
+                            .appending(triple.tripleString)
                             .appending("Products")
-                            .appending("Debug")
-                            .appending("ExecutableNew")
+                            .appending(debugFolder)
+                            .appending("ExecutableNew.swiftmodule")
+                            .appending("Project")
+                            .appending("\(triple).swiftsourceinfo")
                     )
                 case .native:
                     return (
