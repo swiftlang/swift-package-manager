@@ -34,7 +34,7 @@ struct ShowTemplates: AsyncSwiftCommand {
     /// The Git URL of the template to list executables from.
     ///
     /// If not provided, the command uses the current working directory.
-    @Option(name: .customLong("template-url"), help: "The git URL of the template.")
+    @Option(name: .customLong("url"), help: "The git URL of the template.")
     var templateURL: String?
 
     @Option(name: .customLong("package-id"), help: "The package identifier of the template")
