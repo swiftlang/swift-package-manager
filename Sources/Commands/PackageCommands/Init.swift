@@ -70,7 +70,10 @@ extension SwiftPackageCommand {
         var createPackagePath = true
 
         /// Name of a template to use for package initialization.
-        @Option(name: .customLong("template"), help: "Name of a template to initialize the package, unspecified if the default template should be used.")
+        @Option(
+            name: .customLong("template"),
+            help: "Name of a template to initialize the package, unspecified if the default template should be used."
+        )
         var template: String?
 
         /// Returns true if a template is specified.
@@ -88,8 +91,17 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("url"), help: "The git URL of the template.")
         var templateURL: String?
 
+        /// Package Registry ID of the template.
         @Option(name: .customLong("package-id"), help: "The package identifier of the template")
         var templatePackageID: String?
+
+        /// Predetermined arguments specified by the consumer.
+        @Option(
+            name: [.customLong("args")],
+            parsing: .unconditional,
+            help: "Predetermined arguments to pass to the template."
+        )
+        var args: String?
 
         // MARK: - Versioning Options for Remote Git Templates and Registry templates
 
@@ -252,7 +264,8 @@ extension SwiftPackageCommand {
             let matchingPlugins = PluginCommand.findPlugins(matching: self.template, in: packageGraph, limitedTo: nil)
 
             guard let commandPlugin = matchingPlugins.first else {
-                guard let template = self.template else { throw ValidationError("No templates were found in \(packageName)") }
+                guard let template = self.template
+                else { throw ValidationError("No templates were found in \(packageName)") }
 
                 throw ValidationError("No templates were found that match the name \(template)")
             }
@@ -260,11 +273,13 @@ extension SwiftPackageCommand {
             guard matchingPlugins.count == 1 else {
                 let templateNames = matchingPlugins.compactMap { module in
                     let plugin = module.underlying as! PluginModule
-                    guard case .command(let intent, _) = plugin.capability else { return Optional<String>.none }
+                    guard case .command(let intent, _) = plugin.capability else { return String?.none }
 
                     return intent.invocationVerb
                 }
-                throw ValidationError("More than one template was found in the package. Please use `--template` to select from one of the available templates: \(templateNames.joined(separator: ", "))")
+                throw ValidationError(
+                    "More than one template was found in the package. Please use `--template` to select from one of the available templates: \(templateNames.joined(separator: ", "))"
+                )
             }
 
             let output = try await TemplatePluginRunner.run(
@@ -276,7 +291,8 @@ extension SwiftPackageCommand {
             )
 
             let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-            let response = try initTemplatePackage.promptUser(tool: toolInfo)
+            let response = try initTemplatePackage.promptUser(tool: toolInfo, arguments: self.args)
+
             do {
                 let _ = try await TemplatePluginRunner.run(
                     plugin: matchingPlugins[0],
@@ -313,7 +329,9 @@ extension SwiftPackageCommand {
                     }
                 }
             }
-            throw InternalError("Could not find \(self.template != nil ? "template \(self.template!)" :  "any templates in the package")")
+            throw InternalError(
+                "Could not find \(self.template != nil ? "template \(self.template!)" : "any templates in the package")"
+            )
         }
     }
 }

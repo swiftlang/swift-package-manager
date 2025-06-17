@@ -201,14 +201,116 @@ public final class InitTemplatePackage {
     /// - Returns: An array of strings representing the command line arguments built from user input.
     /// - Throws: `TemplateError.noArguments` if the tool command has no arguments.
 
-    public func promptUser(tool: ToolInfoV0) throws -> [String] {
-        let arguments = try convertArguments(from: tool.command)
+    public func promptUser(tool: ToolInfoV0, arguments: String?) throws -> [String] {
+        let allArgs = try convertArguments(from: tool.command)
 
-        let responses = UserPrompter.prompt(for: arguments)
+        let providedResponses = try arguments.flatMap {
+            try self.parseAndMatchArguments($0, definedArgs: allArgs)
+        } ?? []
 
-        let commandLine = self.buildCommandLine(from: responses)
+        let missingArgs = self.findMissingArguments(from: allArgs, excluding: providedResponses)
 
-        return commandLine
+        let promptedResponses = UserPrompter.prompt(for: missingArgs)
+
+        return self.buildCommandLine(from: providedResponses + promptedResponses)
+    }
+
+    /// Parses predetermined arguments and validates the arguments
+    ///
+    /// This method converts user's predetermined arguments into the ArgumentResponse struct
+    /// and validates the user's predetermined arguments against the template's available arguments.
+    ///
+    ///  - Parameter input: The input arguments from the consumer.
+    ///  - parameter definedArgs: the arguments defined by the template
+    ///  - Returns: An array of responses to the tool's arguments
+    ///  - Throws: Invalid values if the value is not within all the possible values allowed by the argument
+    ///  - Throws: Throws an unexpected argument if the user specifies an argument that does not match any arguments
+    ///     defined by the template.
+    private func parseAndMatchArguments(
+        _ input: String,
+        definedArgs: [ArgumentInfoV0]
+    ) throws -> [ArgumentResponse] {
+        let parsedTokens = self.parseArgs(input)
+        var responses: [ArgumentResponse] = []
+        var providedMap: [String: [String]] = [:]
+        var index = 0
+
+        while index < parsedTokens.count {
+            let token = parsedTokens[index]
+
+            if token.starts(with: "--") {
+                let name = String(token.dropFirst(2))
+                guard let arg = definedArgs.first(where: { $0.valueName == name }) else {
+                    throw TemplateError.invalidArgument(name: name)
+                }
+
+                switch arg.kind {
+                case .flag:
+                    providedMap[name] = ["true"]
+                case .option:
+                    index += 1
+                    guard index < parsedTokens.count else {
+                        throw TemplateError.missingValueForOption(name: name)
+                    }
+                    providedMap[name] = [parsedTokens[index]]
+                default:
+                    throw TemplateError.unexpectedNamedArgument(name: name)
+                }
+            } else {
+                // Positional handling
+                providedMap["__positional", default: []].append(token)
+            }
+
+            index += 1
+        }
+
+        for arg in definedArgs {
+            let name = arg.valueName ?? "__positional"
+            guard let values = providedMap[name] else {
+                continue
+            }
+
+            if let allowed = arg.allValues {
+                let invalid = values.filter { !allowed.contains($0) }
+                if !invalid.isEmpty {
+                    throw TemplateError.invalidValue(
+                        argument: name,
+                        invalidValues: invalid,
+                        allowed: allowed
+                    )
+                }
+            }
+
+            responses.append(ArgumentResponse(argument: arg, values: values))
+            providedMap[name] = nil
+        }
+
+        for unexpected in providedMap.keys {
+            throw TemplateError.unexpectedArgument(name: unexpected)
+        }
+
+        return responses
+    }
+
+    /// Determines the rest of the arguments that need a user's response
+    ///
+    /// This method determines the rest of the responses needed from the user to complete the generation of a template
+    ///
+    ///
+    ///  - Parameter all: All the arguments from the template.
+    ///  - parameter excluding: The arguments that do not need prompting
+    ///  - Returns: An array of arguments that need to be prompted for user response
+
+    private func findMissingArguments(
+        from all: [ArgumentInfoV0],
+        excluding responses: [ArgumentResponse]
+    ) -> [ArgumentInfoV0] {
+        let seen = Set(responses.map { $0.argument.valueName ?? "__positional" })
+
+        return all.filter { arg in
+            let name = arg.valueName ?? "__positional"
+            return !seen.contains(name)
+        }
     }
 
     /// Converts the command information into an array of argument metadata.
@@ -346,6 +448,38 @@ public final class InitTemplatePackage {
             }
         }
     }
+
+    private func parseArgs(_ input: String) -> [String] {
+        var result: [String] = []
+
+        var current = ""
+        var inQuotes = false
+        var escapeNext = false
+
+        for char in input {
+            if escapeNext {
+                current.append(char)
+                escapeNext = false
+            } else if char == "\\" {
+                escapeNext = true
+            } else if char == "\"" {
+                inQuotes.toggle()
+            } else if char == " " && !inQuotes {
+                if !current.isEmpty {
+                    result.append(current)
+                    current = ""
+                }
+            } else {
+                current.append(char)
+            }
+        }
+
+        if !current.isEmpty {
+            result.append(current)
+        }
+
+        return result
+    }
 }
 
 /// An error enum representing various template-related errors.
@@ -357,7 +491,13 @@ private enum TemplateError: Swift.Error {
     case manifestAlreadyExists
 
     /// The template has no arguments to prompt for.
+
     case noArguments
+    case invalidArgument(name: String)
+    case unexpectedArgument(name: String)
+    case unexpectedNamedArgument(name: String)
+    case missingValueForOption(name: String)
+    case invalidValue(argument: String, invalidValues: [String], allowed: [String])
 }
 
 extension TemplateError: CustomStringConvertible {
@@ -370,6 +510,16 @@ extension TemplateError: CustomStringConvertible {
             "Path does not exist, or is invalid."
         case .noArguments:
             "Template has no arguments"
+        case .invalidArgument(name: let name):
+            "Invalid argument name: \(name)"
+        case .unexpectedArgument(name: let name):
+            "Unexpected argument: \(name)"
+        case .unexpectedNamedArgument(name: let name):
+            "Unexpected named argument: \(name)"
+        case .missingValueForOption(name: let name):
+            "Missing value for option: \(name)"
+        case .invalidValue(argument: let argument, invalidValues: let invalidValues, allowed: let allowed):
+            "Invalid value \(argument). Valid values are: \(allowed.joined(separator: ", ")). \(invalidValues.isEmpty ? "" : "Also, \(invalidValues.joined(separator: ", ")) are not valid.")"
         }
     }
 }
