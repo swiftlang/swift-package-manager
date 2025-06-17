@@ -1125,7 +1125,96 @@ struct BuildCommandTestCases {
         }
     }
 
-    
+    private static func buildSystemAndOutputLocation() throws -> [(BuildSystemProvider.Kind, Basics.RelativePath)] {
+        return try SupportedBuildSystemOnPlatform.map { buildSystem in
+            switch buildSystem {
+                case .xcode:
+                    return (
+                        .xcode,
+                        try RelativePath(validating: ".build")
+                            .appending("apple")
+                            .appending("Products")
+                            .appending("Debug")
+                            .appending("ExecutableNew")
+                    )
+                case .swiftbuild:
+                    let triple = try UserToolchain.default.targetTriple.withoutVersion().tripleString
+                    return (
+                        .swiftbuild,
+                        try RelativePath(validating: ".build")
+                            .appending(triple)
+                            .appending("Products")
+                            .appending("Debug")
+                            .appending("ExecutableNew")
+                    )
+                case .native:
+                    return (
+                        .native,
+                        try RelativePath(validating: ".build")
+                            .appending("debug")
+                            .appending("ExecutableNew.build")
+                            .appending("main.swift.o")
+                    )
+            }
+        }
+    }
+
+    @Test(arguments: try buildSystemAndOutputLocation())
+    func doesNotRebuildWithVerboseFlag(
+        buildSystem: BuildSystemProvider.Kind,
+        outputFile: Basics.RelativePath
+    ) async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            _ = try await self.build(
+                [],
+                packagePath: fixturePath,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+
+            let mainOFile = fixturePath.appending(outputFile)
+            let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+
+            _ = try await self.build(
+                ["--verbose"],
+                packagePath: fixturePath,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+
+            let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+            #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using the verbose flag, but the file was modified.")
+        }
+    }
+
+    @Test(arguments: try buildSystemAndOutputLocation())
+    func doesNotRebuildWithSwiftcArgsThatDontAffectIncrementalBuilds(
+        buildSystem: BuildSystemProvider.Kind,
+        outputFile: Basics.RelativePath
+    ) async throws {
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            _ = try await self.build(
+                [],
+                packagePath: fixturePath,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+
+            let mainOFile = fixturePath.appending(outputFile)
+            let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+
+            _ = try await self.build(
+                ["-Xswiftc", "-diagnostic-style=llvm"],
+                packagePath: fixturePath,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+
+            let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+            #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when supplying -diagnostic-style, but the file was modified.")
+        }
+    }
+
     @Test(
         .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
@@ -1231,6 +1320,17 @@ struct BuildCommandTestCases {
         }
     }
 
+}
+
+extension Triple {
+    func withoutVersion() throws -> Triple {
+        if isDarwin() {
+            let stringWithoutVersion = tripleString(forPlatformVersion: "")
+            return try Triple(stringWithoutVersion)
+        } else {
+            return self
+        }
+    }
 }
 
 
