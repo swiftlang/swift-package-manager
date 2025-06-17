@@ -1279,6 +1279,20 @@ final class PluginTests {
         }
     }
 
+    @Test(.enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"))
+    func testBuildToolPluginSwiftFileExecutable() async throws {
+        for buildSystem in ["native", "swiftbuild"] {
+            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftBuild(fixturePath.appending("SwiftFilePlugin"), configuration: .debug, extraArgs: ["--build-system", buildSystem, "--verbose"])
+                if buildSystem == "native" {
+                    #expect(stdout.contains("Hello, Build Tool Plugin!"), "stdout:\n\(stdout)")
+                } else {
+                    #expect(stderr.contains("Hello, Build Tool Plugin!"), "stderr:\n\(stderr)")
+                }
+            }
+        }
+    }
+
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
