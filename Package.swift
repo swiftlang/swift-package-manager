@@ -421,6 +421,7 @@ let package = Package(
             dependencies: [],
             exclude: [
                 "Formats/v1.md",
+                "CMakeLists.txt",
             ],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -437,6 +438,7 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -450,6 +452,7 @@ let package = Package(
                 "Basics",
                 "PackageCollectionsModel",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -682,6 +685,7 @@ let package = Package(
                 "SPMBuildCore",
                 "Workspace",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -694,6 +698,7 @@ let package = Package(
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
                 .unsafeFlags(["-static"]),
