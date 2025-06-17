@@ -95,14 +95,6 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("package-id"), help: "The package identifier of the template")
         var templatePackageID: String?
 
-        /// Predetermined arguments specified by the consumer.
-        @Option(
-            name: [.customLong("args")],
-            parsing: .unconditional,
-            help: "Predetermined arguments to pass to the template."
-        )
-        var args: String?
-
         // MARK: - Versioning Options for Remote Git Templates and Registry templates
 
         /// The exact version of the remote package to use.
@@ -128,6 +120,13 @@ extension SwiftPackageCommand {
         /// Upper bound on the version range (exclusive).
         @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
+
+        /// Predetermined arguments specified by the consumer.
+        @Argument(
+            parsing: .captureForPassthrough,
+            help: "Predetermined arguments to pass to the template."
+        )
+        var args: [String] = []
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
@@ -291,7 +290,7 @@ extension SwiftPackageCommand {
             )
 
             let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-            let response = try initTemplatePackage.promptUser(tool: toolInfo, arguments: self.args)
+            let response = try initTemplatePackage.promptUser(tool: toolInfo, arguments: args)
 
             do {
                 let _ = try await TemplatePluginRunner.run(
