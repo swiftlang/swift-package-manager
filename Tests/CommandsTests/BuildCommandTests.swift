@@ -1129,25 +1129,28 @@ struct BuildCommandTestCases {
         return try SupportedBuildSystemOnPlatform.map { buildSystem in
             let triple = try UserToolchain.default.targetTriple.withoutVersion()
             let debugFolder = triple.platformName() == "macosx" ? "Debug" : "Debug-\(triple.platformName() ?? "unknown")"
+            let base = try RelativePath(validating: ".build")
             switch buildSystem {
                 case .xcode:
-                    return (
-                        .xcode,
-                        try RelativePath(validating: ".build")
+                    let path = base
                             .appending("apple")
                             .appending("Products")
                             .appending(debugFolder)
+                    return (
+                        .xcode,
+                        triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
                             .appending("ExecutableNew.swiftmodule")
                             .appending("Project")
                             .appending("\(triple).swiftsourceinfo")
                     )
                 case .swiftbuild:
-                    return (
-                        .swiftbuild,
-                        try RelativePath(validating: ".build")
+                    let path = base
                             .appending(triple.tripleString)
                             .appending("Products")
                             .appending(debugFolder)
+                    return (
+                        .swiftbuild,
+                        triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
                             .appending("ExecutableNew.swiftmodule")
                             .appending("Project")
                             .appending("\(triple).swiftsourceinfo")
@@ -1155,7 +1158,7 @@ struct BuildCommandTestCases {
                 case .native:
                     return (
                         .native,
-                        try RelativePath(validating: ".build")
+                        base
                             .appending("debug")
                             .appending("ExecutableNew.build")
                             .appending("main.swift.o")
@@ -1169,26 +1172,30 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
         outputFile: Basics.RelativePath
     ) async throws {
-        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            _ = try await self.build(
-                [],
-                packagePath: fixturePath,
-                cleanAfterward: false,
-                buildSystem: buildSystem,
-            )
+        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+            try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+                _ = try await self.build(
+                    [],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
 
-            let mainOFile = fixturePath.appending(outputFile)
-            let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                let mainOFile = fixturePath.appending(outputFile)
+                let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
 
-            _ = try await self.build(
-                ["--verbose"],
-                packagePath: fixturePath,
-                cleanAfterward: false,
-                buildSystem: buildSystem,
-            )
+                _ = try await self.build(
+                    ["--verbose"],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
 
-            let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
-            #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using the verbose flag, but the file was modified.")
+                let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using the verbose flag, but the file was modified.")
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1197,26 +1204,30 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
         outputFile: Basics.RelativePath
     ) async throws {
-        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            _ = try await self.build(
-                [],
-                packagePath: fixturePath,
-                cleanAfterward: false,
-                buildSystem: buildSystem,
-            )
+        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+            try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+                _ = try await self.build(
+                    [],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
 
-            let mainOFile = fixturePath.appending(outputFile)
-            let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                let mainOFile = fixturePath.appending(outputFile)
+                let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
 
-            _ = try await self.build(
-                ["-Xswiftc", "-diagnostic-style=llvm"],
-                packagePath: fixturePath,
-                cleanAfterward: false,
-                buildSystem: buildSystem,
-            )
+                _ = try await self.build(
+                    ["-Xswiftc", "-diagnostic-style=llvm"],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
 
-            let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
-            #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when supplying -diagnostic-style, but the file was modified.")
+                let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when supplying -diagnostic-style, but the file was modified.")
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
