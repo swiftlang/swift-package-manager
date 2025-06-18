@@ -1128,28 +1128,23 @@ struct BuildCommandTestCases {
     private static func buildSystemAndOutputLocation() throws -> [(BuildSystemProvider.Kind, Basics.RelativePath)] {
         return try SupportedBuildSystemOnPlatform.map { buildSystem in
             let triple = try UserToolchain.default.targetTriple.withoutVersion()
-            let debugFolder = triple.platformName() == "macosx" ? "Debug" : "Debug-\(triple.platformName() ?? "unknown")"
             let base = try RelativePath(validating: ".build")
+            let debugFolderComponents = buildSystem.binPathSuffixes(for: .debug)
             switch buildSystem {
                 case .xcode:
-                    let path = base
-                            .appending("apple")
-                            .appending("Products")
-                            .appending(debugFolder)
+                    let path = base.appending(components: debugFolderComponents)
                     return (
-                        .xcode,
+                        buildSystem,
                         triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
                             .appending("ExecutableNew.swiftmodule")
                             .appending("Project")
                             .appending("\(triple).swiftsourceinfo")
                     )
                 case .swiftbuild:
-                    let path = base
-                            .appending(triple.tripleString)
-                            .appending("Products")
-                            .appending(debugFolder)
+                    let path = base.appending(triple.tripleString)
+                        .appending(components: debugFolderComponents)
                     return (
-                        .swiftbuild,
+                        buildSystem,
                         triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
                             .appending("ExecutableNew.swiftmodule")
                             .appending("Project")
@@ -1157,9 +1152,8 @@ struct BuildCommandTestCases {
                     )
                 case .native:
                     return (
-                        .native,
-                        base
-                            .appending("debug")
+                        buildSystem,
+                        base.appending(components: debugFolderComponents)
                             .appending("ExecutableNew.build")
                             .appending("main.swift.o")
                     )
