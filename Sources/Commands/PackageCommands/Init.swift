@@ -132,7 +132,6 @@ extension SwiftPackageCommand {
 
         /// Predetermined arguments specified by the consumer.
         @Argument(
-            parsing: .captureForPassthrough,
             help: "Predetermined arguments to pass to the template."
         )
         var args: [String] = []
