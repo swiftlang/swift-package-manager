@@ -1247,13 +1247,13 @@ final class PluginTests {
             #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
 
-        try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { path in
                 let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
                 #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || runningInSmokeTestPipeline }
+        } when: { ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline }
     }
 
     @Test(
