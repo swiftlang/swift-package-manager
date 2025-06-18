@@ -141,6 +141,10 @@ extension SwiftPackageCommand {
                 throw InternalError("Could not find the current working directory")
             }
 
+            if case let .failure(errors) = validateArgs(swiftCommandState: swiftCommandState) {
+                throw ValidationError(errors.joined(separator: "\n"))
+            }
+
             let packageName = self.packageName ?? cwd.basename
 
             if self.useTemplates {
@@ -212,6 +216,10 @@ extension SwiftPackageCommand {
                 packageIdentity: templatePackageID,
                 swiftCommandState: swiftCommandState
             ).resolve()
+
+            if let dir = templateDirectory, !swiftCommandState.fileSystem.exists(dir) {
+                throw ValidationError("The specified template path does not exist: \(dir.pathString)")
+            }
 
             let templateInitType = try await swiftCommandState
                 .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
@@ -361,5 +369,44 @@ extension InitPackage.PackageType: ExpressibleByArgument {
         case .empty:
             self = .empty
         }
+    }
+}
+
+extension SwiftPackageCommand.Init {
+    enum ValidationResult {
+        case success
+        case failure([String])
+    }
+
+    func validateArgs(swiftCommandState: SwiftCommandState) -> ValidationResult {
+        var errors: [String] = []
+
+        // 1. Validate consistency of template-related arguments
+        let isUsingTemplate = self.useTemplates
+
+        if isUsingTemplate {
+
+            let templateSources: [Any?] = [templateDirectory, templateURL, templatePackageID]
+            let nonNilCount = templateSources.compactMap { $0 }.count
+
+            if  nonNilCount > 1{
+                errors.append("Only one of --path, --url, or --package-id may be specified.")
+            }
+
+            if (self.exact != nil || self.from != nil || self.upToNextMinorFrom != nil || self.branch != nil || self.revision != nil || self.to != nil) && self.templateSource == .local {
+                errors.append("Cannot specify a version requirement alongside a local template")
+            }
+
+        } else {
+            // 2. In non-template mode, template-related flags should not be used
+            if template != nil {
+                errors.append("The --template option can only be used with a specified template source (--path, --url, or --package-id).")
+            }
+
+            if !args.isEmpty {
+                errors.append("Template arguments are only supported when initializing from a template.")
+            }
+        }
+        return errors.isEmpty ? .success : .failure(errors)
     }
 }
