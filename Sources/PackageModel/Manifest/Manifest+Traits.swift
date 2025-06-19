@@ -437,10 +437,6 @@ extension Manifest {
     }
     /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
     public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?) throws -> Bool {
-        // TODO bp: assure that we are still pruning trait-guarded dependencies here
-
-        // have package dependency -- seek out all target dependencies that reference this package dep
-        // for each target dep, see whether they're all trait-guarded - if each reference to the package dep is trait-guarded, then we can safely prune it
         if self.pruneDependencies {
             let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)
             let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
@@ -452,15 +448,6 @@ extension Manifest {
             return foundKnownPackage || (!foundKnownPackage && !usedDependencies.unknownPackage.isEmpty)
         } else {
             // alternate path to compute trait-guarded package dependencies if the prune deps feature is not enabled
-//            let traitGuardedTargetDependencies = traitGuardedTargetDependencies()
-//            let traitGuardedPackageDependencies = traitGuardedTargetDependencies.flatMap({ $0.value }).reduce(into: [String: Set<String>]()) { guardedPackages, targetDep in
-//                guard let package = targetDep.package, let traits = targetDep.condition?.traits else {
-//                    return
-//                }
-//
-//                guardedPackages[package, default: []].formUnion(traits)
-//            }
-//            print("manifest \(displayName) and traits \(enabledTraits)")
             try validateEnabledTraits(enabledTraits)
 
             let targetDependenciesForPackageDependency = self.targets.flatMap({ $0.dependencies })
@@ -471,60 +458,12 @@ extension Manifest {
             // if target deps is empty, default to returning true here.
             let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.compactMap({ $0.condition?.traits }).allSatisfy({
                 let condition = $0.subtracting(enabledTraits ?? [])
-//                if let obsScope {
-//                    obsScope.emit(warning: "condition: \(condition) where enabled traits are: \(enabledTraits ?? []) and guarding traits are: \($0)")
-//                }
-//                return !$0.subtracting(enabledTraits ?? []).isEmpty
                 return !condition.isEmpty
             })
 
             let isUsedWithoutTraitGuarding = !targetDependenciesForPackageDependency.filter({ $0.condition?.traits == nil }).isEmpty
 
-//            if let obsScope {
-//                obsScope.emit(warning: "\(dependency.identity) isUsedWithoutTraitGuarding: \(isUsedWithoutTraitGuarding)")
-//                obsScope.emit(warning: "\(dependency.identity) isTraitGuarded: \(isTraitGuarded)")
-//            }
-            // Special case until we allow for pruning dependencies
-//            if !isUsedWithoutTraitGuarding && !isTraitGuarded {
-//                return true
-//            } else if isUsedWithoutTraitGuarding && isTraitGuarded {
-//                return true
-//            } else if !isUsedWithoutTraitGuarding && isTraitGuarded {
-//                return false
-//            } else if isUsedWithoutTraitGuarding && !isTraitGuarded {
-//                return true
-//            }
-
-            // Until the pruning unused dependencies features is fully implemented, this is how we will compute whether
-            // to omit a trait-guarded package dependency.
-//            if !isUsedWithoutTraitGuarding && isTraitGuarded {
-//                return false
-//            }
-
             return isUsedWithoutTraitGuarding || !isTraitGuarded
-//            return isUsedWithoutTraitGuarding || !isTraitGuarded
-//                .reduce(into: [String: [TargetDescription.Dependency]]()) { packageTargetDeps, targetDep in
-//                if let packageName = targetDep.package {
-//                    packageTargetDeps[packageName, default: []].append(targetDep)
-//                }
-//            }
-
-
-
-            // Check that this package dependency is potentially guarded by traits.
-            // Note that this package dependency can also be referenced by target dependencies without being
-            // guarded by traits...
-//            if let guardingTraits = traitGuardedPackageDependencies[dependency.identity.description] {
-//                let isTraitGuarded = guardingTraits.isSubset(of: enabledTraits ?? [])
-                // Depending on whether this dependency is used elsewhere without any trait guarding, this
-                // will determine whether we can prune this from the dependency graph.
-//                let isTraitGuarded = !guardingTraits.subtracting(enabledTraits ?? []).isEmpty
-//            }
-
-//            return true
-//            if let enabledTraits = enabledTraits, let guardingTraits = traitGuardedPackageDependencies[dependency.identity.description] {
-//                return !guardingTraits.subtracting(enabledTraits).isEmpty
-//            }
         }
     }
 }

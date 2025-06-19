@@ -107,12 +107,6 @@ extension ModulesGraph {
                             return !conditionTraits.intersection(node.item.enabledTraits ?? []).isEmpty
                         }.map(\.name)
 
-//                        let calculatedTraits = try calculateEnabledTraits(
-//                            parentPackage: node.item.identity,
-//                            identity: dependency.identity,
-//                            manifest: manifest,
-//                            explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
-//                        )
                         let calculatedTraits = try manifest.enabledTraits(using: explictlyEnabledTraits.flatMap { Set($0) }, node.item.identity.description)
 
                         return try KeyedPair(
@@ -154,9 +148,9 @@ extension ModulesGraph {
             allNodes[$0.key] = $0.item
         } onDuplicate: { first, second in
             // We are unifying the enabled traits on duplicate
+            // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
             if let enabledTraits = second.item.enabledTraits {
                 allNodes[first.key]?.enabledTraits?.formUnion(enabledTraits)
-//                print("did this create traits for \(first.key)? \(allNodes[first.key]?.enabledTraits)")
             }
         }
 
@@ -410,7 +404,6 @@ private func createResolvedPackages(
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains { $0.identity == package.identity }
 
-//        print("node traits for \(node.identity.description): \(node.enabledTraits)")
         let allowedToOverride = rootManifests.values.contains(node.manifest)
         return ResolvedPackageBuilder(
             package,
@@ -448,7 +441,6 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-//        print("manifest resolved package \(package.manifest.displayName) with traits \(packageBuilder.enabledTraits)")
         try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
             packageBuilder.enabledTraits

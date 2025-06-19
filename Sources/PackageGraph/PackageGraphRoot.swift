@@ -139,7 +139,7 @@ public struct PackageGraphRoot {
             // is enabled.
             // TODO bp: assure that trait-guarded deps are pruned regardless
             return manifests.values.reduce(false) { result, manifest in
-                guard manifest.pruneDependencies else { return true }
+//                guard manifest.pruneDependencies else { return true }
                 let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed

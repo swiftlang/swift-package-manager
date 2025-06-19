@@ -38,7 +38,6 @@ public struct GraphLoadingNode: Equatable, Hashable {
         productFilter: ProductFilter,
         enabledTraits: Set<String>?
     ) throws {
-//        print("\(identity) enabled TRAITSSSSSS : \(enabledTraits)")
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter

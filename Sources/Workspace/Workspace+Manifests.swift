@@ -729,10 +729,9 @@ extension Workspace {
             ) {
                 allNodes[$0.key] = $0.item
             } onDuplicate: { old, new in
-//                observabilityScope.emit(warning: "\(old.key) forming union between old \(allNodes[old.key]?.enabledTraits) and new \(new.item.enabledTraits)")
                 if let enabledTraits = new.item.enabledTraits {
+                    // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
                     allNodes[old.key]?.enabledTraits?.formUnion(enabledTraits)
-//                    print("did add traits to \(old.key)? \(allNodes[old.key]?.enabledTraits)")
                 }
             }
         }
