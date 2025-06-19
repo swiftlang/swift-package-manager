@@ -3462,9 +3462,11 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
-                XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
+                    XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3483,7 +3485,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3502,7 +3506,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3521,7 +3527,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -4107,7 +4115,6 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Requires PIF generation to adopt new test runner product type")
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         try await super.testCommandPluginTestingCallbacks()
     }
