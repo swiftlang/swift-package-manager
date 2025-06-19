@@ -731,7 +731,7 @@ extension Workspace {
             } onDuplicate: { old, new in
                 if let enabledTraits = new.item.enabledTraits {
                     // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
-                    allNodes[old.key]?.enabledTraits?.formUnion(enabledTraits)
+//                    allNodes[old.key]?.enabledTraits?.formUnion(enabledTraits)
                 }
             }
         }
