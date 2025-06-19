@@ -287,21 +287,31 @@ public final class Manifest: Sendable {
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
-            if pruneDependencies {
+//            if pruneDependencies {
+//            if let obsScope {
+//                obsScope.emit(warning: "\(self.displayName) DEPENDENCIES: \(dependencies)")
+//            }
+//            print("dependencies required for \(self.displayName) and traits: \(enabledTraits)")
                 dependencies = try dependencies.filter({
-                    return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+                    let isUsed = try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+//                    return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+//                    if let obsScope {
+//                        obsScope.emit(warning: "is used? \(isUsed)")
+//                    }
+                    return isUsed
                 })
-            }
+//            }
             return dependencies
         }
 
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
         if var dependencies = self._requiredDependencies[.nothing] {
-            if self.pruneDependencies {
+//            if self.pruneDependencies {
+//            print("dependencies required for \(self.displayName) and traits: \(enabledTraits)")
                 dependencies = try dependencies.filter({
                     return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                 })
-            }
+//            }
             return dependencies
         } else {
             var requiredDependencies: Set<PackageIdentity> = []

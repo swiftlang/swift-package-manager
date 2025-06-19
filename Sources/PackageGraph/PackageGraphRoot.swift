@@ -137,6 +137,7 @@ public struct PackageGraphRoot {
             // Check that the dependency is used in at least one of the manifests.
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
+            // TODO bp: assure that trait-guarded deps are pruned regardless
             return manifests.values.reduce(false) { result, manifest in
                 guard manifest.pruneDependencies else { return true }
                 let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]

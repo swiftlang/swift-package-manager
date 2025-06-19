@@ -30,14 +30,15 @@ public struct GraphLoadingNode: Equatable, Hashable {
     public let productFilter: ProductFilter
 
     /// The enabled traits for this package.
-    package var enabledTraits: Set<String>
+    package var enabledTraits: Set<String>?
 
     public init(
         identity: PackageIdentity,
         manifest: Manifest,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>
+        enabledTraits: Set<String>?
     ) throws {
+//        print("\(identity) enabled TRAITSSSSSS : \(enabledTraits)")
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
