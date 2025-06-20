@@ -10,8 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Errors thrown while using a plugin.
 public enum PluginContextError: Error {
-    /// Could not find a tool with the given name. This could be either because
+    /// Could not find a tool with the given name.
+    ///
+    /// This could be either because
     /// it doesn't exist, or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String)
 
@@ -40,6 +43,7 @@ extension PluginContextError: CustomStringConvertible {
     }
 }
 
+/// Errors thrown while loading a plugin.
 public enum PluginDeserializationError: Error {
     /// The input JSON is malformed in some way; the message provides more details.
     case malformedInputJSON(_ message: String)
