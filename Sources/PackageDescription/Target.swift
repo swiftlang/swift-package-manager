@@ -1273,7 +1273,7 @@ public final class Target {
 
 public extension [Target] {
     @available(_PackageDescription, introduced: 999.0.0)
-    public static func template(
+    static func template(
         name: String,
         dependencies: [Target.Dependency] = [],
         path: String? = nil,
@@ -1287,74 +1287,74 @@ public extension [Target] {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [Target.PluginUsage]? = nil,
-        templateInitializationOptions: Target.TemplateInitializationOptions,
+        initialType: Target.TemplateType,
+        templatePermissions: [TemplatePermissions]? = nil,
+        description: String
     ) -> [Target] {
 
         let templatePluginName = "\(name)Plugin"
         let templateExecutableName = "\(name)"
 
-        let (verb, description): (String, String)
-        switch templateInitializationOptions {
-        case .packageInit(_, _, let desc):
-            verb = templateExecutableName
-            description = desc
-        }
 
         let permissions: [PluginPermission] = {
-            switch templateInitializationOptions {
-            case .packageInit(_, let templatePermissions, _):
-                return templatePermissions?.compactMap { permission in
-                    switch permission {
-                    case .allowNetworkConnections(let scope, let reason):
-                        // Map from TemplateNetworkPermissionScope to PluginNetworkPermissionScope
-                        let pluginScope: PluginNetworkPermissionScope
-                        switch scope {
-                        case .none:
-                            pluginScope = .none
-                        case .local(let ports):
-                            pluginScope = .local(ports: ports)
-                        case .all(let ports):
-                            pluginScope = .all(ports: ports)
-                        case .docker:
-                            pluginScope = .docker
-                        case .unixDomainSocket:
-                            pluginScope = .unixDomainSocket
-                        }
-                        return .allowNetworkConnections(scope: pluginScope, reason: reason)
+            return templatePermissions?.compactMap { permission in
+                switch permission {
+                case .allowNetworkConnections(let scope, let reason):
+                    // Map from TemplateNetworkPermissionScope to PluginNetworkPermissionScope
+                    let pluginScope: PluginNetworkPermissionScope
+                    switch scope {
+                    case .none:
+                        pluginScope = .none
+                    case .local(let ports):
+                        pluginScope = .local(ports: ports)
+                    case .all(let ports):
+                        pluginScope = .all(ports: ports)
+                    case .docker:
+                        pluginScope = .docker
+                    case .unixDomainSocket:
+                        pluginScope = .unixDomainSocket
                     }
-                } ?? []
-            }
+                    return .allowNetworkConnections(scope: pluginScope, reason: reason)
+                }
+            } ?? []
         }()
 
-            let templateTarget = Target(
-                name: templateExecutableName,
-                dependencies: dependencies,
-                path: path,
-                exclude: exclude,
-                sources: sources,
-                resources: resources,
-                publicHeadersPath: publicHeadersPath,
-                type: .executable,
-                packageAccess: packageAccess,
-                cSettings: cSettings,
-                cxxSettings: cxxSettings,
-                swiftSettings: swiftSettings,
-                linkerSettings: linkerSettings,
-                plugins: plugins,
-                templateInitializationOptions: templateInitializationOptions
-            )
 
-            // Plugin target that depends on the template
-            let pluginTarget = Target.plugin(
-                name: templatePluginName,
-                capability: .command(
-                    intent: .custom(verb: verb, description: description),
-                    permissions: permissions
-                ),
-                dependencies: [Target.Dependency.target(name: templateExecutableName, condition: nil)]
-            )
+        let templateInitializationOptions = Target.TemplateInitializationOptions.packageInit(
+            templateType: initialType,
+            templatePermissions: templatePermissions,
+            description: description
+        )
 
-            return [templateTarget, pluginTarget]
+        let templateTarget = Target(
+            name: templateExecutableName,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .executable,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            templateInitializationOptions: templateInitializationOptions
+        )
+
+        // Plugin target that depends on the template
+        let pluginTarget = Target.plugin(
+            name: templatePluginName,
+            capability: .command(
+                intent: .custom(verb: templateExecutableName, description: description),
+                permissions: permissions
+            ),
+            dependencies: [Target.Dependency.target(name: templateExecutableName, condition: nil)]
+        )
+
+        return [templateTarget, pluginTarget]
     }
 }
 
