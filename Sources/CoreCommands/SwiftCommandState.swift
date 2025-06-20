@@ -510,6 +510,7 @@ public final class SwiftCommandState {
                 usePrebuilts: self.options.caching.usePrebuilts,
                 prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
                 prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
+                useGitLFS: options.resolver.useGitLFS,
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: traitConfiguration
             ),

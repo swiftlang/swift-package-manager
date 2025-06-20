@@ -337,6 +337,12 @@ public struct ResolverOptions: ParsableArguments {
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file.")
     public var defaultRegistryURL: URL?
 
+    /// Whether to use Git LFS for large file support.
+    @Flag(name: .customLong("experimental-git-lfs"),
+          inversion: .prefixedEnableDisable,
+          help: "Whether to use Git LFS for large file support.")
+    public var useGitLFS: Bool = false
+
     public enum SourceControlToRegistryDependencyTransformation: EnumerableFlag {
         case disabled
         case identity
