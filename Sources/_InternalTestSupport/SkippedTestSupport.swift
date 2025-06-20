@@ -95,6 +95,7 @@ extension Tag.Feature.Command {
     @Tag public static var Run: Tag
 }
 
+
 extension Tag.Feature.Command.Package {
     @Tag public static var Init: Tag
     @Tag public static var DumpPackage: Tag
@@ -103,10 +104,10 @@ extension Tag.Feature.Command.Package {
 }
 extension Tag.Feature.PackageType {
     @Tag public static var Library: Tag
-     @Tag public static var Executable: Tag
-     @Tag public static var Tool: Tag
-     @Tag public static var Plugin: Tag
-     @Tag public static var BuildToolPlugin: Tag
-     @Tag public static var CommandPlugin: Tag
-     @Tag public static var Macro: Tag
- }
+    @Tag public static var Executable: Tag
+    @Tag public static var Tool: Tag
+    @Tag public static var Plugin: Tag
+    @Tag public static var BuildToolPlugin: Tag
+    @Tag public static var CommandPlugin: Tag
+    @Tag public static var Macro: Tag
+}
