@@ -1,36 +1,34 @@
 # ``PackagePlugin``
 
-<!--@START_MENU_TOKEN@-->Summary<!--@END_MENU_TOKEN@-->
+Create plugins that extend the Swift Package Manager.
 
 <!-- swift package --disable-sandbox preview-documentation --target PackagePlugin -->
 ## Overview
 
-<!--@START_MENU_TOKEN@-->Text<!--@END_MENU_TOKEN@-->
+Build tool plugins generate source files that as part of a build, or perform other actions at the start of every build.
+Build tool plugins are invoked before a package is built in order to construct command invocations to run as part of the build.
+Command plugins provide actions that users can perform at any time and aren't associated with a build.
+
+Read [Writing a build tool plugin](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/WritingBuildToolPlugin) to learn how to create build tool plugins, or [Writing a command plugin](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/WritingCommandPlugin) to learn how to create command plugins.
 
 ## Topics
 
-### Command Plugins
+### Implementing Command Plugins
 
 - ``CommandPlugin``
 - ``PluginContext``
 - ``Plugin``
 
-### Build Plugins
+### Extracting Arguments
+
+- ``ArgumentExtractor``
+
+### Implementing Build Plugins
 
 - ``BuildToolPlugin``
 - ``PluginContext``
 - ``Target``
 - ``Command``
-
-### Plugin Diagnostics and Errors
-
-- ``Diagnostics``
-- ``PluginContextError``
-- ``PluginDeserializationError``
-
-### Extracting Arguments
-
-- ``ArgumentExtractor``
 
 ### Interacting with Package Manager
 
@@ -46,6 +44,9 @@
 - ``Product``
 - ``ExecutableProduct``
 - ``LibraryProduct``
+
+### Inspecting Package Targets
+
 - ``Target``
 - ``TargetDependency``
 - ``SourceModuleTarget``
@@ -54,8 +55,18 @@
 - ``ClangSourceModuleTarget``
 - ``BinaryArtifactTarget``
 - ``SystemLibraryTarget``
+
+### Inspecting Package Files
+
 - ``FileList``
 - ``File``
 - ``FileType``
+
 - ``Path``
 - ``PathList``
+
+### Plugin Diagnostics and Errors
+
+- ``Diagnostics``
+- ``PluginContextError``
+- ``PluginDeserializationError``

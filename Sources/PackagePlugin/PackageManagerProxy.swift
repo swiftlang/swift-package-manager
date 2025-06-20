@@ -307,6 +307,7 @@ extension PackageManager {
     }
 }
 
+/// Errors from methods using the package manager.
 public enum PackageManagerProxyError: Error {
     /// Indicates that the functionality isn't implemented in the plugin host.
     case unimplemented(_ message: String)
