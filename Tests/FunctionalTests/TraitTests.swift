@@ -38,7 +38,7 @@ struct TraitTests {
     func traits_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue("Does not fail in some pipelines", isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
