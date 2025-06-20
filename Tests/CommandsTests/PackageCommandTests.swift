@@ -2802,8 +2802,16 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        let debugTarget = [".build", "debug", executableName("placeholder")]
-        let releaseTarget = [".build", "release", executableName("placeholder")]
+        #if os(Linux)
+        let osSuffix = "-linux"
+        #else if os(Windows)
+        let ossSuffix = "-windows"
+        #else
+        let osSuffix = ""
+        #endif
+
+        let debugTarget = self.buildSystemProvider == .native ? [".build", "debug", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Debug\(osSuffix)", "placeholder"]
+        let releaseTarget = self.buildSystemProvider == .native ? [".build", "release", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Release\(osSuffix)", "placeholder"]
 
         func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
             XCTAssert(
@@ -2835,6 +2843,10 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let _ = try await self.execute(["-c", "release", "build-target", "build-debug"], packagePath: fixturePath)
             AssertIsExecutableFile(fixturePath.appending(components: debugTarget))
             AssertNotExists(fixturePath.appending(components: releaseTarget))
+        }
+
+        if self.buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux {
+            throw XCTSkip("Failure to build the executable in release mode on Linux with the swiftbuild build system: https://github.com/swiftlang/swift-package-manager/issues/8855")
         }
 
         // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
@@ -4107,9 +4119,13 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testNoParameters() async throws {
         try await super.testNoParameters()
     }
+
+    override func testCommandPluginSymbolGraphCallbacks() async throws {
+        throw XCTSkip("SWBINTTODO: Symbol graph extraction does not yet work with swiftbuild build system")
+    }
     
     override func testCommandPluginBuildTestability() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+        try await super.testCommandPluginBuildTestability()
     }
 
     override func testMigrateCommand() async throws {
