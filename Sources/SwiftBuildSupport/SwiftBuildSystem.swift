@@ -435,6 +435,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .taskStarted(let info):
                             try buildState.started(task: info)
 
+                            if let commandLineDisplay = info.commandLineDisplayString {
+                                self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
+                            } else {
+                                self.observabilityScope.emit(info: "\(info.executionDescription)")
+                            }
+
                             if self.logLevel.isVerbose {
                                 if let commandLineDisplay = info.commandLineDisplayString {
                                     self.outputStream.send("\(info.executionDescription)\n\(commandLineDisplay)")
