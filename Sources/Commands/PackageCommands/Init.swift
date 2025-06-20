@@ -336,7 +336,7 @@ extension SwiftPackageCommand {
             let targets = rootManifest.targets
 
             for _ in products {
-                if let target = targets.first(where: { template == nil || $0.name == template }) {
+                if let target: TargetDescription = targets.first(where: { template == nil || $0.name == template }) {
                     if let options = target.templateInitializationOptions {
                         if case .packageInit(let templateType, _, _) = options {
                             return try .init(from: templateType)
