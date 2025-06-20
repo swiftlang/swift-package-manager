@@ -353,7 +353,18 @@ struct PluginCommand: AsyncSwiftCommand {
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
             try await buildSystem.build(subset: .product(name, for: .host))
 
-            return buildParameters.buildPath.appending(path)
+            // TODO determine if there is a common way to calculate the build tool binary path that doesn't depend on the build system.
+            if buildSystemKind == .native {
+                if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.buildParameters.destination == .host
+                }) {
+                    return try builtTool.binaryPath
+                } else {
+                    return nil
+                }
+            } else {
+                return buildParameters.buildPath.appending(path)
+            }
         }
 
         // Set up a delegate to handle callbacks from the command plugin.

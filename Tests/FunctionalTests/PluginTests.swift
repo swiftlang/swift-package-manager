@@ -753,14 +753,18 @@ final class PluginTests {
 
     @Test(
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
+        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
-    func testLocalAndRemoteToolDependencies() async throws {
+    func testLocalAndRemoteToolDependencies(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(path.appending("MyLibrary"), configuration: .debug, extraArgs: ["plugin", "my-plugin"])
-            #expect(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
-            #expect(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
-            #expect(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
-            #expect(stderr.contains("Build of product 'ImpliedLocalTool' complete!"), "stdout:\n\(stderr)\n\(stdout)")
+            let (stdout, stderr) = try await executeSwiftPackage(path.appending("MyLibrary"), configuration: .debug, extraArgs: ["--build-system", buildSystem.rawValue, "plugin", "my-plugin"])
+            if buildSystem == .native {
+                // Native build system is more explicit about what it's doing in stderr
+                #expect(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
+                #expect(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
+                #expect(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
+                #expect(stderr.contains("Build of product 'ImpliedLocalTool' complete!"), "stdout:\n\(stderr)\n\(stdout)")
+            }
             #expect(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
