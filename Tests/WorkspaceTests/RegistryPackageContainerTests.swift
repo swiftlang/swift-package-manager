@@ -330,7 +330,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
-        
+
         do {
             let provider = try createProvider(.v5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
@@ -504,8 +504,7 @@ extension PackageContainerProvider {
         try await self.getContainer(
             for: package,
             updateStrategy: updateStrategy,
-            observabilityScope: ObservabilitySystem.NOOP,
-            on: .global()
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }
