@@ -2914,7 +2914,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, isEmpty)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }
+              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
@@ -2924,7 +2925,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, containsLogtext)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }
+              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
