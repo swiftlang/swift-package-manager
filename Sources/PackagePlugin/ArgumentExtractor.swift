@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A rudimentary helper for extracting options and flags from a string list representing command line arguments. The idea is to extract all known options and flags, leaving just the positional arguments. This does not handle well the case in which positional arguments (or option argument values) happen to have the same name as an option or a flag. It only handles the long `--<name>` form of options, but it does respect `--` as an indication that all remaining arguments are positional.
+/// A rudimentary helper for extracting options and flags from a string list representing command line arguments.
+///
+/// The idea is to extract all known options and flags, leaving just the positional arguments.
+/// This does not handle well the case in which positional arguments (or option argument values) happen to
+/// have the same name as an option or a flag. It only handles the long `--<name>` form of options,
+/// but it does respect `--` as an indication that all remaining arguments are positional.
 public struct ArgumentExtractor {
     private var args: [String]
     private let literals: [String]
