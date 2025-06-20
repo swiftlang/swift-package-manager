@@ -1247,7 +1247,7 @@ final class PluginTests {
             #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
         }
 
-        try await withKnownIssue {
+        try await withKnownIssue (isIntermittent: true) {
             // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { path in
                 let (stdout, stderr) = try await executeSwiftBuild(path.appending("IncorrectDependencies"), extraArgs: ["--build-system", "swiftbuild", "--build-tests"])
