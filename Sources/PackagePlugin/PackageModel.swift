@@ -33,6 +33,7 @@ public struct Package {
     public let origin: PackageOrigin
 
     /// The tools version specified by the resolved version of the package.
+    /// 
     /// Behavior is often gated on the tools version, to make sure older
     /// packages continue to work as intended.
     public let toolsVersion: ToolsVersion
@@ -60,7 +61,9 @@ public enum PackageOrigin {
 
     /// A package from a Git repository, with a URL and with a textual
     /// description of the resolved version or branch name (for display
-    /// purposes only), along with the corresponding SCM revision. The
+    /// purposes only), along with the corresponding SCM revision.
+    ///
+    /// The
     /// revision is the Git commit hash and may be useful for plugins
     /// that generates source code that includes version information.
     case repository(url: String, displayVersion: String, scmRevision: String)
@@ -89,8 +92,9 @@ public struct ToolsVersion {
     }
 }
 
-/// Represents a resolved dependency of a package on another package. This is a
-/// separate entity in order to make it easier for future versions of the API to
+/// Represents a resolved dependency of a package on another package.
+///
+/// This is a separate entity in order to make it easier for future versions of the API to
 /// add information about the dependency itself.
 public struct PackageDependency {
     /// The package to which the dependency was resolved.
@@ -107,12 +111,16 @@ public protocol Product {
     var id: ID { get }
     typealias ID = String
 
-    /// The name of the product, as defined in the package manifest. This name
+    /// The name of the product, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the products of the package in which it is defined.
     var name: String { get }
 
     /// The targets that directly comprise the product, in the order in which
-    /// they are declared in the package manifest. The product will contain the
+    /// they are declared in the package manifest.
+    ///
+    /// The product will contain the
     /// transitive closure of the these targets and their dependencies. Some
     /// kinds of products have further restrictions on the set of targets (for
     /// example, an executable product must have one and only one target that
@@ -125,18 +133,24 @@ public struct ExecutableProduct: Product {
     /// Unique identifier for the product.
     public let id: ID
 
-    /// The name of the product, as defined in the package manifest. This name
+    /// The name of the product, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the products of the package in which it is defined.
     public let name: String
 
     /// The targets that directly comprise the product, in the order in which
-    /// they are declared in the package manifest. The product will contain the
+    /// they are declared in the package manifest.
+    ///
+    /// The product will contain the
     /// transitive closure of the these targets and their dependencies. For an
     /// ExecutableProduct, exactly one of the targets in this list must be an
     /// ExecutableTarget.
     public let targets: [Target]
 
-    /// The target that contains the main entry point of the executable. Every
+    /// The target that contains the main entry point of the executable.
+    ///
+    /// Every
     /// executable product has exactly one main executable target. This target
     /// will always be one of the targets in the product's `targets` array.
     public let mainTarget: Target
@@ -147,12 +161,16 @@ public struct LibraryProduct: Product {
     /// Unique identifier for the product.
     public let id: ID
 
-    /// The name of the product, as defined in the package manifest. This name
+    /// The name of the product, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the products of the package in which it is defined.
     public let name: String
 
     /// The targets that directly comprise the product, in the order in which
-    /// they are declared in the package manifest. The product will contain the
+    /// they are declared in the package manifest.
+    ///
+    /// The product will contain the
     /// transitive closure of the these targets and their dependencies.
     public let targets: [Target]
 
@@ -179,7 +197,9 @@ public protocol Target {
     var id: ID { get }
     typealias ID = String
 
-    /// The name of the target, as defined in the package manifest. This name
+    /// The name of the target, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the targets of the package in which it is defined.
     var name: String { get }
 
@@ -192,7 +212,9 @@ public protocol Target {
     var directoryURL: URL { get }
 
     /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
+    /// they are specified in the package manifest.
+    ///
+    /// Conditional dependencies
     /// that do not apply have already been filtered out.
     var dependencies: [TargetDependency] { get }
 }
@@ -209,16 +231,20 @@ public enum TargetDependency {
 /// Represents a target consisting of a source code module, containing either
 /// Swift or source files in one of the C-based languages.
 public protocol SourceModuleTarget: Target {
-    /// The name of the module produced by the target (derived from the target
-    /// name, though future SwiftPM versions may allow this to be customized).
+    /// The name of the module produced by the target
+    ///
+    /// Derived from the target
+    /// name, though future SwiftPM versions may allow this to be customized.
     var moduleName: String { get }
 
     /// The kind of module, describing whether it contains unit tests, contains
     /// the main entry point of an executable, or neither.
     var kind: ModuleKind { get }
 
-    /// The source files that are associated with this target (any files that
-    /// have been excluded in the manifest have already been filtered out).
+    /// The source files that are associated with this target.
+    ///
+    /// Any files that
+    /// have been excluded in the manifest have already been filtered out.
     var sourceFiles: FileList { get }
 
     /// Any custom linked libraries required by the module, as specified in the
@@ -267,7 +293,9 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// Unique identifier for the target.
     public let id: ID
 
-    /// The name of the target, as defined in the package manifest. This name
+    /// The name of the target, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the targets of the package in which it is defined.
     public let name: String
 
@@ -284,7 +312,9 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     public let directoryURL: URL
 
     /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
+    /// they are specified in the package manifest.
+    ///
+    /// Conditional dependencies
     /// that do not apply have already been filtered out.
     public let dependencies: [TargetDependency]
 
@@ -341,7 +371,9 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     public let directoryURL: URL
 
     /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
+    /// they are specified in the package manifest.
+    ///
+    /// Conditional dependencies
     /// that do not apply have already been filtered out.
     public let dependencies: [TargetDependency]
 
@@ -394,7 +426,9 @@ public struct BinaryArtifactTarget: Target {
     /// Unique identifier for the target.
     public let id: ID
 
-    /// The name of the target, as defined in the package manifest. This name
+    /// The name of the target, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the targets of the package in which it is defined.
     public let name: String
 
@@ -407,7 +441,9 @@ public struct BinaryArtifactTarget: Target {
     public let directoryURL: URL
 
     /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
+    /// they are specified in the package manifest.
+    ///
+    /// Conditional dependencies
     /// that do not apply have already been filtered out.
     public let dependencies: [TargetDependency]
 
@@ -447,7 +483,9 @@ public struct SystemLibraryTarget: Target {
     /// Unique identifier for the target.
     public let id: ID
 
-    /// The name of the target, as defined in the package manifest. This name
+    /// The name of the target, as defined in the package manifest.
+    ///
+    /// This name
     /// is unique among the targets of the package in which it is defined.
     public var name: String
 
@@ -460,7 +498,9 @@ public struct SystemLibraryTarget: Target {
     public var directoryURL: URL
 
     /// Any other targets on which this target depends, in the same order as
-    /// they are specified in the package manifest. Conditional dependencies
+    /// they are specified in the package manifest.
+    ///
+    /// Conditional dependencies
     /// that do not apply have already been filtered out.
     public var dependencies: [TargetDependency]
 
@@ -474,7 +514,9 @@ public struct SystemLibraryTarget: Target {
     public let linkerFlags: [String]
 }
 
-/// Provides information about a list of files. The order is not defined
+/// Provides information about a list of files.
+///
+/// The order is not defined
 /// but is guaranteed to be stable. This allows the implementation to be
 /// more efficient than a static file list.
 public struct FileList {
@@ -533,7 +575,9 @@ public struct File {
     }
 }
 
-/// Provides information about the type of a file. Any future cases will
+/// Provides information about the type of a file.
+///
+/// Any future cases will
 /// use availability annotations to make sure existing plugins still work
 /// until they increase their required tools version.
 public enum FileType {
@@ -550,7 +594,9 @@ public enum FileType {
     case unknown
 }
 
-/// Provides information about a list of paths. The order is not defined
+/// Provides information about a list of paths.
+///
+/// The order is not defined
 /// but is guaranteed to be stable. This allows the implementation to be
 /// more efficient than a static path list.
 public struct PathList {

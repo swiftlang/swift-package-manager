@@ -13,7 +13,9 @@
 import Foundation
 
 /// A command to run during the build, including executable, command lines,
-/// environment variables, initial working directory, etc. All paths should be
+/// environment variables, initial working directory, etc.
+///
+/// All paths should be
 /// based on the ones passed to the plugin in the target build context.
 public enum Command {
     /// Returns a command that runs when any of its output files are needed by
@@ -157,7 +159,7 @@ extension Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
+    @available(*, unavailable, message: "specifying the initial working directory for a command is not supported")
     public static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -194,8 +196,6 @@ extension Command {
     ///   - executable: The absolute path to the executable to be invoked.
     ///   - arguments: Command-line arguments to be passed to the executable.
     ///   - environment: Environment variable assignments visible to the executable.
-    ///   - workingDirectory: Optional initial working directory when the executable
-    ///     runs.
     ///   - outputFilesDirectory: A directory into which the command writes its
     ///     output files.  Any files there recognizable by their extension as
     ///     source files (e.g. `.swift`) are compiled into the target for which
@@ -244,7 +244,7 @@ extension Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
+    @available(*, unavailable, message: "specifying the initial working directory for a command is not supported")
     public static func prebuildCommand(
         displayName: String?,
         executable: Path,

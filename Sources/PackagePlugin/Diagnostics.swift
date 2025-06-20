@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 /// Emits errors, warnings, and remarks to be shown as a result of running the
-/// plugin. After emitting one or more errors, the plugin should return a
+/// plugin.
+///
+/// After emitting one or more errors, the plugin should return a
 /// non-zero exit code.
 public struct Diagnostics {
 

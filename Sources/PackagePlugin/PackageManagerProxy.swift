@@ -13,7 +13,9 @@
 import Foundation
 
 /// Provides specialized information and services from the Swift Package Manager
-/// or an IDE that supports Swift Packages. Different plugin hosts implement the
+/// or an IDE that supports Swift Packages.
+///
+/// Different plugin hosts implement the
 /// functionality in whatever way is appropriate for them, but should preserve
 /// the same semantics described here.
 public struct PackageManager {
