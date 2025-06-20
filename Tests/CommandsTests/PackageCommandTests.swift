@@ -2804,7 +2804,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 
         #if os(Linux)
         let osSuffix = "-linux"
-        #else if os(Windows)
+        #elseif os(Windows)
         let ossSuffix = "-windows"
         #else
         let osSuffix = ""
