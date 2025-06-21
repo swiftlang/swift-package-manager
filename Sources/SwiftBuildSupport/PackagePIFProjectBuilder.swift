@@ -339,6 +339,7 @@ struct PackagePIFProjectBuilder {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
                     BuildFile(id: id, fileRef: ref)
                 }
+                self.log(.debug, indent: 2, "Added string catalog as source file '\(resourcePath)'")
             }
 
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
