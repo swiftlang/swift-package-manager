@@ -13,7 +13,9 @@
 import Foundation
 
 extension Package {
-    /// The list of targets matching the given names. Throws an error if any of
+    /// The list of targets matching the given names.
+    ///
+    /// Throws an error if any of
     /// the targets cannot be found.
     public func targets(named targetNames: [String]) throws -> [Target] {
         return try targetNames.map { name in
@@ -24,7 +26,9 @@ extension Package {
         }
     }
 
-    /// The list of products matching the given names. Throws an error if any of
+    /// The list of products matching the given names.
+    ///
+    /// Throws an error if any of
     /// the products cannot be found.
     public func products(named productNames: [String]) throws -> [Product] {
         return try productNames.map { name in
@@ -51,7 +55,9 @@ extension Product {
 extension Target {
     /// The transitive closure of all the targets on which the receiver depends,
     /// ordered such that every dependency appears before any other target that
-    /// depends on it (i.e. in "topological sort order").
+    /// depends on it.
+    ///
+    /// The dependencies are sorted in topological sort order.
     public var recursiveTargetDependencies: [Target] {
         // FIXME: We can rewrite this to use a stack instead of recursion.
         var visited = Set<Target.ID>()
