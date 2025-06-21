@@ -90,7 +90,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
     var sdkID: String
 
     @Argument(help: "The target triple of the Swift SDK to configure.")
-    var targetTriple: String
+    var targetTriple: String?
 
     /// The file system used by default by this command.
     private var fileSystem: FileSystem { localFileSystem }
@@ -132,8 +132,24 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
                 hostTimeTriple: triple,
                 swiftSDKBundleStore: bundleStore
             )
-            let targetTriple = try Triple(self.targetTriple)
 
+            let targetTriples: [Triple]
+            if let targetTriple = self.targetTriple {
+                targetTriples = try [Triple(targetTriple)]
+            } else {
+                // when target-triple is unspecified, configure every triple for the SDK
+                let validBundles = try configurationStore.swiftSDKs(for: sdkID)
+                targetTriples = validBundles.compactMap(\.targetTriple)
+                if targetTriples.isEmpty {
+                    throw SwiftSDKError.swiftSDKNotFound(
+                        artifactID: sdkID,
+                        hostTriple: triple,
+                        targetTriple: nil
+                    )
+                }
+            }
+
+            for targetTriple in targetTriples {
             guard let swiftSDK = try configurationStore.readConfiguration(
                 sdkID: sdkID,
                 targetTriple: targetTriple
@@ -216,6 +232,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
 
                 var swiftSDK = swiftSDK
                 swiftSDK.pathsConfiguration = configuration
+                swiftSDK.targetTriple = targetTriple
                 try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
 
                 observabilityScope.emit(
@@ -228,6 +245,7 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
 
             if observabilityScope.errorsReported {
                 throw ExitCode.failure
+            }
             }
         } catch {
             commandError = error

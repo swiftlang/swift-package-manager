@@ -85,6 +85,22 @@ public final class SwiftSDKConfigurationStore {
         try encoder.encode(path: configurationPath, fileSystem: fileSystem, properties)
     }
 
+    public func swiftSDKs(for id: String) throws -> [SwiftSDK] {
+        for bundle in try self.swiftSDKBundleStore.allValidBundles {
+            for (artifactID, variants) in bundle.artifacts {
+                guard artifactID == id else {
+                    continue
+                }
+
+                for variant in variants {
+                    return variant.swiftSDKs
+                }
+            }
+        }
+
+        return []
+    }
+
     public func readConfiguration(
         sdkID: String,
         targetTriple: Triple

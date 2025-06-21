@@ -53,7 +53,7 @@ public enum SwiftSDKError: Swift.Error {
     case unserializableMetadata
 
     /// No configuration values are available for this Swift SDK and target triple.
-    case swiftSDKNotFound(artifactID: String, hostTriple: Triple, targetTriple: Triple)
+    case swiftSDKNotFound(artifactID: String, hostTriple: Triple, targetTriple: Triple?)
 
     /// A Swift SDK bundle with this name is already installed, can't install a new bundle with the same name.
     case swiftSDKBundleAlreadyInstalled(bundleName: String)
@@ -108,10 +108,17 @@ extension SwiftSDKError: CustomStringConvertible {
             properties required for initialization
             """
         case .swiftSDKNotFound(let artifactID, let hostTriple, let targetTriple):
-            return """
-            Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
-            currently installed.
-            """
+            if let targetTriple {
+                return """
+                Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
+                currently installed.
+                """
+            } else {
+                return """
+                Swift SDK with ID `\(artifactID)` is not \
+                currently installed.
+                """
+            }
         case .swiftSDKBundleAlreadyInstalled(let bundleName):
             return """
             Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
