@@ -2201,12 +2201,18 @@ final class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/foo/Resources/Data.plist",
             "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+            "/Foo/Sources/foo/Resources/Assets.xcassets",
+            "/Foo/Sources/foo/Resources/Localizable.xcstrings",
             "/Foo/Sources/FooLib/lib.swift",
             "/Foo/Sources/FooLib/Resources/Data.plist",
             "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooLib/Resources/Assets.xcassets",
+            "/Foo/Sources/FooLib/Resources/Localizable.xcstrings",
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/FooTests/Resources/Data.plist",
-            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
+            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooTests/Resources/Assets.xcassets",
+            "/Foo/Sources/FooTests/Resources/Localizable.xcstrings",
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2216,7 +2222,7 @@ final class PIFBuilderTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
-                    toolsVersion: .v5_3,
+                    toolsVersion: .v5_9,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -2224,7 +2230,7 @@ final class PIFBuilderTests: XCTestCase {
                         .init(name: "foo", resources: [
                             // This is intentionally specific to test that we pick up `.xcdatamodel` implicitly.
                             .init(rule: .process(localization: .none), path: "Resources/Data.plist"),
-                        ]),
+                        ], type: .executable),
                         .init(name: "FooLib", resources: [
                             .init(rule: .process(localization: .none), path: "Resources"),
                         ]),
@@ -2253,7 +2259,10 @@ final class PIFBuilderTests: XCTestCase {
             try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:foo"])
+                    // All of these file types can generate code.
                     XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2290,6 +2299,8 @@ final class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/foo/Resources/Data.plist",
                         "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/foo/Resources/Assets.xcassets",
+                        "/Foo/Sources/foo/Resources/Localizable.xcstrings",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -2322,6 +2333,8 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-PRODUCT:FooLib") { target in
                     XCTAssert(!target.dependencies.contains("PACKAGE-RESOURCE:FooLib"))
                     XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Database.xcdatamodel"))
+                    XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Assets.xcassets"))
+                    XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2343,6 +2356,8 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:FooLib") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:FooLib"])
                     XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2372,6 +2387,8 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:FooTests"])
                     XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2408,6 +2425,8 @@ final class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/FooTests/Resources/Data.plist",
                         "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/FooTests/Resources/Assets.xcassets",
+                        "/Foo/Sources/FooTests/Resources/Localizable.xcstrings",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
