@@ -323,6 +323,12 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+
+    package init(result: AsyncProcessResult, stdout: String, stderr: String) {
+        self.result = result
+        self.stdout = stdout
+        self.stderr = stderr
+    }
 }
 
 

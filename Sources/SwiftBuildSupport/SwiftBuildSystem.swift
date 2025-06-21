@@ -248,6 +248,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
+    public var hasIntegratedAPIDigesterSupport: Bool { true }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
@@ -257,7 +259,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        pluginConfiguration: PluginConfiguration
+        pluginConfiguration: PluginConfiguration,
+        delegate: BuildSystemDelegate?
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -268,6 +271,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
+        self.delegate = delegate
     }
 
     private func supportedSwiftVersions() throws -> [SwiftLanguageVersion] {
@@ -338,6 +342,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath)
 
                     struct BuildState {
+                        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
                         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
 
                         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
@@ -353,12 +358,34 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             return task
                         }
+
+                        mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
+                            if targetsByID[target.targetID] != nil {
+                                throw Diagnostics.fatalError
+                            }
+                            targetsByID[target.targetID] = target
+                        }
+
+                        mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
+                            guard let id = task.targetID else {
+                                return nil
+                            }
+                            guard let target = targetsByID[id] else {
+                                throw Diagnostics.fatalError
+                            }
+                            return target
+                        }
                     }
 
                     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
                         switch message {
                         case .buildCompleted(let info):
                             progressAnimation.complete(success: info.result == .ok)
+                            if info.result == .cancelled {
+                                self.delegate?.buildSystemDidCancel(self)
+                            } else {
+                                self.delegate?.buildSystem(self, didFinishWithResult: info.result == .ok)
+                            }
                         case .didUpdateProgress(let progressInfo):
                             var step = Int(progressInfo.percentComplete)
                             if step < 0 { step = 0 }
@@ -368,6 +395,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 "\(progressInfo.message)"
                             }
                             progressAnimation.update(step: step, total: 100, text: message)
+                            self.delegate?.buildSystem(self, didUpdateTaskProgress: message)
                         case .diagnostic(let info):
                             func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
                                 let fixItsDescription = if info.fixIts.hasContent {
@@ -412,12 +440,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                     self.outputStream.send("\(info.executionDescription)")
                                 }
                             }
+                            let targetInfo = try buildState.target(for: info)
+                            self.delegate?.buildSystem(self, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+                            self.delegate?.buildSystem(self, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
                                 self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
                             }
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+                            let targetInfo = try buildState.target(for: startedInfo)
+                            self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+                        case .targetStarted(let info):
+                            try buildState.started(target: info)
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
@@ -569,6 +604,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -697,6 +733,33 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
+    private static func constructAPIDigesterSettingsOverrides(from digesterMode: BuildParameters.APIDigesterMode?) -> [String: String] {
+        var settings: [String: String] = [:]
+        switch digesterMode {
+        case .generateBaselines(let baselinesDirectory, let modulesRequestingBaselines):
+            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            for module in modulesRequestingBaselines {
+                settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
+            }
+            settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
+            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
+        case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
+            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
+            for module in modulesToCompare {
+                settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
+            }
+            settings["RUN_SWIFT_ABI_CHECKER_TOOL"] = "$(RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
+            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathString
+            if let breakageAllowListPath {
+                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathString
+            }
+        case nil:
+            break
+        }
+        return settings
+    }
+
     private func getPIFBuilder() async throws -> PIFBuilder {
         try await pifBuilder.memoize {
             let graph = try await getPackageGraph()
@@ -783,6 +846,19 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
         case .unknown:
             return nil
         }
+    }
+}
+
+fileprivate extension BuildSystemCommand {
+    init(_ taskStartedInfo: SwiftBuildMessage.TaskStartedInfo, targetInfo: SwiftBuildMessage.TargetStartedInfo?) {
+        self = .init(
+            name: taskStartedInfo.executionDescription,
+            targetName: targetInfo?.targetName,
+            description: taskStartedInfo.commandLineDisplayString ?? "",
+            serializedDiagnosticPaths: taskStartedInfo.serializedDiagnosticsPaths.compactMap {
+                try? Basics.AbsolutePath(validating: $0.pathString)
+            }
+        )
     }
 }
 
