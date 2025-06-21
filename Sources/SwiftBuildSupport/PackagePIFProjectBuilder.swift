@@ -334,6 +334,14 @@ struct PackagePIFProjectBuilder {
                 self.log(.debug, indent: 2, "Added asset catalog as source file '\(resourcePath)'")
             }
 
+            // String Catalogs can also generate symbols.
+            if SwiftBuild.SwiftBuildFileType.xcstrings.fileTypes.contains(resourcePath.pathExtension) {
+                self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref)
+                }
+                self.log(.debug, indent: 2, "Added string catalog as source file '\(resourcePath)'")
+            }
+
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
 
