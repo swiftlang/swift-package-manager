@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
-@testable import Basics
+import Basics
 import Testing
 
 struct EnvironmentKeyTests {

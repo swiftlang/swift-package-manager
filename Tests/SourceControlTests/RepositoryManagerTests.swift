@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 import _Concurrency
 import PackageModel
 import _InternalTestSupport
-@testable import SourceControl
+import SourceControl
 import XCTest
 
 final class RepositoryManagerTests: XCTestCase {

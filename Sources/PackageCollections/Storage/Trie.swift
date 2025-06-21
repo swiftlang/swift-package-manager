@@ -13,18 +13,18 @@
 import class Foundation.NSLock
 import PackageModel
 
-struct Trie<Document: Hashable> {
+package struct Trie<Document: Hashable> {
     private typealias Node = TrieNode<Character, Document>
 
     private let root: Node
     private let lock = NSLock()
 
-    init() {
+    package init() {
         self.root = Node()
     }
 
     /// Inserts a word and its document to the trie.
-    func insert(word: String, foundIn document: Document) {
+    package func insert(word: String, foundIn document: Document) {
         guard !word.isEmpty else { return }
 
         self.lock.withLock {
@@ -43,7 +43,7 @@ struct Trie<Document: Hashable> {
     }
 
     /// Removes word occurrences found in the given document.
-    func remove(document: Document) {
+    package func remove(document: Document) {
         func removeInSubTrie(root: Node, document: Document) {
             if root.isTerminating {
                 root.remove(document: document)
@@ -69,7 +69,7 @@ struct Trie<Document: Hashable> {
     }
 
     /// Removes word occurrences found in matching document(s).
-    func remove(where predicate: @escaping (Document) -> Bool) {
+    package func remove(where predicate: @escaping (Document) -> Bool) {
         func removeInSubTrie(root: Node, where predicate: @escaping (Document) -> Bool) {
             if root.isTerminating {
                 root.remove(where: predicate)
@@ -95,7 +95,7 @@ struct Trie<Document: Hashable> {
     }
 
     /// Checks if the trie contains the exact word or words with matching prefix.
-    func contains(word: String, prefixMatch: Bool = false) -> Bool {
+    package func contains(word: String, prefixMatch: Bool = false) -> Bool {
         guard let node = self.findLastNodeOf(word: word) else {
             return false
         }
@@ -103,7 +103,7 @@ struct Trie<Document: Hashable> {
     }
 
     /// Finds the word in this trie and returns its documents.
-    func find(word: String) throws -> Set<Document> {
+    package func find(word: String) throws -> Set<Document> {
         guard let node = self.findLastNodeOf(word: word), node.isTerminating else {
             throw NotFoundError(word)
         }
@@ -111,7 +111,7 @@ struct Trie<Document: Hashable> {
     }
 
     /// Finds words with matching prefix in this trie and returns their documents.
-    func findWithPrefix(_ prefix: String) throws -> [String: Set<Document>] {
+    package func findWithPrefix(_ prefix: String) throws -> [String: Set<Document>] {
         guard let node = self.findLastNodeOf(word: prefix) else {
             throw NotFoundError(prefix)
         }

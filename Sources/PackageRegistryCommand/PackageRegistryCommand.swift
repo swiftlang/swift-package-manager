@@ -166,7 +166,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
 }
 
 extension URL {
-    func validateRegistryURL(allowHTTP: Bool = false) throws {
+    package func validateRegistryURL(allowHTTP: Bool = false) throws {
         guard self.scheme == "https" || (self.scheme == "http" && allowHTTP) else {
             throw PackageRegistryCommand.ValidationError.invalidURL(self)
         }

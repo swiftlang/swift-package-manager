@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import PackageCollections
+import PackageCollections
 import _InternalTestSupport
 import tsan_utils
 import XCTest
