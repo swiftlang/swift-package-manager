@@ -17,7 +17,7 @@ public enum PackageCollectionModel {}
 
 extension PackageCollectionModel {
     /// Representation of package collection (JSON) schema version
-    public enum FormatVersion: String, Codable {
+    public enum FormatVersion: String, Codable, Sendable {
         case v1_0 = "1.0"
     }
 }
