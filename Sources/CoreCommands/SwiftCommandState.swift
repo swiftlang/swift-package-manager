@@ -787,7 +787,8 @@ public final class SwiftCommandState {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
@@ -806,7 +807,8 @@ public final class SwiftCommandState {
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel ?? self.logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
 
         // register the build system with the cancellation handler

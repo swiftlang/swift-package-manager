@@ -198,6 +198,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    public var hasIntegratedAPIDigesterSupport: Bool { false }
+
     public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -225,7 +227,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: nil
         )
     }
 
@@ -242,7 +245,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        delegate: SPMBuildCore.BuildSystemDelegate?
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
@@ -269,6 +273,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.delegate = delegate
     }
 
     public func getPackageGraph() async throws -> ModulesGraph {
