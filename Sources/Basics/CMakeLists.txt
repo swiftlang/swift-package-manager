@@ -38,6 +38,7 @@ add_library(Basics
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
+  FileSystem/VirtualFileSystem.swift
   FileSystem/VFSOverlay.swift
   Graph/AdjacencyMatrix.swift
   Graph/DirectedGraph.swift
