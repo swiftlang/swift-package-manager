@@ -3188,6 +3188,226 @@ final class PackageBuilderTests: XCTestCase {
         }
     }
 
+    func testSwiftWarningControlFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo/foo.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS),
+                    ["-no-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_SWIFT_FLAGS),
+                    ["-warnings-as-errors", "-Werror", "DeprecatedDeclaration"]
+                )
+            }
+        }
+    }
+    
+    func testCWarningControlFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cfoo/foo.c",
+            "/Sources/cfoo/include/cfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cfoo",
+                    settings: [
+                        .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                    ]
+                )
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CFLAGS),
+                    ["-Wno-error", "-Wno-error=deprecated-declarations"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CFLAGS),
+                    ["-Werror", "-Werror=deprecated-declarations"]
+                )
+            }
+        }
+    }
+
+    func testCXXWarningControlFlags() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cxxfoo/foo.cpp",
+            "/Sources/cxxfoo/include/cxxfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cxxfoo",
+                    settings: [
+                        .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cxxfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Wno-error", "-Wno-error=deprecated-declarations"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Werror", "-Werror=deprecated-declarations"]
+                )
+            }
+        }
+    }
+
+    func testCWarningEnableDisable() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cfoo/foo.c",
+            "/Sources/cfoo/include/cfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cfoo",
+                    settings: [
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                    ]
+                )
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CFLAGS),
+                    ["-Wimplicit-fallthrough"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CFLAGS),
+                    ["-Wno-unused-parameter"]
+                )
+            }
+        }
+    }
+
+    func testCXXWarningEnableDisable() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/cxxfoo/foo.cpp",
+            "/Sources/cxxfoo/include/cxxfoo.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(
+                    name: "cxxfoo",
+                    settings: [
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                    ]
+                )
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("cxxfoo") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                XCTAssertEqual(
+                    macosDebugScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Wimplicit-fallthrough"]
+                )
+
+                let macosReleaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                XCTAssertEqual(
+                    macosReleaseScope.evaluate(.OTHER_CPLUSPLUSFLAGS),
+                    ["-Wno-unused-parameter"]
+                )
+            }
+        }
+    }
+
     func testDefaultIsolationPerTarget() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.swift",

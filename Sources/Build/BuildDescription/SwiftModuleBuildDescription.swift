@@ -638,11 +638,27 @@ public final class SwiftModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args += ["-suppress-warnings"]
-            // suppress-warnings and warnings-as-errors are mutually exclusive
-            if let index = args.firstIndex(of: "-warnings-as-errors") {
-                args.remove(at: index)
+            // suppress-warnings and the other warning control flags are mutually exclusive
+            var removeNextArg = false
+            args = args.filter { arg in
+                if removeNextArg {
+                    removeNextArg = false
+                    return false
+                }
+                switch arg {
+                case "-warnings-as-errors", "-no-warnings-as-errors":
+                    return false
+                case "-Wwarning", "-Werror":
+                    removeNextArg = true
+                    return false
+                default:
+                    return true
+                }
             }
+            guard !removeNextArg else {
+                throw InternalError("Unexpected '-Wwarning' or '-Werror' at the end of args")
+            }
+            args += ["-suppress-warnings"]
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
