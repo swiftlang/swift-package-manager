@@ -241,7 +241,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
-        guard !self.logLevel.isVerbose else { return }
+        guard !self.logLevel.isVerbose,
+              !self.logLevel.isQuiet
+        else { return }
         guard command.shouldShowStatus else { return }
         guard !self.swiftParsers.keys.contains(command.name) else { return }
 
@@ -285,7 +287,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
 
-            if !self.logLevel.isVerbose {
+            if !self.logLevel.isVerbose && !self.logLevel.isQuiet {
                 let targetName = self.swiftParsers[command.name]?.targetName
                 self.taskTracker.commandFinished(command, result: result, targetName: targetName)
                 self.updateProgress()
@@ -395,6 +397,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
+        guard !self.logLevel.isQuiet else { return }
         self.queue.async {
             self.taskTracker.buildPreparationStepStarted(name)
             self.updateProgress()
@@ -404,6 +407,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked when an action taken before building emits output.
     /// when verboseOnly is set to true, the output will only be printed in verbose logging mode
     func preparationStepHadOutput(_ name: String, output: String, verboseOnly: Bool) {
+        guard !logLevel.isQuiet else { return }
         self.queue.async {
             self.progressAnimation.clear()
             if !verboseOnly || self.logLevel.isVerbose {
@@ -416,6 +420,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked right after running an action taken before building. The result
     /// indicates whether the action succeeded, failed, or was cancelled.
     func preparationStepFinished(_ name: String, result: CommandResult) {
+        guard !self.logLevel.isQuiet else { return }
         self.queue.async {
             self.taskTracker.buildPreparationStepFinished(name)
             self.updateProgress()
@@ -431,7 +436,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                     self.outputStream.send("\(text)\n")
                     self.outputStream.flush()
                 }
-            } else {
+            } else if !self.logLevel.isQuiet {
                 self.taskTracker.swiftCompilerDidOutputMessage(message, targetName: parser.targetName)
                 self.updateProgress()
             }
@@ -466,6 +471,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func buildStart(configuration: BuildConfiguration) {
+        guard !logLevel.isQuiet else { return }
         self.queue.sync {
             self.progressAnimation.clear()
             self.outputStream.send("Building for \(configuration == .debug ? "debugging" : "production")...\n")
@@ -484,7 +490,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             self.progressAnimation.complete(success: success)
             self.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
 
-            if success {
+            if !self.logLevel.isQuiet, success {
                 let message = self.cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")

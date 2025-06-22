@@ -395,4 +395,76 @@ struct RunCommandTests {
         }
     }
 
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+    )
+    func swiftRunQuietLogLevel(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration
+    ) async throws {
+        try await withKnownIssue {
+            // GIVEN we have a simple test package
+            try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+               //WHEN we run with the --quiet option
+               let (stdout, stderr) = try await executeSwiftRun(
+                   fixturePath,
+                   nil,
+                   configuration: configuration,
+                   extraArgs: ["--quiet"],
+                   buildSystem: buildSystem
+               )
+               // THEN we should not see any output in stderr
+                #expect(stderr.isEmpty)
+               // AND no content in stdout
+                #expect(stdout == "done\n")
+           }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .linux &&
+            buildSystem == .swiftbuild &&
+            CiEnvironment.runningInSelfHostedPipeline
+        }
+    }
+
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+    )
+    func swiftRunQuietLogLevelWithError(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration
+    ) async throws {
+        // GIVEN we have a simple test package
+        try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            let mainFilePath = fixturePath.appending("main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(
+                mainFilePath,
+                string: """
+                print("done"
+                """
+            )
+
+            //WHEN we run with the --quiet option
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await executeSwiftRun(
+                    fixturePath,
+                    nil,
+                    configuration: .debug,
+                    extraArgs: ["--quiet"],
+                    buildSystem: buildSystem
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            // THEN we should see an output in stderr
+            #expect(stderr.isEmpty == false)
+            // AND no content in stdout
+            #expect(stdout.isEmpty)
+        }
+    }
 }
