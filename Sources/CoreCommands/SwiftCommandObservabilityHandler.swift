@@ -221,9 +221,3 @@ extension ObservabilityMetadata {
         }
     }
 }
-
-extension Basics.Diagnostic.Severity {
-    fileprivate var isVerbose: Bool {
-        return self <= .info
-    }
-}
