@@ -16,6 +16,7 @@ import Foundation
 public struct Package {
     /// Unique identifier for the package.
     public let id: ID
+    /// The type that represents a package identifier.
     public typealias ID = String
 
     /// The name of the package (for display purposes only).
@@ -109,6 +110,7 @@ public struct PackageDependency {
 public protocol Product {
     /// Unique identifier for the product.
     var id: ID { get }
+    /// The type that represents the identifier of a packge product.
     typealias ID = String
 
     /// The name of the product, as defined in the package manifest.
@@ -195,6 +197,7 @@ public struct LibraryProduct: Product {
 public protocol Target {
     /// Unique identifier for the target.
     var id: ID { get }
+    /// The type that represents the ID of the target.
     typealias ID = String
 
     /// The name of the target, as defined in the package manifest.
@@ -463,11 +466,13 @@ public struct BinaryArtifactTarget: Target {
 
     /// Represents a kind of binary artifact.
     public enum Kind {
+        /// An XCFramework
         case xcframework
+        /// An artifact archive
         case artifactsArchive
     }
 
-    // Represents the original location of a binary artifact.
+    /// Represents the original location of a binary artifact.
     public enum Origin: Equatable {
         /// Represents an artifact that was available locally.
         case local
