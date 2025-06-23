@@ -125,7 +125,9 @@ public struct PackageManager {
             /// The kind of artifact that was built.
             public var kind: Kind
 
-            /// Represents the kind of artifact that was built. The specific file
+            /// Represents the kind of artifact that was built.
+            ///
+            /// The specific file
             /// formats may vary from platform to platform — for example, on macOS
             /// a dynamic library may in fact be built as a framework.
             public enum Kind: String {

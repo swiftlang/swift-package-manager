@@ -114,6 +114,10 @@ extension Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
+    ///
+    /// @DeprecationSummary {
+    ///    Use ``buildCommand(displayName:executable:arguments:environment:inputFiles:outputFiles:)-swift.enum.case`` instead.
+    /// }
     @available(_PackageDescription, deprecated: 6.0, message: "Use `URL` type instead of `Path`.")
     public static func buildCommand(
         displayName: String?,
@@ -202,6 +206,9 @@ extension Command {
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
+    /// @DeprecationSummary {
+    ///   Use ``prebuildCommand(displayName:executable:arguments:environment:outputFilesDirectory:)-swift.enum.case`` instead.
+    /// }
     @available(_PackageDescription, deprecated: 6.0, message: "Use `URL` type instead of `Path`.")
     public static func prebuildCommand(
         displayName: String?,
