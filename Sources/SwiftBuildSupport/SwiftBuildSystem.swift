@@ -316,7 +316,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         let workspaceInfo = try await session.workspaceInfo()
 
                         configuredTargets = try [pifTargetName].map { targetName in
-                            // TODO we filter dynamic tarts until Swift Build doesn't give them to us anymore
+                            // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
                             let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
                             switch infos.count {
                             case 0:

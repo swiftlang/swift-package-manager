@@ -487,6 +487,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
+            // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
             try await withKnownIssue {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),

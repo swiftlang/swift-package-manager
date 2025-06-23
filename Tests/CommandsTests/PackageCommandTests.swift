@@ -2805,7 +2805,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         #if os(Linux)
         let osSuffix = "-linux"
         #elseif os(Windows)
-        let ossSuffix = "-windows"
+        let osSuffix = "-windows"
         #else
         let osSuffix = ""
         #endif
@@ -2880,7 +2880,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
-        if ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Build error building release artifacts with autolink-extract on non-macOS platforms: https://github.com/swiftlang/swift-build/issues/602") }
+        if buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Build error building release artifacts with autolink-extract on non-macOS platforms: https://github.com/swiftlang/swift-build/issues/602") }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
