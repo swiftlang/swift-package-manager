@@ -2845,8 +2845,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
-        if self.buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux {
-            throw XCTSkip("Failure to build the executable in release mode on Linux with the swiftbuild build system: https://github.com/swiftlang/swift-package-manager/issues/8855")
+        if self.buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS {
+            throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
         }
 
         // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
@@ -2880,7 +2880,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
-        if buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Build error building release artifacts with autolink-extract on non-macOS platforms: https://github.com/swiftlang/swift-build/issues/602") }
+        if buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862") }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -3516,8 +3516,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
             } catch {
                 if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Autolink extract failure with Linux https://github.com/swiftlang/swift-package-manager/issues/8855")
+                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
                 }
+                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
@@ -3541,8 +3542,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
             } catch {
                 if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Autolink extract failure with Linux https://github.com/swiftlang/swift-package-manager/issues/8855")
+                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
                 }
+                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -3570,8 +3572,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
             } catch {
                 if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Autolink extract failure with Linux https://github.com/swiftlang/swift-package-manager/issues/8855")
+                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
                 }
+                throw error
             }
         }
     }
