@@ -2880,6 +2880,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
 
+        if ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Build error building release artifacts with autolink-extract on non-macOS platforms: https://github.com/swiftlang/swift-build/issues/602") }
+
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "release", "false"], packagePath: fixturePath))
