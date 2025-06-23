@@ -804,6 +804,9 @@ public struct WorkspaceConfiguration {
     /// The trait configuration for the root.
     public var traitConfiguration: TraitConfiguration
 
+    /// Whether to fetch using git-lfs on dependencies that use it.
+    public var useGitLFS: Bool
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -820,6 +823,7 @@ public struct WorkspaceConfiguration {
         usePrebuilts: Bool,
         prebuiltsDownloadURL: String?,
         prebuiltsRootCertPath: String?,
+        useGitLFS: Bool,
         pruneDependencies: Bool,
         traitConfiguration: TraitConfiguration
     ) {
@@ -838,6 +842,7 @@ public struct WorkspaceConfiguration {
         self.usePrebuilts = usePrebuilts
         self.prebuiltsDownloadURL = prebuiltsDownloadURL
         self.prebuiltsRootCertPath = prebuiltsRootCertPath
+        self.useGitLFS = useGitLFS
         self.pruneDependencies = pruneDependencies
         self.traitConfiguration = traitConfiguration
     }
