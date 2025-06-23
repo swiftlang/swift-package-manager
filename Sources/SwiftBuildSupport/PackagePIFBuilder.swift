@@ -94,8 +94,9 @@ public final class PackagePIFBuilder {
         /// Returns all *device family* IDs for all SDK variants.
         func deviceFamilyIDs() -> Set<Int>
 
-        /// Have packages referenced by this workspace build for arm64e when building for iOS devices.
-        var shouldiOSPackagesBuildForARM64e: Bool { get }
+        /// Have packages referenced by this workspace build for *arm64e*
+        /// when building for iOS devices, macOS, and visionOS.
+        func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool
 
         /// Is the sandbox disabled for plug-in execution? It should be `false` by default.
         var isPluginExecutionSandboxingDisabled: Bool { get }
@@ -573,9 +574,18 @@ public final class PackagePIFBuilder {
         settings[.CODE_SIGNING_REQUIRED] = "NO"
         settings[.CODE_SIGN_IDENTITY] = ""
 
-        // If in a workspace that's set to build packages for arm64e, pass that along to Swift Build.
-        if self.delegate.shouldiOSPackagesBuildForARM64e {
-            settings.platformSpecificSettings[._iOSDevice]![.ARCHS] = ["arm64e"]
+        // If in a workspace that's set to build packages for _arm64e_, pass that along to Swift Build.
+        let arm64ePlatforms: [PackageModel.Platform] = [.iOS, .macOS, .visionOS]
+        for arm64ePlatform in arm64ePlatforms {
+            if self.delegate.shouldPackagesBuildForARM64e(platform: arm64ePlatform) {
+                let pifPlatform: ProjectModel.BuildSettings.Platform = switch arm64ePlatform {
+                case .iOS:
+                    ._iOSDevice
+                default:
+                    .init(from: arm64ePlatform)
+                }
+                settings.platformSpecificSettings[pifPlatform]![.ARCHS] = ["arm64e"]
+            }
         }
 
         // Add the build settings that are specific to debug builds, and set those as the "Debug" configuration.

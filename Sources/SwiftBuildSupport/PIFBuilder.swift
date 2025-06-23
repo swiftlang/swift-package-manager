@@ -499,10 +499,10 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
         []
     }
     
-    var shouldiOSPackagesBuildForARM64e: Bool {
+    func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool {
         false
     }
-    
+
     var isPluginExecutionSandboxingDisabled: Bool {
         false
     }
