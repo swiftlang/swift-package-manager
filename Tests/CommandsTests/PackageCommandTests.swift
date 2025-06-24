@@ -4145,10 +4145,6 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         try await super.testCommandPluginBuildingCallbacks()
     }
-    
-    override func testCommandPluginBuildTestability() async throws {
-        try await super.testCommandPluginBuildTestability()
-    }
 
     override func testMigrateCommand() async throws {
         throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
