@@ -1,4 +1,4 @@
-# Resolving and updating package versions
+# Resolving and updating dependencies
 
 Coordinate and constrain dependencies for your package.
 
@@ -30,3 +30,4 @@ If the `Package.resolved` file does exist, any command that requires dependencie
 
 The `Package.resolved` doesn't constrain upstream dependencies of the package. 
 For example, if your package presents a library and has `Package.resolved` checked in, those versions are ignored by the package that depends on your library, and the latest eligible versions are chosen.
+For more information on constraining dependency versions, see <doc:AddingDependencies>.

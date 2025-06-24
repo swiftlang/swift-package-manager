@@ -72,9 +72,6 @@
 /// package's manifest or losing access to existing packages.
 public final class Package {
     /// The name of the Swift package.
-    ///
-    /// If the name of the package is `nil`, Swift Package Manager deduces the name of the
-    /// package using its Git URL.
     public var name: String
 
     /// The list of minimum versions for platforms supported by the package.
