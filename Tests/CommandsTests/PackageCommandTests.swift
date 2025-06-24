@@ -4140,6 +4140,11 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testCommandPluginSymbolGraphCallbacks() async throws {
         throw XCTSkip("SWBINTTODO: Symbol graph extraction does not yet work with swiftbuild build system")
     }
+
+    override func testCommandPluginBuildingCallbacks() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
+        try await super.testCommandPluginBuildingCallbacks()
+    }
     
     override func testCommandPluginBuildTestability() async throws {
         try await super.testCommandPluginBuildTestability()
