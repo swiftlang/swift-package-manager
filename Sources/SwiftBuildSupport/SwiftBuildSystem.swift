@@ -394,6 +394,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     do {
                         let workspaceInfo = try await session.workspaceInfo()
 
+                        #if !canImport(Darwin)
+                        try await session.setUserPreferences(enableDebugActivityLogs: self.logLevel.isVeryVerbose, enableBuildDebugging: self.logLevel.isVeryVerbose, enableBuildSystemCaching: false, activityTextShorteningLevel: 0, usePerConfigurationBuildLocations: nil, allowsExternalToolExecution: false)
+                        #endif
                         configuredTargets = try [pifTargetName].map { targetName in
                             // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
                             let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
@@ -678,16 +681,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.cCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
@@ -921,6 +927,16 @@ extension String {
         #else
         return self.spm_shellEscaped()
         #endif
+    }
+}
+
+extension Basics.Diagnostic.Severity {
+    var isVerbose: Bool {
+        self <= .info
+    }
+
+    var isVeryVerbose: Bool {
+        self <= .debug
     }
 }
 
