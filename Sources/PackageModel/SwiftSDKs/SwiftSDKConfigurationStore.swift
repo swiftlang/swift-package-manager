@@ -232,9 +232,9 @@ public final class SwiftSDKConfigurationStore {
 
                 swiftSDKBundleStore.observabilityScope.emit(
                     info: """
-                These properties of Swift SDK `\(sdkID)` for target triple \
-                `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
-                """
+                    These properties of Swift SDK `\(sdkID)` for target triple \
+                    `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+                    """
                 )
             }
 
