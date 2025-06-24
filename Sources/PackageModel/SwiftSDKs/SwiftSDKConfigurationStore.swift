@@ -206,9 +206,9 @@ public final class SwiftSDKConfigurationStore {
                 } else {
                     swiftSDKBundleStore.observabilityScope.emit(
                         info: """
-                    All configuration properties of Swift SDK `\(sdkID)` for target triple \
-                    `\(targetTriple)` were successfully reset.
-                    """
+                        All configuration properties of Swift SDK `\(sdkID)` for target triple \
+                        `\(targetTriple)` were successfully reset.
+                        """
                     )
                 }
             } else {
