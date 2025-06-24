@@ -265,6 +265,9 @@ public struct SwiftSDK: Equatable {
     /// deserialization.
     public private(set) var toolset: Toolset
 
+    /// The paths associated with a Swift SDK. The Path type can be a `String`
+    /// to encapsulate the arguments for the `SwiftSDKConfigurationStore.configure`
+    /// function, or can be a fully-realized `AbsolutePath` when deserialized from a configuration.
     public struct PathsConfiguration<Path: Equatable>: Equatable {
         public init(
             sdkRootPath: Path? = nil,
