@@ -35,6 +35,9 @@ public protocol Toolchain {
     /// An array of paths to search for libraries at link time.
     var librarySearchPaths: [AbsolutePath] { get }
 
+    /// An array of paths to use with binaries produced by this toolchain at run time.
+    var runtimeLibraryPaths: [AbsolutePath] { get }
+
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 

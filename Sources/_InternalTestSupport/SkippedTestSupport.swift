@@ -58,14 +58,56 @@ extension Trait where Self == Testing.ConditionTrait {
             #endif
         }
     }
+}
 
-    /// Constructs a condition trait that causes a test to be disabled if the Foundation process spawning implementation
-    /// is not using `posix_spawn_file_actions_addchdir`.
-    public static var requireThreadSafeWorkingDirectory: Self {
-        disabled("Thread-safe process working directory support is unavailable.") {
-            // Amazon Linux 2 has glibc 2.26, and glibc 2.29 is needed for posix_spawn_file_actions_addchdir_np support
-            FileManager.default.contents(atPath: "/etc/system-release")
-                .map { String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" } ?? false
-        }
+extension Trait where Self == Testing.Bug {
+    public static func SWBINTTODO(_ comment: Comment) -> Self {
+        bug(nil, id: 0, comment)
     }
+}
+extension Tag {
+    public enum TestSize {}
+    public enum Feature {}
+    @Tag public static var UserWorkflow: Tag
+}
+
+extension Tag.TestSize {
+    @Tag public static var small: Tag
+    @Tag public static var medium: Tag
+    @Tag public static var large: Tag
+}
+
+extension Tag.Feature {
+    public enum Command {}
+    public enum PackageType {}
+
+    @Tag public static var CodeCoverage: Tag
+    @Tag public static var Resource: Tag
+    @Tag public static var SpecialCharacters: Tag
+    @Tag public static var Traits: Tag
+}
+
+
+extension Tag.Feature.Command {
+    public enum Package {}
+    @Tag public static var Build: Tag
+    @Tag public static var Test: Tag
+    @Tag public static var Run: Tag
+}
+
+
+extension Tag.Feature.Command.Package {
+    @Tag public static var Init: Tag
+    @Tag public static var DumpPackage: Tag
+    @Tag public static var DumpSymbolGraph: Tag
+    @Tag public static var Plugin: Tag
+}
+extension Tag.Feature.PackageType {
+    @Tag public static var Library: Tag
+    @Tag public static var Executable: Tag
+    @Tag public static var Tool: Tag
+    @Tag public static var Plugin: Tag
+    @Tag public static var BuildToolPlugin: Tag
+    @Tag public static var CommandPlugin: Tag
+    @Tag public static var Macro: Tag
 }

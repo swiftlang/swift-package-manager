@@ -57,6 +57,26 @@ func withService(
     await service.close()
 }
 
+public func createSession(
+    service: SWBBuildService,
+    name: String,
+    toolchainPath: Basics.AbsolutePath,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?
+) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
+    // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    } else {
+        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
+    }
+    switch sessionResult {
+    case (.success(let session), let diagnostics):
+        return (session, diagnostics)
+    case (.failure(let error), let diagnostics):
+        throw SessionFailedError(error: error, diagnostics: diagnostics)
+    }
+}
+
 func withSession(
     service: SWBBuildService,
     name: String,
@@ -67,34 +87,22 @@ func withSession(
         _ diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
     ) async throws -> Void
 ) async throws {
-    // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
-        await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
-    } else {
-        await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
-    }
-
-    switch sessionResult {
-    case (.success(let session), let diagnostics):
-        do {
-            try await body(session, diagnostics)
-        } catch {
-            do {
-                try await session.close()
-            } catch _ {
-                // Assumption is that the first error is the most important one
-                throw SessionFailedError(error: error, diagnostics: diagnostics)
-            }
-
-            throw SessionFailedError(error: error, diagnostics: diagnostics)
-        }
-
+    let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: toolchainPath, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+    do {
+        try await body(session, diagnostics)
+    } catch let bodyError {
         do {
             try await session.close()
-        } catch {
-            throw SessionFailedError(error: error, diagnostics: diagnostics)
+        } catch _ {
+            // Assumption is that the first error is the most important one
+            throw bodyError
         }
-    case (.failure(let error), let diagnostics):
+
+        throw bodyError
+    }
+    do {
+        try await session.close()
+    } catch {
         throw SessionFailedError(error: error, diagnostics: diagnostics)
     }
 }
@@ -272,13 +280,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return
         }
 
-        let pifBuilder = try await getPIFBuilder()
-        let pif = try await pifBuilder.generatePIF(
-            printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
-        )
-
-        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
+        try await writePIF(buildParameters: buildParameters)
 
         try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
     }
@@ -287,8 +289,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         let buildStartTime = ContinuousClock.Instant.now
 
         try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
-            let parameters = try self.makeBuildParameters()
-            let derivedDataPath = self.buildParameters.dataPath.pathString
+            let derivedDataPath = self.buildParameters.dataPath
 
             let progressAnimation = ProgressAnimation.percent(
                 stream: self.outputStream,
@@ -311,7 +312,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
 
                     // Find the targets to build.
-                    let configuredTargets: [SWBConfiguredTarget]
+                    let configuredTargets: [SWBTargetGUID]
                     do {
                         let workspaceInfo = try await session.workspaceInfo()
 
@@ -322,7 +323,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 self.observabilityScope.emit(error: "Could not find target named '\(targetName)'")
                                 throw Diagnostics.fatalError
                             case 1:
-                                return SWBConfiguredTarget(guid: infos[0].guid, parameters: parameters)
+                                return SWBTargetGUID(rawValue: infos[0].guid)
                             default:
                                 self.observabilityScope.emit(error: "Found multiple targets named '\(targetName)'")
                                 throw Diagnostics.fatalError
@@ -333,44 +334,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    var request = SWBBuildRequest()
-                    request.parameters = parameters
-                    request.configuredTargets = configuredTargets
-                    request.useParallelTargets = true
-                    request.useImplicitDependencies = false
-                    request.useDryRun = false
-                    request.hideShellScriptEnvironment = true
-                    request.showNonLoggedProgress = true
-
-                    // Override the arena. We need to apply the arena info to both the request-global build
-                    // parameters as well as the target-specific build parameters, since they may have been
-                    // deserialized from the build request file above overwriting the build parameters we set
-                    // up earlier in this method.
-
-                    #if os(Windows)
-                    let ddPathPrefix = derivedDataPath.replacingOccurrences(of: "\\", with: "/")
-                    #else
-                    let ddPathPrefix = derivedDataPath
-                    #endif
-
-                    let arenaInfo = SWBArenaInfo(
-                        derivedDataPath: ddPathPrefix,
-                        buildProductsPath: ddPathPrefix + "/Products",
-                        buildIntermediatesPath: ddPathPrefix + "/Intermediates.noindex",
-                        pchPath: ddPathPrefix + "/PCH",
-                        indexRegularBuildProductsPath: nil,
-                        indexRegularBuildIntermediatesPath: nil,
-                        indexPCHPath: ddPathPrefix,
-                        indexDataStoreFolderPath: ddPathPrefix,
-                        indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
-                    )
-
-                    request.parameters.arenaInfo = arenaInfo
-                    request.configuredTargets = request.configuredTargets.map { configuredTarget in
-                        var configuredTarget = configuredTarget
-                        configuredTarget.parameters?.arenaInfo = arenaInfo
-                        return configuredTarget
-                    }
+                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath)
 
                     struct BuildState {
                         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
@@ -495,7 +459,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
+    private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
         let platformName: String
         let sdkName: String
         if self.buildParameters.triple.isAndroid() {
@@ -528,7 +492,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -588,10 +552,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
-        // support for --enable-parseable-module-interfaces
-        if buildParameters.driverParameters.enableParseableModuleInterfaces {
-            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        func reportConflict(_ a: String, _ b: String) throws -> String {
+            throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
+        try settings.merge(Self.constructDebuggingSettingsOverrides(from: buildParameters.debuggingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -604,6 +571,120 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         params.activeRunDestination = runDestination
 
         return params
+    }
+
+    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath) throws -> SWBBuildRequest {
+        var request = SWBBuildRequest()
+        request.parameters = try makeBuildParameters()
+        request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
+        request.useParallelTargets = true
+        request.useImplicitDependencies = false
+        request.useDryRun = false
+        request.hideShellScriptEnvironment = true
+        request.showNonLoggedProgress = true
+
+        // Override the arena. We need to apply the arena info to both the request-global build
+        // parameters as well as the target-specific build parameters, since they may have been
+        // deserialized from the build request file above overwriting the build parameters we set
+        // up earlier in this method.
+
+        #if os(Windows)
+        let ddPathPrefix = derivedDataPath.pathString.replacingOccurrences(of: "\\", with: "/")
+        #else
+        let ddPathPrefix = derivedDataPath.pathString
+        #endif
+
+        let arenaInfo = SWBArenaInfo(
+            derivedDataPath: ddPathPrefix,
+            buildProductsPath: ddPathPrefix + "/Products",
+            buildIntermediatesPath: ddPathPrefix + "/Intermediates.noindex",
+            pchPath: ddPathPrefix + "/PCH",
+            indexRegularBuildProductsPath: nil,
+            indexRegularBuildIntermediatesPath: nil,
+            indexPCHPath: ddPathPrefix,
+            indexDataStoreFolderPath: ddPathPrefix,
+            indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
+        )
+
+        request.parameters.arenaInfo = arenaInfo
+        request.configuredTargets = request.configuredTargets.map { configuredTarget in
+            var configuredTarget = configuredTarget
+            configuredTarget.parameters?.arenaInfo = arenaInfo
+            return configuredTarget
+        }
+
+        return request
+    }
+
+    private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging) -> [String: String] {
+        var settings: [String: String] = [:]
+        // TODO: debugInfoFormat: https://github.com/swiftlang/swift-build/issues/560
+        // TODO: shouldEnableDebuggingEntitlement: Enable/Disable get-task-allow
+        // TODO: omitFramePointer: https://github.com/swiftlang/swift-build/issues/561
+        return settings
+    }
+
+    private static func constructDriverSettingsOverrides(from parameters: BuildParameters.Driver) -> [String: String] {
+        var settings: [String: String] = [:]
+        switch parameters.explicitTargetDependencyImportCheckingMode {
+        case .none:
+            break
+        case .warn:
+            settings["DIAGNOSE_MISSING_TARGET_DEPENDENCIES"] = "YES"
+        case .error:
+            settings["DIAGNOSE_MISSING_TARGET_DEPENDENCIES"] = "YES_ERROR"
+        }
+
+        if parameters.enableParseableModuleInterfaces {
+            settings["SWIFT_EMIT_MODULE_INTERFACE"] = "YES"
+        }
+
+        return settings
+    }
+
+    private static func constructLinkerSettingsOverrides(from parameters: BuildParameters.Linking) -> [String: String] {
+        var settings: [String: String] = [:]
+
+        if parameters.linkerDeadStrip {
+            settings["DEAD_CODE_STRIPPING"] = "YES"
+        }
+
+        switch parameters.linkTimeOptimizationMode {
+        case .full:
+            settings["LLVM_LTO"] = "YES"
+            settings["SWIFT_LTO"] = "YES"
+        case .thin:
+            settings["LLVM_LTO"] = "YES_THIN"
+            settings["SWIFT_LTO"] = "YES_THIN"
+        case nil:
+            break
+        }
+
+        // TODO: shouldDisableLocalRpath
+        // TODO: shouldLinkStaticSwiftStdlib
+
+        return settings
+    }
+
+    private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
+        var settings: [String: String] = [:]
+        // TODO: enableCodeCoverage
+        // explicitlyEnabledTestability
+
+        switch parameters.explicitlyEnabledTestability {
+        case true:
+            settings["ENABLE_TESTABILITY"] = "YES"
+        case false:
+            settings["ENABLE_TESTABILITY"] = "NO"
+        default:
+            break
+        }
+
+        // TODO: experimentalTestOutput
+        // TODO: explicitlyEnabledDiscovery
+        // TODO: explicitlySpecifiedPath
+
+        return settings
     }
 
     private func getPIFBuilder() async throws -> PIFBuilder {
@@ -624,6 +705,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             )
             return pifBuilder
         }
+    }
+
+    public func writePIF(buildParameters: BuildParameters) async throws {
+        let pifBuilder = try await getPIFBuilder()
+        let pif = try await pifBuilder.generatePIF(
+            printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
+            buildParameters: buildParameters,
+        )
+
+        try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
     }
 
     public func cancel(deadline: DispatchTime) throws {}

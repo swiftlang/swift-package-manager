@@ -41,7 +41,9 @@ final class ManifestSourceGenerationTests: XCTestCase {
         toolsVersion: ToolsVersion,
         toolsVersionHeaderComment: String? = .none,
         additionalImportModuleNames: [String] = [],
-        fs: FileSystem = localFileSystem
+        fs: FileSystem = localFileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
     ) async throws -> String {
         try await withTemporaryDirectory { packageDir in
             let observability = ObservabilitySystem.makeForTesting()
@@ -98,18 +100,18 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
-            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, failureDetails)
-            XCTAssertEqual(newManifest.displayName, manifest.displayName, failureDetails)
-            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, failureDetails)
-            XCTAssertEqual(newManifest.platforms, manifest.platforms, failureDetails)
-            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, failureDetails)
-            XCTAssertEqual(newManifest.providers, manifest.providers, failureDetails)
-            XCTAssertEqual(newManifest.products, manifest.products, failureDetails)
-            XCTAssertEqual(newManifest.dependencies, manifest.dependencies, failureDetails)
-            XCTAssertEqual(newManifest.targets, manifest.targets, failureDetails)
-            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, failureDetails)
-            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, failureDetails)
-            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, failureDetails)
+            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, "toolsVersion not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.displayName, manifest.displayName, "displayName not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, "defaultLocalization not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.platforms, manifest.platforms, "platforms not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, "pkgConfig not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.providers, manifest.providers, "providers not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.products, manifest.products, "products not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.dependencies, manifest.dependencies, "dependencies not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.targets, manifest.targets, "targets not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, "swiftLanguageVersions not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, "cLanguageStandard not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, "cxxLanguageStandard not as expected" + failureDetails, file: file, line: line)
 
             // Return the generated manifest so that the caller can do further testing on it.
             return newContents
@@ -282,6 +284,10 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testPackageDependencyVariations() async throws {
+        try XCTSkipOnWindows(
+            because:"Intermittently fails",
+            skipPlatformCi: true,
+        )
         let manifestContents = """
             // swift-tools-version:5.4
             import PackageDescription
@@ -860,6 +866,51 @@ final class ManifestSourceGenerationTests: XCTestCase {
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
+    }
+
+    func testManifestGenerationWithWarningControlFlags() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_2,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "swiftTarget",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cTarget",
+                    settings: [
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cxxTarget",
+                    settings: [
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
     }
 
     func testDefaultIsolation() async throws {

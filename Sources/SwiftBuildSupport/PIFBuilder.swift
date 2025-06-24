@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
@@ -257,7 +257,7 @@ public final class PIFBuilder {
             var packagesAndProjects: [(ResolvedPackage, ProjectModel.Project)] = []
             
             for package in sortedPackages {
-                var buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
+                var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
 
                 for module in package.modules {
                     // Apply each build tool plugin used by the target in order,
@@ -357,28 +357,29 @@ public final class PIFBuilder {
                         let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
                             prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
                             buildCommands: result.buildCommands.map( { buildCommand in
-                                var env: [String: String] = [:]
-                                for (key, value) in buildCommand.configuration.environment {
-                                    env[key.rawValue] = value
+                                var newEnv: Environment = buildCommand.configuration.environment
+
+                                let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+
+                                for libPath in runtimeLibPaths {
+                                    newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
                                 }
 
-                                let workingDir = buildCommand.configuration.workingDirectory
-
-                                let writableDirectories: [AbsolutePath] = buildCommand.outputFiles
+                                let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
                                 return PackagePIFBuilder.CustomBuildCommand(
                                     displayName: buildCommand.configuration.displayName,
                                     executable: buildCommand.configuration.executable.pathString,
                                     arguments: buildCommand.configuration.arguments,
-                                    environment: env,
-                                    workingDir: workingDir,
+                                    environment: .init(newEnv),
+                                    workingDir: package.path,
                                     inputPaths: buildCommand.inputFiles,
                                     outputPaths: buildCommand.outputFiles.map(\.pathString),
                                     sandboxProfile:
                                         self.parameters.disableSandbox ?
                                             nil :
                                             .init(
-                                                strictness: .default,
+                                                strictness: .writableTemporaryDirectory,
                                                 writableDirectories: writableDirectories,
                                                 readOnlyDirectories: buildCommand.inputFiles
                                             )
@@ -388,7 +389,11 @@ public final class PIFBuilder {
 
                         // Add a BuildToolPluginInvocationResult to the mapping.
                         buildToolPluginResults.append(result2)
-                        buildToolPluginResultsByTargetName[module.name] = result2
+                        if var existingResults = buildToolPluginResultsByTargetName[module.name] {
+                            existingResults.append(result2)
+                        } else {
+                            buildToolPluginResultsByTargetName[module.name] = [result2]
+                        }
                     }
                 }
 
@@ -494,10 +499,10 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
         []
     }
     
-    var shouldiOSPackagesBuildForARM64e: Bool {
+    func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool {
         false
     }
-    
+
     var isPluginExecutionSandboxingDisabled: Bool {
         false
     }

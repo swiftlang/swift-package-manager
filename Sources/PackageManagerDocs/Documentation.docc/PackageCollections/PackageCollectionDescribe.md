@@ -2,12 +2,85 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.5")
 }
 
 Get metadata for a collection or a package included in an imported collection.
 
+## Overview
+
+This subcommand shows metadata for a collection or a package included in an imported collection. The result can optionally be returned as JSON using `--json` for
+integration into other tools.
+
+### Metadata and packages of a collection
+
+`describe` can be used for both collections that have been previously added to the list of the user's configured collections, as well as to preview any other collections.
+
+```bash
+$ swift package-collection describe [--json] https://www.example.com/packages.json
+Name: Sample Package Collection
+Source: https://www.example.com/packages.json
+Description: ...
+Keywords: best, packages
+Created At: 2020-05-30 12:33
+Packages:
+    https://github.com/jpsim/yams
+    ...
 ```
-package-collection describe [--json] <package-url> [--version=<version>] [--skip-signature-check] [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [--version] [--help]
+
+#### Signed package collections
+
+If a collection is signed, SwiftPM will check that the signature is valid before showing a preview.
+
+```bash
+$ swift package-collection describe https://www.example.com/bad-packages.json
+The collection's signature is invalid. If you would like to continue please rerun command with '--skip-signature-check'.
+```
+
+Users may continue previewing the collection despite the error or preemptively skip the signature check on a package collection by passing the `--skip-signature-check` flag:
+
+```bash
+$ swift package-collection describe https://www.example.com/packages.json --skip-signature-check
+```
+
+### Metadata of a package
+
+`describe` can also show the metadata of a package included in an imported collection:
+
+```bash
+$ swift package-collection describe [--json] https://github.com/jpsim/yams
+Description: A sweet and swifty YAML parser built on LibYAML.
+Available Versions: 4.0.0, 3.0.0, ...
+Stars: 14
+Readme: https://github.com/jpsim/Yams/blob/master/README.md
+Authors: @norio-nomura, @jpsim
+--------------------------------------------------------------
+Latest Version: 4.0.0
+Package Name: Yams
+Modules: Yams, CYaml
+Supported Platforms: iOS, macOS, Linux, tvOS, watchOS
+Supported Swift Versions: 5.3, 5.2, 5.1, 5.0
+License: MIT
+```
+
+### Metadata of a package version
+
+User may view additional metadata for a package version by passing `--version`:
+
+```bash
+$ swift package-collection describe [--json] --version 4.0.0 https://github.com/jpsim/yams
+Package Name: Yams
+Version: 4.0.0
+Modules: Yams, CYaml
+Supported Platforms: iOS, macOS, Linux, tvOS, watchOS
+Supported Swift Versions: 5.3, 5.2, 5.1, 5.0
+License: MIT
+```
+
+## Usage
+
+```
+package-collection describe [--json] <package-url> [--version=<version>] [--skip-signature-check] [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [--version] [--help]
 ```
 
 - term **--json**:
@@ -242,9 +315,6 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--explicit-target-dependency-import-check=\<explicit-target-dependency-import-check\>**:
 
 *A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.*
-
-
-- term **--experimental-explicit-module-build**:
 
 
 - term **--build-system=\<build-system\>**:

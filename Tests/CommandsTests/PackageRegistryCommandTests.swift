@@ -334,7 +334,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     // TODO: Test example with login and password
 
     func testArchiving() async throws {
-        #if os(Linux)
+        #if !os(Windows)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
@@ -457,7 +457,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testPublishingToHTTPRegistry() throws {
-        #if os(Linux)
+        #if !os(Windows)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
@@ -499,7 +499,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testPublishingToAllowedHTTPRegistry() async throws {
-        #if os(Linux)
+        #if !os(Windows)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
@@ -584,7 +584,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testPublishingUnsignedPackage() throws {
-        #if os(Linux)
+        #if !os(Windows)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
@@ -749,7 +749,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             "skipping because test environment doesn't support concurrency"
         )
 
-        #if os(Linux)
+        #if !os(Windows)
         // needed for archiving
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")

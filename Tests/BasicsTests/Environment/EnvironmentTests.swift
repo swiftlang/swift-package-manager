@@ -147,7 +147,9 @@ struct EnvironmentTests {
 
     /// Important: This test is inherently race-prone, if it is proven to be
     /// flaky, it should run in a singled threaded environment/removed entirely.
-    @Test(.disabled(if: isInCiEnvironment, "This test can disrupt other tests running in parallel."))
+    @Test(
+        .disabled(if: isInCiEnvironment || CiEnvironment.runningInSelfHostedPipeline, "This test can disrupt other tests running in parallel."),
+    )
     func makeCustomPathEnv() async throws {
         let customEnvironment: Environment = .current
         let origPath = customEnvironment[.path]

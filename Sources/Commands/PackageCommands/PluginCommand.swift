@@ -210,6 +210,7 @@ struct PluginCommand: AsyncSwiftCommand {
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
+            buildSystem: pluginArguments.globalOptions.build.buildSystem,
             options: pluginOptions,
             arguments: unparsedArguments,
             swiftCommandState: swiftCommandState
@@ -220,6 +221,7 @@ struct PluginCommand: AsyncSwiftCommand {
         plugin: ResolvedModule,
         package: ResolvedPackage,
         packageGraph: ModulesGraph,
+        buildSystem buildSystemKind: BuildSystemProvider.Kind,
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
@@ -328,7 +330,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let buildParameters = try swiftCommandState.toolsBuildParameters
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystemKind,
             traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
@@ -353,7 +355,7 @@ struct PluginCommand: AsyncSwiftCommand {
         }
 
         // Set up a delegate to handle callbacks from the command plugin.
-        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget)
+        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget)
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.

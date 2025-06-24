@@ -38,6 +38,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             AddTarget.self,
             AddTargetDependency.self,
             AddSetting.self,
+            AuditBinaryArtifact.self,
             Clean.self,
             PurgeCache.self,
             Reset.self,
@@ -49,7 +50,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
 
             Install.self,
             Uninstall.self,
-            
+
             APIDiff.self,
             DeprecatedAPIDiff.self,
             DumpSymbolGraph.self,
