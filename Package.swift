@@ -744,6 +744,12 @@ let package = Package(
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
+            /** Scaffolds a package */
+            name: "swift-scaffold",
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
+        .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
             dependencies: ["Commands", "PackageCollectionsCommand"]
