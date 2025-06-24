@@ -618,11 +618,20 @@ final class SwiftSDKBundleTests: XCTestCase {
             let (config, fileSystem) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = "/some/sdk/root/path"
-            let configSuccess = try config.configure(sdkID: testArtifactID, targetTriple: targetTriple.tripleString, showConfiguration: false, resetConfiguration: false, config: args)
+            let configSuccess = try config.configure(
+                sdkID: testArtifactID,
+                targetTriple: targetTriple.tripleString,
+                showConfiguration: false,
+                resetConfiguration: false,
+                config: args
+            )
             XCTAssertTrue(configSuccess)
             XCTAssertTrue(fileSystem.isFile(targetTripleConfigPath))
 
-            let updatedConfig = try config.readConfiguration(sdkID: testArtifactID, targetTriple: targetTriple)
+            let updatedConfig = try config.readConfiguration(
+                sdkID: testArtifactID,
+                targetTriple: targetTriple
+            )
             XCTAssertEqual(args.sdkRootPath, updatedConfig?.pathsConfiguration.sdkRootPath?.pathString)
         }
 
@@ -631,11 +640,23 @@ final class SwiftSDKBundleTests: XCTestCase {
             var args = SwiftSDK.PathsConfiguration<String>()
             args.sdkRootPath = "/some/sdk/root/path"
             // an empty targetTriple will configure all triples
-            let configSuccess = try config.configure(sdkID: testArtifactID, targetTriple: nil, showConfiguration: false, resetConfiguration: false, config: args)
+            let configSuccess = try config.configure(
+                sdkID: testArtifactID,
+                targetTriple: nil,
+                showConfiguration: false,
+                resetConfiguration: false,
+                config: args
+            )
             XCTAssertTrue(configSuccess)
             XCTAssertTrue(fileSystem.isFile(targetTripleConfigPath))
 
-            let resetSuccess = try config.configure(sdkID: testArtifactID, targetTriple: nil, showConfiguration: false, resetConfiguration: true, config: args)
+            let resetSuccess = try config.configure(
+                sdkID: testArtifactID,
+                targetTriple: nil,
+                showConfiguration: false,
+                resetConfiguration: true,
+                config: args
+            )
             XCTAssertTrue(resetSuccess, "Reset configuration should succeed")
             XCTAssertFalse(fileSystem.isFile(targetTripleConfigPath), "Reset configuration should clear configuration folder")
         }
