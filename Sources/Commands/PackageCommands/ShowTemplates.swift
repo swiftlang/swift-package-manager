@@ -156,7 +156,7 @@ struct ShowTemplates: AsyncSwiftCommand {
         let packageGraph = try await swiftCommandState
             .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
                 try await swiftCommandState.loadPackageGraph()
-            }
+        }
 
         let rootPackages = packageGraph.rootPackages.map(\.identity)
 

@@ -30,15 +30,10 @@ import XCBuildSupport
 
 import ArgumentParserToolInfo
 
-public struct SwiftScaffoldCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
-        commandName: "scaffold",
-        _superCommandName: "swift",
-        abstract: "Scaffold packages from templates.",
-        discussion: "SEE ALSO: swift run, swift package, swift test",
-        version: SwiftVersion.current.completeDisplayString,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
-
+extension SwiftPackageCommand {
+    public struct Scaffold: AsyncSwiftCommand {
+        public static let configuration = CommandConfiguration(
+            abstract: "Generate a new Swift package from a template.")
 
         @OptionGroup(visibility: .hidden)
         public var globalOptions: GlobalOptions
@@ -144,10 +139,10 @@ public struct SwiftScaffoldCommand: AsyncSwiftCommand {
             )
 
             let registryRequirement: PackageDependency.Registry.Requirement? =
-                try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
+            try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
 
             let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
-                try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
+            try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
 
             let resolvedTemplatePath = try await TemplatePathResolver(
                 source: templateSource,
@@ -289,7 +284,7 @@ public struct SwiftScaffoldCommand: AsyncSwiftCommand {
         public init() {}
 
     }
-
+}
 
 extension InitPackage.PackageType {
     init(from templateType: TargetDescription.TemplateType) throws {
