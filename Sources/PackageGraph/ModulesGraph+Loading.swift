@@ -78,7 +78,7 @@ extension ModulesGraph {
                         identity: dependency.identity,
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: []
+                        enabledTraits: root.enabledTraits[dependency.identity]
                     )
                 }
             }
@@ -104,15 +104,10 @@ extension ModulesGraph {
                             guard let conditionTraits = $0.condition?.traits else {
                                 return true
                             }
-                            return !conditionTraits.intersection(node.item.enabledTraits).isEmpty
+                            return !conditionTraits.intersection(node.item.enabledTraits ?? []).isEmpty
                         }.map(\.name)
 
-                        let calculatedTraits = try calculateEnabledTraits(
-                            parentPackage: node.item.identity,
-                            identity: dependency.identity,
-                            manifest: manifest,
-                            explictlyEnabledTraits: explictlyEnabledTraits.flatMap { Set($0) }
-                        )
+                        let calculatedTraits = try manifest.enabledTraits(using: explictlyEnabledTraits.flatMap { Set($0) }, node.item.identity.description)
 
                         return try KeyedPair(
                             GraphLoadingNode(
@@ -153,7 +148,10 @@ extension ModulesGraph {
             allNodes[$0.key] = $0.item
         } onDuplicate: { first, second in
             // We are unifying the enabled traits on duplicate
-            allNodes[first.key]?.enabledTraits.formUnion(second.item.enabledTraits)
+            // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
+            if let enabledTraits = second.item.enabledTraits {
+                allNodes[first.key]?.enabledTraits?.formUnion(enabledTraits)
+            }
         }
 
         // Create the packages.
@@ -184,7 +182,7 @@ extension ModulesGraph {
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope,
-                    enabledTraits: node.enabledTraits
+                    enabledTraits: node.enabledTraits ?? ["default"]
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
@@ -410,7 +408,7 @@ private func createResolvedPackages(
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
-            enabledTraits: node.enabledTraits,
+            enabledTraits: node.enabledTraits ?? ["default"],
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider
@@ -1449,7 +1447,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var products: [ResolvedProductBuilder] = []
 
     /// The enabled traits of this package.
-    var enabledTraits: Set<String> = []
+    var enabledTraits: Set<String> = ["default"]
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []

@@ -336,6 +336,10 @@ extension Manifest {
             let traitGuardedDeps = try target.dependencies.filter { dep in
                 let traits = dep.condition?.traits ?? []
 
+                // If traits is empty, then we must manually validate the explicitly enabled traits.
+                if traits.isEmpty {
+                    try validateEnabledTraits(enabledTraits)
+                }
                 // For each trait that is a condition on this target dependency, assure that
                 // each one is enabled in the manifest.
                 return try traits.allSatisfy({ try isTraitEnabled(.init(stringLiteral: $0), enabledTraits) })
@@ -433,14 +437,34 @@ extension Manifest {
     }
     /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
     public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>?) throws -> Bool {
-        let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)
-        let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
-            $0.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
-        })
+        if self.pruneDependencies {
+            let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)
+            let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
+                $0.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
+            })
 
-        // if there is a target dependency referenced by name and the package it originates from is unknown, default to
-        // tentatively marking the package dependency as used. to be resolved later on.
-        return foundKnownPackage || (!foundKnownPackage && !usedDependencies.unknownPackage.isEmpty)
+            // if there is a target dependency referenced by name and the package it originates from is unknown, default to
+            // tentatively marking the package dependency as used. to be resolved later on.
+            return foundKnownPackage || (!foundKnownPackage && !usedDependencies.unknownPackage.isEmpty)
+        } else {
+            // alternate path to compute trait-guarded package dependencies if the prune deps feature is not enabled
+            try validateEnabledTraits(enabledTraits)
+
+            let targetDependenciesForPackageDependency = self.targets.flatMap({ $0.dependencies })
+                .filter({
+                $0.package?.caseInsensitiveCompare(dependency.identity.description) == .orderedSame
+            })
+
+            // if target deps is empty, default to returning true here.
+            let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.compactMap({ $0.condition?.traits }).allSatisfy({
+                let condition = $0.subtracting(enabledTraits ?? [])
+                return !condition.isEmpty
+            })
+
+            let isUsedWithoutTraitGuarding = !targetDependenciesForPackageDependency.filter({ $0.condition?.traits == nil }).isEmpty
+
+            return isUsedWithoutTraitGuarding || !isTraitGuarded
+        }
     }
 }
 

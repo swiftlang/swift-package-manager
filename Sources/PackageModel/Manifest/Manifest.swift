@@ -287,21 +287,18 @@ public final class Manifest: Sendable {
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
-            if pruneDependencies {
                 dependencies = try dependencies.filter({
-                    return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+                    let isUsed = try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+                    return isUsed
                 })
-            }
             return dependencies
         }
 
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
         if var dependencies = self._requiredDependencies[.nothing] {
-            if self.pruneDependencies {
                 dependencies = try dependencies.filter({
                     return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                 })
-            }
             return dependencies
         } else {
             var requiredDependencies: Set<PackageIdentity> = []
