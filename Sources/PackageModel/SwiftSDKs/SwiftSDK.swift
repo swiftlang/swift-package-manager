@@ -382,7 +382,10 @@ public struct SwiftSDK: Equatable {
             }
         }
 
-        public mutating func merge(with newConfiguration: PathsConfiguration<String>, relativeTo basePath: Path?) throws -> [String] where Path == Basics.AbsolutePath {
+        mutating func merge(
+            with newConfiguration: PathsConfiguration<String>,
+            relativeTo basePath: Path?
+        ) throws -> [String] where Path == Basics.AbsolutePath {
             var updatedProperties: [String] = []
             if let sdkRootPath = newConfiguration.sdkRootPath {
                 self.sdkRootPath = try AbsolutePath(validating: sdkRootPath, relativeTo: basePath)
