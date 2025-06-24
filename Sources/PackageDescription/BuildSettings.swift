@@ -203,6 +203,92 @@ public struct CSetting: Sendable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
+    
+    /// Controls how all C compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-Werror` or `-Wno-error`
+    /// to the C compiler.
+    ///
+    /// This setting applies to all warnings emitted by the C compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific C compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror=` or `-Wno-error=`
+    /// followed by the warning name to the C compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Enable a specific C compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "disableWarning", value: [name], condition: condition)
+    }
 }
 
 /// A CXX-language build setting.
@@ -272,6 +358,92 @@ public struct CXXSetting: Sendable {
     @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
+    }
+    
+    /// Controls how all C++ compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-Werror` or `-Wno-error`
+    /// to the C++ compiler.
+    ///
+    /// This setting applies to all warnings emitted by the C++ compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific C++ compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror=` or `-Wno-error=`
+    /// followed by the warning name to the C++ compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Enable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "disableWarning", value: [name], condition: condition)
     }
 }
 
@@ -463,6 +635,54 @@ public struct SwiftSetting: Sendable {
     ) -> SwiftSetting {
         return SwiftSetting(
             name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
+    }
+
+    /// Controls how all Swift compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-warnings-as-errors` or `-no-warnings-as-errors`
+    /// to the Swift compiler.
+    ///
+    /// This setting applies to all warnings emitted by the Swift compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific Swift compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror` or `-Wwarning`
+    /// followed by the warning name to the Swift compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
     }
 
     /// Set the default isolation to the given global actor type.

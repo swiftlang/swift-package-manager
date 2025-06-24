@@ -363,11 +363,18 @@ public final class ClangModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args += ["-w"]
-            // `-w` (suppress warnings) and `-Werror` (warnings as errors) flags are mutually exclusive
-            if let index = args.firstIndex(of: "-Werror") {
-                args.remove(at: index)
+            // `-w` (suppress warnings) and the other warning control flags are mutually exclusive
+            args = args.filter { arg in
+                // we consider the following flags:
+                // -Wxxxx
+                // -Wno-xxxx
+                // -Werror
+                // -Werror=xxxx
+                // -Wno-error
+                // -Wno-error=xxxx
+                arg.count <= 2 || !arg.starts(with: "-W")
             }
+            args += ["-w"]
         }
 
         return args
