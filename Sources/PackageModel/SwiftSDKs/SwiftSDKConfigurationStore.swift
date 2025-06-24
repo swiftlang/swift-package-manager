@@ -169,7 +169,7 @@ public final class SwiftSDKConfigurationStore {
         if let targetTriple = targetTriple {
             targetTriples = try [Triple(targetTriple)]
         } else {
-            // when target-triple is unspecified, configure every triple for the SDK
+            // when `targetTriple` is unspecified, configure every triple for the SDK
             let validBundles = try self.swiftSDKs(for: sdkID)
             targetTriples = validBundles.compactMap(\.targetTriple)
             if targetTriples.isEmpty {
