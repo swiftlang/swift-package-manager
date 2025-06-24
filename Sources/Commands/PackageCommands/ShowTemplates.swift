@@ -151,6 +151,7 @@ struct ShowTemplates: AsyncSwiftCommand {
             }
         }
 
+
         // Load the package graph.
         let packageGraph = try await swiftCommandState
             .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
@@ -172,10 +173,13 @@ struct ShowTemplates: AsyncSwiftCommand {
         switch self.format {
         case .flatlist:
             for template in templates.sorted(by: { $0.name < $1.name }) {
+                let description = try await swiftCommandState.withTemporaryWorkspace(switchingTo: resolvedTemplatePath) {_,  _ in
+                    try await getDescription(swiftCommandState, template: template.name)
+                }
                 if let package = template.package {
-                    print("\(template.name) (\(package))")
+                    print("\(template.name) (\(package)) : \(description)")
                 } else {
-                    print(template.name)
+                    print("\(template.name) : \(description)")
                 }
             }
 
@@ -186,6 +190,35 @@ struct ShowTemplates: AsyncSwiftCommand {
                 print(output)
             }
         }
+    }
+
+    private func getDescription(_ swiftCommandState: SwiftCommandState, template: String) async throws -> String {
+        let workspace = try swiftCommandState.getActiveWorkspace()
+        let root = try swiftCommandState.getWorkspaceRoot()
+
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
+        guard let rootManifest = rootManifests.values.first else {
+            throw InternalError("invalid manifests at \(root.packages)")
+        }
+
+        let products = rootManifest.products
+        let targets = rootManifest.targets
+
+        for _ in products {
+            if let target: TargetDescription = targets.first(where: { $0.name == template }) {
+                if let options = target.templateInitializationOptions {
+                    if case .packageInit(_, _, let description) = options {
+                            return description
+                    }
+                }
+            }
+        }
+        throw InternalError(
+            "Could not find template \(template)"
+        )
     }
 
     /// Represents a discovered template.
