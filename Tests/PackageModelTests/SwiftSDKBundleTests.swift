@@ -602,7 +602,13 @@ final class SwiftSDKBundleTests: XCTestCase {
         do {
             let (config, _) = try await createConfigurationStore()
             let args = SwiftSDK.PathsConfiguration<String>()
-            let configSuccess = try config.configure(sdkID: testArtifactID, targetTriple: nil, showConfiguration: false, resetConfiguration: false, config: args)
+            let configSuccess = try config.configure(
+                sdkID: testArtifactID,
+                targetTriple: nil,
+                showConfiguration: false,
+                resetConfiguration: false,
+                config: args
+            )
             XCTAssertEqual(configSuccess, false, "Expected failure for SwiftSDKConfigurationStore.configure with no updated properties")
         }
 
