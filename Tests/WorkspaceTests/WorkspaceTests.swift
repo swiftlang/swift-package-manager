@@ -9231,6 +9231,11 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2.zip.zip",
                             checksum: "a3"
                         ),
+                        MockTarget(
+                            name: "A4",
+                            type: .binary,
+                            path: "a4.zip"
+                        ),
                     ],
                     products: []
                 ),
