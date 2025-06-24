@@ -333,7 +333,10 @@ public struct SwiftSDK: Equatable {
         /// - Parameters:
         ///   - properties: properties of a Swift SDK for the given triple.
         ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
-        fileprivate init(_ properties: SwiftSDKMetadataV4.TripleProperties, swiftSDKDirectory: Basics.AbsolutePath? = nil) throws where Path == Basics.AbsolutePath {
+        fileprivate init(
+            _ properties: SwiftSDKMetadataV4.TripleProperties, 
+            swiftSDKDirectory: Basics.AbsolutePath? = nil
+        ) throws where Path == Basics.AbsolutePath {
             self.init(
                 sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
                 swiftResourcesPath: try properties.swiftResourcesPath.map {
