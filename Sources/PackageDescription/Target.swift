@@ -1286,7 +1286,7 @@ public extension [Target] {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [Target.PluginUsage]? = nil,
-        initialType: Target.TemplateType,
+        initialPackageType: Target.TemplateType = .empty,
         templatePermissions: [TemplatePermissions]? = nil,
         description: String
     ) -> [Target] {
@@ -1320,7 +1320,7 @@ public extension [Target] {
 
 
         let templateInitializationOptions = Target.TemplateInitializationOptions.packageInit(
-            templateType: initialType,
+            templateType: initialPackageType,
             templatePermissions: templatePermissions,
             description: description
         )
