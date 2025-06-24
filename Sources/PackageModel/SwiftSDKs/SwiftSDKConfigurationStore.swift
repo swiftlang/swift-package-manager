@@ -158,7 +158,15 @@ public final class SwiftSDKConfigurationStore {
         return true
     }
 
-    public func configure(
+    /// Configures the specified SDK and identified target triple with the configuration parameter.
+    /// - Parameters:
+    ///   - sdkID: ID of the Swift SDK to operate on.
+    ///   - tripleString: run-time triple for which the properties should be configured, or nil to configure all triples for the SDK
+    ///   - showConfiguration: if true, simply print the current configuration for the target triple(s)
+    ///   - resetConfiguration: if true, reset the configuration for the target triple(s)
+    ///   - config: the configuration parameters to set for for the target triple(s)
+    /// - Returns: `true` if custom configuration was successful, `false` if no configuration was performed.
+    package func configure(
         sdkID: String,
         targetTriple: String?,
         showConfiguration: Bool,
