@@ -10,7 +10,7 @@ Log in to a registry.
 ## Overview
 
 The package manager verifies the credentials using the registry service's login API.
-If it returns a successful response, the credentials are persisted to the operating system's credential store (for example, Keychain in macOS), or the user-level netrc file otherwise (which by default is located at `~/.netrc`).
+If it returns a successful response, the credentials are persisted to the operating system's credential store (for example, Keychain in macOS). On non-macOS platforms, or if the `--netrc` flag is provided, the credentials are persisted to the user-level .netrc (which by default is located at `~/.netrc`).
 The user-level configuration file located at ~/.swiftpm/configuration/registries.json is also updated.
 
 The `url` should be the registry's base URL (for example, `https://example-registry.com`).

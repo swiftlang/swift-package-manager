@@ -9,13 +9,13 @@ Publish to a registry.
 
 ## Overview
 
-This command creates source archive for the package release, optionally signs the package release, and [publishes the package release](<doc:RegistryServerSpecification#4.6.-Create-a-package-release>) to the registry.
+This command creates a source archive for the package release, optionally signs it, and finally [publishes the package release](<doc:RegistryServerSpecification#4.6.-Create-a-package-release>) to the registry.
 
 If authentication is required for package publication, package authors should [configure registry login](<doc:UsingSwiftPackageRegistry#Registry-authentication>) before running `publish`.
 
 ### Publisher TOFU
 
-Some certificates allow Package manager to extract additional information about the signing identity. For packages signed with these certificates, package manager performs publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
+Some certificates allow the package manager to extract additional information about the signing identity. For packages signed with these certificates, package manager performs publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
 
 The `--resolver-signing-entity-checking` option controls whether a publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
 

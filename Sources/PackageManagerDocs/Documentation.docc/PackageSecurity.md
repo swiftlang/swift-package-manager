@@ -27,10 +27,10 @@ under the `~/.swiftpm/security/fingerprints` directory.
   - For a registry package, the fingerprint filename takes the form of `{PACKAGE_ID}.json` (such as `mona.LinkedList.json`).
 
 For packages retrieved from a registry, the package manager expects all registries to provide consistent fingerprints for packages they host.
-If the archive is downloaded for the first time, Package manager [fetches metadata of the package release](<doc:RegistryServerSpecification#4.2.-Fetch-information-about-a-package-release>) to obtain the expected checksum.
+If the archive is downloaded for the first time, the package manager [fetches metadata of the package release](<doc:RegistryServerSpecification#4.2.-Fetch-information-about-a-package-release>) to obtain the expected checksum.
 Otherwise, the package manager compares the checksum with that in local storage (`~/.swiftpm/security/fingerprints/`), saved from previous download.
 
-If registries have conflicting fingerprints, Package manager reports an error.
+If registries have conflicting fingerprints, the package manager reports an error.
 You can reduce the error to a warning by setting the [build](<doc:SwiftBuild>) option `--resolver-fingerprint-checking` to `warn` (default is `strict`).
 
 ### Package signing
@@ -51,7 +51,7 @@ For more information on signed registry packages, see <doc:UsingSwiftPackageRegi
 
 ##### Validating signed packages
 
-Package manager determines if a downloaded archive is signed by checking for presence of the `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature` headers in the HTTP response.
+The package manager determines if a downloaded archive is signed by checking for presence of the `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature` headers in the HTTP response.
 
 It then performs a series of validations based on user's [security configuration](<doc:UsingSwiftPackageRegistry#Security-configuration>).
 - If the archive is unsigned, the package manager will error/prompt/warn/allow based on the `signing.onUnsigned` configuration. 

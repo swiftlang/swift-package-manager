@@ -8,11 +8,11 @@ Learn to create, publish and use Swift package collections.
 
 ## Overview
 
-Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that package manager can import to make discovery of existing packages easier. 
+Package collections, introduced by [SE-0291](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0291-package-collections.md), are curated lists of packages and associated metadata that you can import to make discovery of existing packages easier. 
 
 Educators and community influencers can publish package collections to go along with course materials or blog posts, making it easier for their readers to use packages for the first time, or choosing which packages to use for a particular task. 
 Enterprises may use collections to provide a trusted set of packages, or a collection of packages consistently used by a team.
-Author a package collection as a static JSON document and publish it to the web or distribute it on a local file system.
+You can author a package collection as a static JSON document and publish it to the web or distribute it on a local file system.
 
 ### Using the package-collection CLI
 
@@ -62,7 +62,7 @@ To begin, define the top-level metadata about the collection:
 Each item in the `packages` array is a package object with the following properties:
 
 * `url`: The URL of the package. Currently only Git repository URLs are supported. URL should be HTTPS and may contain `.git` suffix.
-* `identity`: The [identity](<doc:RegistryServerSpecification#3.6.-Package-identification>) of the package if published to registry. **Optional.**
+* `identity`: The [identity](<doc:RegistryServerSpecification#3.6.-Package-identification>) of the package if published to a registry. **Optional.**
 * `summary`: A description of the package. **Optional.**
 * `keywords`: An array of keywords that the package is associated with. **Optional.**
 * `readmeURL`: The URL of the package's README. **Optional.**
@@ -153,7 +153,7 @@ The keys of the `manifests` map are Swift tools (semantic) versions:
 
 ### Version-specific tags
 
- [Version-specific tags](<doc:SwiftVersionSpecificPackaging#Version-specific-tags-when-resolving-remote-dependencies>) are not supported by package collections.
+[Version-specific tags](<doc:SwiftVersionSpecificPackaging#Version-specific-tags-when-resolving-remote-dependencies>) are not supported by package collections.
 
 ### Configuration File
 
