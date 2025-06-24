@@ -140,13 +140,13 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
                 librarySearchPaths: self.librarySearchPath,
                 toolsetPaths: self.toolsetPath
             )
-            if try configurationStore.configure(
+            if try !configurationStore.configure(
                 sdkID: sdkID,
                 targetTriple: targetTriple,
                 showConfiguration: shouldShowConfiguration,
                 resetConfiguration: shouldReset,
                 config: config
-            ) == false {
+            ) {
                 throw ExitCode.failure
             }
         } catch {
