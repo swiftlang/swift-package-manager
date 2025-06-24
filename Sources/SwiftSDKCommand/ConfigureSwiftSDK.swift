@@ -132,120 +132,22 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
                 hostTimeTriple: triple,
                 swiftSDKBundleStore: bundleStore
             )
-
-            let targetTriples: [Triple]
-            if let targetTriple = self.targetTriple {
-                targetTriples = try [Triple(targetTriple)]
-            } else {
-                // when target-triple is unspecified, configure every triple for the SDK
-                let validBundles = try configurationStore.swiftSDKs(for: sdkID)
-                targetTriples = validBundles.compactMap(\.targetTriple)
-                if targetTriples.isEmpty {
-                    throw SwiftSDKError.swiftSDKNotFound(
-                        artifactID: sdkID,
-                        hostTriple: triple,
-                        targetTriple: nil
-                    )
-                }
-            }
-
-            for targetTriple in targetTriples {
-            guard let swiftSDK = try configurationStore.readConfiguration(
+            let config = SwiftSDK.PathsConfiguration(
+                sdkRootPath: self.sdkRootPath,
+                swiftResourcesPath: self.swiftResourcesPath,
+                swiftStaticResourcesPath: self.swiftStaticResourcesPath,
+                includeSearchPaths: self.includeSearchPath,
+                librarySearchPaths: self.librarySearchPath,
+                toolsetPaths: self.toolsetPath
+            )
+            if try configurationStore.configure(
                 sdkID: sdkID,
-                targetTriple: targetTriple
-            ) else {
-                throw SwiftSDKError.swiftSDKNotFound(
-                    artifactID: sdkID,
-                    hostTriple: triple,
-                    targetTriple: targetTriple
-                )
-            }
-
-            if self.shouldShowConfiguration {
-                print(swiftSDK.pathsConfiguration)
-                return
-            }
-
-            var configuration = swiftSDK.pathsConfiguration
-            if self.shouldReset {
-                if try !configurationStore.resetConfiguration(sdkID: sdkID, targetTriple: targetTriple) {
-                    observabilityScope.emit(
-                        warning: "No configuration for Swift SDK `\(sdkID)`"
-                    )
-                } else {
-                    observabilityScope.emit(
-                        info: """
-                        All configuration properties of Swift SDK `\(sdkID)` for target triple \
-                        `\(targetTriple)` were successfully reset.
-                        """
-                    )
-                }
-            } else {
-                var updatedProperties = [String]()
-
-                let currentWorkingDirectory: AbsolutePath? = fileSystem.currentWorkingDirectory
-
-                if let sdkRootPath {
-                    configuration.sdkRootPath = try AbsolutePath(validating: sdkRootPath, relativeTo: currentWorkingDirectory)
-                    updatedProperties.append(CodingKeys.sdkRootPath.stringValue)
-                }
-
-                if let swiftResourcesPath {
-                    configuration.swiftResourcesPath =
-                        try AbsolutePath(validating: swiftResourcesPath, relativeTo: currentWorkingDirectory)
-                    updatedProperties.append(CodingKeys.swiftResourcesPath.stringValue)
-                }
-
-                if let swiftStaticResourcesPath {
-                    configuration.swiftResourcesPath =
-                        try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: currentWorkingDirectory)
-                    updatedProperties.append(CodingKeys.swiftStaticResourcesPath.stringValue)
-                }
-
-                if !includeSearchPath.isEmpty {
-                    configuration.includeSearchPaths =
-                        try includeSearchPath.map { try AbsolutePath(validating: $0, relativeTo: currentWorkingDirectory) }
-                    updatedProperties.append(CodingKeys.includeSearchPath.stringValue)
-                }
-
-                if !librarySearchPath.isEmpty {
-                    configuration.librarySearchPaths =
-                        try librarySearchPath.map { try AbsolutePath(validating: $0, relativeTo: currentWorkingDirectory) }
-                    updatedProperties.append(CodingKeys.librarySearchPath.stringValue)
-                }
-
-                if !toolsetPath.isEmpty {
-                    configuration.toolsetPaths =
-                        try toolsetPath.map { try AbsolutePath(validating: $0, relativeTo: currentWorkingDirectory) }
-                    updatedProperties.append(CodingKeys.toolsetPath.stringValue)
-                }
-
-                guard !updatedProperties.isEmpty else {
-                    observabilityScope.emit(
-                        error: """
-                        No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
-                        since none were specified. Pass `--help` flag to see the list of all available properties.
-                        """
-                    )
-                    return
-                }
-
-                var swiftSDK = swiftSDK
-                swiftSDK.pathsConfiguration = configuration
-                swiftSDK.targetTriple = targetTriple
-                try configurationStore.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
-
-                observabilityScope.emit(
-                    info: """
-                    These properties of Swift SDK `\(sdkID)` for target triple \
-                    `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
-                    """
-                )
-            }            
-
-            if observabilityScope.errorsReported {
+                targetTriple: targetTriple,
+                showConfiguration: shouldShowConfiguration,
+                resetConfiguration: shouldReset,
+                config: config
+            ) == false {
                 throw ExitCode.failure
-            }
             }
         } catch {
             commandError = error
@@ -256,16 +158,6 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
 
         if let commandError {
             throw commandError
-        }
-    }
-}
-
-extension AbsolutePath {
-    fileprivate init(validating string: String, relativeTo basePath: AbsolutePath?) throws {
-        if let basePath {
-            try self.init(validating: string, relativeTo: basePath)
-        } else {
-            try self.init(validating: string)
         }
     }
 }
