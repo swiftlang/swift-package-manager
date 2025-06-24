@@ -218,9 +218,9 @@ public final class SwiftSDKConfigurationStore {
                 guard !updatedProperties.isEmpty else {
                     swiftSDKBundleStore.observabilityScope.emit(
                         error: """
-                    No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
-                    since none were specified. Pass `--help` flag to see the list of all available properties.
-                    """
+                        No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
+                        since none were specified. Pass `--help` flag to see the list of all available properties.
+                        """
                     )
                     return false
                 }
