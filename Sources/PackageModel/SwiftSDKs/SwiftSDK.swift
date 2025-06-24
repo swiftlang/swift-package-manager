@@ -115,8 +115,7 @@ extension SwiftSDKError: CustomStringConvertible {
                 """
             } else {
                 return """
-                Swift SDK with ID `\(artifactID)` is not \
-                currently installed.
+                Swift SDK with ID `\(artifactID)` is not currently installed.
                 """
             }
         case .swiftSDKBundleAlreadyInstalled(let bundleName):
