@@ -15822,7 +15822,7 @@ final class WorkspaceTests: XCTestCase {
                                 .product(
                                     name: "Boo",
                                     package: "Boo",
-                                    // Trait2 disabled; should generate unused dependency warning
+                                    // Trait2 disabled; should remove this dependency from graph
                                     condition: .init(traits: ["Trait2"])
                                 ),
                             ]
@@ -15873,14 +15873,16 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "Baz", "Foo", "Boo")
-                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+//                result.check(packages: "Baz", "Foo", "Boo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
-            testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
+//            testDiagnostics(diagnostics) { result in
+//                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
+//            }
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
@@ -16187,7 +16189,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'Foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
             }
         }
         await workspace.checkManagedDependencies { result in
