@@ -487,20 +487,15 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
-            try await withKnownIssue {
-                let (stdout, _) = try await executeSwiftPackage(
-                    fixturePath.appending("Package10"),
-                    extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
-                    buildSystem: buildSystem,
-                )
-                let path = String(stdout.split(whereSeparator: \.isNewline).first!)
-                let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-                #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-                #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
-            } when: {
-              buildSystem == .swiftbuild
-            }
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath.appending("Package10"),
+                extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
+                buildSystem: buildSystem,
+            )
+            let path = String(stdout.split(whereSeparator: \.isNewline).first!)
+            let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+            #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+            #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
         }
     }
 

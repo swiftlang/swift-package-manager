@@ -2802,16 +2802,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        #if os(Linux)
-        let osSuffix = "-linux"
-        #elseif os(Windows)
-        let osSuffix = "-windows"
-        #else
-        let osSuffix = ""
-        #endif
-
-        let debugTarget = self.buildSystemProvider == .native ? [".build", "debug", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Debug\(osSuffix)", "placeholder"]
-        let releaseTarget = self.buildSystemProvider == .native ? [".build", "release", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Release\(osSuffix)", "placeholder"]
+        let debugTarget = [".build", "debug", executableName("placeholder")]
+        let releaseTarget = [".build", "release", executableName("placeholder")]
 
         func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
             XCTAssert(
@@ -2845,10 +2837,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
-        if self.buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS {
-            throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-        }
-
         // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let _ = try await self.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
@@ -2879,8 +2867,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
-
-        if buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862") }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -2928,8 +2914,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, isEmpty)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }
-              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
@@ -2939,8 +2924,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, containsLogtext)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }
-              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
@@ -3478,11 +3462,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
-                if buildSystemProvider == .native {
-                    XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
-                    XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
-                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
-                }
+                XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
+                XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3501,9 +3483,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
-                if buildSystemProvider == .native {
-                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
-                }
+                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3514,11 +3494,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
@@ -3527,9 +3502,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                if buildSystemProvider == .native {
-                    XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
-                }
+                XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3540,11 +3513,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -3553,9 +3521,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                if buildSystemProvider == .native {
-                    XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
-                }
+                XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3570,11 +3536,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
         }
     }
@@ -4136,14 +4097,9 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testNoParameters() async throws {
         try await super.testNoParameters()
     }
-
-    override func testCommandPluginSymbolGraphCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Symbol graph extraction does not yet work with swiftbuild build system")
-    }
-
-    override func testCommandPluginBuildingCallbacks() async throws {
-        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
-        try await super.testCommandPluginBuildingCallbacks()
+    
+    override func testCommandPluginBuildTestability() async throws {
+        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
     }
 
     override func testMigrateCommand() async throws {

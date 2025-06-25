@@ -317,8 +317,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         let workspaceInfo = try await session.workspaceInfo()
 
                         configuredTargets = try [pifTargetName].map { targetName in
-                            // TODO we filter dynamic targets until Swift Build doesn't give them to us anymore
-                            let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName && !TargetSuffix.dynamic.hasSuffix(id: GUID($0.guid)) }
+                            let infos = workspaceInfo.targetInfos.filter { $0.targetName == targetName }
                             switch infos.count {
                             case 0:
                                 self.observabilityScope.emit(error: "Could not find target named '\(targetName)'")
@@ -398,19 +397,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
                         case .taskStarted(let info):
                             try buildState.started(task: info)
-
                             if let commandLineDisplay = info.commandLineDisplayString {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)\n\(commandLineDisplay)")
                             } else {
                                 self.observabilityScope.emit(info: "\(info.executionDescription)")
-                            }
-
-                            if self.logLevel.isVerbose {
-                                if let commandLineDisplay = info.commandLineDisplayString {
-                                    self.outputStream.send("\(info.executionDescription)\n\(commandLineDisplay)")
-                                } else {
-                                    self.outputStream.send("\(info.executionDescription)")
-                                }
                             }
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
