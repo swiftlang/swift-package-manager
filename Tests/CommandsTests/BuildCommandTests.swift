@@ -1008,7 +1008,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue (isIntermittent: true) {
+        try await withKnownIssue {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
