@@ -7,6 +7,38 @@
 
 Publish to a registry.
 
+## Overview
+
+This command creates a source archive for the package release, optionally signs it, and finally [publishes the package release](<doc:RegistryServerSpecification#4.6.-Create-a-package-release>) to the registry.
+
+If authentication is required for package publication, package authors should [configure registry login](<doc:UsingSwiftPackageRegistry#Registry-authentication>) before running `publish`.
+
+### Publisher TOFU
+
+Some certificates allow the package manager to extract additional information about the signing identity. For packages signed with these certificates, package manager performs publisher TOFU (trust-on-first-use) to ensure the signer remains the same across all versions of the package. 
+
+The `--resolver-signing-entity-checking` option controls whether a publisher mismatch should result in a warning (`warn`) or error (`strict`). Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
+
+For more details on trust-on-first-use, see <doc:PackageSecurity#Trust-on-First-Use>.
+
+#### Package release metadata
+
+Package authors can specify a custom location of the package release metadata file by setting the `--metadata-path` option of the `publish` subcommand.
+Otherwise, package manager looks for a file named `package-metadata.json` in the package directory.
+
+Contents of the metadata file must conform to the [JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards) defined in SE-0391.
+
+Refer to the [registry specification](<doc:RegistryServerSpecification#4.2.2.-Package-release-metadata-standards>) for any additional requirements.
+
+#### Package signing
+ 
+If a registry requires signing, package authors need to sign the package release by either setting the `signing-identity` (for reading from operating system's identity store such as Keychain in macOS), or `private-key-path` and `cert-chain-paths` (for reading from files) options of the `publish` subcommand. 
+This allows Package manager to locate the signing key and certificate.
+
+For more information on package signing, see <doc:PackageSecurity#Signed-packages-from-a-registry>. 
+
+### Usage
+
 ```
 package-registry publish [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] <package-id> <package-version> [--url|registry-url=<url>] [--scratch-directory=<scratch-directory>] [--metadata-path=<metadata-path>]  [--signing-identity=<signing-identity>] [--private-key-path=<private-key-path>] [--cert-chain-paths=<cert-chain-paths>...] [--allow-insecure-http] [--dry-run] [--version] [--help]
 ```
