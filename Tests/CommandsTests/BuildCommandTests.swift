@@ -914,7 +914,7 @@ struct BuildCommandTestCases {
                 }
             }
         } when: {
-            ProcessInfo.hostOperatingSystem != .macOS && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1098,7 +1098,7 @@ struct BuildCommandTestCases {
                 #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
             }
         } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            [.swiftbuild, .xcode].contains(buildSystem) && ProcessInfo.hostOperatingSystem != .linux
         }
     }
 
