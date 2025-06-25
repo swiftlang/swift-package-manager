@@ -87,7 +87,7 @@ public protocol RepositoryProvider: Cancellable, Sendable {
     ///   - path: The destination path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) async throws
 
     /// Open the given repository.
     ///
@@ -164,7 +164,7 @@ public protocol RepositoryProvider: Cancellable, Sendable {
 /// documented. The behavior when this assumption is violated is undefined,
 /// although the expectation is that implementations should throw or crash when
 /// an inconsistency can be detected.
-public protocol Repository {
+public protocol Repository: Sendable {
     /// Get the list of tags in the repository.
     func getTags() throws -> [String]
 

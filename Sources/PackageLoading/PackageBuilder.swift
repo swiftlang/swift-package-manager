@@ -1286,6 +1286,96 @@ public final class PackageBuilder {
 
                 values = [version.rawValue]
 
+            case .treatAllWarnings(let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatAllWarnings")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-warnings-as-errors"
+                    case .warning: "-no-warnings-as-errors"
+                    }
+                    values = [flag]
+                }
+
+            case .treatWarning(let name, let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatWarning")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wwarning"
+                    }
+                    values = [flag, name]
+                }
+
+            case .enableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-W\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-W\(name)"]
+                case .swift, .linker:
+                    throw InternalError("enableWarning is supported by C/C++")
+                }
+
+            case .disableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-Wno-\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-Wno-\(name)"]
+                case .swift, .linker:
+                    throw InternalError("disableWarning is supported by C/C++")
+                }
+
             case .defaultIsolation(let isolation):
                 switch setting.tool {
                 case .c, .cxx, .linker:
