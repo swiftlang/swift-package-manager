@@ -51,7 +51,7 @@ extension Workspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
     public struct DependencyManifests {
         /// The package graph root.
-        let root: PackageGraphRoot
+        var root: PackageGraphRoot
 
         /// The dependency manifests in the transitive closure of root manifest.
         let dependencies: [(
@@ -212,10 +212,12 @@ extension Workspace {
             let rootDependenciesEnabledTraitsMap = root.dependencies
                 .reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
                     let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let conditionTraits = $0.condition?.traits else {
-                            return true
-                        }
-                        return !conditionTraits.intersection(allRootEnabledTraits).isEmpty
+//                        guard let conditionTraits = $0.condition?.traits else {
+//                            return true
+//                        }
+//                        return !conditionTraits.intersection(allRootEnabledTraits).isEmpty
+                        guard let condition = $0.condition else { return true }
+                        return condition.isSatisfied(by: Set(allRootEnabledTraits))
                     }.map(\.name)
 
                     if let explicitlyEnabledTraits {
@@ -234,7 +236,7 @@ extension Workspace {
                     identity: identity,
                     manifest: package.manifest,
                     productFilter: .everything,
-                    enabledTraits: traits //?? []
+                    enabledTraits: traits
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
@@ -247,7 +249,7 @@ extension Workspace {
                         identity: dependency.identity,
                         manifest: manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: traits //?? []
+                        enabledTraits: traits
                     )
                 }
             }
@@ -267,12 +269,10 @@ extension Workspace {
 
             var requiredIdentities: OrderedCollections.OrderedSet<PackageReference> = []
             _ = try transitiveClosure(inputNodes) { node in
-//                print("checking \(node.manifest.displayName) with traits \(node.enabledTraits)")
                 return try node.manifest.dependenciesRequired(for: node.productFilter, node.enabledTraits)
                     .compactMap { dependency in
                         let package = dependency.packageRef
 
-//                        print("checking if dep \(dependency.identity) is used in \(node.manifest.displayName) with traits \(node.enabledTraits)")
                         // Check if traits are guarding the dependency from being enabled.
                         // Also check whether we've enabled pruning unused dependencies.
                         let isDepUsed = try node.manifest.isPackageDependencyUsed(
@@ -333,10 +333,12 @@ extension Workspace {
 
                         // should calculate enabled traits here.
                         let explicitlyEnabledTraits = dependency.traits?.filter {
-                            guard let conditionTraits = $0.condition?.traits else {
-                                return true
-                            }
-                            return !conditionTraits.intersection(node.enabledTraits ?? []).isEmpty
+//                            guard let conditionTraits = $0.condition?.traits else {
+//                                return true
+//                            }
+//                            return !conditionTraits.intersection(node.enabledTraits ?? []).isEmpty
+                            guard let condition = $0.condition else { return true }
+                            return condition.isSatisfied(by: node.enabledTraits)
                         }.map(\.name)
 
                         return try manifestsMap[dependency.identity].map { manifest in
@@ -423,11 +425,13 @@ extension Workspace {
             let rootDependenciesEnabledTraitsMap = root.dependencies
                 .reduce(into: [PackageIdentity: Set<String>]()) { traitMap, dependency in
                     let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let conditionTraits = $0.condition?.traits else {
-                            return true
-                        }
-                        return !conditionTraits
-                            .intersection(workspace.configuration.traitConfiguration.enabledTraits ?? []).isEmpty
+//                        guard let conditionTraits = $0.condition?.traits else {
+//                            return true
+//                        }
+//                        return !conditionTraits
+//                            .intersection(workspace.configuration.traitConfiguration.enabledTraits ?? []).isEmpty
+                        guard let condition = $0.condition else { return true }
+                        return condition.isSatisfied(by: workspace.configuration.traitConfiguration.enabledTraits)
                     }.map(\.name)
 
                     if let explicitlyEnabledTraits {
@@ -596,7 +600,6 @@ extension Workspace {
 
         let rootManifests = try root.manifests.mapValues { manifest in
             let deps = try manifest.dependencies.filter { dep in
-//                guard configuration.pruneDependencies else { return true }
                 let enabledTraits = root.enabledTraits[manifest.packageIdentity]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
@@ -630,12 +633,23 @@ extension Workspace {
             lhs // prefer roots!
         })
 
+        var enabledTraitsMap = root.enabledTraits
+
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
-//                guard configuration.pruneDependencies else { return true }
+                // Calculate conditional traits for dependencies here; add to enabled traits map.
                 let enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
+                let explicitlyEnabledTraits = dep.traits?.filter {
+                    guard let condition = $0.condition else { return true }
+                    return condition.isSatisfied(by: enabledTraits)
+                }
+
+                // Add enabled traits dictated by the parent package
+                if let explicitlyEnabledTraits, !explicitlyEnabledTraits.isEmpty {
+                    enabledTraitsMap[dep.identity, default: []].formUnion(explicitlyEnabledTraits.map(\.name))
+                }
                 return isDepUsed
             }.map(\.packageRef)
         }.flatMap(\.self)
@@ -645,6 +659,21 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        var manifestMap: [PackageIdentity: Manifest] = firstLevelManifests
+
+        // Part of pre-computing unified traits is that we must load each dependency's manifest itself --
+        // to avoid redundancy of this task, store a manifestMap that will later be referenced by the
+        // below graph
+
+        for parentManifest in topLevelManifests.values {
+            try parentManifest.dependencies.forEach { dep in
+                if let enabledDependencyTraits = enabledTraitsMap[dep.identity], let depManifest = manifestMap[dep.identity] {
+                    let calculatedTraits = try depManifest.enabledTraits(using: enabledDependencyTraits, parentManifest.packageIdentity.description)
+                    enabledTraitsMap[dep.identity]?.formUnion(calculatedTraits ?? [])
+                }
+            }
+        }
+
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
         var loadedManifests = firstLevelManifests
@@ -652,7 +681,6 @@ extension Workspace {
             GraphLoadingNode,
             PackageIdentity
         >] = { node in
-//            observabilityScope.emit(warning: "entering with \(node.item.manifest.displayName) and enabled traits: \(node.item.enabledTraits)")
             // optimization: preload manifest we know about in parallel
             let dependenciesRequired = try node.item.manifest.dependenciesRequired(
                 for: node.item.productFilter,
@@ -668,28 +696,25 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-//            observabilityScope.emit(warning: "deps: \(dependenciesGuarded.count + dependenciesRequired.count)")
             return try (dependenciesRequired + dependenciesGuarded).compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
 
-                    // we also compare the location as this function may attempt to load
-                    // dependencies that have the same identity but from a different location
-                    // which is an error case we diagnose an report about in the GraphLoading part which
-                    // is prepared to handle the case where not all manifest are available
                     let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let conditionTraits = $0.condition?.traits else {
-                            return true
-                        }
-                        return !conditionTraits.intersection(node.item.enabledTraits ?? []).isEmpty
+                        guard let condition = $0.condition else { return true }
+                        return condition.isSatisfied(by: node.item.enabledTraits)
                     }.map(\.name)
-
-                    let usingTraits = explicitlyEnabledTraits.flatMap { Set($0) }
 
                     let calculatedTraits = try manifest.enabledTraits(
                         using: explicitlyEnabledTraits.flatMap { Set($0) },
                         node.item.identity.description
                     )
 
+                    enabledTraitsMap[manifest.packageIdentity, default: []].formUnion(calculatedTraits ?? [])
+
+                    // we also compare the location as this function may attempt to load
+                    // dependencies that have the same identity but from a different location
+                    // which is an error case we diagnose an report about in the GraphLoading part which
+                    // is prepared to handle the case where not all manifest are available
                     return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
                         try KeyedPair(
                             GraphLoadingNode(
@@ -709,9 +734,6 @@ extension Workspace {
 
         do {
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
-                // TODO bp: not sure if this is correct
-//                let isRoot = manifest.packageKind.isRoot
-//                let enabledTraits = isRoot ? root.enabledTraits[identity] : []
                 return try KeyedPair(
                     GraphLoadingNode(
                         identity: identity,
@@ -729,10 +751,7 @@ extension Workspace {
             ) {
                 allNodes[$0.key] = $0.item
             } onDuplicate: { old, new in
-                if let enabledTraits = new.item.enabledTraits {
-                    // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
-//                    allNodes[old.key]?.enabledTraits?.formUnion(enabledTraits)
-                }
+                // TODO bp
             }
         }
 
@@ -767,8 +786,13 @@ extension Workspace {
             dependencies.append((node.manifest, dependency, node.productFilter, fileSystem ?? self.fileSystem))
         }
 
+        // TODO bp: pass in new root here, with the updated enabledTraitsMap
+        var newRoot = root
+        newRoot.enabledTraits = enabledTraitsMap
+
         return DependencyManifests(
-            root: root,
+//            root: root,
+            root: newRoot,
             dependencies: dependencies,
             workspace: self,
             observabilityScope: observabilityScope

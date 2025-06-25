@@ -56,6 +56,7 @@ extension ModulesGraph {
         })
 
         let rootManifestNodes = try root.packages.map { identity, package in
+            // TODO bp
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
             let enabledTraits = root.enabledTraits[identity]
@@ -63,12 +64,7 @@ extension ModulesGraph {
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: calculateEnabledTraits(
-                    parentPackage: nil,
-                    identity: identity,
-                    manifest: package.manifest,
-                    explictlyEnabledTraits: enabledTraits
-                )
+                enabledTraits: enabledTraits
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
@@ -100,21 +96,16 @@ extension ModulesGraph {
                         // We are going to check the conditionally enabled traits here and enable them if
                         // required. This checks the current node and then enables the conditional
                         // dependencies of the dependency node.
-                        let explictlyEnabledTraits = dependency.traits?.filter {
-                            guard let conditionTraits = $0.condition?.traits else {
-                                return true
-                            }
-                            return !conditionTraits.intersection(node.item.enabledTraits ?? []).isEmpty
-                        }.map(\.name)
 
-                        let calculatedTraits = try manifest.enabledTraits(using: explictlyEnabledTraits.flatMap { Set($0) }, node.item.identity.description)
+                        // TODO bp: shouldn't need to do any traits computation here,
+                        // if we've successfully computed them in the PackageGraphRoot.
 
                         return try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: calculatedTraits
+                                enabledTraits: root.enabledTraits[manifest.packageIdentity]//calculatedTraits
                             ),
                             key: dependency.identity
                         )
@@ -148,10 +139,7 @@ extension ModulesGraph {
             allNodes[$0.key] = $0.item
         } onDuplicate: { first, second in
             // We are unifying the enabled traits on duplicate
-            // TODO bp: this may not be necessary anymore since we pre-compute all enabled and transitively enabled traits...?
-            if let enabledTraits = second.item.enabledTraits {
-                allNodes[first.key]?.enabledTraits?.formUnion(enabledTraits)
-            }
+            // TODO bp: to remove this, precompute traits elsewhere
         }
 
         // Create the packages.
