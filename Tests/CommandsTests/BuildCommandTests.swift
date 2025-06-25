@@ -910,7 +910,7 @@ struct BuildCommandTestCases {
                 }
             }
         } when: {
-            ProcessInfo.hostOperatingSystem != .macOS && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1008,7 +1008,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue (isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1094,7 +1094,7 @@ struct BuildCommandTestCases {
                 #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
             }
         } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            [.swiftbuild, .xcode].contains(buildSystem) && ProcessInfo.hostOperatingSystem != .linux
         }
     }
 
