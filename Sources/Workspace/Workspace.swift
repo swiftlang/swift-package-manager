@@ -1083,126 +1083,78 @@ extension Workspace {
         }
     }
 
-    /// Loads and returns manifests at the given paths.
-    @available(*, noasync, message: "Use the async alternative")
-    public func loadRootManifests(
-        packages: [AbsolutePath],
-        observabilityScope: ObservabilityScope,
-        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
-    ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
-            try await self.loadRootManifests(
-                packages: packages,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     /// Loads and returns manifest at the given path.
     public func loadRootManifest(
         at path: AbsolutePath,
         observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
-        try await withCheckedThrowingContinuation { continuation in
-            self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
-                continuation.resume(with: result)
-            }
+        let result = try await self.loadRootManifests(packages: [path], observabilityScope: observabilityScope)
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
         }
-    }
-
-    /// Loads and returns manifest at the given path.
-    public func loadRootManifest(
-        at path: AbsolutePath,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        self.loadRootManifests(packages: [path], observabilityScope: observabilityScope) { result in
-            completion(result.tryMap {
-                // normally, we call loadRootManifests which attempts to load any manifest it can and report errors via
-                // diagnostics
-                // in this case, we want to load a specific manifest, so if the diagnostics contains an error we want to
-                // throw
-                guard !observabilityScope.errorsReported else {
-                    throw Diagnostics.fatalError
-                }
-                guard let manifest = $0[path] else {
-                    throw InternalError("Unknown manifest for '\(path)'")
-                }
-                return manifest
-            })
+        guard let manifest = result[path] else {
+            throw InternalError("Unknown manifest for '\(path)'")
         }
-    }
-
-    /// Loads root package
-    public func loadRootPackage(at path: AbsolutePath, observabilityScope: ObservabilityScope) async throws -> Package {
-        try await withCheckedThrowingContinuation { continuation in
-            self.loadRootPackage(at: path, observabilityScope: observabilityScope) { result in
-                continuation.resume(with: result)
-            }
-        }
+        return manifest
     }
 
     /// Loads root package
     public func loadRootPackage(
         at path: AbsolutePath,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
-    ) {
-        self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
-            let result = result.tryMap { manifest -> Package in
-                let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
+        observabilityScope: ObservabilityScope
+    ) async throws -> Package {
 
-                // radar/82263304
-                // compute binary artifacts for the sake of constructing a project model
-                // note this does not actually download remote artifacts and as such does not have the artifact's type
-                // or path
-                let binaryArtifacts = try manifest.targets.filter { $0.type == .binary }
-                    .reduce(into: [String: BinaryArtifact]()) { partial, target in
-                        if let path = target.path {
-                            let artifactPath = try manifest.path.parentDirectory
-                                .appending(RelativePath(validating: path))
-                            guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
-                                fileSystem: self.fileSystem,
-                                path: artifactPath,
-                                observabilityScope: observabilityScope
-                            ) else {
-                                throw StringError("\(artifactPath) does not contain binary artifact")
-                            }
-                            partial[target.name] = BinaryArtifact(
-                                kind: artifactKind,
-                                originURL: .none,
-                                path: artifactPath
-                            )
-                        } else if let url = target.url.flatMap(URL.init(string:)) {
-                            let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
-                                .appending(RelativePath(validating: url.lastPathComponent))
-                            partial[target.name] = BinaryArtifact(
-                                kind: .unknown,
-                                originURL: url.absoluteString,
-                                path: fakePath
-                            )
-                        } else {
-                            throw InternalError("a binary target should have either a path or a URL and a checksum")
-                        }
+        let manifest = try await self.loadRootManifest(at: path, observabilityScope: observabilityScope)
+        let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
+
+        // radar/82263304
+        // compute binary artifacts for the sake of constructing a project model
+        // note this does not actually download remote artifacts and as such does not have the artifact's type
+        // or path
+        let binaryArtifacts = try manifest.targets.filter { $0.type == .binary }
+            .reduce(into: [String: BinaryArtifact]()) { partial, target in
+                if let path = target.path {
+                    let artifactPath = try manifest.path.parentDirectory
+                        .appending(RelativePath(validating: path))
+                    guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                        fileSystem: self.fileSystem,
+                        path: artifactPath,
+                        observabilityScope: observabilityScope
+                    ) else {
+                        throw StringError("\(artifactPath) does not contain binary artifact")
                     }
-
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    path: path,
-                    additionalFileRules: [],
-                    binaryArtifacts: binaryArtifacts,
-                    prebuilts: [:],
-                    fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope,
-                    // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
-                )
-                return try builder.construct()
+                    partial[target.name] = BinaryArtifact(
+                        kind: artifactKind,
+                        originURL: .none,
+                        path: artifactPath
+                    )
+                } else if let url = target.url.flatMap(URL.init(string:)) {
+                    let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
+                        .appending(RelativePath(validating: url.lastPathComponent))
+                    partial[target.name] = BinaryArtifact(
+                        kind: .unknown,
+                        originURL: url.absoluteString,
+                        path: fakePath
+                    )
+                } else {
+                    throw InternalError("a binary target should have either a path or a URL and a checksum")
+                }
             }
-            completion(result)
-        }
+
+        let builder = PackageBuilder(
+            identity: identity,
+            manifest: manifest,
+            productFilter: .everything,
+            path: path,
+            additionalFileRules: [],
+            binaryArtifacts: binaryArtifacts,
+            prebuilts: [:],
+            fileSystem: self.fileSystem,
+            observabilityScope: observabilityScope,
+            // For now we enable all traits
+            enabledTraits: Set(manifest.traits.map(\.name))
+        )
+        return try builder.construct()
     }
 
     public func loadPluginImports(
@@ -1268,24 +1220,6 @@ extension Workspace {
             enabledTraits: Set(manifest.traits.map(\.name))
         )
         return try builder.construct()
-    }
-
-    /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading
-    /// in a longer-lived program, like an IDE.
-    @available(*, noasync, message: "Use the async alternative")
-    public func loadPackage(
-        with identity: PackageIdentity,
-        packageGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping @Sendable (Result<Package, Error>) -> Void
-    ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
-            try await self.loadPackage(
-                with: identity,
-                packageGraph: packageGraph,
-                observabilityScope: observabilityScope
-            )
-        }
     }
 
     public func changeSigningEntityFromVersion(

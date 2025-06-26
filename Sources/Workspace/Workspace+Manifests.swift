@@ -19,7 +19,6 @@ import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SwiftVersion
 import class Basics.ThreadSafeKeyValueStore
-import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import struct OrderedCollections.OrderedDictionary
 import struct OrderedCollections.OrderedSet
@@ -1044,17 +1043,12 @@ extension Workspace {
         case .fileSystem:
             return nil
         case .custom:
-            let container = try await withCheckedThrowingContinuation { continuation in
-                self.packageContainerProvider.getContainer(
-                    for: package,
-                    updateStrategy: .never,
-                    observabilityScope: observabilityScope,
-                    on: .sharedConcurrent,
-                    completion: {
-                        continuation.resume(with: $0)
-                    }
-                )
-            }
+            let container = try await self.packageContainerProvider.getContainer(
+                for: package,
+                updateStrategy: .never,
+                observabilityScope: observabilityScope
+            )
+
             guard let customContainer = container as? CustomPackageContainer else {
                 observabilityScope.emit(error: "invalid custom dependency container: \(container)")
                 return nil

@@ -105,15 +105,11 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let metadata = try await registryClient.getPackageMetadata(package: identity)
         assert(metadata)
 
-        let metadataSync = try await withCheckedThrowingContinuation { continuation in
-            return registryClient.getPackageMetadata(
-                package: identity,
-                timeout: nil,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        let metadataSync = try await registryClient.getPackageMetadata(
+            package: identity,
+            timeout: nil,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         assert(metadataSync)
     }
 
@@ -427,16 +423,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let metadata = try await registryClient.getPackageVersionMetadata(package: identity, version: version)
         assert(metadata)
 
-        let metadataSync = try await withCheckedThrowingContinuation { continuation in
-            return registryClient.getPackageVersionMetadata(
-                package: identity,
-                version: version,
-                fileSystem: InMemoryFileSystem(),
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        let metadataSync = try await registryClient.getPackageVersionMetadata(
+            package: identity,
+            version: version,
+            fileSystem: InMemoryFileSystem(),
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         assert(metadataSync)
     }
 
@@ -640,15 +632,11 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         )
         assert(availableManifests)
 
-        let availableManifestsSync = try await withCheckedThrowingContinuation { continuation in
-            return registryClient.getAvailableManifests(
-                package: identity,
-                version: version,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        let availableManifestsSync = try await registryClient.getAvailableManifests(
+            package: identity,
+            version: version,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         assert(availableManifestsSync)
     }
 
@@ -1290,15 +1278,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         }
 
         do {
-            let manifestSync = try await withCheckedThrowingContinuation { continuation in
-                return registryClient.getManifestContent(
-                    package: identity,
-                    version: version,
-                    customToolsVersion: toolsVersion,
-                    observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent
-                ) { continuation.resume(with: $0) }
-            }
+            let manifestSync = try await registryClient.getManifestContent(
+                package: identity,
+                version: version,
+                customToolsVersion: toolsVersion,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
             let parsedToolsVersion = try ToolsVersionParser.parse(utf8String: manifestSync)
             #expect(parsedToolsVersion == expectedToolsVersion)
         }
@@ -2033,18 +2018,14 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         try assert(path)
 
         let syncPath = try! AbsolutePath(validating: "/\(identity)-\(version)-sync")
-        try await withCheckedThrowingContinuation { continuation in
-            registryClient.downloadSourceArchive(
-                package: identity,
-                version: version,
-                destinationPath: syncPath,
-                progressHandler: nil,
-                fileSystem: fileSystem,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        try await registryClient.downloadSourceArchive(
+            package: identity,
+            version: version,
+            destinationPath: syncPath,
+            progressHandler: nil,
+            fileSystem: fileSystem,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
 
         try assert(syncPath)
     }
@@ -2876,14 +2857,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
 
-        let syncIdentities = try await withCheckedThrowingContinuation { continuation in
-            registryClient.lookupIdentities(
-                scmURL: packageURL,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        let syncIdentities = try await registryClient.lookupIdentities(
+            scmURL: packageURL,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         #expect([PackageIdentity.plain("mona.LinkedList")] == syncIdentities)
     }
 
@@ -3066,14 +3043,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         )
         try await registryClient.login(loginURL: loginURL)
 
-        try await withCheckedThrowingContinuation { continuation in
-            registryClient.login(
-                loginURL: loginURL,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        try await registryClient.login(
+            loginURL: loginURL,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     @Test func handlesMissingCredentials() async throws {
@@ -3204,21 +3177,18 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
             let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
 
-            let result = try await withCheckedThrowingContinuation { continuation in
-                return registryClient.publish(
-                    registryURL: registryURL,
-                    packageIdentity: identity,
-                    packageVersion: version,
-                    packageArchive: archivePath,
-                    packageMetadata: metadataPath,
-                    signature: .none,
-                    metadataSignature: .none,
-                    signatureFormat: .none,
-                    fileSystem: localFileSystem,
-                    observabilityScope: ObservabilitySystem.NOOP,
-                    callbackQueue: .sharedConcurrent
-                ) { result in continuation.resume(with: result) }
-            }
+            let result = try await registryClient.publish(
+                registryURL: registryURL,
+                packageIdentity: identity,
+                packageVersion: version,
+                packageArchive: archivePath,
+                packageMetadata: metadataPath,
+                signature: .none,
+                metadataSignature: .none,
+                signatureFormat: .none,
+                fileSystem: localFileSystem,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
 
             #expect(result == .published(expectedLocation))
         }
@@ -3622,14 +3592,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let status = try await registryClient.checkAvailability(registry: registry)
         #expect(status == .available)
 
-        let syncStatus = try await withCheckedThrowingContinuation { continuation in
-            registryClient.checkAvailability(
-                registry: registry,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                completion: { continuation.resume(with: $0) }
-            )
-        }
+        let syncStatus = try await registryClient.checkAvailability(
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
         #expect(syncStatus == .available)
     }
 

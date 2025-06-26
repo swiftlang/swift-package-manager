@@ -394,7 +394,6 @@ struct PluginCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
-            callbackQueue: delegateQueue,
             delegate: pluginDelegate
         )
 

@@ -744,17 +744,11 @@ extension PackageContainerProvider {
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy = .always
     ) async throws -> PackageContainer {
-        try await withCheckedThrowingContinuation { continuation in
-            self.getContainer(
-                for: package,
-                updateStrategy: updateStrategy,
-                observabilityScope: ObservabilitySystem.NOOP,
-                on: .global(),
-                completion: {
-                  continuation.resume(with: $0)
-                }
-            )
-        }
+        try await self.getContainer(
+            for: package,
+            updateStrategy: updateStrategy,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 }
 
