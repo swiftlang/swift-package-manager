@@ -208,7 +208,7 @@ class ManifestTests: XCTestCase {
                     Trait '\(
                         trait
                             .name
-                    )' is not declared by package 'Foo'. There are no available traits declared by this package.
+                    )' is not declared by package 'foo' (Foo). There are no available traits declared by this package.
                     """)
                 }
             }
@@ -255,28 +255,28 @@ class ManifestTests: XCTestCase {
             // Test `isTraitEnabled` when the trait we're querying for does not exist.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), nil)) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "Trait1"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is the same non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is another non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExistPart2"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExistPart2' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExistPart2' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
@@ -320,14 +320,14 @@ class ManifestTests: XCTestCase {
             // When passed .disableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .disableAllTraits)) { error in
                 XCTAssertEqual("\(error)", """
-                    Disabled default traits on package 'Foo' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    Disabled default traits on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
             }
 
             // When passed .enableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .enabledTraits(["Trait1"]))) { error in
                 XCTAssertEqual("\(error)", """
-                    Traits [Trait1] have been enabled on package 'Foo' that declares no traits.
+                    Traits [Trait1] have been enabled on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
@@ -337,16 +337,16 @@ class ManifestTests: XCTestCase {
             // Enabled Traits when passed explicitly enabled traits list:
 
             // If given a parent package, and the enabled traits being passed don't exist:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: ["Trait1"], "Qux")) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: ["Trait1"], .init(identity: "qux"))) { error in
                 XCTAssertEqual("\(error)", """
-                    Package 'Qux' enables traits [Trait1] on package 'Foo' that declares no traits.
+                    Package 'qux' enables traits [Trait1] on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
             // If given a parent package, and the default traits are disabled:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: [], "Qux")) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: [], .init(identity: "qux"))) { error in
                 XCTAssertEqual("\(error)", """
-                    Disabled default traits by package 'Qux' on package 'Foo' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
             }
         }
@@ -388,11 +388,10 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-            // Assure that the guarded dependencies aren't pruned, since we haven't enabled it for this manifest.
+            // Assure that the trait-guarded dependencies pruned.
             XCTAssertEqual(
                 try manifest.dependenciesRequired(for: .everything, nil).map(\.identity.description).sorted(),
                 [
-                    "baz",
                     "buzz",
                 ]
             )

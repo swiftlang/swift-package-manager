@@ -17,6 +17,29 @@ import Foundation
 
 /// Validator methods that check the correctness of traits and their support as defined in the manifest.
 extension Manifest {
+    public struct PackageIdentifier: Hashable, CustomStringConvertible {
+        public var identity: String
+        public var name: String?
+
+        public init(identity: String, name: String? = nil) {
+            self.identity = identity
+            self.name = name
+        }
+
+        public init(_ parent: Manifest) {
+            self.identity = parent.packageIdentity.description
+            self.name = parent.displayName
+        }
+
+        public var description: String {
+            var result = "'\(identity)'"
+            if let name {
+                result.append(" (\(name))")
+            }
+            return result
+        }
+    }
+
     /// Determines whether traits are supported for this Manifest.
     public var supportsTraits: Bool {
         !self.traits.isEmpty
@@ -27,7 +50,7 @@ extension Manifest {
         guard !trait.isDefault else {
             if !supportsTraits {
                 throw TraitError.invalidTrait(
-                    package: self.displayName,
+                    package: .init(self),
                     trait: trait.name,
                     availableTraits: traits.map({ $0.name })
                 )
@@ -40,11 +63,11 @@ extension Manifest {
     }
 
     /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
-    private func validateTrait(_ trait: String, parentPackage: String? = nil) throws {
+    private func validateTrait(_ trait: String, parentPackage: PackageIdentifier? = nil) throws {
         guard trait != "default" else {
             if !supportsTraits {
                 throw TraitError.invalidTrait(
-                    package: self.displayName,
+                    package: .init(self),
                     trait: trait,
                     availableTraits: traits.map({ $0.name })
                 )
@@ -56,10 +79,10 @@ extension Manifest {
         // Check if the passed trait is a valid trait.
         if self.traits.first(where: { $0.name == trait }) == nil {
             throw TraitError.invalidTrait(
-                package: self.displayName,
+                package: .init(self),
                 trait: trait,
                 availableTraits: self.traits.map({ $0.name }),
-                parentPackage: parentPackage
+                parent: parentPackage
             )
         }
     }
@@ -69,13 +92,13 @@ extension Manifest {
     /// error indicating the issue will be thrown.
     private func validateEnabledTraits(
         _ explicitlyEnabledTraits: Set<String>?,
-        _ parentPackage: String? = nil
+        _ parentPackage: PackageIdentifier? = nil
     ) throws {
         guard supportsTraits else {
             if let explicitlyEnabledTraits, !explicitlyEnabledTraits.contains("default") {
                 throw TraitError.traitsNotSupported(
-                    parentPackage: parentPackage,
-                    package: self.displayName,
+                    parent: parentPackage,
+                    package: .init(self),
                     explicitlyEnabledTraits: explicitlyEnabledTraits.map({ $0 })
                 )
             }
@@ -97,8 +120,8 @@ extension Manifest {
             // We throw an error when default traits are disabled for a package without any traits
             // This allows packages to initially move new API behind traits once.
             throw TraitError.traitsNotSupported(
-                parentPackage: parentPackage,
-                package: displayName,
+                parent: parentPackage,
+                package: .init(self),
                 explicitlyEnabledTraits: enabledTraits.map({ $0 })
             )
         }
@@ -109,14 +132,14 @@ extension Manifest {
             switch traitConfiguration {
             case .disableAllTraits:
                 throw TraitError.traitsNotSupported(
-                    parentPackage: nil,
-                    package: displayName,
+                    parent: nil,
+                    package: .init(self),
                     explicitlyEnabledTraits: []
                 )
             case .enabledTraits(let traits):
                 throw TraitError.traitsNotSupported(
-                    parentPackage: nil,
-                    package: displayName,
+                    parent: nil,
+                    package: .init(self),
                     explicitlyEnabledTraits: traits.map({ $0 })
                 )
             case .enableAllTraits, .default:
@@ -188,7 +211,7 @@ extension Manifest {
     /// Calculates the set of all transitive traits that are enabled for this manifest using the passed set of
     /// explicitly enabled traits, and the parent package that defines the enabled traits for this package.
     /// This method is intended for use with non-root packages.
-    public func enabledTraits(using explicitlyEnabledTraits: Set<String>?, _ parentPackage: String?) throws -> Set<String>? {
+    public func enabledTraits(using explicitlyEnabledTraits: Set<String>?, _ parentPackage: PackageIdentifier?) throws -> Set<String>? {
         // If this manifest does not support traits, but the passed configuration either
         // disables default traits or enables non-default traits (i.e. traits that would
         // not exist for this manifest) then we must throw an error.
@@ -204,7 +227,6 @@ extension Manifest {
         }
 
         return enabledTraits
-
     }
 
     /// Determines if a trait is enabled with a given set of enabled traits.
@@ -235,7 +257,7 @@ extension Manifest {
 
             // If manifest does not define default traits, then throw an invalid trait error.
             throw TraitError.invalidTrait(
-                package: self.displayName,
+                package: .init(self),
                 trait: trait.name,
                 availableTraits: self.traits.map(\.name)
             )
@@ -268,7 +290,7 @@ extension Manifest {
 
             // If manifest does not define default traits, then throw an invalid trait error.
             throw TraitError.invalidTrait(
-                package: self.displayName,
+                package: .init(self),
                 trait: trait.name,
                 availableTraits: self.traits.map(\.name)
             )
@@ -283,7 +305,7 @@ extension Manifest {
     /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
     private func calculateAllEnabledTraits(
         explictlyEnabledTraits: Set<String>?,
-        _ parentPackage: String? = nil
+        _ parentPackage: PackageIdentifier? = nil
     ) throws -> Set<String> {
         try validateEnabledTraits(explictlyEnabledTraits, parentPackage)
         // This the point where we flatten the enabled traits and resolve the recursive traits
@@ -306,9 +328,9 @@ extension Manifest {
                     .flatMap { trait in
                         guard let traitDescription = traitsMap[trait] else {
                             throw TraitError.invalidTrait(
-                                package: self.displayName,
+                                package: .init(self),
                                 trait: trait,
-                                parentPackage: parentPackage
+                                parent: parentPackage
                             )
                         }
                         return traitDescription.enabledTraits
@@ -416,7 +438,7 @@ extension Manifest {
         target: String,
         _ dependency: TargetDescription.Dependency,
         enabledTraits: Set<String>?,
-        enableAllTraits: Bool = false
+        enableAllTraits: Bool = false // TODO bp: remove this parameter
     ) throws -> Bool {
         guard self.supportsTraits, !enableAllTraits else { return true }
         guard let target = self.targetMap[target] else { return false }
@@ -473,17 +495,17 @@ extension Manifest {
 public enum TraitError: Swift.Error {
     /// Indicates that an invalid trait was enabled.
     case invalidTrait(
-        package: String,
+        package: Manifest.PackageIdentifier,
         trait: String,
         availableTraits: [String] = [],
-        parentPackage: String? = nil
+        parent: Manifest.PackageIdentifier? = nil
     )
 
     /// Indicates that the manifest does not support traits, yet a method was called with a configuration of enabled
     /// traits.
     case traitsNotSupported(
-        parentPackage: String?,
-        package: String,
+        parent: Manifest.PackageIdentifier? = nil,
+        package: Manifest.PackageIdentifier,
         explicitlyEnabledTraits: [String]
     )
 }
@@ -495,9 +517,9 @@ extension TraitError: CustomStringConvertible {
             availableTraits = availableTraits.sorted()
             var errorMsg = "Trait '\(trait)'"
             if let parentPackage {
-                errorMsg += " enabled by parent package '\(parentPackage)'"
+                errorMsg += " enabled by parent package \(parentPackage)"
             }
-            errorMsg += " is not declared by package '\(package)'."
+            errorMsg += " is not declared by package \(package)."
             if availableTraits.isEmpty {
                 errorMsg += " There are no available traits declared by this package."
             } else {
@@ -510,21 +532,21 @@ extension TraitError: CustomStringConvertible {
             if explicitlyEnabledTraits.isEmpty {
                 if let parentPackage {
                     return """
-            Disabled default traits by package '\(parentPackage)' on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+            Disabled default traits by package \(parentPackage) on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
                 } else {
                     return """
-            Disabled default traits on package '\(package)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+            Disabled default traits on package \(package) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
                 }
             } else {
                 if let parentPackage {
                     return """
-                Package '\(parentPackage)' enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package '\(package)' that declares no traits.
+                Package \(parentPackage) enables traits [\(explicitlyEnabledTraits.joined(separator: ", "))] on package \(package) that declares no traits.
                 """
                 } else {
                     return """
-                Traits [\(explicitlyEnabledTraits.joined(separator: ", "))] have been enabled on package '\(package)' that declares no traits.
+                Traits [\(explicitlyEnabledTraits.joined(separator: ", "))] have been enabled on package \(package) that declares no traits.
                 """
                 }
             }

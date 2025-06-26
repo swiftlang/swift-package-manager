@@ -523,7 +523,7 @@ struct TraitTests {
             }
 
             let expectedErr = """
-                    error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
 
                     """
             #expect(stderr.contains(expectedErr))

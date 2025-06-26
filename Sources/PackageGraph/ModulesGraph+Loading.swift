@@ -170,7 +170,7 @@ extension ModulesGraph {
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope,
-                    enabledTraits: node.enabledTraits ?? ["default"]
+                    enabledTraits: node.enabledTraits ?? []//["default"] TODO bp
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
@@ -290,9 +290,12 @@ private func checkAllDependenciesAreUsed(
             // that can be configured by enabling traits e.g. the depdency has a trait for its logging
             // behaviour. This allows the root package to configure traits of transitive dependencies
             // without emitting an unused dependency warning.
-            if !dependency.enabledTraits.isEmpty {
+            if dependency.manifest.supportsTraits {
                 continue
             }
+//            if !dependency.enabledTraits.isEmpty {
+//                continue
+//            }
 
             // Make sure that any diagnostics we emit below are associated with the package.
             let packageDiagnosticsScope = observabilityScope.makeChildScope(
@@ -396,7 +399,7 @@ private func createResolvedPackages(
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
-            enabledTraits: node.enabledTraits ?? ["default"],
+            enabledTraits: node.enabledTraits /*?? []*/,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider
@@ -1435,7 +1438,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var products: [ResolvedProductBuilder] = []
 
     /// The enabled traits of this package.
-    var enabledTraits: Set<String> = ["default"]
+    var enabledTraits: Set<String>? //= ["default"] TODO bp
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
@@ -1459,7 +1462,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     init(
         _ package: Package,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>,
+        enabledTraits: Set<String>?,
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider

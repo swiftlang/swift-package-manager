@@ -323,7 +323,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
-                    packageIdentity: .plain(package.name),
+                    packageIdentity: .plain(package.name.lowercased()),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,

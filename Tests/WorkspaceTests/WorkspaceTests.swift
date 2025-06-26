@@ -2927,8 +2927,7 @@ final class WorkspaceTests: XCTestCase {
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                 location: settings.location,
                 requirement: .exact("1.5.0"),
-                productFilter: settings.productFilter,
-                traits: []
+                productFilter: settings.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest.createManifest(
@@ -16189,7 +16188,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'Foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' (Foo) is not declared by package 'baz' (Baz). The available traits declared by this package are: TraitFound."), severity: .error)
             }
         }
         await workspace.checkManagedDependencies { result in
@@ -16252,7 +16251,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
             }
         }
     }

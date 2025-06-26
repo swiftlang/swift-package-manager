@@ -4421,18 +4421,18 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 1)
-        testDiagnostics(observability.diagnostics) { result in
-            result.check(
-                diagnostic: "dependency 'package5' is not used by any target",
-                severity: .warning
-            )
-        }
+        XCTAssertEqual(observability.diagnostics.count, 0)
+//        testDiagnostics(observability.diagnostics) { result in
+//            result.check(
+//                diagnostic: "dependency 'package5' is not used by any target",
+//                severity: .warning
+//            )
+//        }
 
         PackageGraphTester(graph) { result in
             result.checkPackage("Package1") { package in
                 XCTAssertEqual(package.enabledTraits, ["Package1Trait3"])
-                XCTAssertEqual(package.dependencies.count, 3)
+                XCTAssertEqual(package.dependencies.count, 2)
             }
             result.checkTarget("Package1Target1") { target in
                 target.check(dependencies: "Package2Target1", "Package4Target1")

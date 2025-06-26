@@ -116,10 +116,24 @@ public struct PackageGraphRoot {
 
             // Calculate the enabled traits for each dependency of this root:
             manifest.dependencies.forEach { dependency in
-                if let traits = dependency.traits {
-                    let traitNames = traits.map(\.name)
-                    traitsMap[dependency.identity, default: []].formUnion(Set(traitNames))
+                // TODO bp: check for condition on the dependency traits here
+                let explicitlyEnabledTraits = dependency.traits?.filter({
+                    guard let condition = $0.condition else { return true }
+                    return condition.isSatisfied(by: enabledTraits)
+                }).map(\.name) //?? []
+                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
+
+                if let depTraits = traitsMap[dependency.identity] {
+                    enabledTraitsSet?.formUnion(depTraits)
                 }
+
+                // to fix with precompute fix here
+                traitsMap[dependency.identity] = enabledTraitsSet
+//
+//                if let traits = dependency.traits {
+//                    let traitNames = traits.map(\.name)
+//                    traitsMap[dependency.identity, default: []].formUnion(Set(traitNames))
+//                }
             }
         }
 
