@@ -68,7 +68,7 @@ final class AsyncProcessTests: XCTestCase {
         }
     }
 
-    func testPopenLegacyAsync() throws {
+    func testPopenLegacyAsync() async throws {
         #if os(Windows)
         let args = ["where.exe", "where"]
         let answer = "C:\\Windows\\System32\\where.exe"
@@ -76,23 +76,13 @@ final class AsyncProcessTests: XCTestCase {
         let args = ["whoami"]
         let answer = NSUserName()
         #endif
-        var popenResult: Result<AsyncProcessResult, Error>?
-        let group = DispatchGroup()
-        group.enter()
-        AsyncProcess.popen(arguments: args) { result in
-            popenResult = result
-            group.leave()
+        let processResult = try await withCheckedThrowingContinuation { continuation in
+            AsyncProcess.popen(arguments: args) { result in
+                continuation.resume(with: result)
+            }
         }
-        group.wait()
-        switch popenResult {
-        case .success(let processResult):
-            let output = try processResult.utf8Output()
-            XCTAssertTrue(output.hasPrefix(answer))
-        case .failure(let error):
-            XCTFail("error = \(error)")
-        case nil:
-            XCTFail()
-        }
+        let output = try processResult.utf8Output()
+        XCTAssert(output.hasPrefix(answer))
     }
 
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)

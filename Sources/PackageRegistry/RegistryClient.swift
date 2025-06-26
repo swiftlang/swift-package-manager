@@ -613,25 +613,6 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
-    @available(*, deprecated, message: "Use the async alternative")
-    public func getAvailableManifests(
-        package: PackageIdentity,
-        version: Version,
-        timeout: DispatchTimeInterval? = .none,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping @Sendable (Result<[String: (toolsVersion: ToolsVersion, content: String?)], Error>) -> Void
-    ) {
-        callbackQueue.asyncResult(completion) {
-            try await self.getAvailableManifests(
-                package: package,
-                version: version,
-                timeout: timeout,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     public func getManifestContent(
         package: PackageIdentity,
         version: Version,
