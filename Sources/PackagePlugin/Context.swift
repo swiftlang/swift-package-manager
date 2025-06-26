@@ -20,7 +20,9 @@ public struct PluginContext {
     public let package: Package
 
     /// The path of a writable directory into which the plugin or the build
-    /// commands it constructs can write anything it wants. This could include
+    /// commands it constructs can write anything it wants.
+    ///
+    /// This could include
     /// any generated source files that should be processed further, and it
     /// could include any caches used by the build tool or the plugin itself.
     /// The plugin is in complete control of what is written under this di-
@@ -35,7 +37,9 @@ public struct PluginContext {
     public let pluginWorkDirectory: Path
 
     /// The path of a writable directory into which the plugin or the build
-    /// commands it constructs can write anything it wants. This could include
+    /// commands it constructs can write anything it wants.
+    ///
+    /// This could include
     /// any generated source files that should be processed further, and it
     /// could include any caches used by the build tool or the plugin itself.
     /// The plugin is in complete control of what is written under this di-
@@ -50,6 +54,7 @@ public struct PluginContext {
     public let pluginWorkDirectoryURL: URL
 
     /// Looks up and returns the path of a named command line executable tool.
+    ///
     /// The executable must be provided by an executable target or a binary
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
@@ -81,7 +86,9 @@ public struct PluginContext {
         throw PluginContextError.toolNotFound(name: name)
     }
 
-    /// A mapping from tool names to their paths and triples. Not directly available
+    /// A mapping from tool names to their paths and triples.
+    ///
+    /// Not directly available
     /// to the plugin, but used by the `tool(named:)` API.
     let accessibleTools: [String: (path: URL, triples: [String]?)]
 
