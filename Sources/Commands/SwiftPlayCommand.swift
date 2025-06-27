@@ -153,22 +153,21 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                         originalWorkingDirectory: swiftCommandState.originalWorkingDirectory
                     )
                 }
-                
-                // Watch files for live updating
-                
-                guard let monitorURL = swiftCommandState.fileSystem.currentWorkingDirectory?.asURL else {
-                    print("[No cwd]")
-                    throw ExitCode.failure
-                }
-                
-                switch options.mode {
-                case .oneShot:
+
+                if options.mode == .oneShot || options.list {
+                    // Call playground helper then immediately exit
                     playAgain = false
                     helperProcess?.waitUntilExit()
-
-                case .liveUpdate:
+                }
+                else {
+                    // Live updating and re-running on file changes
                     playAgain = true
-                    
+
+                    guard let monitorURL = swiftCommandState.fileSystem.currentWorkingDirectory?.asURL else {
+                        print("[No cwd]")
+                        throw ExitCode.failure
+                    }
+
                     #if os(macOS)
                     // Monitor for file changes
                     var fileMonitor: FileMonitor? = nil
@@ -196,8 +195,8 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                     #endif
 
                     while(waitingForFileChanges) {
-                        sleep(1)
-                        
+                        try await Task.sleep(nanoseconds: 1_000_000_000)
+
                         // If Playground was running and it finished then stop playing
                         if let activeProcess = helperProcess, !activeProcess.isRunning {
                             waitingForFileChanges = false
