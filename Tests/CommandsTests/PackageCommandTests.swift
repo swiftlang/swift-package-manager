@@ -2845,10 +2845,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             AssertNotExists(fixturePath.appending(components: releaseTarget))
         }
 
-        if self.buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS {
-            throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-        }
-
         // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let _ = try await self.execute(["-c", "debug", "build-target", "build-release"], packagePath: fixturePath)
@@ -2879,8 +2875,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             await XCTAssertAsyncNoThrow(try await self.execute(["-c", "debug", "check-testability", "InternalModule", "debug", "true"], packagePath: fixturePath))
         }
-
-        if buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS { throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862") }
 
         // Overall configuration: debug, plugin build request: release -> without testability
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -3514,11 +3508,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("executable")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
@@ -3540,11 +3529,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("staticLibrary")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
 
             // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -3570,11 +3554,6 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     XCTFail("unimplemented assertion for --build-system xcode")
                 }
                 XCTAssertMatch(stdout, .and(.contains("artifact-kind:"), .contains("dynamicLibrary")))
-            } catch {
-                if ProcessInfo.hostOperatingSystem != .macOS && self.buildSystemProvider == .swiftbuild {
-                    throw XCTSkip("Failed to find dsymutil tool: https://github.com/swiftlang/swift-package-manager/issues/8862")
-                }
-                throw error
             }
         }
     }
