@@ -884,12 +884,16 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .SWBINTTODO("Swift build produces an error building the fixture for this test."),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue("SWBINTTODO: Swift build produces an error building the fixture for this test.") {
+         try await withKnownIssue(
+            "error produced for this fixture",
+            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
+        ) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
                 // compatible with whole module optimization` message, which should have a trailing newline.  Since that
@@ -1008,7 +1012,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
