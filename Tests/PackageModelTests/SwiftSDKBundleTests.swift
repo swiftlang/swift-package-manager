@@ -614,10 +614,16 @@ final class SwiftSDKBundleTests: XCTestCase {
 
         let targetTripleConfigPath = AbsolutePath("/sdks/configuration/\(testArtifactID)_\(targetTriple.tripleString).json")
 
+        #if os(Windows)
+        let sdkRootPath = "C:\\some\\sdk\\root\\path"
+        #else
+        let sdkRootPath = "/some/sdk/root/path"
+        #endif
+
         do {
             let (config, fileSystem) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
-            args.sdkRootPath = "/some/sdk/root/path"
+            args.sdkRootPath = sdkRootPath
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
                 targetTriple: targetTriple.tripleString,
@@ -638,7 +644,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         do {
             let (config, fileSystem) = try await createConfigurationStore()
             var args = SwiftSDK.PathsConfiguration<String>()
-            args.sdkRootPath = "/some/sdk/root/path"
+            args.sdkRootPath = sdkRootPath
             // an empty targetTriple will configure all triples
             let configSuccess = try config.configure(
                 sdkID: testArtifactID,
