@@ -346,7 +346,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .xcode:
                 return try XcodeBuildSystem(
@@ -355,7 +356,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .swiftbuild:
                 let pluginScriptRunner = DefaultPluginScriptRunner(
@@ -381,6 +383,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                         workDirectory: scratchDirectory.appending(component: "plugin-working-directory"),
                         disableSandbox: false
                     ),
+                    delegate: nil,
                 )
             }
         }

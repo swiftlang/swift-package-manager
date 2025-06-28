@@ -80,13 +80,16 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
+    public var hasIntegratedAPIDigesterSupport: Bool { false }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        delegate: BuildSystemDelegate?
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -94,6 +97,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
+        self.delegate = delegate
         self.isColorized = buildParameters.outputParameters.isColorized
         if let xcbuildTool = Environment.current["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
