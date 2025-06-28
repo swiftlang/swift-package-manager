@@ -30,7 +30,8 @@ extension BuildPlan {
             case is SwiftModule:
                 if case let .swift(dependencyTargetDescription)? = description {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                        // C languages clients should either import the module or include the compatibility header next to it.
+                        clangTarget.additionalFlags += ["-I", moduleMap.dirname]
                     }
                 }
 
