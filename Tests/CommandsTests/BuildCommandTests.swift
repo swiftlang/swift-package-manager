@@ -12,8 +12,8 @@
 
 import Foundation
 import Basics
-@testable import Commands
-@testable import CoreCommands
+import Commands
+import CoreCommands
 import PackageGraph
 import PackageLoading
 import PackageModel

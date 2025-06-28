@@ -17,11 +17,11 @@ import Foundation
 import PackageGraph
 
 import PackageLoading
-@testable import PackageModel
+import PackageModel
 import SPMBuildCore
 import _InternalTestSupport
 import _InternalBuildTestSupport
-@testable import XCBuildSupport
+import XCBuildSupport
 import XCTest
 
 final class PIFBuilderTests: XCTestCase {

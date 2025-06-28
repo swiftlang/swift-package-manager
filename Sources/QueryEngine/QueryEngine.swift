@@ -36,8 +36,8 @@ package func withQueryEngine(
 /// Cacheable computations engine. Currently the engine makes an assumption that computations produce same results for
 /// the same query values and write results to a single file path.
 package actor QueryEngine {
-    private(set) var cacheHits = 0
-    private(set) var cacheMisses = 0
+    package private(set) var cacheHits = 0
+    package private(set) var cacheMisses = 0
 
     package let fileSystem: any AsyncFileSystem
     package let httpClient = HTTPClient()
@@ -51,7 +51,7 @@ package actor QueryEngine {
     /// - Parameter fileSystem: Implementation of a file system this engine should use.
     /// - Parameter cacheLocation: Location of cache storage used by the engine.
     /// - Parameter logger: Logger to use during queries execution.
-    init(
+    package init(
         _ fileSystem: any AsyncFileSystem,
         _ observabilityScope: ObservabilityScope,
         cacheLocation: SQLite.Location

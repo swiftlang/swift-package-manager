@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import Build
+import Build
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageLoading
-@testable import PackageModel
+import PackageModel
 import SPMBuildCore
 import _InternalBuildTestSupport
 import _InternalTestSupport
