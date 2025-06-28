@@ -18,13 +18,13 @@ import struct TSCUtility.Versioning
 import FoundationNetworking
 #endif
 
-final class URLSessionHTTPClient: Sendable {
+package final class URLSessionHTTPClient: Sendable {
     private let dataSession: URLSession
     private let downloadSession: URLSession
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
-    init(configuration: URLSessionConfiguration = .default) {
+    package init(configuration: URLSessionConfiguration = .default) {
         let dataDelegateQueue = OperationQueue()
         dataDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
         dataDelegateQueue.maxConcurrentOperationCount = 1
@@ -52,7 +52,7 @@ final class URLSessionHTTPClient: Sendable {
     }
 
     @Sendable
-    func execute(
+    package func execute(
         _ request: HTTPClient.Request,
         progress: HTTPClient.ProgressHandler? = nil
     ) async throws -> LegacyHTTPClient.Response {
@@ -364,7 +364,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 }
 
 extension URLRequest {
-    init(_ request: LegacyHTTPClient.Request) {
+    package init(_ request: LegacyHTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string
         request.headers.forEach { header in

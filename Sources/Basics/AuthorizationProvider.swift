@@ -55,7 +55,7 @@ extension AuthorizationProvider {
 
 public final class NetrcAuthorizationProvider: AuthorizationProvider, AuthorizationWriter {
     // marked internal for testing
-    internal let path: AbsolutePath
+    package let path: AbsolutePath
     private let fileSystem: FileSystem
 
     private let cache = ThreadSafeKeyValueStore<String, (user: String, password: String)>()
@@ -140,7 +140,7 @@ public final class NetrcAuthorizationProvider: AuthorizationProvider, Authorizat
     }
 
     // marked internal for testing
-    internal var machines: [Basics.Netrc.Machine] {
+    package var machines: [Basics.Netrc.Machine] {
         // this ignores any errors reading the file
         // initial validation is done at the time of initializing the provider
         // and if the file becomes corrupt at runtime it will handle it gracefully
@@ -408,16 +408,16 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
         return item
     }
 
-    struct ProtocolHostPort: Hashable, CustomStringConvertible {
-        let `protocol`: String?
-        let host: String
-        let port: Int?
+    package struct ProtocolHostPort: Hashable, CustomStringConvertible {
+        package let `protocol`: String?
+        package let host: String
+        package let port: Int?
 
         var server: String {
             self.host
         }
 
-        var protocolCFString: CFString {
+        package var protocolCFString: CFString {
             // See
             // https://developer.apple.com/documentation/security/keychain_services/keychain_items/item_attribute_keys_and_values?language=swift
             // for a list of possible values for the `kSecAttrProtocol` attribute.
@@ -431,7 +431,7 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
             }
         }
 
-        init?(from url: URL) {
+        package init?(from url: URL) {
             guard let host = url.host?.lowercased(), !host.isEmpty else {
                 return nil
             }
@@ -441,7 +441,7 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
             self.port = url.port
         }
 
-        var description: String {
+        package var description: String {
             "\(self.protocol.map { "\($0)://" } ?? "")\(self.host)\(self.port.map { ":\($0)" } ?? "")"
         }
     }
@@ -452,7 +452,7 @@ public final class KeychainAuthorizationProvider: AuthorizationProvider, Authori
 
 public struct CompositeAuthorizationProvider: AuthorizationProvider {
     // marked internal for testing
-    internal let providers: [AuthorizationProvider]
+    package let providers: [AuthorizationProvider]
     private let observabilityScope: ObservabilityScope
 
     public init(_ providers: AuthorizationProvider..., observabilityScope: ObservabilityScope) {
