@@ -120,7 +120,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                    explicitProduct: explicitProduct,
+                    traitConfiguration: traitConfiguration,
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
