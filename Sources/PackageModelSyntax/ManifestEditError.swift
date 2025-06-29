@@ -24,6 +24,7 @@ package enum ManifestEditError: Error {
     case oldManifest(ToolsVersion, expected: ToolsVersion)
     case cannotAddSettingsToPluginTarget
     case existingDependency(dependencyName: String)
+    case existingPlugin(pluginName: String, taget: String)
 }
 
 extension ToolsVersion {
@@ -49,6 +50,8 @@ extension ManifestEditError: CustomStringConvertible {
             "plugin targets do not support settings"
         case .existingDependency(let name):
             "unable to add dependency '\(name)' because it already exists in the list of dependencies"
+        case .existingPlugin(let name, let taget):
+            "unable to add plugin '\(name)' to taget '\(taget)' because it already exists in the list of plugins"
         }
     }
 }
