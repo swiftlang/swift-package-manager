@@ -366,7 +366,6 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
 
     /// The directory containing public C headers, if applicable. This will
     /// only be set for targets that have a directory of a public headers.
-    @available(_PackageDescription, deprecated: 6.0)
     public let publicHeadersDirectoryURL: URL?
 
     /// Any custom linked libraries required by the module, as specified in the
