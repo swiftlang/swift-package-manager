@@ -905,6 +905,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    // MARK: - Manifest Assert Helpers
+
     // Helper function to arbitrarily assert on manifest content
     func assertManifest(_ packagePath: AbsolutePath, _ callback: (String) throws -> Void) throws {
         let manifestPath = packagePath.appending("Package.swift")
@@ -926,7 +928,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         initialManifest: String? = nil,
         url: String,
         requirementArgs: [String],
-        expectedManifestString: String,
+        expectedManifestString: String
     ) async throws {
         _ = try await execute(
             ["add-dependency", url] + requirementArgs,
@@ -935,6 +937,50 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         )
         try assertManifestContains(packagePath, expectedManifestString)
     }
+    // Helper function to assert add-target-plugin succeeds
+    func executeAddTargetPluginAndAssert(
+        packagePath: AbsolutePath,
+        initialManifest: String? = nil,
+        args: [String],
+        expectedManifestString: String
+    ) async throws {
+        _ = try await execute(
+            ["add-target-plugin"] + args,
+            packagePath: packagePath,
+            manifest: initialManifest
+        )
+        try assertManifestContains(packagePath, expectedManifestString)
+    }
+
+    // Helper function to assert add-target-plugin fails without modifying the manifest
+    func assertAddTargetPluginFails(
+        packagePath: AbsolutePath,
+        initialManifest: String? = nil,
+        args: [String],
+        expectedErrorContains: String
+    ) async throws {
+        await XCTAssertThrowsCommandExecutionError(
+            try await execute(
+                ["add-target-plugin"] + args,
+                packagePath: packagePath,
+                manifest: initialManifest
+            )
+        ) { error in
+            XCTAssertMatch(error.stderr, .contains(expectedErrorContains))
+        }
+    }
+
+    // Helper function to assert manifest does not contain a plugin entry
+    func assertManifestNotContains(
+        packagePath: AbsolutePath,
+        _ expected: String
+    ) throws {
+        try assertManifest(packagePath) { manifestContents in
+            XCTAssertNoMatch(manifestContents, .contains(expected))
+        }
+    }
+
+    // MARK: - Add Target Package
 
     func testPackageAddDifferentDependencyWithSameURLTwiceFails() async throws {
         try await testWithTemporaryDirectory { tmpPath in
@@ -1361,35 +1407,39 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    // MARK: - Add Target Plugin
+
     func testPackageAddPluginDependencyExternalPackage() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("PackageB")
             try fs.createDirectory(path)
 
-            try fs.writeFileContents(path.appending("Package.swift"), string:
-                """
-                // swift-tools-version: 5.9
-                import PackageDescription
-                let package = Package(
-                    name: "client",
-                    targets: [ .target(name: "library") ]
-                )
-                """
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library") ]
             )
-            try localFileSystem.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
+            """
+
+            try fs.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
                 """
                 public func Foo() { }
                 """
             )
 
-            _ = try await execute(["add-target-plugin", "--package", "other-package", "other-product", "library"], packagePath: path)
+            _ = try await execute(
+                ["add-target-plugin", "--package", "other-package", "other-product", "library"],
+                packagePath: path,
+                manifest: initialManifest
+            )
 
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let contents: String = try fs.readFileContents(manifest)
-
-            XCTAssertMatch(contents, .contains(#".plugin(name: "other-product", package: "other-package"#))
+            try assertManifestContains(
+                path,
+                #".plugin(name: "other-product", package: "other-package")"#
+            )
         }
     }
 
@@ -1399,33 +1449,32 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let path = tmpPath.appending("PackageB")
             try fs.createDirectory(path)
 
-            try fs.writeFileContents(path.appending("Package.swift"), string:
-                """
-                // swift-tools-version: 5.9
-                import PackageDescription
-                let package = Package(
-                    name: "client",
-                    targets: [ .target(name: "library") ]
-                )
-                """
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library") ]
             )
-            try localFileSystem.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
-                """
+            """
+            try fs.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string: """
                 public func Foo() { }
                 """
             )
 
-            try await assertExecuteCommandFails(
-                ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+            try await assertAddTargetPluginFails(
                 packagePath: path,
+                initialManifest: initialManifest,
+                args: ["--package", "other-package", "other-product", "library-that-does-not-exist"],
                 expectedErrorContains: "error: unable to find target named 'library-that-does-not-exist' in package"
             )
 
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let contents: String = try fs.readFileContents(manifest)
-
-            XCTAssertNoMatch(contents, .contains(#".plugin(name: "other-product", package: "other-package"#))
+            try assertManifestNotContains(
+                packagePath: path,
+                #".plugin(name: "other-product", package: "other-package")"#
+            )
         }
     }
 
@@ -1436,29 +1485,27 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let path = tmpPath.appending("PackageB")
             try fs.createDirectory(path)
 
-            try fs.writeFileContents(path.appending("Package.swift"), string:
-                """
-                // swift-tools-version: 5.9
-                import PackageDescription
-                let package = Package(
-                    name: "client",
-                    targets: [ .target(name: "library") ]
-                )
-                """
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library") ]
             )
-            try localFileSystem.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
-                """
+            """
+            try fs.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string: """
                 public func Foo() { }
                 """
             )
 
-            _ = try await execute(["add-target-plugin", "other-product", "library"], packagePath: path)
-
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let contents: String = try fs.readFileContents(manifest)
-
-            XCTAssertMatch(contents, .contains(#".plugin(name: "other-product"#))
+            try await executeAddTargetPluginAndAssert(
+                packagePath: path,
+                initialManifest: initialManifest,
+                args: ["other-product", "library"],
+                expectedManifestString: #".plugin(name: "other-product")"#
+            )
         }
     }
 
@@ -1468,35 +1515,112 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let path = tmpPath.appending("PackageB")
             try fs.createDirectory(path)
 
-            try fs.writeFileContents(path.appending("Package.swift"), string:
-                """
-                // swift-tools-version: 5.9
-                import PackageDescription
-                let package = Package(
-                    name: "client",
-                    targets: [ .target(name: "library") ]
-                )
-                """
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library") ]
             )
-            try localFileSystem.writeFileContents(path.appending(components: "Sources", "library", "library.swift"), string:
-                """
+            """
+            try fs.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string: """
                 public func Foo() { }
                 """
             )
 
-            try await assertExecuteCommandFails(
-                ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+            try await assertAddTargetPluginFails(
                 packagePath: path,
+                initialManifest: initialManifest,
+                args: ["--package", "other-package", "other-product", "library-that-does-not-exist"],
                 expectedErrorContains: "error: unable to find target named 'library-that-does-not-exist' in package"
             )
-
-            let manifest = path.appending("Package.swift")
-            XCTAssertFileExists(manifest)
-            let contents: String = try fs.readFileContents(manifest)
-
-            XCTAssertNoMatch(contents, .contains(#".plugin(name: "other-product"#))
+            try assertManifestNotContains(
+                packagePath: path,
+                #".plugin(name: "other-product"#
+            )
         }
     }
+
+    // MARK: Add Target Plugin Idempotency Tests
+    /// Adding the same external package plugin twice should have no effect
+    func testPackageAddSamePluginExternalPackageTwiceHasNoEffect() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library", plugins: [.plugin(name: "other-product", package: "other-package")]) ]
+            )
+            """
+            try fs.writeFileContents(path.appending("Package.swift"), string: initialManifest)
+            try fs.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string: """
+                public func Foo() { }
+                """
+            )
+
+            let expected = #".plugin(name: "other-product", package: "other-package")"#
+            try await executeAddTargetPluginAndAssert(
+                packagePath: path,
+                initialManifest: initialManifest,
+                args: ["--package", "other-package", "other-product", "library"],
+                expectedManifestString: expected
+            )
+
+            try assertManifest(path) { contents in
+                let comps = contents.components(separatedBy: expected)
+                XCTAssertEqual(comps.count, 2, "Expected the plugin entry to appear only once.")
+            }
+        }
+    }
+
+    /// Adding the same internal package plugin twice should have no effect
+    func testPackageAddSamePluginInternalPackageTwiceHasNoEffect() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            let initialManifest = """
+            // swift-tools-version: 5.9
+            import PackageDescription
+            let package = Package(
+                name: "client",
+                targets: [ .target(name: "library", plugins: [.plugin(name: "other-product")]) ]
+            )
+            """
+            try fs.writeFileContents(path.appending("Package.swift"), string: initialManifest)
+            try fs.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string: """
+                public func Foo() { }
+                """
+            )
+
+            let expected = #".plugin(name: "other-product")"#
+            try await executeAddTargetPluginAndAssert(
+                packagePath: path,
+                initialManifest: initialManifest,
+                args: ["other-product", "library"],
+                expectedManifestString: expected
+            )
+
+            try assertManifest(path) { contents in
+                let comps = contents.components(separatedBy: expected)
+                XCTAssertEqual(comps.count, 2, "Expected the plugin entry to appear only once.")
+            }
+        }
+    }
+
+    // MARK: - Add Target Product
 
     func testPackageAddProduct() async throws {
         try await testWithTemporaryDirectory { tmpPath in

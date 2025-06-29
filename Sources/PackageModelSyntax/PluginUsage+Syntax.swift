@@ -12,6 +12,7 @@
 
 import PackageModel
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 extension TargetDescription.PluginUsage: ManifestSyntaxRepresentable {
     func asSyntax() -> ExprSyntax {

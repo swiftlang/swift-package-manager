@@ -18,7 +18,7 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 
 /// Add a target plugin to a manifest's source code.
-public struct AddTargetPlugin {
+public enum AddTargetPlugin {
     /// The set of argument labels that can occur after the "plugins"
     /// argument in the various target initializers.
     ///
@@ -54,19 +54,33 @@ public struct AddTargetPlugin {
             }
 
             guard let stringLiteral = nameArgument.expression.as(StringLiteralExprSyntax.self),
-                let literalValue = stringLiteral.representedLiteralValue else {
+                let literalValue = stringLiteral.representedLiteralValue
+            else {
                 return false
             }
 
             return literalValue == targetName
         }
 
-        guard let targetCall = FunctionCallExprSyntax.findFirst(in: targetArray, matching: matchesTargetCall) else {
+        guard let targetCall = FunctionCallExprSyntax.findFirst(
+            in: targetArray,
+            matching: matchesTargetCall
+        ) else {
             throw ManifestEditError.cannotFindTarget(targetName: targetName)
         }
 
+        guard try !self.pluginAlreadyAdded(
+                plugin,
+                to: targetName,
+                in: targetCall
+            )
+        else {
+            return PackageEditResult(manifestEdits: [])
+        }
+
         let newTargetCall = try addTargetPluginLocal(
-            plugin, to: targetCall
+            plugin,
+            to: targetCall
         )
 
         return PackageEditResult(
@@ -76,16 +90,76 @@ public struct AddTargetPlugin {
         )
     }
 
-    /// Implementation of adding a target dependency to an existing call.
+    private static func pluginAlreadyAdded(
+        _ plugin: TargetDescription.PluginUsage,
+        to targetName: String,
+        in packageCall: FunctionCallExprSyntax
+    ) throws -> Bool {
+        let pluginSyntax = plugin.asSyntax()
+        guard let pluginFnSyntax = pluginSyntax.as(FunctionCallExprSyntax.self)
+        else {
+            throw ManifestEditError.cannotFindPackage
+        }
+
+        guard let id = pluginFnSyntax.arguments.first(where: {
+                $0.label?.text == "name"
+            })
+        else {
+            throw InternalError("Missing 'name' argument in plugin syntax")
+        }
+
+        if let existingPlugins = packageCall.findArgument(labeled: "plugins") {
+            // If we have an existing plugins array, we need to check if
+            if let expr = existingPlugins.expression.as(ArrayExprSyntax.self) {
+                // Iterate through existing plugins and look for an argument that matches
+                // the `name` argument of the new plugin.
+                let existingArgument = expr.elements.first { elem in
+                    if let funcExpr = elem.expression.as(
+                        FunctionCallExprSyntax.self
+                    ) {
+                        return funcExpr.arguments.contains {
+                            $0.with(\.trailingComma, nil).trimmedDescription ==
+                            id.with(\.trailingComma, nil).trimmedDescription
+                        }
+                    }
+                    return true
+                }
+
+                if let existingArgument {
+                    let normalizedExistingArgument = existingArgument.detached.with(\.trailingComma, nil)
+                    // This exact plugin already exists, return false to indicate we should do nothing.
+                    if normalizedExistingArgument.trimmedDescription == pluginSyntax.trimmedDescription {
+                        return true
+                    }
+                    throw ManifestEditError.existingPlugin(
+                        pluginName: plugin.identifier,
+                        taget: targetName
+                    )
+                }
+            }
+        }
+
+        return false
+    }
+
+    /// Implementation of adding a target plugin to an existing call.
     static func addTargetPluginLocal(
         _ plugin: TargetDescription.PluginUsage,
         to targetCall: FunctionCallExprSyntax
     ) throws -> FunctionCallExprSyntax {
         try targetCall.appendingToArrayArgument(
             label: "plugins",
-            trailingLabels: Self.argumentLabelsAfterDependencies,
+            trailingLabels: self.argumentLabelsAfterDependencies,
             newElement: plugin.asSyntax()
         )
     }
 }
 
+extension TargetDescription.PluginUsage {
+    fileprivate var identifier: String {
+        switch self {
+        case .plugin(let name, _):
+            name
+        }
+    }
+}

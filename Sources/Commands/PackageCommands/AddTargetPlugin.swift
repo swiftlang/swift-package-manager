@@ -20,6 +20,8 @@ import SwiftSyntax
 import TSCBasic
 import TSCUtility
 import Workspace
+import PackageGraph
+import Foundation
 
 extension SwiftPackageCommand {
     struct AddTargetPlugin: SwiftCommand {
