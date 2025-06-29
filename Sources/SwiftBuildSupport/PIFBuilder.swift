@@ -359,6 +359,11 @@ public final class PIFBuilder {
                             buildCommands: result.buildCommands.map( { buildCommand in
                                 var newEnv: Environment = buildCommand.configuration.environment
 
+                                // TODO decide on the precedence of these environment settings
+                                for (key, value) in Environment.current {
+                                    newEnv[key] = value
+                                }
+
                                 let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
 
                                 for libPath in runtimeLibPaths {
