@@ -107,23 +107,13 @@ private struct SwiftPMTests {
                 buildSystem: buildSystemProvider,
             )
 
-            try await withKnownIssue(
-                "Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory"
-            ) {
-                // The 'native' build system uses 'swiftc' as the linker driver, which adds an RUNPATH to the swift
-                // runtime libraries in the SDK.
-                // 'swiftbuild' directly calls clang, which does not add the extra RUNPATH, so runtime libraries cannot
-                // be found.
-                let runOutput = try await executeSwiftRun(
-                    packagePath,
-                    nil,
-                    buildSystem: buildSystemProvider,
-                )
-                #expect(!runOutput.stderr.contains("error:"))
-                #expect(runOutput.stdout.contains("Hello, world!"))
-            } when: {
-                (buildSystemProvider == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            }
+            let runOutput = try await executeSwiftRun(
+                packagePath,
+                nil,
+                buildSystem: buildSystemProvider,
+            )
+            #expect(!runOutput.stderr.contains("error:"))
+            #expect(runOutput.stdout.contains("Hello, world!"))
         }
     }
 
