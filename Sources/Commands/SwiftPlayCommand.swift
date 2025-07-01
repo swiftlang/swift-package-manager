@@ -86,6 +86,13 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         return .init(wantsPlaygroundProduct: true)
     }
 
+    private enum ProcessMonitorResult {
+        /// A source file was changed
+        case fileChanged
+        /// The monitored process exited
+        case processExited
+    }
+
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.playgroundName == "" && !options.list {
             throw ValidationError("Missing Playground name")
@@ -138,17 +145,16 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 }
 
                 // Hand off playground execution to the swiftpm-playground-helper
-                var helperProcess: Process? = nil
-                
+                var helperProcess: AsyncProcess? = nil
+
                 if buildSucceeded {
-                    // Build was successful so run the playground runner executable that we just built
+                    // Build was successful so launch the playground runner executable that we just built
                     let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: playgroundExecutableProduct.name)
                     let helperExecutablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
 
                     playAgain = false
                     
                     helperProcess = try self.play(
-                        fileSystem: swiftCommandState.fileSystem,
                         executablePath: helperExecutablePath,
                         originalWorkingDirectory: swiftCommandState.originalWorkingDirectory
                     )
@@ -157,7 +163,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 if options.mode == .oneShot || options.list {
                     // Call playground helper then immediately exit
                     playAgain = false
-                    helperProcess?.waitUntilExit()
+                    try await helperProcess?.waitUntilExit()
                 }
                 else {
                     // Live updating and re-running on file changes
@@ -170,47 +176,82 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
                     #if os(macOS)
                     // Monitor for file changes
-                    var fileMonitor: FileMonitor? = nil
+                    let fileMonitor: FileMonitor
                     do {
                         verboseLog("Monitoring files at \(monitorURL)")
-                        fileMonitor = try FileMonitor(url: monitorURL)
+                        fileMonitor = try FileMonitor(
+                            url: monitorURL,
+                            verboseLogging: globalOptions.logging.veryVerbose
+                        )
                     } catch {
                         print("FileMonitor failed for \(monitorURL): \(error)")
                         throw ExitCode.failure
                     }
+
                     defer {
-                        fileMonitor?.cancel()
-                        fileMonitor = nil
+                        fileMonitor.cancel()
                     }
                     #endif
                     
                     verboseLog("swift play waiting...")
-                    var waitingForFileChanges = true
                     
-                    #if os(macOS)
-                    fileMonitor?.onChange = {
-                        verboseLog("Files changed")
-                        waitingForFileChanges = false
+                    // Wait for either the process to finish or file changes to occur
+                    let result = await withTaskGroup(of: ProcessMonitorResult.self) { group in
+
+                        // Task to wait for process completion, if a process is running.
+                        // A process won't be running if the build fails, for example, but
+                        // we still want to watch for file changes below to re-build/re-run.
+                        if let helperProcess {
+                            group.addTask {
+                                do {
+                                    try await helperProcess.waitUntilExit()
+                                    return .processExited
+                                } catch {
+                                    verboseLog("Helper process exited with error: \(error)")
+                                    return .processExited
+                                }
+                            }
+                        }
+                        
+                        #if os(macOS)
+                        // Task to wait for file changes
+                        group.addTask {
+                            await fileMonitor.waitForChanges()
+                            return .fileChanged
+                        }
+                        #endif
+
+                        // Return the first result from either task
+                        let firstResult = await group.next()
+
+                        // Cancel remaining tasks
+                        group.cancelAll()
+
+                        // Kill helper process, so that its task ends
+                        helperProcess?.signal(SIGKILL)
+
+                        guard let result = firstResult else {
+                            // taskGroup returned no values so just return processCompleted
+                            return ProcessMonitorResult.processExited
+                        }
+
+                        return result
                     }
+
+                    #if os(macOS)
+                    // Clean up file monitor after task group completes
+                    fileMonitor.cancel()
                     #endif
 
-                    while(waitingForFileChanges) {
-                        try await Task.sleep(nanoseconds: 1_000_000_000)
-
-                        // If Playground was running and it finished then stop playing
-                        if let activeProcess = helperProcess, !activeProcess.isRunning {
-                            waitingForFileChanges = false
-                            playAgain = false
-                        }
+                    switch result {
+                    case .fileChanged:
+                        verboseLog("Files changed, restarting...")
+                        playAgain = true
+                    case .processExited:
+                        verboseLog("Process exited")
+                        playAgain = false
                     }
                 }
-
-                if let activeProcess = helperProcess, activeProcess.processIdentifier > 0 {
-                    verboseLog("killing pid \(activeProcess.processIdentifier)")
-                    kill(activeProcess.processIdentifier, SIGKILL)
-                }
-                helperProcess = nil
-                
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
@@ -219,35 +260,26 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
     /// Executes the Playground via the specified executable at the specified path.
     private func play(
-        fileSystem: FileSystem,
         executablePath: AbsolutePath,
-        originalWorkingDirectory: AbsolutePath) throws -> Process
-    {
-        // Make sure we are running from the original working directory.
-        let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
-        if cwd == nil || originalWorkingDirectory != cwd {
-            try ProcessEnv.chdir(originalWorkingDirectory)
-        }
-
+        originalWorkingDirectory: AbsolutePath
+    ) throws -> AsyncProcess {
         var helperArguments: [String] = []
         if options.mode == .oneShot {
             helperArguments.append("--one-shot")
         }
         helperArguments.append(options.list ? "--list" : options.playgroundName)
 
-        let helperProcess = Process()
-        helperProcess.executableURL = executablePath.asURL
-        helperProcess.arguments = helperArguments
+        let helperProcess = AsyncProcess(
+            arguments: [executablePath.pathString] + helperArguments,
+            workingDirectory: originalWorkingDirectory,
+            outputRedirection: .none,   // don't redirect playground output (stdout/stderr)
+            startNewProcessGroup: false // runner process tracks the parent process' lifetime
+        )
 
         do {
             verboseLog("Launching runner: \(executablePath.pathString) \(helperArguments.joined(separator: " "))")
-            try helperProcess.run()
-            #if os(macOS)
-            // Allow the helper to read input from stdin
-            // FIXME: On Linux this suppresses CTRL-C
-            tcsetpgrp(STDIN_FILENO, helperProcess.processIdentifier)
-            #endif
-            verboseLog("Runner launched with pid \(helperProcess.processIdentifier)")
+            try helperProcess.launch()
+            verboseLog("Runner launched with pid \(helperProcess.processID)")
         } catch {
             print("[Helper launch failed with error: \(error)]")
             throw ExitCode.failure
@@ -272,12 +304,16 @@ final private class FileMonitor {
     var fileHandles: [FileHandle] = []
     var sources: [DispatchSourceFileSystemObject] = []
     
-    typealias OnChange = () -> ()
-    var onChange: OnChange? = nil
-    var verbose = false
+    private let changeStream: AsyncStream<Void>
+    private let changeContinuation: AsyncStream<Void>.Continuation
+    var verboseLogging: Bool
 
-    init(url: URL) throws {
+    init(url: URL, verboseLogging: Bool = false) throws {
         self.url = url
+        self.verboseLogging = verboseLogging
+
+        // Create an async stream for file change notifications
+        (self.changeStream, self.changeContinuation) = AsyncStream<Void>.makeStream()
         
         try initializeMonitoring(for: url)
     }
@@ -288,7 +324,7 @@ final private class FileMonitor {
             .filter { $0.lastPathComponent.hasPrefix(".") == false }
             .filter { url in
                 var isDir: ObjCBool = false
-                if FileManager.default.fileExists(atPath: url.relativePath, isDirectory: &isDir) {
+                if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) {
                     return isDir.boolValue
                 }
                 return false
@@ -306,7 +342,7 @@ final private class FileMonitor {
         let source = DispatchSource.makeFileSystemObjectSource(
             fileDescriptor: fileHandle.fileDescriptor,
             eventMask: [.all],
-            queue: DispatchQueue.main
+            queue: DispatchQueue.global(qos: .background)
         )
         
         source.setEventHandler {
@@ -323,10 +359,11 @@ final private class FileMonitor {
         sources.append(source)
         fileHandles.append(fileHandle)
 
-        if verbose { print("[Monitoring files at \(url.path())]") }
+        if verboseLogging { print("[Monitoring files at \(url.path())]") }
     }
 
     func cancel() {
+        changeContinuation.finish()
         for source in sources {
             if !source.isCancelled {
                 source.cancel()
@@ -339,11 +376,22 @@ final private class FileMonitor {
         cancel()
     }
     
-    func process(event: DispatchSource.FileSystemEvent) {
-        if verbose { print("Event \(event) for \(url.path())") }
-        if let onChange {
-            onChange()
+    private func process(event: DispatchSource.FileSystemEvent) {
+        if verboseLogging { print("[FileMonitor event \(event) for \(url.path())]") }
+        changeContinuation.yield()
+    }
+
+    /// Asynchronously wait for file changes
+    func waitForChanges() async {
+        if verboseLogging { print("[FileMonitor.waitForChanges() starting]") }
+        for await _ in changeStream {
+            if verboseLogging { print("[FileMonitor detected change]") }
+            // Return immediately when a change is detected
+            return
         }
+        // If the stream ends without yielding any values, we should still return
+        // This can happen if the monitor is cancelled before any changes occur
+        if verboseLogging { print("[FileMonitor stream ended without changes]") }
     }
 }
 #endif
