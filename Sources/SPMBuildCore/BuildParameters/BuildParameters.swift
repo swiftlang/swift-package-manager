@@ -147,6 +147,9 @@ public struct BuildParameters: Encodable {
     /// Build parameters related to testing.
     public var testingParameters: Testing
 
+    /// The mode to run the API digester in, if any.
+    public var apiDigesterMode: APIDigesterMode?
+
     public init(
         destination: Destination,
         dataPath: Basics.AbsolutePath,
@@ -167,7 +170,8 @@ public struct BuildParameters: Encodable {
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
-        testingParameters: Testing = .init()
+        testingParameters: Testing = .init(),
+        apiDigesterMode: APIDigesterMode? = nil
     ) throws {
         let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
@@ -223,6 +227,7 @@ public struct BuildParameters: Encodable {
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
         self.testingParameters = testingParameters
+        self.apiDigesterMode = apiDigesterMode
     }
 
     /// The path to the build directory (inside the data directory).
