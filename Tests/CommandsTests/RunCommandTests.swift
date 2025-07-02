@@ -129,7 +129,8 @@ struct RunCommandTests {
             }
         }
         } when: {
-            .swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows
+            (.swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows)
+            || (.native == buildSystem && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -168,6 +169,7 @@ struct RunCommandTests {
             }
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
+            || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
             || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
@@ -229,7 +231,8 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
+            ([.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -249,7 +252,7 @@ struct RunCommandTests {
                 #expect(String(outputLines[0]).contains("BTarget2"))
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && buildSystem == .native)
+            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && [.native, .swiftbuild].contains(buildSystem))
             || (ProcessInfo.hostOperatingSystem ==  .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }

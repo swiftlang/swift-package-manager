@@ -494,8 +494,7 @@ struct TraitTests {
             #expect(stdout.contains(expectedOut))
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
+            (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 

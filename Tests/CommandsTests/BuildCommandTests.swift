@@ -489,18 +489,14 @@ struct BuildCommandTestCases {
                 return
             }
 
-            try withKnownIssue {
-                if .native == buildSystem {
-                    #expect(stderr.contains("error: no product named '\(productName)'"))
-                } else {
-                    let expectedErrorMessageRegex = try Regex("error: Could not find target named '\(productName).*'")
-                    #expect(
-                        stderr.contains(expectedErrorMessageRegex),
-                        "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
-                    )
-                }
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            if .native == buildSystem {
+                #expect(stderr.contains("error: no product named '\(productName)'"))
+            } else {
+                let expectedErrorMessageRegex = try Regex("error: Could not find target named '\(productName).*'")
+                #expect(
+                    stderr.contains(expectedErrorMessageRegex),
+                    "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
+                )
             }
         }
     }
@@ -530,14 +526,10 @@ struct BuildCommandTestCases {
             } else {
                 expectedErrorMessage = "error: Could not find target named '\(targetName)'"
             }
-            withKnownIssue{
-                #expect(
-                    stderr.contains(expectedErrorMessage),
-                    "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
-                )
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            }
+            #expect(
+                stderr.contains(expectedErrorMessage),
+                "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
+            )
         }
     }
 
@@ -748,7 +740,7 @@ struct BuildCommandTestCases {
                     result.stdout.contains("Building for \(expectedString)"),
                     "expect log not emitted.  got stdout: '\(result.stdout)'\n\nstderr '\(result.stderr)'")
             } when: {
-                buildSystem == .xcode || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+                buildSystem == .xcode
             }
         }
     }
