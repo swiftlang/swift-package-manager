@@ -64,7 +64,7 @@ final class PluginTests {
                 #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
         }
 
         // Try again with the Swift Build build system
