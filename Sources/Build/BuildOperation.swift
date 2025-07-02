@@ -200,6 +200,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
 
+    public var supportsSerializedDaignosticsCollectionViaDelegate: Bool { false }
+
     public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,

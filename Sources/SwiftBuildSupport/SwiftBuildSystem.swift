@@ -250,6 +250,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
 
+    public var supportsSerializedDaignosticsCollectionViaDelegate: Bool { true }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,

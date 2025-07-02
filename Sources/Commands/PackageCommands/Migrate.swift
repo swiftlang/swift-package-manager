@@ -92,10 +92,12 @@ extension SwiftPackageCommand {
 
             let targets = self.options.targets
 
+            let delegate = DiagnosticsCapturingBuildSystemDelegate()
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
                 targets: targets,
-                features: features
+                features: features,
+                delegate: delegate
             )
 
             // Next, let's build all of the individual targets or the
@@ -110,42 +112,66 @@ extension SwiftPackageCommand {
                 try await buildSystem.build(subset: .allIncludingTests)
             }
 
-            // Determine all of the targets we need up update.
-            let buildPlan = try buildSystem.buildPlan
-
-            var modules: [any ModuleBuildDescription] = []
-            if !targets.isEmpty {
-                for buildDescription in buildPlan.buildModules
-                    where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
+            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
+            let fixItDuration: Duration
+            let targetsToUpdateInManifest: [String]
+            if buildSystem.supportsSerializedDaignosticsCollectionViaDelegate {
+                let diagnosticPaths = delegate.serializedDiagnosticsPathsByTarget
+                let graph = try await buildSystem.getPackageGraph()
+                var targets = targets
+                targetsToUpdateInManifest = targets.elements
+                if targets.isEmpty {
+                    targets = OrderedSet(graph.rootPackages.flatMap { $0.manifest.targets.map(\.name) })
+                }
+                print("> Applying fix-its")
+                fixItDuration = try ContinuousClock().measure {
+                    for target in targets {
+                        let fixit = try SwiftFixIt(
+                            diagnosticFiles: Array(diagnosticPaths[target] ?? []),
+                            categories: Set(features.flatMap(\.categories)),
+                            fileSystem: swiftCommandState.fileSystem
+                        )
+                        summary += try fixit.applyFixIts()
+                    }
                 }
             } else {
-                let graph = try await buildSystem.getPackageGraph()
-                for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package)
-                {
-                    let module = buildDescription.module
-                    guard module.type != .plugin, !module.implicit else {
-                        continue
+                // Determine all of the targets we need up update.
+                let buildPlan = try buildSystem.buildPlan
+
+                var modules: [any ModuleBuildDescription] = []
+                if !targets.isEmpty {
+                    for buildDescription in buildPlan.buildModules
+                        where targets.contains(buildDescription.module.name) {
+                        modules.append(buildDescription)
                     }
-                    modules.append(buildDescription)
+                } else {
+                    let graph = try await buildSystem.getPackageGraph()
+                    for buildDescription in buildPlan.buildModules
+                        where graph.isRootPackage(buildDescription.package)
+                    {
+                        let module = buildDescription.module
+                        guard module.type != .plugin, !module.implicit else {
+                            continue
+                        }
+                        modules.append(buildDescription)
+                    }
                 }
-            }
+                targetsToUpdateInManifest = modules.map(\.module.name)
 
-            // If the build suceeded, let's extract all of the diagnostic
-            // files from build plan and feed them to the fix-it tool.
+                // If the build suceeded, let's extract all of the diagnostic
+                // files from build plan and feed them to the fix-it tool.
 
-            print("> Applying fix-its")
+                print("> Applying fix-its")
 
-            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
-            let fixItDuration = try ContinuousClock().measure {
-                for module in modules {
-                    let fixit = try SwiftFixIt(
-                        diagnosticFiles: module.diagnosticFiles,
-                        categories: Set(features.flatMap(\.categories)),
-                        fileSystem: swiftCommandState.fileSystem
-                    )
-                    summary += try fixit.applyFixIts()
+                fixItDuration = try ContinuousClock().measure {
+                    for module in modules {
+                        let fixit = try SwiftFixIt(
+                            diagnosticFiles: module.diagnosticFiles,
+                            categories: Set(features.flatMap(\.categories)),
+                            fileSystem: swiftCommandState.fileSystem
+                        )
+                        summary += try fixit.applyFixIts()
+                    }
                 }
             }
 
@@ -176,10 +202,10 @@ extension SwiftPackageCommand {
             // manifest with newly adopted feature settings.
 
             print("> Updating manifest")
-            for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
+            for target in targetsToUpdateInManifest {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
-                    for: module.name,
+                    for: target,
                     add: features,
                     using: swiftCommandState
                 )
@@ -189,7 +215,8 @@ extension SwiftPackageCommand {
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
             targets: OrderedSet<String>,
-            features: [SwiftCompilerFeature]
+            features: [SwiftCompilerFeature],
+            delegate: BuildSystemDelegate
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
             let destinationBuildParameters = try swiftCommandState.productsBuildParameters
@@ -227,7 +254,8 @@ extension SwiftPackageCommand {
                     modulesGraph
                 },
                 outputStream: TSCBasic.stdoutStream,
-                observabilityScope: swiftCommandState.observabilityScope
+                observabilityScope: swiftCommandState.observabilityScope,
+                delegate: delegate
             )
         }
 
