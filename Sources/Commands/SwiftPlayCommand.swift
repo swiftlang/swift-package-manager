@@ -18,12 +18,7 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 
-import enum TSCBasic.ProcessEnv
-import func TSCBasic.exec
-import class TSCBasic.ThreadSafeOutputByteStream
-import class TSCBasic.LocalFileOutputByteStream
-import var TSCBasic.stdoutStream
-
+import protocol TSCBasic.WritableByteStream
 import enum TSCUtility.Diagnostics
 
 #if canImport(Android)
@@ -86,13 +81,6 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         return .init(wantsPlaygroundProduct: true)
     }
 
-    private enum ProcessMonitorResult {
-        /// A source file was changed
-        case fileChanged
-        /// The monitored process exited
-        case processExited
-    }
-
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.playgroundName == "" && !options.list {
             throw ValidationError("Missing Playground name")
@@ -112,180 +100,309 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
         repeat {
             do {
-                let buildSystem = try await swiftCommandState.createBuildSystem(
-                    explicitProduct: nil,
-                    traitConfiguration: .init(traitOptions: self.options.traits),
+                let buildResult = try await buildPlaygroundRunner(
+                    swiftCommandState: swiftCommandState,
                     productsBuildParameters: productsBuildParameters
                 )
 
-                let allProducts = try await buildSystem.getPackageGraph().reachableProducts
-                if globalOptions.logging.veryVerbose {
-                    for product in allProducts {
-                        verboseLog("Found product: \(product)")
-                    }
-                    verboseLog("- Found \(allProducts.count) product\(allProducts.count==1 ? "" : "s")")
-                }
+                switch buildResult {
+                case .success(_):
+                    let result = try await startPlaygroundAndMonitorFilesIfNeeded(
+                        buildResult: buildResult,
+                        swiftCommandState: swiftCommandState
+                    )
+                    playAgain = (result == .shouldPlayAgain)
 
-                guard let playgroundExecutableProduct = allProducts.first(where: { $0.underlying.isPlaygroundRunner }) else {
-                    print("Could not create a playground executable.")
-                    throw ExitCode.failure
-                }
-                verboseLog("Choosing product \"\(playgroundExecutableProduct.name)\", type: \(playgroundExecutableProduct.type)")
-
-                // Build the package
-                var buildSucceeded = false
-                do {
-                    try await buildSystem.build(subset: .product(playgroundExecutableProduct.name))
-                    buildSucceeded = true
-                } catch {
+                case .failure(_):
                     print("Build failed")
                     if !playAgain {
                         break
                     }
                 }
 
-                // Hand off playground execution to the swiftpm-playground-helper
-                var helperProcess: AsyncProcess? = nil
-
-                if buildSucceeded {
-                    // Build was successful so launch the playground runner executable that we just built
-                    let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: playgroundExecutableProduct.name)
-                    let helperExecutablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
-
-                    playAgain = false
-                    
-                    helperProcess = try self.play(
-                        executablePath: helperExecutablePath,
-                        originalWorkingDirectory: swiftCommandState.originalWorkingDirectory
-                    )
-                }
-
-                if options.mode == .oneShot || options.list {
-                    // Call playground helper then immediately exit
-                    playAgain = false
-                    try await helperProcess?.waitUntilExit()
-                }
-                else {
-                    // Live updating and re-running on file changes
-                    playAgain = true
-
-                    guard let monitorURL = swiftCommandState.fileSystem.currentWorkingDirectory?.asURL else {
-                        print("[No cwd]")
-                        throw ExitCode.failure
-                    }
-
-                    #if os(macOS)
-                    // Monitor for file changes
-                    let fileMonitor: FileMonitor
-                    do {
-                        verboseLog("Monitoring files at \(monitorURL)")
-                        fileMonitor = try FileMonitor(
-                            url: monitorURL,
-                            verboseLogging: globalOptions.logging.veryVerbose
-                        )
-                    } catch {
-                        print("FileMonitor failed for \(monitorURL): \(error)")
-                        throw ExitCode.failure
-                    }
-
-                    defer {
-                        fileMonitor.cancel()
-                    }
-                    #endif
-                    
-                    verboseLog("swift play waiting...")
-                    
-                    // Wait for either the process to finish or file changes to occur
-                    let result = await withTaskGroup(of: ProcessMonitorResult.self) { group in
-
-                        // Task to wait for process completion, if a process is running.
-                        // A process won't be running if the build fails, for example, but
-                        // we still want to watch for file changes below to re-build/re-run.
-                        if let helperProcess {
-                            group.addTask {
-                                do {
-                                    try await helperProcess.waitUntilExit()
-                                    return .processExited
-                                } catch {
-                                    verboseLog("Helper process exited with error: \(error)")
-                                    return .processExited
-                                }
-                            }
-                        }
-                        
-                        #if os(macOS)
-                        // Task to wait for file changes
-                        group.addTask {
-                            await fileMonitor.waitForChanges()
-                            return .fileChanged
-                        }
-                        #endif
-
-                        // Return the first result from either task
-                        let firstResult = await group.next()
-
-                        // Cancel remaining tasks
-                        group.cancelAll()
-
-                        // Kill helper process, so that its task ends
-                        helperProcess?.signal(SIGKILL)
-
-                        guard let result = firstResult else {
-                            // taskGroup returned no values so just return processCompleted
-                            return ProcessMonitorResult.processExited
-                        }
-
-                        return result
-                    }
-
-                    #if os(macOS)
-                    // Clean up file monitor after task group completes
-                    fileMonitor.cancel()
-                    #endif
-
-                    switch result {
-                    case .fileChanged:
-                        verboseLog("Files changed, restarting...")
-                        playAgain = true
-                    case .processExited:
-                        verboseLog("Process exited")
-                        playAgain = false
-                    }
-                }
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
         } while (playAgain)
     }
 
+    /// Builds the playground runner executable product.
+    ///
+    /// This method creates a build system using the provided Swift command state and build parameters,
+    /// then locates and builds the playground runner executable product that will be used to execute
+    /// playground code.
+    ///
+    /// - Parameters:
+    ///   - swiftCommandState: The Swift command state containing workspace and configuration information
+    ///   - productsBuildParameters: Build parameters specifying compilation settings and output paths
+    ///
+    /// - Returns: A `Result` containing either the name of the successfully built playground runner
+    ///            product on success, or an `Error` on failure
+    ///
+    /// - Throws: `ExitCode.failure` if no playground runner executable product can be found in the
+    ///           package graph
+    private func buildPlaygroundRunner(
+        swiftCommandState: SwiftCommandState,
+        productsBuildParameters: BuildParameters
+    ) async throws -> Result<String, Error> {
+        let buildSystem = try await swiftCommandState.createBuildSystem(
+            explicitProduct: nil,
+            traitConfiguration: .init(traitOptions: self.options.traits),
+            productsBuildParameters: productsBuildParameters
+        )
+
+        let allProducts = try await buildSystem.getPackageGraph().reachableProducts
+        if globalOptions.logging.veryVerbose {
+            for product in allProducts {
+                verboseLog("Found product: \(product)")
+            }
+            verboseLog("- Found \(allProducts.count) product\(allProducts.count==1 ? "" : "s")")
+        }
+
+        guard let playgroundExecutableProduct = allProducts.first(where: { $0.underlying.isPlaygroundRunner }) else {
+            print("Could not create a playground executable.")
+            throw ExitCode.failure
+        }
+        verboseLog("Choosing product \"\(playgroundExecutableProduct.name)\", type: \(playgroundExecutableProduct.type)")
+
+        // Build the playground runner executable product
+        do {
+            try await buildSystem.build(subset: .product(playgroundExecutableProduct.name))
+            return Result.success(playgroundExecutableProduct.name)
+        } catch {
+            return Result.failure(error)
+        }
+    }
+
+    private enum PlaygroundMonitorResult {
+        /// Indicates that the playground should be rebuilt and executed again
+        case shouldPlayAgain
+        /// Indicates that all playground monitoring and execution has finished
+        case shouldExit
+    }
+
+    /// Starts the playground runner process and monitors for file changes if in live update mode.
+    ///
+    /// This method handles the execution of the playground runner executable and optionally monitors
+    /// source files for changes to enable automatic re-building and re-execution. The behavior
+    /// depends on the configured play mode:
+    /// - In `.oneShot` mode: Executes the playground once and exits immediately
+    /// - In `.liveUpdate` mode: Executes the playground and monitors for file changes to trigger rebuilds
+    ///
+    /// - Parameters:
+    ///   - buildResult: The result of building the playground runner executable, containing either
+    ///                  the product name on success or an error on failure
+    ///   - swiftCommandState: The Swift command state containing workspace configuration and file system access
+    ///
+    /// - Returns: A `PlaygroundMonitorResult` indicating the next action:
+    ///   - `.shouldPlayAgain`: File changes were detected in live update mode, requiring a rebuild
+    ///   - `.shouldExit`: The process completed normally or is running in one-shot mode
+    ///
+    /// - Throws: `ExitCode.failure` if the current working directory cannot be determined or if file
+    ///           monitoring setup fails on macOS platforms
+    ///
+    /// - Note: File monitoring is only currently available on macOS. On other platforms, live update mode will
+    ///         behave similarly to one-shot mode after the initial execution.
+    private func startPlaygroundAndMonitorFilesIfNeeded(
+        buildResult: Result<String, Error>,
+        swiftCommandState: SwiftCommandState
+    ) async throws -> PlaygroundMonitorResult {
+
+        // Hand off playground execution to dynamically built playground runner executable
+        var runnerProcess: PlaygroundRunnerProcess? = nil
+        defer {
+            runnerProcess?.kill()
+        }
+
+        if case let .success(productName) = buildResult {
+            // Build was successful so launch the playground runner executable that was just built
+            let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
+            let runnerExecutablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
+
+            runnerProcess = try self.play(
+                executablePath: runnerExecutablePath,
+                originalWorkingDirectory: swiftCommandState.originalWorkingDirectory
+            )
+        }
+
+        if options.mode == .oneShot || options.list {
+            // Call playground runner (if available) then immediately exit
+            try await runnerProcess?.waitUntilExit()
+            return .shouldExit // don't build & play again
+        }
+        else {
+            // Live update mode: re-build/re-run on file changes
+
+            guard let monitorURL = swiftCommandState.fileSystem.currentWorkingDirectory?.asURL else {
+                print("[No cwd]")
+                throw ExitCode.failure
+            }
+
+#if os(macOS)
+            // Monitor for file changes
+            let fileMonitor: FileMonitor
+            do {
+                verboseLog("Monitoring files at \(monitorURL)")
+                fileMonitor = try FileMonitor(
+                    url: monitorURL,
+                    verboseLogging: globalOptions.logging.veryVerbose
+                )
+            } catch {
+                print("FileMonitor failed for \(monitorURL): \(error)")
+                throw ExitCode.failure
+            }
+
+            defer {
+                fileMonitor.cancel()
+            }
+#endif
+
+            verboseLog("swift play waiting...")
+
+            enum ProcessAndFileMonitorResult {
+                /// A source file was changed
+                case fileChanged
+                /// The monitored process exited
+                case processExited
+            }
+
+            // Wait for either the process to finish or file changes to occur
+            let result = await withTaskGroup(of: ProcessAndFileMonitorResult.self) { group in
+
+                // Task to wait for process completion, if a process is running.
+                // A process won't be running if the build fails, for example, but
+                // we still want to watch for file changes below to re-build/re-run.
+                if let runnerProcess {
+                    group.addTask {
+                        do {
+                            try await runnerProcess.waitUntilExit()
+                        } catch {
+                            verboseLog("Runner process exited with error: \(error)")
+                        }
+                        return .processExited
+                    }
+                }
+
+#if os(macOS)
+                // Task to wait for file changes
+                group.addTask {
+                    await fileMonitor.waitForChanges()
+                    return .fileChanged
+                }
+#endif
+
+                // Return the first result from either task
+                let firstResult = await group.next()
+
+                // Cancel remaining tasks
+                group.cancelAll()
+
+                // Kill runner process, so that its task ends
+                runnerProcess?.kill()
+
+                guard let result = firstResult else {
+                    // taskGroup returned no value so default to processExited
+                    return ProcessAndFileMonitorResult.processExited
+                }
+
+                return result
+            }
+
+            switch result {
+            case .fileChanged:
+                verboseLog("Files changed, restarting...")
+                return .shouldPlayAgain
+            case .processExited:
+                verboseLog("Process exited")
+                return .shouldExit
+            }
+        }
+    }
+
+    /// A process wrapper that manages the execution of playground runner executables.
+    ///
+    /// `PlaygroundRunnerProcess` encapsulates an `AsyncProcess` that runs the playground runner
+    /// executable and handles stdin forwarding from the parent process to the child process.
+    /// This allows interactive playground code to receive user input during execution.
+    ///
+    /// The class automatically sets up a background task to forward stdin data from the current
+    /// process to the playground runner process, enabling interactive features in playgrounds.
+    final private class PlaygroundRunnerProcess {
+        private let runnerProcess: AsyncProcess
+        private let runnerStdin: any WritableByteStream
+        private var stdinTask: Task<(), any Error>?
+
+        init(process: AsyncProcess, stdin: any WritableByteStream) {
+            self.runnerProcess = process
+            self.runnerStdin = stdin
+
+            self.stdinTask = PlaygroundRunnerProcess.startForwardingStdin(runnerStdin: stdin)
+        }
+
+        deinit {
+            kill()
+        }
+
+        func waitUntilExit() async throws {
+            try await runnerProcess.waitUntilExit()
+            stdinTask?.cancel()
+        }
+
+        func kill() {
+            stdinTask?.cancel()
+            stdinTask = nil
+            try? runnerStdin.close()
+            runnerProcess.signal(SIGKILL)
+        }
+
+        private static func startForwardingStdin(runnerStdin: any WritableByteStream) -> Task<(), any Error>? {
+            let stdinTask = Task {
+                while !Task.isCancelled {
+                    let stdinHandle = FileHandle.standardInput
+                    for try await byte in stdinHandle.bytes {
+                        runnerStdin.write(byte)
+                        runnerStdin.flush()
+                    }
+                    try runnerStdin.close() // EOF
+                }
+            }
+            return stdinTask
+        }
+    }
+
     /// Executes the Playground via the specified executable at the specified path.
     private func play(
         executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath
-    ) throws -> AsyncProcess {
-        var helperArguments: [String] = []
+    ) throws -> PlaygroundRunnerProcess {
+        var runnerArguments: [String] = []
         if options.mode == .oneShot {
-            helperArguments.append("--one-shot")
+            runnerArguments.append("--one-shot")
         }
-        helperArguments.append(options.list ? "--list" : options.playgroundName)
+        runnerArguments.append(options.list ? "--list" : options.playgroundName)
 
-        let helperProcess = AsyncProcess(
-            arguments: [executablePath.pathString] + helperArguments,
+        let runnerProcess = AsyncProcess(
+            arguments: [executablePath.pathString] + runnerArguments,
             workingDirectory: originalWorkingDirectory,
             outputRedirection: .none,   // don't redirect playground output (stdout/stderr)
             startNewProcessGroup: false // runner process tracks the parent process' lifetime
         )
 
+        let runnerStdin: any WritableByteStream
+
         do {
-            verboseLog("Launching runner: \(executablePath.pathString) \(helperArguments.joined(separator: " "))")
-            try helperProcess.launch()
-            verboseLog("Runner launched with pid \(helperProcess.processID)")
+            verboseLog("Launching runner: \(executablePath.pathString) \(runnerArguments.joined(separator: " "))")
+            runnerStdin = try runnerProcess.launch()
+            verboseLog("Runner launched with pid \(runnerProcess.processID)")
         } catch {
-            print("[Helper launch failed with error: \(error)]")
+            print("[Playground runner launch failed with error: \(error)]")
             throw ExitCode.failure
         }
         
-        return helperProcess
+        return PlaygroundRunnerProcess(
+            process: runnerProcess,
+            stdin: runnerStdin
+        )
     }
 
     private func verboseLog(_ message: String) {
