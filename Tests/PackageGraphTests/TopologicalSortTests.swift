@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 
-@testable import PackageGraph
+import PackageGraph
 import XCTest
 
 private func XCTAssertThrows<T: Swift.Error>(
