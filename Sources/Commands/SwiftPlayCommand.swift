@@ -18,6 +18,10 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 
+#if !os(macOS)
+import SWBUtil // for FileHandle.bytes()
+#endif
+
 import protocol TSCBasic.WritableByteStream
 import enum TSCUtility.Diagnostics
 
@@ -351,18 +355,26 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         func kill() {
             stdinTask?.cancel()
             stdinTask = nil
+            #if os(macOS)
             try? runnerStdin.close()
+            #endif
             runnerProcess.signal(SIGKILL)
         }
 
         private static func startForwardingStdin(runnerStdin: any WritableByteStream) -> Task<(), any Error>? {
             let stdinTask = Task {
                 while !Task.isCancelled {
-                    let stdinHandle = FileHandle.standardInput
-                    for try await byte in stdinHandle.bytes {
+                    #if os(macOS)
+                    for try await byte in FileHandle.standardInput.bytes {
                         runnerStdin.write(byte)
                         runnerStdin.flush()
                     }
+                    #else
+                    for try await byte in FileHandle.standardInput.bytes() {
+                        runnerStdin.write(byte)
+                        runnerStdin.flush()
+                    }
+                    #endif
                     try runnerStdin.close() // EOF
                 }
             }
@@ -372,8 +384,8 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
     /// Executes the Playground via the specified executable at the specified path.
     private func play(
-        executablePath: AbsolutePath,
-        originalWorkingDirectory: AbsolutePath
+        executablePath: Basics.AbsolutePath,
+        originalWorkingDirectory: Basics.AbsolutePath
     ) throws -> PlaygroundRunnerProcess {
         var runnerArguments: [String] = []
         if options.mode == .oneShot {
