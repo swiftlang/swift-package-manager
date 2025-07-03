@@ -230,7 +230,7 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                let traits: Set<String>? = rootEnabledTraitsMap[package.reference.identity]
+                let traits: Set<String> = rootEnabledTraitsMap[package.reference.identity] ?? ["default"]
 
                 let node = try GraphLoadingNode(
                     identity: identity,
@@ -243,7 +243,7 @@ extension Workspace {
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    let traits: Set<String>? = rootDependenciesEnabledTraitsMap[dependency.identity]
+                    let traits: Set<String> = rootDependenciesEnabledTraitsMap[dependency.identity] ?? ["default"]
 
                     return try GraphLoadingNode(
                         identity: dependency.identity,
@@ -280,11 +280,12 @@ extension Workspace {
                             enabledTraits: node.enabledTraits
                         )
                         if !isDepUsed && workspace.configuration.pruneDependencies {
-                            if let enabledTraits = node.enabledTraits {
+                            // TODO bp: see if this produces expected result, since enabled traits is no longer optional
+                            if !node.enabledTraits.isEmpty {
                                 observabilityScope.emit(debug: """
                             '\(package.identity)' from '\(package.locationString)' was omitted \
                             from required dependencies because it is being guarded by the following traits:' \
-                            \(enabledTraits.joined(separator: ", "))
+                            \(node.enabledTraits.joined(separator: ", "))
                             """)
                             } else {
                                 observabilityScope.emit(debug: """
@@ -351,7 +352,8 @@ extension Workspace {
                         return try manifestsMap[dependency.identity].map { manifest in
                             // Calculate all transitively enabled traits for this manifest.
 
-                            var allEnabledTraits: Set<String>?
+                            // TODO bp: see if this is corect
+                            var allEnabledTraits: Set<String> = ["default"]
                             if let explicitlyEnabledTraits
                             {
                                 allEnabledTraits = Set(explicitlyEnabledTraits)
@@ -466,7 +468,7 @@ extension Workspace {
                 case .sourceControlCheckout, .registryDownload, .fileSystem, .custom:
                     break
                 }
-                let enabledTraits = rootDependenciesEnabledTraitsMap[managedDependency.packageRef.identity]
+                let enabledTraits = rootDependenciesEnabledTraitsMap[managedDependency.packageRef.identity] ?? ["default"]
                 allConstraints += try externalManifest.dependencyConstraints(
                     productFilter: productFilter,
                     enabledTraits
@@ -607,7 +609,7 @@ extension Workspace {
 
         let rootManifests = try root.manifests.mapValues { manifest in
             let deps = try manifest.dependencies.filter { dep in
-                let enabledTraits = root.enabledTraits[manifest.packageIdentity]
+                let enabledTraits = root.enabledTraits[manifest.packageIdentity] ?? ["default"]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
             }
@@ -646,7 +648,7 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
                 // Calculate conditional traits for dependencies here; add to enabled traits map.
-                let enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
+                let enabledTraits: Set<String> = root.enabledTraits[manifest.packageIdentity] ?? ["default"]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 let explicitlyEnabledTraits = dep.traits?.filter {
                     guard let condition = $0.condition else { return true }
@@ -727,7 +729,7 @@ extension Workspace {
                     }
 
                     let calculatedTraits = try manifest.enabledTraits(
-                        using: enabledTraitsSet,//explicitlyEnabledTraits.flatMap { Set($0) },
+                        using: enabledTraitsSet ?? ["default"],//explicitlyEnabledTraits.flatMap { Set($0) },
                         .init(node.item.manifest)
                     )
 
@@ -763,7 +765,7 @@ extension Workspace {
                         identity: identity,
                         manifest: manifest,
                         productFilter: .everything,
-                        enabledTraits: root.enabledTraits[identity]
+                        enabledTraits: root.enabledTraits[identity] ?? ["default"]
                     ),
                     key: identity
                 )
@@ -834,7 +836,7 @@ extension Workspace {
         var visited: Set<PackageIdentity> = []
 
         func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
-            let parentTraits = enabledTraits[parent.packageIdentity]
+            let parentTraits = enabledTraits[parent.packageIdentity] ?? ["default"]
             let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
             let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
 
@@ -854,7 +856,7 @@ extension Workspace {
                     }
 
                     let calculatedTraits = try manifest.enabledTraits(
-                        using: enabledTraitsSet,
+                        using: enabledTraitsSet ?? ["default"],
                         .init(parent)
                     )
 

@@ -152,7 +152,7 @@ public struct PackageGraphRoot {
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
             return manifests.values.reduce(false) { result, manifest in
-                let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity] ?? ["default"]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed
                 }
@@ -165,7 +165,7 @@ public struct PackageGraphRoot {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
-                    let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                    let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity] ?? ["default"]
                     return try manifest.dependenciesRequired(for: .everything, enabledTraits)
                 })
                 .flatMap({ $0 })
@@ -184,7 +184,7 @@ public struct PackageGraphRoot {
     public func constraints() throws -> [PackageContainerConstraint] {
         let constraints = self.packages.map { (identity, package) in
             // Since these are root packages, can apply trait configuration as this is a root package concept.
-            let enabledTraits = self.enabledTraits[identity]
+            let enabledTraits = self.enabledTraits[identity] ?? ["default"]
             return PackageContainerConstraint(
                 package: package.reference,
                 requirement: .unversioned,
@@ -195,11 +195,13 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies
             .map { dep in
-                var enabledTraits: Set<String>?
-                if let traits = dep.traits {
-                    enabledTraits = Set(traits.map(\.name))
-                }
+                // TODO bp: refactor this
+//                var enabledTraits: Set<String>?
+//                if let traits = dep.traits {
+//                    enabledTraits = Set(traits.map(\.name))
+//                }
 
+                var enabledTraits = Set(["default"])
                 return PackageContainerConstraint(
                     package: dep.packageRef,
                     requirement: try dep.toConstraintRequirement(),

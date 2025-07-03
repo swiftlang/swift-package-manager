@@ -455,7 +455,7 @@ public func precomputeTraits(
     var visited: Set<PackageIdentity> = []
 
     func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
-        let parentTraits = enabledTraits[parent.packageIdentity]
+        let parentTraits = enabledTraits[parent.packageIdentity] ?? ["default"]
         let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
         let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
 
@@ -475,7 +475,7 @@ public func precomputeTraits(
                 }
 
                 let calculatedTraits = try manifest.enabledTraits(
-                    using: enabledTraitsSet,
+                    using: enabledTraitsSet ?? [],
                     .init(parent)
                 )
 

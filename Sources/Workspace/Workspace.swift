@@ -780,7 +780,8 @@ extension Workspace {
             defaultRequirement
         }
 
-        var dependencyEnabledTraits: Set<String>?
+        // TODO bp ensure this is correct.
+        var dependencyEnabledTraits: Set<String> = Set(["default"])
         if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
             .traits
         {

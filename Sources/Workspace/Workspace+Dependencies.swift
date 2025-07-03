@@ -870,7 +870,8 @@ extension Workspace {
         let computedConstraints =
         try root.constraints() +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, nil) } +
+        // TODO bp see if this is correct...
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, ["default"]) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -1181,7 +1182,8 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints, traitConfiguration: configuration.traitConfiguration)
+        // TODO bp: see if traits should be passed here.
+        let result = await resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

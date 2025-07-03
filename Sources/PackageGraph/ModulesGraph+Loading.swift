@@ -59,7 +59,7 @@ extension ModulesGraph {
             // TODO bp
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
-            let enabledTraits = root.enabledTraits[identity]
+            let enabledTraits = root.enabledTraits[identity] ?? ["default"]
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
@@ -74,7 +74,7 @@ extension ModulesGraph {
                         identity: dependency.identity,
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: root.enabledTraits[dependency.identity]
+                        enabledTraits: root.enabledTraits[dependency.identity] ?? ["default"]
                     )
                 }
             }
@@ -105,7 +105,7 @@ extension ModulesGraph {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: root.enabledTraits[manifest.packageIdentity]//calculatedTraits
+                                enabledTraits: root.enabledTraits[manifest.packageIdentity] ?? ["default"]//calculatedTraits
                             ),
                             key: dependency.identity
                         )
@@ -1438,7 +1438,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var products: [ResolvedProductBuilder] = []
 
     /// The enabled traits of this package.
-    var enabledTraits: Set<String>? //= ["default"] TODO bp
+    var enabledTraits: Set<String> //= ["default"] TODO bp
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
@@ -1462,7 +1462,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     init(
         _ package: Package,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>?,
+        enabledTraits: Set<String>,
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider
