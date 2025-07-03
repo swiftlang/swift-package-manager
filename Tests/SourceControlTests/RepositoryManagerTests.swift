@@ -508,7 +508,7 @@ final class RepositoryManagerTests: XCTestCase {
                 self.terminatedGroup.enter()
             }
 
-            func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: ((FetchProgress) -> Void)?) throws {
+            func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: ((FetchProgress) -> Void)?) async throws {
                 print("fetching \(repository)")
                 // startGroup may not be 100% accurate given the blocking nature of the provider so giving it a bit of a buffer
                 DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + .milliseconds(100)) {
@@ -592,7 +592,7 @@ final class RepositoryManagerTests: XCTestCase {
                 self.repository = repository
             }
 
-            func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: ((FetchProgress) -> Void)?) throws {
+            func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: ((FetchProgress) -> Void)?) async throws {
                 assert(repository == self.repository)
                 self.fetch += 1
             }
@@ -716,7 +716,7 @@ private class DummyRepositoryProvider: RepositoryProvider, @unchecked Sendable {
         self.fileSystem = fileSystem
     }
 
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) async throws {
         assert(!self.fileSystem.exists(path), "\(path) should not exist")
         try self.fileSystem.createDirectory(path, recursive: true)
         try self.fileSystem.writeFileContents(path.appending("readme.md"), string: repository.location.description)

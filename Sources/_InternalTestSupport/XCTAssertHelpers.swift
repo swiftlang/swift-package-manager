@@ -48,7 +48,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 
 public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isInCiEnvironment {
+    if CiEnvironment.runningInSmokeTestPipeline {
         let failureCause = reason ?? "Skipping because the test is being run on CI"
         throw XCTSkip(failureCause, file: file, line: line)
     }
@@ -323,6 +323,12 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+
+    package init(result: AsyncProcessResult, stdout: String, stderr: String) {
+        self.result = result
+        self.stdout = stdout
+        self.stderr = stderr
+    }
 }
 
 

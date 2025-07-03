@@ -36,7 +36,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation(traitConfiguration: traitConfiguration)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
@@ -68,7 +69,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope)
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            delegate: delegate)
     }
 }
 
@@ -84,7 +86,8 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) throws -> any BuildSystem {
         return try XcodeBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
@@ -97,7 +100,8 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            delegate: delegate
         )
     }
 }
@@ -115,12 +119,14 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) throws -> any BuildSystem {
         return try SwiftBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                    explicitProduct: explicitProduct,
+                    traitConfiguration: traitConfiguration,
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
@@ -134,6 +140,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
+            delegate: delegate
         )
     }
 }

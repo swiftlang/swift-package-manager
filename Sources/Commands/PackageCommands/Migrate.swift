@@ -32,17 +32,23 @@ import var TSCBasic.stdoutStream
 struct MigrateOptions: ParsableArguments {
     @Option(
         name: .customLong("target"),
-        parsing: .upToNextOption,
         help: "The targets to migrate to specified set of features."
     )
-    var targets: [String] = []
+    var _targets: String?
+
+    var targets: OrderedSet<String> {
+        self._targets.flatMap { OrderedSet($0.components(separatedBy: ",")) } ?? []
+    }
 
     @Option(
         name: .customLong("to-feature"),
-        parsing: .upToNextOption,
         help: "The Swift language upcoming/experimental feature to migrate to."
     )
-    var features: [String]
+    var _features: String
+
+    var features: Set<String> {
+        Set(self._features.components(separatedBy: ","))
+    }
 }
 
 extension SwiftPackageCommand {
@@ -84,11 +90,11 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
-            let uniqueTargets = OrderedSet(self.options.targets)
+            let targets = self.options.targets
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
-                targets: uniqueTargets,
+                targets: targets,
                 features: features
             )
 
@@ -96,8 +102,8 @@ extension SwiftPackageCommand {
             // whole project to get diagnostic files.
 
             print("> Starting the build")
-            if !uniqueTargets.isEmpty {
-                for target in uniqueTargets {
+            if !targets.isEmpty {
+                for target in targets {
                     try await buildSystem.build(subset: .target(target))
                 }
             } else {
@@ -108,9 +114,9 @@ extension SwiftPackageCommand {
             let buildPlan = try buildSystem.buildPlan
 
             var modules: [any ModuleBuildDescription] = []
-            if !uniqueTargets.isEmpty {
+            if !targets.isEmpty {
                 for buildDescription in buildPlan.buildModules
-                    where uniqueTargets.contains(buildDescription.module.name) {
+                    where targets.contains(buildDescription.module.name) {
                     modules.append(buildDescription)
                 }
             } else {

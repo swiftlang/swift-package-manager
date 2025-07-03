@@ -193,7 +193,7 @@ struct BuildCommandTestCases {
         arguments: SupportedBuildSystemOnPlatform,
     )
     func commandDoesNotEmitDuplicateSymbols(buildSystem: BuildSystemProvider.Kind) async throws {
-        let duplicateSymbolRegex = try Regex(".*One of the duplicates must be removed or renamed.")
+        let duplicateSymbolRegex = try #require(duplicateSymbolRegex)
         let (stdout, stderr) = try await execute(["--help"], buildSystem: buildSystem)
         #expect(!stdout.contains(duplicateSymbolRegex))
         #expect(!stderr.contains(duplicateSymbolRegex))
@@ -884,12 +884,16 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .SWBINTTODO("Swift build produces an error building the fixture for this test."),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue("SWBINTTODO: Swift build produces an error building the fixture for this test.") {
+         try await withKnownIssue(
+            "error produced for this fixture",
+            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
+        ) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
                 // compatible with whole module optimization` message, which should have a trailing newline.  Since that
@@ -910,7 +914,7 @@ struct BuildCommandTestCases {
                 }
             }
         } when: {
-            ProcessInfo.hostOperatingSystem != .macOS && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1008,7 +1012,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1094,7 +1098,7 @@ struct BuildCommandTestCases {
                 #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
             }
         } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            [.swiftbuild, .xcode].contains(buildSystem) && ProcessInfo.hostOperatingSystem != .linux
         }
     }
 
@@ -1125,7 +1129,106 @@ struct BuildCommandTestCases {
         }
     }
 
-    
+    private static func buildSystemAndOutputLocation() throws -> [(BuildSystemProvider.Kind, Basics.RelativePath)] {
+        return try SupportedBuildSystemOnPlatform.map { buildSystem in
+            let triple = try UserToolchain.default.targetTriple.withoutVersion()
+            let base = try RelativePath(validating: ".build")
+            let debugFolderComponents = buildSystem.binPathSuffixes(for: .debug)
+            switch buildSystem {
+                case .xcode:
+                    let path = base.appending(components: debugFolderComponents)
+                    return (
+                        buildSystem,
+                        triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
+                            .appending("ExecutableNew.swiftmodule")
+                            .appending("Project")
+                            .appending("\(triple).swiftsourceinfo")
+                    )
+                case .swiftbuild:
+                    let path = base.appending(triple.tripleString)
+                        .appending(components: debugFolderComponents)
+                    return (
+                        buildSystem,
+                        triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
+                            .appending("ExecutableNew.swiftmodule")
+                            .appending("Project")
+                            .appending("\(triple).swiftsourceinfo")
+                    )
+                case .native:
+                    return (
+                        buildSystem,
+                        base.appending(components: debugFolderComponents)
+                            .appending("ExecutableNew.build")
+                            .appending("main.swift.o")
+                    )
+            }
+        }
+    }
+
+    @Test(arguments: try buildSystemAndOutputLocation())
+    func doesNotRebuildWithVerboseFlag(
+        buildSystem: BuildSystemProvider.Kind,
+        outputFile: Basics.RelativePath
+    ) async throws {
+        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+            try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+                _ = try await self.build(
+                    [],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+
+                let mainOFile = fixturePath.appending(outputFile)
+                let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+
+                _ = try await self.build(
+                    ["--verbose"],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+
+                let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when using the verbose flag, but the file was modified.")
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(arguments: try buildSystemAndOutputLocation())
+    func doesNotRebuildWithSwiftcArgsThatDontAffectIncrementalBuilds(
+        buildSystem: BuildSystemProvider.Kind,
+        outputFile: Basics.RelativePath
+    ) async throws {
+        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+            try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+                _ = try await self.build(
+                    [],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+
+                let mainOFile = fixturePath.appending(outputFile)
+                let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+
+                _ = try await self.build(
+                    ["-Xswiftc", "-diagnostic-style=llvm"],
+                    packagePath: fixturePath,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+
+                let subsequentMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
+                #expect(initialMainOMtime == subsequentMainOMtime, "Expected no rebuild to occur when supplying -diagnostic-style, but the file was modified.")
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
     @Test(
         .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
@@ -1231,6 +1334,17 @@ struct BuildCommandTestCases {
         }
     }
 
+}
+
+extension Triple {
+    func withoutVersion() throws -> Triple {
+        if isDarwin() {
+            let stringWithoutVersion = tripleString(forPlatformVersion: "")
+            return try Triple(stringWithoutVersion)
+        } else {
+            return self
+        }
+    }
 }
 
 

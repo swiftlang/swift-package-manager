@@ -8,7 +8,7 @@
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
  */
 
-import TSCBasic
+import Basics
 
 extension FileSystem {
     // Returns true if a path does not exist. Makes #expect statements more obvious.

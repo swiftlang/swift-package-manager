@@ -20,7 +20,6 @@ import Testing
 import _InternalTestSupport
 
 @Suite(
-    // .serialized, // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Traits,
@@ -30,24 +29,30 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue("""
+        Linux: https://github.com/swiftlang/swift-package-manager/issues/8416
+        """, isIntermittent: (ProcessInfo.hostOperatingSystem == .linux) || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-//                extraArgs: ["--experimental-prune-unused-dependencies"],
+                configuration: configuration,
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -60,32 +65,43 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenTraitUnification(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416
+            Windows: "https://github.com/swiftlang/swift-build/issues/609"
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
+                configuration: configuration,
                 extraArgs: ["--traits", "default,Package9,Package10"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -102,31 +118,43 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenTraitUnification_whenSecondTraitNotEnabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "default,Package9"/*, "--experimental-prune-unused-dependencies"*/],
+                configuration: configuration,
+                extraArgs: ["--traits", "default,Package9"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -141,26 +169,37 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraits(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
+                configuration: configuration,
                 extraArgs: [
                     "--traits",
                     "default,Package5,Package7,BuildCondition3",
@@ -169,7 +208,8 @@ struct TraitTests {
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -185,31 +225,40 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue("""
+        Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        """,
+        isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--disable-default-traits"/*"--experimental-prune-unused-dependencies"*/],
+                configuration: configuration,
+                extraArgs: ["--disable-default-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             DEFINE1 disabled
             DEFINE2 disabled
@@ -218,31 +267,42 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenIndividualTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue("""
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild),
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "Package5,Package7"/*, "--experimental-prune-unused-dependencies"*/],
+                configuration: configuration,
+                extraArgs: ["--traits", "Package5,Package7"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package5Library1 trait1 enabled
             Package6Library1 trait1 enabled
@@ -254,31 +314,43 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenAllTraitsEnabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--enable-all-traits"/*, "--experimental-prune-unused-dependencies"*/],
+                configuration: configuration,
+                extraArgs: ["--enable-all-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -298,26 +370,37 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)
+        ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
+                configuration: configuration,
                 extraArgs: [
                     "--enable-all-traits",
                     "--disable-default-traits",
@@ -326,7 +409,8 @@ struct TraitTests {
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            #expect(!stderr.contains("warning:"))
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            #expect(!stderr.contains(unusedDependencyRegex))
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -346,7 +430,8 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -354,14 +439,20 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpPackage,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func traits_dumpPackage(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
             let packageRoot = fixturePath.appending("Example")
-            let (dumpOutput, _) = try await executeSwiftPackage(packageRoot, extraArgs: ["dump-package"], buildSystem: buildSystem)
+            let (dumpOutput, _) = try await executeSwiftPackage(
+                packageRoot,
+                configuration: configuration,
+                extraArgs: ["dump-package"],
+                buildSystem: buildSystem,
+            )
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case .dictionary(let contents) = json else { Issue.record("unexpected result"); return }
             guard case .array(let traits)? = contents["traits"] else { Issue.record("unexpected result"); return }
@@ -375,16 +466,17 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func tests_whenNoFlagPassed(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftTest(
                 fixturePath.appending("Example"),
-//                extraArgs: ["--experimental-prune-unused-dependencies"],
+                configuration: configuration,
                 buildSystem: buildSystem,
             )
             let expectedOut = """
@@ -401,23 +493,31 @@ struct TraitTests {
         }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
+            || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
     @Test(
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Test,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func tests_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(
+            """
+            Windows: "https://github.com/swiftlang/swift-build/issues/609"
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
             try await fixture(name: "Traits") { fixturePath in
-                let (stdout, _) = try await executeSwiftTest(
+                let (stdout, stderr) = try await executeSwiftTest(
                     fixturePath.appending("Example"),
+                    configuration: configuration,
                     extraArgs: [
                         "--enable-all-traits",
                         "--disable-default-traits",
@@ -442,10 +542,10 @@ struct TraitTests {
                 DEFINE3 enabled
 
                 """
-                #expect(stdout.contains(expectedOut))
+                #expect(stdout.contains(expectedOut), "got stdout: '\(stdout)'\nstderr: '\(stderr)'")
             }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -453,14 +553,16 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Package.DumpSymbolGraph,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func packageDumpSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath.appending("Package10"),
+                configuration: configuration,
                 extraArgs: ["dump-symbol-graph"],
                 buildSystem: buildSystem,
             )
@@ -478,55 +580,77 @@ struct TraitTests {
     }
 
     @Test(
+        .bug("https://github.com/swiftlang/swift-build/issues/609"),
         .tags(
             Tag.Feature.Command.Package.Plugin,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func packagePluginGetSymbolGraph_enablesAllTraits(
         buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
+        configuration: BuildConfiguration,
+        ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                fixturePath.appending("Package10"),
-                extraArgs: ["plugin", "extract"],
-                buildSystem: buildSystem,
-            )
-            let path = String(stdout.split(whereSeparator: \.isNewline).first!)
-            let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-            #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-            #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+            // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
+             try await withKnownIssue(
+                "https://github.com/swiftlang/swift-build/issues/609",
+                isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            ) {
+                let (stdout, _) = try await executeSwiftPackage(
+                    fixturePath.appending("Package10"),
+                    configuration: configuration,
+                    extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
+                    buildSystem: buildSystem,
+                )
+                let path = String(stdout.split(whereSeparator: \.isNewline).first!)
+                let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+                #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+                #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+            } when: {
+               buildSystem == .swiftbuild
+            }
         }
     }
 
     @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func packageDisablingDefaultsTrait_whenNoTraits(
         buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let error = await #expect(throws: SwiftPMError.self) {
-                try await executeSwiftRun(
-                   fixturePath.appending("DisablingEmptyDefaultsExample"),
-                    "DisablingEmptyDefaultsExample",
-                    buildSystem: buildSystem,
-                )
-            }
+            try await withKnownIssue("""
+            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            """,
+            isIntermittent: true,
+            ) {
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await executeSwiftRun(
+                    fixturePath.appending("DisablingEmptyDefaultsExample"),
+                        "DisablingEmptyDefaultsExample",
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+                }
 
-            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
-                Issue.record("Incorrect error was raised.")
-                return
-            }
+                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
 
-            let expectedErr = """
+                let expectedErr = """
                     error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
 
                     """
-            #expect(stderr.contains(expectedErr))
+                #expect(stderr.contains(expectedErr))
+            } when: {
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
+            }
         }
     }
 }

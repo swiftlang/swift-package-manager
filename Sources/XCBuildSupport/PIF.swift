@@ -1124,6 +1124,11 @@ public struct XCBuildFileType: CaseIterable {
         fileTypeIdentifier: "folder.abstractassetcatalog"
     )
 
+    public static let xcstrings: XCBuildFileType = XCBuildFileType(
+        fileType: "xcstrings",
+        fileTypeIdentifier: "text.json.xcstrings"
+    )
+
     public static let xcdatamodeld: XCBuildFileType = XCBuildFileType(
         fileType: "xcdatamodeld",
         fileTypeIdentifier: "wrapper.xcdatamodeld"
@@ -1140,6 +1145,8 @@ public struct XCBuildFileType: CaseIterable {
     )
 
     public static let allCases: [XCBuildFileType] = [
+        .xcassets,
+        .xcstrings,
         .xcdatamodeld,
         .xcdatamodel,
         .xcmappingmodel,
