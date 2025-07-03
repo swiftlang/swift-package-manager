@@ -95,24 +95,10 @@ public enum DependencyResolutionNode {
         switch self {
         case .root(_, let enabledTraits), .product(_, _, let enabledTraits):
             return enabledTraits
-//        case .product(_, _, let enabledTraits):
-//            return enabledTraits
         default:
             return ["default"]
         }
     }
-
-    // TODO bp remove this, should precompute traits before here
-//    public var traitConfiguration: TraitConfiguration {
-//        switch self {
-//        case .root(_, let config):
-//            return config
-//        case .product(_, _, let enabledTraits):
-//            return .init(enabledTraits: enabledTraits)
-//        case .empty:
-//            return .default
-//        }
-//    }
 
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
@@ -124,7 +110,7 @@ public enum DependencyResolutionNode {
             package: self.package,
             versionRequirement: .exact(version),
             products: .specific([]),
-            enabledTraits: enabledTraits // TODO bp: the traits here should be already computed.
+            enabledTraits: self.enabledTraits
         )
     }
 
@@ -138,7 +124,7 @@ public enum DependencyResolutionNode {
             package: self.package,
             requirement: .revision(revision),
             products: .specific([]),
-            enabledTraits: enabledTraits
+            enabledTraits: self.enabledTraits
         )
     }
 }

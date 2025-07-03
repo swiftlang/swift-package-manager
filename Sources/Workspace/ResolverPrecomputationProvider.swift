@@ -172,23 +172,4 @@ private struct LocalPackageContainer: PackageContainer {
             return .root(identity: self.package.identity, path: self.manifest.path)
         }
     }
-
-    func getEnabledTraits(traitConfiguration: TraitConfiguration, at version: Version? = nil) async throws -> Set<String> {
-        guard manifest.packageKind.isRoot else {
-            return []
-        }
-
-        if let version {
-            switch dependency?.state {
-            case .sourceControlCheckout(.version(version, revision: _)):
-                return try manifest.enabledTraits(using: traitConfiguration) ?? []
-            case .registryDownload(version: version):
-                return try manifest.enabledTraits(using: traitConfiguration) ?? []
-            default:
-                throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
-            }
-        } else {
-            return try manifest.enabledTraits(using: traitConfiguration) ?? []
-        }
-    }
 }

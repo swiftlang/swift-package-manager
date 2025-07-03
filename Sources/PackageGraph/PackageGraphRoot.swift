@@ -38,6 +38,40 @@ public struct PackageGraphRootInput {
     }
 }
 
+//public typealias EnabledTraitsMap = [PackageIdentity: Set<String>]
+//@dynamicMemberLookup
+public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
+    public typealias Key = PackageIdentity
+    public typealias Value = Set<String>
+
+    var storage: [PackageIdentity: Set<String>] = [:]
+
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        for (key, value) in elements {
+            storage[key] = value
+        }
+    }
+
+    public init() { }
+
+    public init(_ dictionary: [Key: Value]) {
+        self.storage = dictionary
+    }
+
+    public subscript(key: PackageIdentity) -> Set<String> {
+        get { storage[key] ?? ["default"] }
+        set { storage[key] = newValue }
+    }
+
+//    subscript(dynamicMember key: PackageIdentity) -> Set<String> {
+//        get { storage[key] ?? ["default"] }
+//        set { storage[key] = newValue }
+//    }
+    public var dictionaryLiteral: [PackageIdentity: Set<String>] {
+        return storage
+    }
+}
+
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
@@ -50,7 +84,7 @@ public struct PackageGraphRoot {
     }
 
     /// The root manifest(s)'s enabled traits (and their transitively enabled traits).
-    public var enabledTraits: [PackageIdentity: Set<String>]
+    public var enabledTraits: EnabledTraitsMap
 
     /// The root package references.
     public var packageReferences: [PackageReference] {
@@ -137,7 +171,7 @@ public struct PackageGraphRoot {
             }
         }
 
-        self.enabledTraits = enableTraitsMap
+        self.enabledTraits = .init(enableTraitsMap)
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.

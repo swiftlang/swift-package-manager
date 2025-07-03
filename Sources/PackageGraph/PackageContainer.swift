@@ -97,12 +97,6 @@ public protocol PackageContainer {
     /// after the container is available. The updated identifier is returned in result of the
     /// dependency resolution.
     func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference
-
-
-    /// Fetch the enabled traits of a package container.
-    ///
-    /// NOTE: This method should only be called on root packages.
-    func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version?) async throws -> Set<String>
 }
 
 extension PackageContainer {
@@ -116,11 +110,6 @@ extension PackageContainer {
 
     public var shouldInvalidatePinnedVersions: Bool {
         return true
-    }
-
-    // TODO bp may not need this anymore
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration, version: Version? = nil) async throws -> Set<String> {
-        return []
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [PackageContainerConstraint] {

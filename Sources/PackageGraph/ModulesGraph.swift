@@ -455,7 +455,7 @@ public func precomputeTraits(
     var visited: Set<PackageIdentity> = []
 
     func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
-        let parentTraits = enabledTraits[parent.packageIdentity] ?? ["default"]
+        let parentTraits = enabledTraits[parent.packageIdentity]
         let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
         let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
 
@@ -470,9 +470,9 @@ public func precomputeTraits(
                 var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
 
                 // Check for existing traits; TODO bp see if these are the same?
-                if let depTraits = enabledTraits[dependency.identity] {
-                    enabledTraitsSet?.formUnion(depTraits)
-                }
+//                if let depTraits = enabledTraits[dependency.identity] {
+                    enabledTraitsSet?.formUnion(enabledTraits[dependency.identity])
+//                }
 
                 let calculatedTraits = try manifest.enabledTraits(
                     using: enabledTraitsSet ?? [],
@@ -498,7 +498,7 @@ public func precomputeTraits(
         }
     }
 
-    return enabledTraits
+    return enabledTraits.dictionaryLiteral
 }
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -540,13 +540,7 @@ public func loadModulesGraph(
 
     let updatedTraitsMap = try precomputeTraits(root: graphRoot, manifests, manifestMap)
     // TODO bp: Post-process the trait computation here; a little hacky since we actually do this during dependency resolution...
-//    for manifest in manifests {
-//        var enabledTraits = graphRoot.enabledTraits[manifest.packageIdentity]
-//        enabledTraits = try manifest.enabledTraits(using: enabledTraits, nil)
-//
-//        graphRoot.enabledTraits[manifest.packageIdentity] = enabledTraits
-//    }
-    graphRoot.enabledTraits = updatedTraitsMap
+    graphRoot.enabledTraits = .init(updatedTraitsMap)
 
     return try ModulesGraph.load(
         root: graphRoot,

@@ -59,12 +59,11 @@ extension ModulesGraph {
             // TODO bp
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
-            let enabledTraits = root.enabledTraits[identity] ?? ["default"]
             return try GraphLoadingNode(
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: enabledTraits
+                enabledTraits: root.enabledTraits[identity]
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
@@ -74,7 +73,7 @@ extension ModulesGraph {
                         identity: dependency.identity,
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: root.enabledTraits[dependency.identity] ?? ["default"]
+                        enabledTraits: root.enabledTraits[dependency.identity]
                     )
                 }
             }
@@ -105,7 +104,7 @@ extension ModulesGraph {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: root.enabledTraits[manifest.packageIdentity] ?? ["default"]//calculatedTraits
+                                enabledTraits: root.enabledTraits[manifest.packageIdentity]
                             ),
                             key: dependency.identity
                         )

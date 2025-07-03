@@ -648,7 +648,7 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
                 // Calculate conditional traits for dependencies here; add to enabled traits map.
-                let enabledTraits: Set<String> = root.enabledTraits[manifest.packageIdentity] ?? ["default"]
+                let enabledTraits: Set<String> = root.enabledTraits[manifest.packageIdentity]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 let explicitlyEnabledTraits = dep.traits?.filter {
                     guard let condition = $0.condition else { return true }
@@ -661,11 +661,12 @@ extension Workspace {
 //                    enabledTraitsMap[dep.identity] =
 //                    enabledTraitsMap[dep.identity, default: []].formUnion(explicitlyEnabledTraits.map(\.name))
 //                }
-                if let depTraits = enabledTraitsMap[dep.identity] {
-                    enabledTraitsSet?.formUnion(depTraits)
+//                if let depTraits = enabledTraitsMap[dep.identity] {
+                    enabledTraitsSet?.formUnion(enabledTraitsMap[dep.identity])
+//                }
+                if let enabledTraitsSet {
+                    enabledTraitsMap[dep.identity] = enabledTraitsSet
                 }
-
-                enabledTraitsMap[dep.identity] = enabledTraitsSet
 
                 return isDepUsed
             }.map(\.packageRef)
@@ -724,9 +725,9 @@ extension Workspace {
 
                     var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
 
-                    if let depTraits = enabledTraitsMap[dependency.identity] {
-                        enabledTraitsSet?.formUnion(depTraits)
-                    }
+//                    if let depTraits = enabledTraitsMap[dependency.identity] {
+                        enabledTraitsSet?.formUnion(enabledTraitsMap[dependency.identity])
+//                    }
 
                     let calculatedTraits = try manifest.enabledTraits(
                         using: enabledTraitsSet ?? ["default"],//explicitlyEnabledTraits.flatMap { Set($0) },
@@ -765,7 +766,7 @@ extension Workspace {
                         identity: identity,
                         manifest: manifest,
                         productFilter: .everything,
-                        enabledTraits: root.enabledTraits[identity] ?? ["default"]
+                        enabledTraits: root.enabledTraits[identity]
                     ),
                     key: identity
                 )
@@ -781,7 +782,7 @@ extension Workspace {
             }
         }
 
-        enabledTraitsMap = try precomputeTraits(root: root, topLevelManifests.values.map({ $0 }), loadedManifests)
+        enabledTraitsMap = .init(try precomputeTraits(root: root, topLevelManifests.values.map({ $0 }), loadedManifests))
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 
@@ -836,7 +837,7 @@ extension Workspace {
         var visited: Set<PackageIdentity> = []
 
         func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
-            let parentTraits = enabledTraits[parent.packageIdentity] ?? ["default"]
+            let parentTraits = enabledTraits[parent.packageIdentity]
             let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
             let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
 
@@ -851,9 +852,9 @@ extension Workspace {
                     var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
 
                     // Check for existing traits; TODO bp see if these are the same?
-                    if let depTraits = enabledTraits[dependency.identity] {
-                        enabledTraitsSet?.formUnion(depTraits)
-                    }
+//                    if let depTraits = enabledTraits[dependency.identity] {
+                        enabledTraitsSet?.formUnion(enabledTraits[dependency.identity])
+//                    }
 
                     let calculatedTraits = try manifest.enabledTraits(
                         using: enabledTraitsSet ?? ["default"],
@@ -879,7 +880,7 @@ extension Workspace {
             }
         }
 
-        return enabledTraits
+        return enabledTraits.dictionaryLiteral
 
 //        func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
 //            let parentTraits = enabledTraits[parent.packageIdentity]

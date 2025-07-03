@@ -72,11 +72,6 @@ public class MockPackageContainer: CustomPackageContainer {
         return self.package
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // This mock does not currently need support for traits.
-        return []
-    }
-
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         return true
     }

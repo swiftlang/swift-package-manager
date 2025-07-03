@@ -168,7 +168,7 @@ final class PubGrubPackageContainer {
         }
 
         // TODO bp check that this is correct now
-        let enabledTraits = node.enabledTraits/*node.package.kind.isRoot ? try await self.underlying.getEnabledTraits(traitConfiguration: node.traitConfiguration) : node.traits*/
+        let enabledTraits = node.enabledTraits
         var unprocessedDependencies = try await self.underlying.getDependencies(
             at: version,
             productFilter: node.productFilter,

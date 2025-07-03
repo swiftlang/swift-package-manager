@@ -128,15 +128,6 @@ public struct FileSystemPackageContainer: PackageContainer {
     public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         fatalError("This should never be called")
     }
-
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration, at version: Version? = nil) async throws -> Set<String> {
-        guard version == nil else {
-            throw InternalError("File system package container does not support versioning.")
-        }
-        let manifest = try await loadManifest()
-        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-        return enabledTraits ?? []
-    }
 }
 
 extension FileSystemPackageContainer: CustomStringConvertible  {

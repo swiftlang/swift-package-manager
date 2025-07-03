@@ -3198,11 +3198,6 @@ public class MockContainer: PackageContainer {
         return self.package
     }
 
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // FIXME: This mock does not currently support traits.
-        return []
-    }
-
     func appendVersion(_ version: BoundVersion) {
         self._versions.append(version)
         self._versions = self._versions
