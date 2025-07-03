@@ -2029,7 +2029,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         // D
         do {
-            let expectedBModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/B.build/module.modulemap").pathString
+            let expectedBInclude = AbsolutePath("/path/to/build/\(triple)/debug/B.build/include").pathString
             let expectedCModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/C.build/module.modulemap").pathString
             let expectedDModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/D.build/module.modulemap").pathString
             let expectedModuleCache = AbsolutePath("/path/to/build/\(triple)/debug/ModuleCache").pathString
@@ -2051,13 +2051,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ]
             )
 
-#if os(macOS)
             try XCTAssertMatchesSubSequences(
                 result.moduleBuildDescription(for: "D").symbolGraphExtractArguments(),
                 // Swift Module dependencies
-                ["-Xcc", "-fmodule-map-file=\(expectedBModuleMap)"]
+                ["-Xcc", "-I", "-Xcc", "\(expectedBInclude)"]
             )
-#endif
         }
     }
 
@@ -5981,7 +5979,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5991,7 +5989,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -6066,7 +6064,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -6076,7 +6074,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -6156,7 +6154,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -6166,7 +6164,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
