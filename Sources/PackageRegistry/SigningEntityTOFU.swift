@@ -76,26 +76,6 @@ struct PackageSigningEntityTOFU {
         )
     }
 
-    @available(*, noasync, message: "Use the async alternative")
-    func validate(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        signingEntity: SigningEntity?,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
-    ) {
-        DispatchQueue.sharedConcurrent.asyncResult(completion) {
-            try await self.validate(
-                registry: registry,
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     private func validateSigningEntity(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,

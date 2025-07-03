@@ -119,23 +119,6 @@ public class RegistryDownloadsManager: AsyncCancellable {
         return try await task.value
     }
 
-    @available(*, noasync, message: "Use the async alternative")
-    public func lookup(
-        package: PackageIdentity,
-        version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping @Sendable (Result<Basics.AbsolutePath, Error>) -> Void
-    ) {
-        callbackQueue.asyncResult(completion) {
-            try await self.lookup(
-                package: package,
-                version: version,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     /// Cancel any outstanding requests
     public func cancel(deadline: DispatchTime) async throws {
         try await self.registryClient.cancel(deadline: deadline)

@@ -120,7 +120,7 @@ fileprivate struct ToolsVersionSpecificationRewriterTests {
         )
 
         // resultHandler(try inMemoryFileSystem.readFileContents(manifestFilePath))
-        let actual = try #require(try inMemoryFileSystem.readFileContents(manifestFilePath))
+        let actual = try inMemoryFileSystem.readFileContents(manifestFilePath)
         #expect(actual.validDescription == expected, "Actual is not expected")
     }
 

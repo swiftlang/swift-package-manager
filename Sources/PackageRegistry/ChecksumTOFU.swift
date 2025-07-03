@@ -67,29 +67,6 @@ struct PackageVersionChecksumTOFU {
         }
     }
 
-    @available(*, noasync, message: "Use the async alternative")
-    func validateSourceArchive(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        checksum: String,
-        timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
-    ) {
-        callbackQueue.asyncResult(completion) {
-            try await self.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                timeout: timeout,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
     private func getExpectedChecksum(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
