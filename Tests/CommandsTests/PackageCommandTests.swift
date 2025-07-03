@@ -2151,9 +2151,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
         }
 
-        try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 3 fix-its in 1 file")
+        try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 4 fix-its in 1 file")
         try await doMigration(featureName: "StrictMemorySafety", expectedSummary: "Applied 1 fix-it in 1 file")
-        try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 1 fix-it in 1 file")
+        try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 2 fix-its in 1 file")
     }
 
     func testBuildToolPlugin() async throws {

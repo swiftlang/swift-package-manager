@@ -301,7 +301,11 @@ extension SwiftFixIt {
                 }
             }
 
-            let result = SwiftIDEUtils.FixItApplier.apply(edits: consume edits, to: sourceFile.syntax)
+            let result = SwiftIDEUtils.FixItApplier.apply(
+                edits: consume edits,
+                to: sourceFile.syntax,
+                allowDuplicateInsertions: false
+            )
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }

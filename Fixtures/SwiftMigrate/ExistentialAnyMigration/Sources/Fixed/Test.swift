@@ -1,5 +1,7 @@
 protocol P {
 }
+protocol Q {
+}
 
 func test1(_: any P) {
 }
@@ -13,4 +15,7 @@ func test3() {
 
 func test4() {
     var x = 42
+}
+
+func test5(_: any P & Q) {
 }

@@ -412,19 +412,12 @@ struct FilteringTests {
         }
     }
 
-    @Test
     func testDuplicateInsertionFixIts() throws {
-        withKnownIssue("FIXME: Filter out duplicate insertion fix-its") {
-            try self._testDuplicateInsertionFixIts()
-        }
-    }
-
-    func _testDuplicateInsertionFixIts() throws {
         try testAPI1File { path in
             .init(
                 edits: .init(input: "var x = 1", result: "@W var yx = 21"),
                 summary: .init(
-                    // 4 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    // 6 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
                     numberOfFixItsApplied: 6,
                     numberOfFilesChanged: 1
                 ),
@@ -470,7 +463,7 @@ struct FilteringTests {
                         text: "error3_fixit1",
                         location: .init(path: path, line: 1, column: 3),
                         fixIts: [
-                            // FIXME: Should be skipped.
+                            // Skipped, duplicate insertion.
                             .init(
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 1),
@@ -500,7 +493,7 @@ struct FilteringTests {
                                 text: "error5_note1",
                                 location: .init(path: path, line: 1, column: 9),
                                 fixIts: [
-                                    // FIXME: Should be skipped.
+                                    // Skipped, duplicate insertion.
                                     .init(
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 9),
@@ -519,7 +512,7 @@ struct FilteringTests {
                                 text: "error6_note1",
                                 location: .init(path: path, line: 1, column: 5),
                                 fixIts: [
-                                    // FIXME: Should be skipped.
+                                    // Skipped, duplicate insertion.
                                     .init(
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 5),

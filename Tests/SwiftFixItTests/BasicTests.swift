@@ -279,6 +279,61 @@ struct BasicTests {
     }
 
     @Test
+    func testOverlappingFixIts2() throws {
+        try testAPI1File { path in
+            .init(
+                edits: .init(input: "var x = 1", result: "_ == 1"),
+                summary: .init(
+                    // 2 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 3 /**/,
+                    numberOfFilesChanged: 1
+                ),
+                diagnostics: [
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error1",
+                        location: .init(path: path, line: 1, column: 1),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 6),
+                                text: "_"
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error2",
+                        location: .init(path: path, line: 1, column: 1),
+                        fixIts: [
+                            // Skipped, overlaps with previous fix-it.
+                            .init(
+                                start: .init(path: path, line: 1, column: 7),
+                                end: .init(path: path, line: 1, column: 8),
+                                text: "=="
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error3",
+                        location: .init(path: path, line: 1, column: 1),
+                        fixIts: [
+                            // Skipped, overlaps with previous fix-it.
+                            .init(
+                                start: .init(path: path, line: 1, column: 1),
+                                end: .init(path: path, line: 1, column: 4),
+                                text: "let"
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+    }
+
+    @Test
     func testFixItsMultipleFiles() throws {
         try testAPI2Files { path1, path2 in
             .init(
