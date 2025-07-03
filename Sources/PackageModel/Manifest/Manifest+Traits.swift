@@ -106,7 +106,7 @@ extension Manifest {
             return
         }
 
-        let enabledTraits = explicitlyEnabledTraits ?? []
+        let enabledTraits = explicitlyEnabledTraits
 
         // Validate each trait to assure it's defined in the current package.
         for trait in enabledTraits {

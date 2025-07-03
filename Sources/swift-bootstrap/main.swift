@@ -435,7 +435,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 binaryArtifacts: [:],
                 prebuilts: [:],
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                enabledTraitsMap: [:] // When bootstrapping no special trait build configuration is used
             )
         }
 

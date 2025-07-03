@@ -39,7 +39,8 @@ extension ModulesGraph {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         productsFilter: ((Product) -> Bool)? = nil,
-        modulesFilter: ((Module) -> Bool)? = nil
+        modulesFilter: ((Module) -> Bool)? = nil,
+        enabledTraitsMap: EnabledTraitsMap
     ) throws -> ModulesGraph {
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
@@ -63,7 +64,7 @@ extension ModulesGraph {
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: root.enabledTraits[identity]
+                enabledTraits: enabledTraitsMap[identity]
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
@@ -73,7 +74,7 @@ extension ModulesGraph {
                         identity: dependency.identity,
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: root.enabledTraits[dependency.identity]
+                        enabledTraits: enabledTraitsMap[dependency.identity]
                     )
                 }
             }
@@ -104,7 +105,7 @@ extension ModulesGraph {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: root.enabledTraits[manifest.packageIdentity]
+                                enabledTraits: enabledTraitsMap[manifest.packageIdentity]
                             ),
                             key: dependency.identity
                         )
@@ -292,9 +293,6 @@ private func checkAllDependenciesAreUsed(
             if dependency.manifest.supportsTraits {
                 continue
             }
-//            if !dependency.enabledTraits.isEmpty {
-//                continue
-//            }
 
             // Make sure that any diagnostics we emit below are associated with the package.
             let packageDiagnosticsScope = observabilityScope.makeChildScope(
@@ -1437,7 +1435,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var products: [ResolvedProductBuilder] = []
 
     /// The enabled traits of this package.
-    var enabledTraits: Set<String> //= ["default"] TODO bp
+    var enabledTraits: Set<String>
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []

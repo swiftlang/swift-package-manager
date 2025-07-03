@@ -103,6 +103,9 @@ public class Workspace {
     /// to the store.
     package let resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>
 
+    ///  Computed enabled traits per package in the workspace
+    public var enabledTraitsMap: EnabledTraitsMap = [:]
+
     /// The file system on which the workspace will operate.
     package let fileSystem: any FileSystem
 
@@ -781,19 +784,19 @@ extension Workspace {
         }
 
         // TODO bp ensure this is correct.
-        var dependencyEnabledTraits: Set<String> = Set(["default"])
-        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
-            .traits
-        {
-            dependencyEnabledTraits = Set(traits.map(\.name))
-        }
+//        var dependencyEnabledTraits: Set<String> = Set(["default"])
+//        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
+//            .traits
+//        {
+//            dependencyEnabledTraits = Set(traits.map(\.name))
+//        }
 
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
             products: .nothing,
-            enabledTraits: dependencyEnabledTraits
+            enabledTraits: self.enabledTraitsMap[dependency.packageRef.identity]
         )
 
         // Run the resolution.
@@ -952,6 +955,8 @@ extension Workspace {
         // such hosts processes call loadPackageGraph to make sure the workspace state is correct
         try await self.state.reload()
 
+        observabilityScope.emit(warning: "bp BEFORE COMP enabled traits map: \(self.enabledTraitsMap)")
+
         // Perform dependency resolution, if required.
         let manifests = try await self._resolve(
             root: root,
@@ -959,6 +964,8 @@ extension Workspace {
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
+
+        observabilityScope.emit(warning: "bp enabled traits map: \(self.enabledTraitsMap)")
 
         let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
@@ -998,7 +1005,8 @@ extension Workspace {
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         try self.validateSignatures(
@@ -1067,8 +1075,15 @@ extension Workspace {
                 if let (package, manifest) = result {
                     // Store the manifest.
                     rootManifests[package] = manifest
+
+                    // TODO bp: compute the traits for roots here.
+                    let traitConfiguration = self.configuration.traitConfiguration
+                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
+                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
                 }
             }
+
+
 
             // Check for duplicate root packages after all manifests are loaded.
             let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)

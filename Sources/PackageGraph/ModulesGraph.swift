@@ -446,16 +446,16 @@ func topologicalSortIdentifiable<T: Identifiable>(
 }
 
 public func precomputeTraits(
-    root: PackageGraphRoot,
+    _ enabledTraitsMap: EnabledTraitsMap,
+//    root: PackageGraphRoot,
     _ topLevelManifests: [Manifest],
     _ manifestMap: [PackageIdentity: Manifest]
 ) throws -> [PackageIdentity: Set<String>] {
-    var enabledTraits = root.enabledTraits
-
+//    var enabledTraits = root.enabledTraits
     var visited: Set<PackageIdentity> = []
 
-    func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws /*-> [Manifest]*/ {
-        let parentTraits = enabledTraits[parent.packageIdentity]
+    func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
+        let parentTraits = enabledTraitsMap[parent.packageIdentity]
         let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
         let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
 
@@ -469,17 +469,15 @@ public func precomputeTraits(
 
                 var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
 
-                // Check for existing traits; TODO bp see if these are the same?
-//                if let depTraits = enabledTraits[dependency.identity] {
-                    enabledTraitsSet?.formUnion(enabledTraits[dependency.identity])
-//                }
+                // Form union with traits that have already been pre-computed, if they exist
+                enabledTraitsSet?.formUnion(enabledTraitsMap[dependency.identity])
 
                 let calculatedTraits = try manifest.enabledTraits(
-                    using: enabledTraitsSet ?? [],
+                    using: enabledTraitsSet ?? ["default"],
                     .init(parent)
                 )
 
-                enabledTraits[dependency.identity] = calculatedTraits
+//                enabledTraitsMap[dependency.identity] = calculatedTraits
 
                 let result = visited.insert(dependency.identity)
                 if result.inserted {
@@ -492,13 +490,14 @@ public func precomputeTraits(
     }
 
     for manifest in topLevelManifests {
+        // Track already-visited manifests to avoid cycles
         let result = visited.insert(manifest.packageIdentity)
         if result.inserted {
             try dependencies(of: manifest)
         }
     }
 
-    return enabledTraits.dictionaryLiteral
+    return enabledTraitsMap.dictionaryLiteral
 }
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -527,7 +526,7 @@ public func loadModulesGraph(
 
     let packages = Array(rootManifests.keys)
     let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
-    var graphRoot = try PackageGraphRoot(
+    let graphRoot = try PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,
@@ -538,9 +537,8 @@ public func loadModulesGraph(
         manifestMap[manifest.packageIdentity] = manifest
     }
 
-    let updatedTraitsMap = try precomputeTraits(root: graphRoot, manifests, manifestMap)
-    // TODO bp: Post-process the trait computation here; a little hacky since we actually do this during dependency resolution...
-    graphRoot.enabledTraits = .init(updatedTraitsMap)
+    // TODO bp
+    let updatedTraitsMap = try precomputeTraits([:], manifests, manifestMap)
 
     return try ModulesGraph.load(
         root: graphRoot,
@@ -556,6 +554,7 @@ public func loadModulesGraph(
         fileSystem: fileSystem,
         observabilityScope: observabilityScope,
         productsFilter: nil,
-        modulesFilter: nil
+        modulesFilter: nil,
+        enabledTraitsMap: .init(updatedTraitsMap)
     )
 }

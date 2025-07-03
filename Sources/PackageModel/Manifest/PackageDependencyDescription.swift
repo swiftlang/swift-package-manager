@@ -30,9 +30,9 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 self.traits = traits
             }
 
-            public func isSatisfied(by enabledTraits: Set<String>?) -> Bool {
+            public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
                 guard let traits else { return true }
-                return !traits.intersection(enabledTraits ?? []).isEmpty
+                return !traits.intersection(enabledTraits).isEmpty
             }
         }
 

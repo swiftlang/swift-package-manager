@@ -81,7 +81,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "default,Package9,Package10"/*, "--experimental-prune-unused-dependencies"*/],
+                extraArgs: ["--traits", "default,Package9,Package10"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -459,9 +459,9 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath.appending("Package10"),
-                extraArgs: ["dump-symbol-graph"/*, "--experimental-prune-unused-dependencies"*/],
+                extraArgs: ["dump-symbol-graph"],
                 buildSystem: buildSystem,
             )
             let optionalPath = stdout
@@ -487,9 +487,9 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath.appending("Package10"),
-                extraArgs: ["plugin", "extract"/*, "--experimental-prune-unused-dependencies"*/],
+                extraArgs: ["plugin", "extract"],
                 buildSystem: buildSystem,
             )
             let path = String(stdout.split(whereSeparator: \.isNewline).first!)
