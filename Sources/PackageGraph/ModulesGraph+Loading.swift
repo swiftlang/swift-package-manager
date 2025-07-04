@@ -57,7 +57,6 @@ extension ModulesGraph {
         })
 
         let rootManifestNodes = try root.packages.map { identity, package in
-            // TODO bp
             // If we have enabled traits passed then we start with those. If there are no enabled
             // traits passed then the default traits will be used.
             return try GraphLoadingNode(
@@ -170,7 +169,7 @@ extension ModulesGraph {
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope,
-                    enabledTraits: node.enabledTraits ?? []//["default"] TODO bp
+                    enabledTraits: node.enabledTraits
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
@@ -191,6 +190,8 @@ extension ModulesGraph {
         } else {
             .init(implementation: .minimumDeploymentTargetDefault)
         }
+
+        observabilityScope.emit(warning: "bp \(allNodes)")
 
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = try createResolvedPackages(

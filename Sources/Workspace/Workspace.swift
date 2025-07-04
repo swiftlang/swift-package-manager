@@ -965,7 +965,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        observabilityScope.emit(warning: "bp enabled traits map: \(self.enabledTraitsMap)")
+//        observabilityScope.emit(warning: "bp enabled traits map: \(self.enabledTraitsMap)")
 
         let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in

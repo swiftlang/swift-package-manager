@@ -203,7 +203,6 @@ struct TraitTests {
                 extraArgs: [
                     "--traits",
                     "default,Package5,Package7,BuildCondition3",
-                    //"--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
@@ -404,13 +403,15 @@ struct TraitTests {
                 extraArgs: [
                     "--enable-all-traits",
                     "--disable-default-traits",
-//                    "--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
             #expect(!stderr.contains(unusedDependencyRegex))
+            if buildSystem == .swiftbuild {
+                print(stderr)
+            }
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled
@@ -521,7 +522,6 @@ struct TraitTests {
                     extraArgs: [
                         "--enable-all-traits",
                         "--disable-default-traits",
-                       // "--experimental-prune-unused-dependencies",
                     ],
                     buildSystem: buildSystem,
                 )
@@ -599,7 +599,7 @@ struct TraitTests {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
                     configuration: configuration,
-                    extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
+                    extraArgs: ["plugin", "extract"],
                     buildSystem: buildSystem,
                 )
                 let path = String(stdout.split(whereSeparator: \.isNewline).first!)
