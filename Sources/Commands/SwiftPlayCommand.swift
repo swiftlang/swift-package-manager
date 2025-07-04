@@ -18,11 +18,6 @@ import PackageGraph
 import PackageModel
 import SPMBuildCore
 
-#if !os(macOS)
-import SWBUtil // for FileHandle.bytes()
-#endif
-
-import protocol TSCBasic.WritableByteStream
 import enum TSCUtility.Diagnostics
 
 #if canImport(Android)
@@ -213,9 +208,9 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     ) async throws -> PlaygroundMonitorResult {
 
         // Hand off playground execution to dynamically built playground runner executable
-        var runnerProcess: PlaygroundRunnerProcess? = nil
+        var runnerProcess: AsyncProcess? = nil
         defer {
-            runnerProcess?.kill()
+            runnerProcess?.signal(SIGKILL)
         }
 
         if case let .success(productName) = buildResult {
@@ -302,7 +297,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 group.cancelAll()
 
                 // Kill runner process, so that its task ends
-                runnerProcess?.kill()
+                runnerProcess?.signal(SIGKILL)
 
                 guard let result = firstResult else {
                     // taskGroup returned no value so default to processExited
@@ -323,70 +318,11 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         }
     }
 
-    /// A process wrapper that manages the execution of playground runner executables.
-    ///
-    /// `PlaygroundRunnerProcess` encapsulates an `AsyncProcess` that runs the playground runner
-    /// executable and handles stdin forwarding from the parent process to the child process.
-    /// This allows interactive playground code to receive user input during execution.
-    ///
-    /// The class automatically sets up a background task to forward stdin data from the current
-    /// process to the playground runner process, enabling interactive features in playgrounds.
-    final private class PlaygroundRunnerProcess {
-        private let runnerProcess: AsyncProcess
-        private let runnerStdin: any WritableByteStream
-        private var stdinTask: Task<(), any Error>?
-
-        init(process: AsyncProcess, stdin: any WritableByteStream) {
-            self.runnerProcess = process
-            self.runnerStdin = stdin
-
-            self.stdinTask = PlaygroundRunnerProcess.startForwardingStdin(runnerStdin: stdin)
-        }
-
-        deinit {
-            kill()
-        }
-
-        func waitUntilExit() async throws {
-            try await runnerProcess.waitUntilExit()
-            stdinTask?.cancel()
-        }
-
-        func kill() {
-            stdinTask?.cancel()
-            stdinTask = nil
-            #if os(macOS)
-            try? runnerStdin.close()
-            #endif
-            runnerProcess.signal(SIGKILL)
-        }
-
-        private static func startForwardingStdin(runnerStdin: any WritableByteStream) -> Task<(), any Error>? {
-            let stdinTask = Task {
-                while !Task.isCancelled {
-                    #if os(macOS)
-                    for try await byte in FileHandle.standardInput.bytes {
-                        runnerStdin.write(byte)
-                        runnerStdin.flush()
-                    }
-                    #else
-                    for try await byte in FileHandle.standardInput.bytes() {
-                        runnerStdin.write(byte)
-                        runnerStdin.flush()
-                    }
-                    #endif
-                    try runnerStdin.close() // EOF
-                }
-            }
-            return stdinTask
-        }
-    }
-
     /// Executes the Playground via the specified executable at the specified path.
     private func play(
         executablePath: Basics.AbsolutePath,
         originalWorkingDirectory: Basics.AbsolutePath
-    ) throws -> PlaygroundRunnerProcess {
+    ) throws -> AsyncProcess {
         var runnerArguments: [String] = []
         if options.mode == .oneShot {
             runnerArguments.append("--one-shot")
@@ -396,25 +332,21 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         let runnerProcess = AsyncProcess(
             arguments: [executablePath.pathString] + runnerArguments,
             workingDirectory: originalWorkingDirectory,
-            outputRedirection: .none,   // don't redirect playground output (stdout/stderr)
+            inputRedirection: .none,    // route parent process' stdin to playground runner process
+            outputRedirection: .none,   // route playground runner process' stdout/stderr to default output
             startNewProcessGroup: false // runner process tracks the parent process' lifetime
         )
 
-        let runnerStdin: any WritableByteStream
-
         do {
             verboseLog("Launching runner: \(executablePath.pathString) \(runnerArguments.joined(separator: " "))")
-            runnerStdin = try runnerProcess.launch()
+            try runnerProcess.launch()
             verboseLog("Runner launched with pid \(runnerProcess.processID)")
         } catch {
             print("[Playground runner launch failed with error: \(error)]")
             throw ExitCode.failure
         }
         
-        return PlaygroundRunnerProcess(
-            process: runnerProcess,
-            stdin: runnerStdin
-        )
+        return runnerProcess
     }
 
     private func verboseLog(_ message: String) {
