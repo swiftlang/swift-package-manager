@@ -179,6 +179,23 @@ package final class AsyncProcess {
 
     package typealias ReadableStream = AsyncStream<[UInt8]>
 
+    package enum InputRedirection: Sendable {
+        /// Do not redirect the input
+        case none
+
+        /// Configure a writable stream which pipes to the process's stdin.
+        case writableStream
+
+        package var redirectsInput: Bool {
+            switch self {
+            case .none:
+                false
+            case .writableStream:
+                true
+            }
+        }
+    }
+
     package enum OutputRedirection: Sendable {
         /// Do not redirect the output
         case none
@@ -319,6 +336,9 @@ package final class AsyncProcess {
         }
     }
 
+    /// How process redirects its input.
+    package let inputRedirection: InputRedirection
+
     /// How process redirects its output.
     package let outputRedirection: OutputRedirection
 
@@ -338,6 +358,7 @@ package final class AsyncProcess {
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
     ///   - workingDirectory: The path to the directory under which to run the process.
+    ///   - inputRedirection: How process redirects its input. Default value is .writableStream.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
     ///     continue running even if the parent is killed or interrupted. Default value is true.    //ignore-unacceptable-language
@@ -347,6 +368,7 @@ package final class AsyncProcess {
         arguments: [String],
         environment: Environment = .current,
         workingDirectory: AbsolutePath,
+        inputRedirection: InputRedirection = .writableStream,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none
@@ -354,6 +376,7 @@ package final class AsyncProcess {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
+        self.inputRedirection = inputRedirection
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
@@ -365,6 +388,7 @@ package final class AsyncProcess {
     ///   - arguments: The arguments for the subprocess.
     ///   - environment: The environment to pass to subprocess. By default the current process environment
     ///     will be inherited.
+    ///   - inputRedirection: How process redirects its input. Default value is .writableStream.
     ///   - outputRedirection: How process redirects its output. Default value is .collect.
     ///   - verbose: If true, launch() will print the arguments of the subprocess before launching it.
     ///   - startNewProcessGroup: If true, a new progress group is created for the child making it
@@ -373,6 +397,7 @@ package final class AsyncProcess {
     package init(
         arguments: [String],
         environment: Environment = .current,
+        inputRedirection: InputRedirection = .writableStream,
         outputRedirection: OutputRedirection = .collect,
         startNewProcessGroup: Bool = true,
         loggingHandler: LoggingHandler? = .none,
@@ -381,6 +406,7 @@ package final class AsyncProcess {
         self.arguments = arguments
         self.environment = environment
         self.workingDirectory = workingDirectory
+        self.inputRedirection = inputRedirection
         self.outputRedirection = outputRedirection
         self.startNewProcessGroup = startNewProcessGroup
         self.loggingHandler = loggingHandler ?? AsyncProcess.loggingHandler
@@ -389,12 +415,14 @@ package final class AsyncProcess {
     package convenience init(
         args: [String],
         environment: Environment = .current,
+        inputRedirection: InputRedirection = .writableStream,
         outputRedirection: OutputRedirection = .collect,
         loggingHandler: LoggingHandler? = .none
     ) {
         self.init(
             arguments: args,
             environment: environment,
+            inputRedirection: inputRedirection,
             outputRedirection: outputRedirection,
             loggingHandler: loggingHandler
         )
@@ -403,12 +431,14 @@ package final class AsyncProcess {
     package convenience init(
         args: String...,
         environment: Environment = .current,
+        inputRedirection: InputRedirection = .writableStream,
         outputRedirection: OutputRedirection = .collect,
         loggingHandler: LoggingHandler? = .none
     ) {
         self.init(
             arguments: args,
             environment: environment,
+            inputRedirection: inputRedirection,
             outputRedirection: outputRedirection,
             loggingHandler: loggingHandler
         )
@@ -456,9 +486,11 @@ package final class AsyncProcess {
         }
     }
 
-    /// Launch the subprocess. Returns a WritableByteStream object that can be used to communicate to the process's
-    /// stdin. If needed, the stream can be closed using the close() API. Otherwise, the stream will be closed
+    /// Launch the subprocess. If inputRedirection is `.writableStream` (the default) it returns a
+    /// `WritableByteStream` object that can be used to communicate to the process's stdin.
+    /// If needed, the stream can be closed using the close() API. Otherwise, the stream will be closed
     /// automatically.
+    /// If inputRedirection is `.none` then the returned object shouldn't be used (it won't do anything).
     @discardableResult
     package func launch() throws -> any WritableByteStream {
         precondition(
@@ -628,20 +660,30 @@ package final class AsyncProcess {
             #endif
         }
 
+        let stdinStream: any WritableByteStream
         var stdinPipe: [Int32] = [-1, -1]
-        try open(pipe: &stdinPipe)
 
-        guard let fp = fdopen(stdinPipe[1], "wb") else {
-            throw AsyncProcess.Error.stdinUnavailable
+        if self.inputRedirection.redirectsInput {
+            try open(pipe: &stdinPipe)
+
+            guard let fp = fdopen(stdinPipe[1], "wb") else {
+                throw AsyncProcess.Error.stdinUnavailable
+            }
+            stdinStream = try LocalFileOutputByteStream(filePointer: fp, closeOnDeinit: true)
+
+            // Dupe the read portion of the remote to 0.
+            posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
+
+            // Close the other side's pipe since it was dupped to 0.
+            posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
+            posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
         }
-        let stdinStream = try LocalFileOutputByteStream(filePointer: fp, closeOnDeinit: true)
-
-        // Dupe the read portion of the remote to 0.
-        posix_spawn_file_actions_adddup2(&fileActions, stdinPipe[0], 0)
-
-        // Close the other side's pipe since it was dupped to 0.
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[0])
-        posix_spawn_file_actions_addclose(&fileActions, stdinPipe[1])
+        else {
+            // Dup this process's stdin to the sub-process's stdin
+            posix_spawn_file_actions_adddup2(&fileActions, 0, 0)
+            // stdin stream isn't used with this option
+            stdinStream = try LocalFileOutputByteStream(AbsolutePath(validating: "/dev/null"))
+        }
 
         var outputPipe: [Int32] = [-1, -1]
         var stderrPipe: [Int32] = [-1, -1]
@@ -687,8 +729,10 @@ package final class AsyncProcess {
         }
 
         do {
-            // Close the local read end of the input pipe.
-            try close(fd: stdinPipe[0])
+            if self.inputRedirection.redirectsInput {
+                // Close the local read end of the input pipe.
+                try close(fd: stdinPipe[0])
+            }
 
             let group = DispatchGroup()
             if !self.outputRedirection.redirectsOutput {
