@@ -16,94 +16,124 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import SPMBuildCore
 import _InternalTestSupport
 import Workspace
-import XCTest
+import Testing
 
 import class Basics.AsyncProcess
 
 /// Asserts if a directory (recursively) contains a file.
-private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String, file: StaticString = #file, line: UInt = #line) {
+private func assertDirectoryContainsFile(dir: AbsolutePath, filename: String, sourceLocation: SourceLocation = #_sourceLocation) {
     do {
         for entry in try walk(dir) {
             if entry.basename == filename { return }
         }
     } catch {
-        XCTFail("Failed with error \(error)", file: file, line: line)
+        Issue.record(StringError("Failed with error \(error)"), sourceLocation: sourceLocation)
     }
-    XCTFail("Directory \(dir) does not contain \(file)", file: file, line: line)
+    Issue.record(StringError("Directory \(dir) does not contain \(filename)"), sourceLocation: sourceLocation)
 }
 
-final class CFamilyTargetTestCase: XCTestCase {
-    func testCLibraryWithSpaces() async throws {
-        try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
-            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+@Suite(.serialized)
+struct CFamilyTargetTestCase {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testCLibraryWithSpaces(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/333") {
+            try await fixture(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
+                try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
+                if buildSystem == .native {
+                    let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+                    assertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
+                    assertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+                }
+            }
+        } when: {
+            buildSystem == .swiftbuild
         }
     }
 
-    func testCUsingCAndSwiftDep() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testCUsingCAndSwiftDep(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
-            await XCTAssertBuilds(packageRoot)
-            let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+            try await executeSwiftBuild(packageRoot, buildSystem: buildSystem)
+            if buildSystem == .native {
+                let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+                assertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
+                assertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+            }
             let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-            XCTAssertEqual(try GitRepository(path: path).getTags(), ["1.2.3"])
+            #expect(try GitRepository(path: path).getTags() == ["1.2.3"])
         }
     }
 
-    func testModuleMapGenerationCases() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testModuleMapGenerationCases(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
-            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "FlatInclude.c.o")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "UmbrellaHeader.c.o")
-        }
-    }
-    
-    func testNoIncludeDirCheck() async throws {
-        try await fixture(name: "CFamilyTargets/CLibraryNoIncludeDir") { fixturePath in
-            await XCTAssertAsyncThrowsError(try await executeSwiftBuild(fixturePath), "This build should throw an error") { err in
-                // The err.localizedDescription doesn't capture the detailed error string so interpolate
-                let errStr = "\(err)"
-                let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
-                XCTAssert(errStr.contains(missingIncludeDirStr))
+            try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
+            if buildSystem == .native {
+                let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+                assertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
+                assertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
+                assertDirectoryContainsFile(dir: debugPath, filename: "FlatInclude.c.o")
+                assertDirectoryContainsFile(dir: debugPath, filename: "UmbrellaHeader.c.o")
             }
         }
     }
 
-    func testCanForwardExtraFlagsToClang() async throws {
-        // Try building a fixture which needs extra flags to be able to build.
-        try await fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
-            await XCTAssertBuilds(fixturePath, Xld: ["-undefined", "dynamic_lookup"])
-            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testNoIncludeDirCheck(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "CFamilyTargets/CLibraryNoIncludeDir") { fixturePath in
+            var buildError: (any Error)? = nil
+            do {
+                try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
+            } catch {
+                buildError = error
+            }
+            guard let buildError else {
+                Issue.record(StringError("This build should throw an error"))
+                return
+            }
+            // The err.localizedDescription doesn't capture the detailed error string so interpolate
+            let errStr = "\(buildError)"
+            let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
+            #expect(errStr.contains(missingIncludeDirStr))
         }
     }
 
-    func testObjectiveCPackageWithTestTarget() async throws {
-        #if !os(macOS)
-        try XCTSkipIf(true, "test is only supported on macOS")
-        #endif
-        try await fixture(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
-            // Build the package.
-            await XCTAssertBuilds(fixturePath)
-            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HelloWorldExample.m.o")
-            // Run swift-test on package.
-            await XCTAssertSwiftTest(fixturePath)
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testCanForwardExtraFlagsToClang(buildSystem: BuildSystemProvider.Kind) async throws {
+        // Try building a fixture which needs extra flags to be able to build.
+        try await fixture(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
+            try await executeSwiftBuild(fixturePath, Xld: ["-undefined", "dynamic_lookup"], buildSystem: buildSystem)
+            let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+            if buildSystem == .native {
+                assertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
+            }
         }
     }
-    
-    func testCanBuildRelativeHeaderSearchPaths() async throws {
+
+    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testObjectiveCPackageWithTestTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
+            // Build the package.
+            try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
+            if buildSystem == .native {
+                assertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HelloWorldExample.m.o")
+            }
+            // Run swift-test on package.
+            try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
+        }
+    }
+
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testCanBuildRelativeHeaderSearchPaths(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
-            XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HeaderInclude.swiftmodule")
+            try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
+            if buildSystem == .native {
+                assertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HeaderInclude.swiftmodule")
+            }
         }
     }
 }
