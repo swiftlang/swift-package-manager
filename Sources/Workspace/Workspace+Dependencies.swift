@@ -81,7 +81,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        let graphRoot = try PackageGraphRoot(
+        var graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
@@ -91,6 +91,8 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+        // TODO bp: find less hacky way to do this
+        graphRoot = currentManifests.root
 
         // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else { return nil }
@@ -104,7 +106,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and `Package.resolved` for the update resolution.
-        updateConstraints += try graphRoot.constraints()
+        updateConstraints += try graphRoot.constraints(self.enabledTraitsMap)
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
@@ -164,6 +166,8 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+        // TODO bp
+        graphRoot = updatedDependencyManifests.root
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
@@ -360,11 +364,15 @@ extension Workspace {
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
               !observabilityScope.errorsReported
         else {
-            return try await (
-                self.loadDependencyManifests(
-                    root: graphRoot,
-                    observabilityScope: observabilityScope
-                ),
+            let dependencyManifests = try await self.loadDependencyManifests(
+                root: graphRoot,
+                observabilityScope: observabilityScope
+                )
+
+            // TODO bp
+//            graphRoot = dependencyManifests.root
+
+            return (dependencyManifests,
                 .notRequired
             )
         }
@@ -462,7 +470,7 @@ extension Workspace {
             automaticallyAddManagedDependencies: true,
             observabilityScope: observabilityScope
         )
-
+        
         try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
@@ -521,11 +529,14 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+//        observabilityScope.emit(warning: "bp resolving + loading deps")
+
         // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
@@ -591,7 +602,7 @@ extension Workspace {
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
-        computedConstraints += try graphRoot.constraints() + constraints
+        computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -625,6 +636,8 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+        // TODO bp
+//        graphRoot = updatedDependencyManifests.root
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
@@ -854,9 +867,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-        try root.constraints() +
+        try root.constraints(self.enabledTraitsMap) +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, nil) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -1167,7 +1180,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints, traitConfiguration: configuration.traitConfiguration)
+        let result = await resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

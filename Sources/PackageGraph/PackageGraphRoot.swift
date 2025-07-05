@@ -38,6 +38,34 @@ public struct PackageGraphRootInput {
     }
 }
 
+public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
+    public typealias Key = PackageIdentity
+    public typealias Value = Set<String>
+
+    var storage: [PackageIdentity: Set<String>] = [:]
+
+    public init() { }
+
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        for (key, value) in elements {
+            storage[key] = value
+        }
+    }
+
+    public init(_ dictionary: [Key: Value]) {
+        self.storage = dictionary
+    }
+
+    public subscript(key: PackageIdentity) -> Set<String> {
+        get { storage[key] ?? ["default"] }
+        set { storage[key] = newValue }
+    }
+
+    public var dictionaryLiteral: [PackageIdentity: Set<String>] {
+        return storage
+    }
+}
+
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
@@ -50,7 +78,7 @@ public struct PackageGraphRoot {
     }
 
     /// The root manifest(s)'s enabled traits (and their transitively enabled traits).
-    public var enabledTraits: [PackageIdentity: Set<String>]
+//    public var enabledTraits: EnabledTraitsMap
 
     /// The root package references.
     public var packageReferences: [PackageReference] {
@@ -105,8 +133,8 @@ public struct PackageGraphRoot {
         })
 
         // Calculate the enabled traits for root.
-        var enableTraitsMap: [PackageIdentity: Set<String>] = [:]
-        enableTraitsMap = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
+        var enableTraitsMap: EnabledTraitsMap = [:]
+        enableTraitsMap = try packages.reduce(into: EnabledTraitsMap()) { traitsMap, package in
             let manifest = package.value.manifest
             let traitConfiguration = input.traitConfiguration
 
@@ -116,14 +144,22 @@ public struct PackageGraphRoot {
 
             // Calculate the enabled traits for each dependency of this root:
             manifest.dependencies.forEach { dependency in
-                if let traits = dependency.traits {
-                    let traitNames = traits.map(\.name)
-                    traitsMap[dependency.identity, default: []].formUnion(Set(traitNames))
+                let explicitlyEnabledTraits = dependency.traits?.filter({
+                    guard let condition = $0.condition else { return true }
+                    return condition.isSatisfied(by: enabledTraits)
+                }).map(\.name)
+                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
+
+                enabledTraitsSet?.formUnion(traitsMap[dependency.identity])
+
+                // to fix with precompute fix here
+                if let enabledTraitsSet {
+                    traitsMap[dependency.identity] = enabledTraitsSet
                 }
             }
         }
 
-        self.enabledTraits = enableTraitsMap
+//        self.enabledTraits = enableTraitsMap
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -138,8 +174,7 @@ public struct PackageGraphRoot {
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
             return manifests.values.reduce(false) { result, manifest in
-                guard manifest.pruneDependencies else { return true }
-                let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed
                 }
@@ -152,7 +187,7 @@ public struct PackageGraphRoot {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
-                    let enabledTraits: Set<String>? = enableTraitsMap[manifest.packageIdentity]
+                    let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity]
                     return try manifest.dependenciesRequired(for: .everything, enabledTraits)
                 })
                 .flatMap({ $0 })
@@ -168,10 +203,11 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints() throws -> [PackageContainerConstraint] {
+    public func constraints(_ enabledTraitsMap: EnabledTraitsMap) throws -> [PackageContainerConstraint] {
+        var rootEnabledTraits: Set<String> = []
         let constraints = self.packages.map { (identity, package) in
-            // Since these are root packages, can apply trait configuration as this is a root package concept.
-            let enabledTraits = self.enabledTraits[identity]
+            let enabledTraits = enabledTraitsMap[identity]
+            rootEnabledTraits.formUnion(enabledTraits)
             return PackageContainerConstraint(
                 package: package.reference,
                 requirement: .unversioned,
@@ -182,16 +218,19 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies
             .map { dep in
-                var enabledTraits: Set<String>?
-                if let traits = dep.traits {
-                    enabledTraits = Set(traits.map(\.name))
-                }
+                let enabledTraits = dep.traits?.filter {
+                    guard let condition = $0.condition else { return true }
+                    return condition.isSatisfied(by: rootEnabledTraits)
+                }.map(\.name)
+
+                var enabledTraitsSet = enabledTraits.flatMap { Set($0) } ?? ["default"]
+                enabledTraitsSet.formUnion(enabledTraitsMap[dep.identity])
 
                 return PackageContainerConstraint(
                     package: dep.packageRef,
                     requirement: try dep.toConstraintRequirement(),
                     products: dep.productFilter,
-                    enabledTraits: enabledTraits
+                    enabledTraits: enabledTraitsSet
                 )
         }
 

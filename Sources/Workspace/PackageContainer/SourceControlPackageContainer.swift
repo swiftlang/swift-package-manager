@@ -241,7 +241,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [Constraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
                 guard let tag = try self.knownVersions()[version] else {
@@ -259,7 +259,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [Constraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
                 // resolve the revision identifier and return its dependencies.
@@ -323,7 +323,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         tag: String,
         version: Version? = nil,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>?
+        enabledTraits: Set<String>
     ) async throws -> (Manifest, [Constraint]) {
         let manifest = try await self.loadManifest(tag: tag, version: version)
         return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
@@ -334,13 +334,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         at revision: Revision,
         version: Version? = nil,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>?
+        enabledTraits: Set<String>
     ) async throws -> (Manifest, [Constraint]) {
         let manifest = try await self.loadManifest(at: revision, version: version)
         return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [Constraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [Constraint] {
         // We just return an empty array if requested for unversioned dependencies.
         return []
     }
@@ -410,14 +410,6 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
             observabilityScope: self.observabilityScope,
             delegateQueue: .sharedConcurrent
         )
-    }
-
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration, at revision: String?, version: Version?) async throws -> Set<String> {
-        guard let version, let tag = getTag(for: version) else {
-            return []
-        }
-        let manifest = try await self.loadManifest(tag: tag, version: version)
-        return try manifest.enabledTraits(using: traitConfiguration) ?? []
     }
 
     public var isRemoteContainer: Bool? {

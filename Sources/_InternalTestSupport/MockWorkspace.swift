@@ -323,7 +323,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
-                    packageIdentity: .plain(package.name),
+                    packageIdentity: .plain(package.name.lowercased()),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
@@ -685,7 +685,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        let root = try PackageGraphRoot(
+        var root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope
@@ -695,6 +695,9 @@ public final class MockWorkspace {
             root: root,
             observabilityScope: observability.topScope
         )
+
+        // TODO bp
+        // root.enabledTraits = dependencyManifests.root
 
         let result = try await workspace.precomputeResolution(
             root: root,
@@ -952,7 +955,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        let graphRoot = try PackageGraphRoot(
+        var graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope
@@ -961,6 +964,8 @@ public final class MockWorkspace {
             root: graphRoot,
             observabilityScope: observability.topScope
         )
+        // TODO bp
+//        graphRoot = manifests.root
         result(manifests, observability.diagnostics)
     }
 

@@ -167,11 +167,10 @@ final class PubGrubPackageContainer {
             )]
         }
 
-        let enabledTraits = node.package.kind.isRoot ? try await self.underlying.getEnabledTraits(traitConfiguration: node.traitConfiguration) : node.traits
         var unprocessedDependencies = try await self.underlying.getDependencies(
             at: version,
             productFilter: node.productFilter,
-            enabledTraits
+            node.enabledTraits
         )
         if let sharedVersion = node.versionLock(version: version) {
             unprocessedDependencies.append(sharedVersion)
