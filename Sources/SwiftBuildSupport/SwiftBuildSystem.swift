@@ -378,6 +378,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
 
                     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
+                        guard !self.logLevel.isQuiet else { return }
                         switch message {
                         case .buildCompleted(let info):
                             progressAnimation.complete(success: info.result == .ok)
@@ -477,6 +478,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     switch operation.state {
                     case .succeeded:
+                        guard !self.logLevel.isQuiet else { return }
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
@@ -813,12 +815,6 @@ extension String {
         #else
         return self.spm_shellEscaped()
         #endif
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        self <= .info
     }
 }
 
