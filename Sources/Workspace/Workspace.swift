@@ -1161,18 +1161,25 @@ extension Workspace {
                         if let path = target.path {
                             let artifactPath = try manifest.path.parentDirectory
                                 .appending(RelativePath(validating: path))
-                            guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                            if artifactPath.extension?.lowercased() == "zip" {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: .unknown,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else if let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
                                 fileSystem: self.fileSystem,
                                 path: artifactPath,
                                 observabilityScope: observabilityScope
-                            ) else {
+                            ) {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: artifactKind,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                            partial[target.name] = BinaryArtifact(
-                                kind: artifactKind,
-                                originURL: .none,
-                                path: artifactPath
-                            )
                         } else if let url = target.url.flatMap(URL.init(string:)) {
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
