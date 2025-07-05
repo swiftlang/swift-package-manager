@@ -2112,7 +2112,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             "skipping because test environment compiler doesn't support `-print-supported-features`"
         )
 
-      func doMigration(featureName: String, expectedSummary: String) async throws {
+        func doMigration(featureName: String, expectedSummary: String) async throws {
             try await fixture(name: "SwiftMigrate/\(featureName)Migration") { fixturePath in
                 let sourcePaths: [AbsolutePath]
                 let fixedSourcePaths: [AbsolutePath]
@@ -2151,9 +2151,11 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
         }
 
+        // When updating these, make sure we keep testing both the singular and
+        // plural forms of the nouns in the summary.
         try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 5 fix-its in 1 file")
         try await doMigration(featureName: "StrictMemorySafety", expectedSummary: "Applied 1 fix-it in 1 file")
-        try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 3 fix-its in 1 file")
+        try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 3 fix-its in 2 files")
     }
 
     func testBuildToolPlugin() async throws {
