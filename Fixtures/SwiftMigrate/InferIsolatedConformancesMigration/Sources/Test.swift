@@ -6,9 +6,3 @@ class C: Equatable {
     lhs.name == rhs.name
   }
 }
-
-protocol P {}
-protocol Q {}
-
-@MainActor
-struct S: P & Q {}
