@@ -133,6 +133,10 @@ extension Triple.OS {
             return "tvos"
         case .watchos:
             return "watchos"
+        case .visionos:
+            return "xros"
+        case .driverkit:
+            return "driverkit"
         default:
             return nil // XCFrameworks do not support any of these platforms today.
         }
