@@ -106,6 +106,8 @@ public struct BuildParameters: Encodable {
     var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             switch self.triple.darwinPlatform {
+            case .driverKit:
+                return .driverKit
             case .iOS(.catalyst):
                 return .macCatalyst
             case .iOS(.device), .iOS(.simulator):
@@ -114,6 +116,8 @@ public struct BuildParameters: Encodable {
                 return .tvOS
             case .watchOS:
                 return .watchOS
+            case .visionOS:
+                return .visionOS
             case .macOS, nil:
                 return .macOS
             }
