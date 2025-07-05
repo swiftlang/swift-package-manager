@@ -171,6 +171,10 @@ extension Triple {
             return "tvos"
         case .watchos:
             return "watchos"
+        case .visionos:
+            return "xros"
+        case .driverkit:
+            return "driverkit"
         case .linux:
             if environment == .android {
                 return nil
