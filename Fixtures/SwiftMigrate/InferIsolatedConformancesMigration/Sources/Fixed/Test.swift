@@ -6,9 +6,3 @@ class C: nonisolated Equatable {
     lhs.name == rhs.name
   }
 }
-
-protocol P {}
-protocol Q {}
-
-@MainActor
-struct S: nonisolated P & Q {}
