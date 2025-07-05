@@ -1,21 +1,24 @@
-# swift sdk configuration show
+# swift sdk configuration reset
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
     @Available("Swift", introduced: "6.1")
 }
 
-Prints all configuration properties currently applied to a given Swift SDK and target triple.
+Resets configuration properties currently applied to a given Swift SDK and target triple. If no specific property is specified, all of them are reset for the Swift SDK.
 
 ```
-sdk configuration show [--package-path=<package-path>]
+sdk configuration reset [--package-path=<package-path>]
   [--cache-path=<cache-path>] [--config-path=<config-path>]
   [--security-path=<security-path>]
   [--scratch-path=<scratch-path>]
   [--swift-sdks-path=<swift-sdks-path>]
   [--toolset=<toolset>...]
-  [--pkg-config-path=<pkg-config-path>...] <sdk-id>
-  <target-triple> [--version] [--help]
+  [--pkg-config-path=<pkg-config-path>...] [--sdk-root-path]
+  [--swift-resources-path] [--swift-static-resources-path]
+  [--include-search-path] [--library-search-path]
+  [--toolset-path] <sdk-id> <target-triple> [--version]
+  [--help]
 ```
 
 - term **--package-path=\<package-path\>**:
@@ -59,6 +62,36 @@ sdk configuration show [--package-path=<package-path>]
 specify more than one path.*
 
 
+- term **--sdk-root-path**:
+
+*Reset custom configuration for a path to a directory containing the SDK root.*
+
+
+- term **--swift-resources-path**:
+
+*Reset custom configuration for a path to a directory containing Swift resources for dynamic linking.*
+
+
+- term **--swift-static-resources-path**:
+
+*Reset custom configuration for a path to a directory containing Swift resources for static linking.*
+
+
+- term **--include-search-path**:
+
+*Reset custom configuration for a path to a directory containing headers.*
+
+
+- term **--library-search-path**:
+
+*Reset custom configuration for a path to a directory containing libraries.*
+
+
+- term **--toolset-path**:
+
+*Reset custom configuration for a path to a toolset file.*
+
+
 - term **sdk-id**:
 
 *An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available identifiers.*
@@ -66,7 +99,7 @@ specify more than one path.*
 
 - term **target-triple**:
 
-*The target triple of the Swift SDK to configure.*
+*A target triple of the Swift SDK specified by `sdk-id` identifier string.*
 
 
 - term **--version**:
@@ -77,5 +110,3 @@ specify more than one path.*
 - term **--help**:
 
 *Show help information.*
-
-

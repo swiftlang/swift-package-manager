@@ -10,7 +10,16 @@ Installs a given Swift SDK bundle to a location discoverable by SwiftPM.
 If the artifact bundle is at a remote location, it's downloaded to local filesystem first.
 
 ```
-sdk install [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   <bundle-path-or-url> [--checksum=<checksum>] [--color-diagnostics|no-color-diagnostics] [--version] [--help]
+sdk install [--package-path=<package-path>]
+  [--cache-path=<cache-path>] [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...]
+  <bundle-path-or-url> [--checksum=<checksum>]
+  [--color-diagnostics] [--no-color-diagnostics] [--version]
+  [--help]
 ```
 
 - term **--package-path=\<package-path\>**:
