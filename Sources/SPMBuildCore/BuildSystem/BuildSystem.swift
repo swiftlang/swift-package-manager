@@ -55,6 +55,8 @@ public protocol BuildSystem: Cancellable {
     var buildPlan: BuildPlan { get throws }
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
+
+    var supportsSerializedDaignosticsCollectionViaDelegate: Bool { get }
 }
 
 extension BuildSystem {

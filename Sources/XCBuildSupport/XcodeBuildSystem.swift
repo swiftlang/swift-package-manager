@@ -82,6 +82,8 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
 
+    public var supportsSerializedDaignosticsCollectionViaDelegate: Bool { false }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
