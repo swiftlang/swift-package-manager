@@ -575,12 +575,15 @@ public struct SwiftSetting: Sendable {
             name: "strictMemorySafety", value: ["ON"], condition: condition)
     }
 
+    /// The interoperability mode
     public enum InteroperabilityMode: String {
+        /// Interoperate as C
         case C
+        /// Interoperate as Cxx
         case Cxx
     }
 
-    /// Enable Swift interoperability with a given language.
+    /// Enables Swift interoperability with a given language.
     ///
     /// This is useful for enabling interoperability between Swift and C++ for
     /// a given target.
