@@ -13,6 +13,11 @@
 
 - ``swiftLanguageMode(_:_:)``
 
+### Configuring Swift Concurrency
+
+- ``strictMemorySafety(_:)``
+- ``defaultIsolation(_:_:)``
+
 ### Configuring Swift Experimental and Upcoming Features
 
 - ``enableExperimentalFeature(_:_:)``
@@ -22,11 +27,6 @@
 
 - ``interoperabilityMode(_:_:)``
 - ``InteroperabilityMode``
-
-### Configuring Swift Concurrency
-
-- ``strictMemorySafety(_:)``
-- ``defaultIsolation(_:_:)``
 
 ### Deprecated configurations
 
