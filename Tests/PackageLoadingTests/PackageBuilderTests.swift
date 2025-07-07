@@ -3477,6 +3477,33 @@ final class PackageBuilderTests: XCTestCase {
             }
         }
     }
+
+    func testOutOfTargetSource() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Sources/foo/foo.swift",
+            "/Sources/foo/foobar/foobar.swift",
+
+            "/Sources/bar/bar.swift"
+        )
+
+        let manifest = try Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                TargetDescription(
+                    name: "foo",
+                    sources: ["../bar/bar.swift", "foobar"]
+                ),
+            ]
+        )
+
+        PackageBuilderTester(manifest, in: fs) { package, _ in
+            package.checkModule("foo") { module in
+                module.checkSources(sources: ["foobar/foobar.swift","../bar/bar.swift"])
+            }
+        }
+    }
 }
 
 final class PackageBuilderTester {
