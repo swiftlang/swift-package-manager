@@ -489,18 +489,14 @@ struct BuildCommandTestCases {
                 return
             }
 
-            try withKnownIssue {
-                if .native == buildSystem {
-                    #expect(stderr.contains("error: no product named '\(productName)'"))
-                } else {
-                    let expectedErrorMessageRegex = try Regex("error: Could not find target named '\(productName).*'")
-                    #expect(
-                        stderr.contains(expectedErrorMessageRegex),
-                        "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
-                    )
-                }
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            if .native == buildSystem {
+                #expect(stderr.contains("error: no product named '\(productName)'"))
+            } else {
+                let expectedErrorMessageRegex = try Regex("error: Could not find target named '\(productName).*'")
+                #expect(
+                    stderr.contains(expectedErrorMessageRegex),
+                    "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
+                )
             }
         }
     }
@@ -530,14 +526,10 @@ struct BuildCommandTestCases {
             } else {
                 expectedErrorMessage = "error: Could not find target named '\(targetName)'"
             }
-            withKnownIssue{
-                #expect(
-                    stderr.contains(expectedErrorMessage),
-                    "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
-                )
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            }
+            #expect(
+                stderr.contains(expectedErrorMessage),
+                "expect log not emitted.\nstdout: '\(stdout)'\n\nstderr: '\(stderr)'",
+            )
         }
     }
 
@@ -748,7 +740,7 @@ struct BuildCommandTestCases {
                     result.stdout.contains("Building for \(expectedString)"),
                     "expect log not emitted.  got stdout: '\(result.stdout)'\n\nstderr '\(result.stderr)'")
             } when: {
-                buildSystem == .xcode || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+                buildSystem == .xcode
             }
         }
     }
@@ -884,12 +876,16 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .SWBINTTODO("Swift build produces an error building the fixture for this test."),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue("SWBINTTODO: Swift build produces an error building the fixture for this test.") {
+         try await withKnownIssue(
+            "error produced for this fixture",
+            isIntermittent: ProcessInfo.hostOperatingSystem == .linux,
+        ) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
                 // compatible with whole module optimization` message, which should have a trailing newline.  Since that
@@ -910,7 +906,7 @@ struct BuildCommandTestCases {
                 }
             }
         } when: {
-            ProcessInfo.hostOperatingSystem != .macOS && buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1008,7 +1004,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1094,7 +1090,7 @@ struct BuildCommandTestCases {
                 #expect(!buildResult.stdout.contains("codesign --force --sign - --entitlements"))
             }
         } when: {
-            [.swiftbuild, .xcode].contains(buildSystem)
+            [.swiftbuild, .xcode].contains(buildSystem) && ProcessInfo.hostOperatingSystem != .linux
         }
     }
 
@@ -1330,6 +1326,82 @@ struct BuildCommandTestCases {
         }
     }
 
+    @Test(
+         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+         arguments: SupportedBuildSystemOnPlatform,  BuildConfiguration.allCases
+     )
+     func swiftBuildQuietLogLevel(
+         buildSystem: BuildSystemProvider.Kind,
+         configuration: BuildConfiguration
+     ) async throws {
+         try await withKnownIssue {
+             // GIVEN we have a simple test package
+             try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
+                //WHEN we build with the --quiet option
+                let (stdout, stderr) = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: ["--quiet"],
+                    buildSystem: buildSystem
+                )
+                // THEN we should not see any output in stderr
+                 #expect(stderr.isEmpty)
+                // AND no content in stdout
+                 #expect(stdout.isEmpty)
+            }
+         } when: {
+             ProcessInfo.hostOperatingSystem == .windows &&
+             buildSystem == .swiftbuild
+         }
+    }
+
+    @Test(
+         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+         arguments: SupportedBuildSystemOnPlatform,  BuildConfiguration.allCases
+     )
+     func swiftBuildQuietLogLevelWithError(
+         buildSystem: BuildSystemProvider.Kind,
+         configuration: BuildConfiguration
+     ) async throws {
+         // GIVEN we have a simple test package
+         try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
+             let mainFilePath = fixturePath.appending("main.swift")
+             try localFileSystem.removeFileTree(mainFilePath)
+             try localFileSystem.writeFileContents(
+                mainFilePath,
+                string: """
+                 print("done"
+                 """
+             )
+
+             //WHEN we build with the --quiet option
+             let error = await #expect(throws: SwiftPMError.self) {
+                 try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["--quiet"],
+                    buildSystem: buildSystem
+                 )
+             }
+
+             guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                 Issue.record("Incorrect error was raised.")
+                 return
+             }
+
+             if buildSystem == .swiftbuild {
+                 // THEN we should see output in stderr
+                 #expect(stderr.isEmpty == false)
+                 // AND no content in stdout
+                 #expect(stdout.isEmpty)
+             } else {
+                 // THEN we should see content in stdout
+                 #expect(stdout.isEmpty == false)
+                 // AND no output in stderr
+                 #expect(stderr.isEmpty)
+             }
+         }
+     }
 }
 
 extension Triple {

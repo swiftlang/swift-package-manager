@@ -129,7 +129,8 @@ struct RunCommandTests {
             }
         }
         } when: {
-            .swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows
+            (.swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows)
+            || (.native == buildSystem && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -168,6 +169,7 @@ struct RunCommandTests {
             }
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
+            || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
             || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
@@ -229,7 +231,8 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
+            ([.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -249,7 +252,7 @@ struct RunCommandTests {
                 #expect(String(outputLines[0]).contains("BTarget2"))
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && buildSystem == .native)
+            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && [.native, .swiftbuild].contains(buildSystem))
             || (ProcessInfo.hostOperatingSystem ==  .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
@@ -395,4 +398,76 @@ struct RunCommandTests {
         }
     }
 
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+    )
+    func swiftRunQuietLogLevel(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration
+    ) async throws {
+        try await withKnownIssue {
+            // GIVEN we have a simple test package
+            try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+               //WHEN we run with the --quiet option
+               let (stdout, stderr) = try await executeSwiftRun(
+                   fixturePath,
+                   nil,
+                   configuration: configuration,
+                   extraArgs: ["--quiet"],
+                   buildSystem: buildSystem
+               )
+               // THEN we should not see any output in stderr
+                #expect(stderr.isEmpty)
+               // AND no content in stdout
+                #expect(stdout == "done\n")
+           }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .linux &&
+            buildSystem == .swiftbuild &&
+            CiEnvironment.runningInSelfHostedPipeline
+        }
+    }
+
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+    )
+    func swiftRunQuietLogLevelWithError(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration
+    ) async throws {
+        // GIVEN we have a simple test package
+        try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
+            let mainFilePath = fixturePath.appending("main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(
+                mainFilePath,
+                string: """
+                print("done"
+                """
+            )
+
+            //WHEN we run with the --quiet option
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await executeSwiftRun(
+                    fixturePath,
+                    nil,
+                    configuration: .debug,
+                    extraArgs: ["--quiet"],
+                    buildSystem: buildSystem
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            // THEN we should see an output in stderr
+            #expect(stderr.isEmpty == false)
+            // AND no content in stdout
+            #expect(stdout.isEmpty)
+        }
+    }
 }

@@ -421,6 +421,7 @@ let package = Package(
             dependencies: [],
             exclude: [
                 "Formats/v1.md",
+                "CMakeLists.txt",
             ],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -437,6 +438,7 @@ let package = Package(
                 "PackageModel",
                 "SourceControl",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -450,6 +452,7 @@ let package = Package(
                 "Basics",
                 "PackageCollectionsModel",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -682,6 +685,7 @@ let package = Package(
                 "SPMBuildCore",
                 "Workspace",
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
@@ -694,6 +698,7 @@ let package = Package(
                 "Basics",
                 .product(name: "Crypto", package: "swift-crypto"),
             ],
+            exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
                 .unsafeFlags(["-static"]),
@@ -829,6 +834,14 @@ let package = Package(
             swiftSettings: [
                 .unsafeFlags(["-static"]),
             ]
+        ),
+        .target(
+            /** SwiftPM internal test suite support library */
+            name: "_IntegrationTestSupport",
+            dependencies: [
+                "_InternalTestSupport",
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+            ],
         ),
 
         .target(
@@ -1033,6 +1046,15 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "_InternalTestSupport"
             ]
+        ),
+        .testTarget(
+            name: "IntegrationTests",
+            dependencies: [
+                "_IntegrationTestSupport",
+                "_InternalTestSupport",
+                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+            ],
         ),
         .testTarget(
             name: "CommandsTests",

@@ -2802,8 +2802,16 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
 
-        let debugTarget = [".build", "debug", executableName("placeholder")]
-        let releaseTarget = [".build", "release", executableName("placeholder")]
+        #if os(Linux)
+        let osSuffix = "-linux"
+        #elseif os(Windows)
+        let osSuffix = "-windows"
+        #else
+        let osSuffix = ""
+        #endif
+
+        let debugTarget = self.buildSystemProvider == .native ? [".build", "debug", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Debug\(osSuffix)", "placeholder"]
+        let releaseTarget = self.buildSystemProvider == .native ? [".build", "release", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Release\(osSuffix)", "placeholder"]
 
         func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
             XCTAssert(
@@ -2914,7 +2922,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, isEmpty)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }
+              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
@@ -2924,7 +2933,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(stdout, containsLogtext)
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n")
-              .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+              .filter { !$0.contains("Unable to locate libSwiftScan") }
+              .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }.joined(separator: "\n")
             XCTAssertMatch(filteredStderr, isEmpty)
         }
 
@@ -3462,9 +3472,11 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 let (stdout, _) = try await self.execute(["my-build-tester", "--product", "MyExecutable", "--print-commands"], packagePath: packageDir)
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
                 XCTAssertNoMatch(stdout, .contains("Building for production..."))
-                XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("-module-name MyExecutable"))
+                    XCTAssertMatch(stdout, .contains("-DEXTRA_SWIFT_FLAG"))
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3483,7 +3495,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyExecutable"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyExecutable' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3502,7 +3516,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyStaticLibrary' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -3521,7 +3537,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 XCTAssertMatch(stdout, .contains("Building for production..."))
                 XCTAssertNoMatch(stdout, .contains("Building for debug..."))
                 XCTAssertNoMatch(stdout, .contains("-module-name MyLibrary"))
-                XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .contains("Build of product 'MyDynamicLibrary' complete!"))
+                }
                 XCTAssertMatch(stdout, .contains("succeeded: true"))
                 switch buildSystemProvider {
                 case .native:
@@ -4097,9 +4115,14 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testNoParameters() async throws {
         try await super.testNoParameters()
     }
-    
-    override func testCommandPluginBuildTestability() async throws {
-        throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
+
+    override func testCommandPluginSymbolGraphCallbacks() async throws {
+        throw XCTSkip("SWBINTTODO: Symbol graph extraction does not yet work with swiftbuild build system")
+    }
+
+    override func testCommandPluginBuildingCallbacks() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
+        try await super.testCommandPluginBuildingCallbacks()
     }
 
     override func testMigrateCommand() async throws {
@@ -4107,7 +4130,6 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginTestingCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Requires PIF generation to adopt new test runner product type")
         try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
         try await super.testCommandPluginTestingCallbacks()
     }

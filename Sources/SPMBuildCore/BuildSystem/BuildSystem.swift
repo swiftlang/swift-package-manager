@@ -53,6 +53,8 @@ public protocol BuildSystem: Cancellable {
     func build(subset: BuildSubset) async throws
 
     var buildPlan: BuildPlan { get throws }
+
+    var hasIntegratedAPIDigesterSupport: Bool { get }
 }
 
 extension BuildSystem {
@@ -128,7 +130,8 @@ public protocol BuildSystemFactory {
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) async throws -> any BuildSystem
 }
 
@@ -156,7 +159,8 @@ public struct BuildSystemProvider {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -170,7 +174,8 @@ public struct BuildSystemProvider {
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
     }
 }
