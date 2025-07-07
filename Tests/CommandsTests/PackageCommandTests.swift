@@ -4411,6 +4411,15 @@ class PackageCommandNativeTests: PackageCommandTestCase {
     override func testNoParameters() async throws {
         try await super.testNoParameters()
     }
+
+    override func testMigrateCommandWhenDependencyBuildsForHostAndTarget() async throws {
+        try XCTSkipOnWindows(
+            because: "error: build planning stopped due to build-tool plugin failures",
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandWhenDependencyBuildsForHostAndTarget()
+    }
 }
 
 class PackageCommandSwiftBuildTests: PackageCommandTestCase {
@@ -4421,6 +4430,78 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
 
     override func testNoParameters() async throws {
         try await super.testNoParameters()
+    }
+
+    override func testMigrateCommand() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'AllIncludingTests' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommand()
+    }
+
+    override func testMigrateCommandUpdateManifest2Targets() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'A' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandUpdateManifest2Targets()
+    }
+
+    override func testMigrateCommandUpdateManifestSingleTarget() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'A' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandUpdateManifestSingleTarget()
+    }
+
+    override func testMigrateCommandUpdateManifestWithErrors() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'A' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandUpdateManifestWithErrors()
+    }
+
+    override func testMigrateCommandWhenDependencyBuildsForHostAndTarget() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'A' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandWhenDependencyBuildsForHostAndTarget()
+    }
+
+    override func testMigrateCommandWithBuildToolPlugins() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'A' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandWithBuildToolPlugins()
     }
 
     override func testCommandPluginSymbolGraphCallbacks() async throws {
