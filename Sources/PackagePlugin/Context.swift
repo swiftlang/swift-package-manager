@@ -12,11 +12,10 @@
 
 import Foundation
 
-/// Provides information about the package for which the plugin is invoked,
-/// as well as contextual information based on the plugin's stated intent
-/// and requirements.
+/// A collection of information about the package on which the plugin is invoked,
+/// as well as contextual information based on the plugin's intent and requirements.
 public struct PluginContext {
-    /// Information about the package to which the plugin is being applied.
+    /// Information about the package on which the plugin is being applied.
     public let package: Package
 
     /// The path of a writable directory into which the plugin or the build
@@ -25,8 +24,8 @@ public struct PluginContext {
     /// This could include
     /// any generated source files that should be processed further, and it
     /// could include any caches used by the build tool or the plugin itself.
-    /// The plugin is in complete control of what is written under this di-
-    /// rectory, and the contents are preserved between builds.
+    /// The plugin is in complete control of what is written under this directory,
+    /// and the contents are preserved between builds.
     ///
     /// A plugin would usually create a separate subdirectory of this directory
     /// for each command it creates, and the command would be configured to
@@ -42,22 +41,23 @@ public struct PluginContext {
     /// This could include
     /// any generated source files that should be processed further, and it
     /// could include any caches used by the build tool or the plugin itself.
-    /// The plugin is in complete control of what is written under this di-
-    /// rectory, and the contents are preserved between builds.
+    /// The plugin is in complete control of what is written under this directory,
+    /// and the contents are preserved between builds.
     ///
-    /// A plugin would usually create a separate subdirectory of this directory
-    /// for each command it creates, and the command would be configured to
+    /// A plugin should create a separate subdirectory in this directory
+    /// for each command it creates, and the command configured to
     /// write its outputs to that directory. The plugin may also create other
-    /// directories for cache files and other file system content that either
-    /// it or the command will need.
+    /// directories for cache files, and other file system content that either
+    /// it or a command may need.
     @available(_PackageDescription, introduced: 6.0)
     public let pluginWorkDirectoryURL: URL
 
-    /// Looks up and returns the path of a named command line executable tool.
-    ///
-    /// The executable must be provided by an executable target or a binary
+    /// Looks up and returns the path of a named command line executable.
+    /// 
+    /// The executable must be provided by an executable target or binary
     /// target on which the package plugin target depends. This function throws
     /// an error if the tool cannot be found. The lookup is case sensitive.
+    /// - Parameter name: The name of the executable to find.
     public func tool(named name: String) throws -> Tool {
         if let tool = self.accessibleTools[name] {
             // For PluginAccessibleTool.builtTool, the triples value is not saved, thus
@@ -88,32 +88,31 @@ public struct PluginContext {
 
     /// A mapping from tool names to their paths and triples.
     ///
-    /// Not directly available
-    /// to the plugin, but used by the `tool(named:)` API.
+    /// This is not directly available to the plugin, but is used by  ``tool(named:)``.
     let accessibleTools: [String: (path: URL, triples: [String]?)]
 
-    /// The paths of directories of in which to search for tools that aren't in
+    /// The paths of directories in which to search for tools that aren't in
     /// the `toolNamesToPaths` map.
     @available(_PackageDescription, deprecated: 6.0, renamed: "toolSearchDirectoryURLs")
     let toolSearchDirectories: [Path]
 
-    /// The paths of directories of in which to search for tools that aren't in
+    /// The paths of directories in which to search for tools that aren't in
     /// the `toolNamesToPaths` map.
     @available(_PackageDescription, introduced: 6.0)
     let toolSearchDirectoryURLs: [URL]
 
     /// Information about a particular tool that is available to a plugin.
     public struct Tool {
-        /// Name of the tool (suitable for display purposes).
+        /// The name of the tool, suitable for display purposes.
         public let name: String
 
-        /// Full path of the built or provided tool in the file system.
+        /// The path of the tool in the file system.
         @available(_PackageDescription, deprecated: 6.0, renamed: "url")
         public var path: Path {
             get { _path }
         }
 
-        /// Full path of the built or provided tool in the file system.
+        /// The file URL of the tool in the file system.
         @available(_PackageDescription, introduced: 6.0)
         public let url: URL
 
