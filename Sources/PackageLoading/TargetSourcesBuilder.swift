@@ -214,8 +214,23 @@ public struct TargetSourcesBuilder {
             []
         }
 
-        let headers = pathToRule.lazy.filter { $0.value == .header }.map(\.key).sorted()
-        let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map(\.key)
+        var additionalSources: [Basics.AbsolutePath] = []
+        var additionalHeaders: [Basics.AbsolutePath] = []
+        if self.toolsVersion >= .vNext {
+            if let declaredSources = self.declaredSources {
+                let unhandledSources = self.computeContents(for: declaredSources.filter { pathToRule[$0] == nil })
+                for source in unhandledSources {
+                    if let ext = source.extension, FileRuleDescription.header.fileTypes.contains(ext) {
+                        additionalHeaders.append(source)
+                    } else {
+                        additionalSources.append(source)
+                    }
+                }
+            }
+        }
+
+        let headers = (pathToRule.lazy.filter { $0.value == .header }.map(\.key) + additionalHeaders).sorted()
+        let compilePaths = (pathToRule.lazy.filter { $0.value == .compile }.map(\.key) + additionalSources)
         let sources = Sources(paths: Array(compilePaths).sorted(), root: self.targetPath)
         let resources: [Resource] = (pathToRule
             .compactMap { self.resource(for: $0.key, with: $0.value) } + additionalResources
@@ -469,9 +484,9 @@ public struct TargetSourcesBuilder {
     ///
     /// This avoids recursing into certain directories like exclude or the
     /// ones that should be copied as-is.
-    public func computeContents() -> [Basics.AbsolutePath] {
+    public func computeContents(for paths: [Basics.AbsolutePath]) -> [Basics.AbsolutePath] {
         var contents: [Basics.AbsolutePath] = []
-        var queue: [Basics.AbsolutePath] = [self.targetPath]
+        var queue: [Basics.AbsolutePath] = paths
 
         // Ignore xcodeproj and playground directories.
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
@@ -572,6 +587,10 @@ public struct TargetSourcesBuilder {
         }
 
         return contents
+    }
+
+    public func computeContents() -> [Basics.AbsolutePath] {
+        self.computeContents(for: [self.targetPath])
     }
 
     public static func computeContents(
