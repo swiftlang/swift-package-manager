@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Errors thrown while using a plugin.
+/// Errors thrown while a plugin operates.
 public enum PluginContextError: Error {
     /// Could not find a tool with the given name.
     ///
@@ -18,7 +18,7 @@ public enum PluginContextError: Error {
     /// it doesn't exist, or because the plugin doesn't have a dependency on it.
     case toolNotFound(name: String)
 
-    /// Tool is not supported on the target platform
+    /// The tool is not supported on the target platform
     case toolNotSupportedOnTargetPlatform(name: String)
 
     /// Could not find a target with the given name.
@@ -29,6 +29,7 @@ public enum PluginContextError: Error {
 }
 
 extension PluginContextError: CustomStringConvertible {
+    /// The string representation of the error.
     public var description: String {
         switch self {
         case .toolNotFound(let name):
@@ -47,17 +48,20 @@ extension PluginContextError: CustomStringConvertible {
 public enum PluginDeserializationError: Error {
     /// The input JSON is malformed in some way; the message provides more details.
     case malformedInputJSON(_ message: String)
-    /// The plugin doesn't support Xcode (it doesn't link against XcodeProjectPlugin).
+    /// The plugin doesn't support Xcode
+    ///
+    /// Typically, it doesn't link against XcodeProjectPlugin.
     case missingXcodeProjectPluginSupport
-    /// The plugin doesn't conform to an expected specialization of the BuildToolPlugin protocol.
+    /// The plugin doesn't conform to the BuildToolPlugin protocol.
     case missingBuildToolPluginProtocolConformance(protocolName: String)
-    /// The plugin doesn't conform to an expected specialization of the CommandPlugin protocol.
+    /// The plugin doesn't conform to the CommandPlugin protocol.
     case missingCommandPluginProtocolConformance(protocolName: String)
     /// An internal error of some kind; the message provides more details.
     case internalError(_ message: String)
 }
 
 extension PluginDeserializationError: CustomStringConvertible {
+    /// The string representation of the error.
     public var description: String {
         switch self {
         case .malformedInputJSON(let message):
