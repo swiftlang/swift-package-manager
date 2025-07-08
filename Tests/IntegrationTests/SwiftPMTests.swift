@@ -250,7 +250,10 @@ private struct SwiftPMTests {
                         var summary: Summary
                         struct Summary: Codable {
                             var functions: Functions
-                            struct Functions: Codable { var count, covered, percent: Int }
+                            struct Functions: Codable {
+                                var count, covered: Int
+                                var percent: Double
+                            }
                         }
                     }
                 }
@@ -268,8 +271,7 @@ private struct SwiftPMTests {
             let coverageDirectory = coveragePath.parentDirectory
             let coverageDirectoryContents = try localFileSystem.getDirectoryContents(coverageDirectory)
 
-            // We're using the following LLVM_PROFILE_PATH pattern: "\(library)%m.%p.profraw", which we have checked for
-            // in a canary test above.
+            // SwiftPM uses an LLVM_PROFILE_FILE that ends with ".%p.profraw", which we validated in the test above.
             // Let's first check all the files have the expected extension.
             let profrawFiles = coverageDirectoryContents.filter { $0.hasSuffix(".profraw") }
 
