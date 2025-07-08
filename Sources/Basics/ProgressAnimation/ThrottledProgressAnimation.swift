@@ -14,12 +14,12 @@ import _Concurrency
 import TSCUtility
 
 /// A progress animation wrapper that throttles updates to a given interval.
-final class ThrottledProgressAnimation: ProgressAnimationProtocol {
+package final class ThrottledProgressAnimation: ProgressAnimationProtocol {
     private let animation: ProgressAnimationProtocol
     private let shouldUpdate: () -> Bool
     private var pendingUpdate: (Int, Int, String)?
 
-    init<C: Clock>(
+    package init<C: Clock>(
       _ animation: ProgressAnimationProtocol,
       now: @escaping () -> C.Instant, interval: C.Duration, clock: C.Type = C.self
     ) {
@@ -36,7 +36,7 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
         }
     }
 
-    func update(step: Int, total: Int, text: String) {
+    package func update(step: Int, total: Int, text: String) {
         guard shouldUpdate() else {
             pendingUpdate = (step, total, text)
             return
@@ -45,14 +45,14 @@ final class ThrottledProgressAnimation: ProgressAnimationProtocol {
         animation.update(step: step, total: total, text: text)
     }
 
-    func complete(success: Bool) {
+    package func complete(success: Bool) {
         if let (step, total, text) = pendingUpdate {
             animation.update(step: step, total: total, text: text)
         }
         animation.complete(success: success)
     }
 
-    func clear() {
+    package func clear() {
         animation.clear()
     }
 }

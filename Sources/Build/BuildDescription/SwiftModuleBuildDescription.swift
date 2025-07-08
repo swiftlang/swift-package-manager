@@ -169,7 +169,7 @@ public final class SwiftModuleBuildDescription {
     var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
-    var additionalFlags: [String] = []
+    package var additionalFlags: [String] = []
 
     /// Describes the purpose of a test target, including any special roles such as containing a list of discovered
     /// tests or serving as the manifest target which contains the main entry point.
@@ -824,7 +824,7 @@ public final class SwiftModuleBuildDescription {
         self.target.type == .library
     }
 
-    func writeOutputFileMap(to path: AbsolutePath) throws {
+    package func writeOutputFileMap(to path: AbsolutePath) throws {
         let masterDepsPath = self.tempsPath.appending("master.swiftdeps")
 
         var content =

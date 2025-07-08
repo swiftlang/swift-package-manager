@@ -20,13 +20,13 @@ import Foundation
 
 import struct TSCUtility.Version
 
-struct PackageVersionChecksumTOFU {
+package struct PackageVersionChecksumTOFU {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
     private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
         .PackageVersionMetadata
 
-    init(
+    package init(
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
@@ -38,7 +38,7 @@ struct PackageVersionChecksumTOFU {
     }
 
     // MARK: - source archive
-    func validateSourceArchive(
+    package func validateSourceArchive(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,
@@ -139,7 +139,7 @@ struct PackageVersionChecksumTOFU {
         return checksum
     }
 
-    func validateManifest(
+    package func validateManifest(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
         version: Version,

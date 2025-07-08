@@ -19,7 +19,7 @@ import SourceControl
 public enum PackageCollectionsModel {}
 
 // make things less verbose internally
-internal typealias Model = PackageCollectionsModel
+package typealias Model = PackageCollectionsModel
 
 extension PackageCollectionsModel {
     /// A `Collection` is a collection of packages.
@@ -63,7 +63,7 @@ extension PackageCollectionsModel {
         }
 
         /// Initializes a `Collection`
-        init(
+        package init(
             source: Source,
             name: String,
             overview: String?,
@@ -142,7 +142,7 @@ extension PackageCollectionsModel {
         case json(URL)
 
         /// Creates an `Identifier` from `Source`
-        init(from source: CollectionSource) {
+        package init(from source: CollectionSource) {
             switch source.type {
             case .json:
                 self = .json(source.url)
@@ -192,6 +192,10 @@ extension PackageCollectionsModel.Collection {
     public struct Author: Equatable, Codable {
         /// The name of the author
         public let name: String
+
+        package init(name: String) {
+            self.name = name
+        }
     }
 }
 

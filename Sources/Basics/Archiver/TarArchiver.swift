@@ -25,7 +25,7 @@ public struct TarArchiver: Archiver {
     private let cancellator: Cancellator
 
     /// The underlying command
-    internal let tarCommand: String
+    package let tarCommand: String
 
     /// Creates a `TarArchiver`.
     ///

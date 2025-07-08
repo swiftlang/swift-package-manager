@@ -88,7 +88,7 @@ extension PackageCollectionsModel {
         public let languages: Set<String>?
 
         /// Initializes a `Package`
-        init(
+        package init(
             identity: PackageIdentity,
             location: String,
             summary: String?,
@@ -150,6 +150,30 @@ extension PackageCollectionsModel.Package {
         /// When the package version was created
         public let createdAt: Date?
 
+        package init(
+            version: TSCUtility.Version,
+            title: String?,
+            summary: String?,
+            manifests: [ToolsVersion: Manifest],
+            defaultToolsVersion: ToolsVersion,
+            verifiedCompatibility: [PackageCollectionsModel.Compatibility]?,
+            license: PackageCollectionsModel.License?,
+            author: PackageCollectionsModel.Package.Author?,
+            signer: PackageCollectionsModel.Signer?,
+            createdAt: Date?
+        ) {
+            self.version = version
+            self.title = title
+            self.summary = summary
+            self.manifests = manifests
+            self.defaultToolsVersion = defaultToolsVersion
+            self.verifiedCompatibility = verifiedCompatibility
+            self.license = license
+            self.author = author
+            self.signer = signer
+            self.createdAt = createdAt
+        }
+
         public struct Manifest: Equatable, Codable {
             /// The Swift tools version specified in `Package.swift`.
             public let toolsVersion: ToolsVersion
@@ -167,6 +191,20 @@ extension PackageCollectionsModel.Package {
 
             /// The package version's supported platforms
             public let minimumPlatformVersions: [SupportedPlatform]?
+
+            package init(
+                toolsVersion: ToolsVersion,
+                packageName: String,
+                targets: [Target],
+                products: [Product],
+                minimumPlatformVersions: [SupportedPlatform]?
+            ) {
+                self.toolsVersion = toolsVersion
+                self.packageName = packageName
+                self.targets = targets
+                self.products = products
+                self.minimumPlatformVersions = minimumPlatformVersions
+            }
         }
     }
 }
@@ -179,6 +217,11 @@ extension PackageCollectionsModel {
 
         /// Target module name
         public let moduleName: String?
+
+        package init(name: String, moduleName: String?) {
+            self.name = name
+            self.moduleName = moduleName
+        }
     }
 }
 
@@ -193,6 +236,12 @@ extension PackageCollectionsModel {
 
         /// The product's targets
         public let targets: [Target]
+
+        package init(name: String, type: ProductType, targets: [Target]) {
+            self.name = name
+            self.type = type
+            self.targets = targets
+        }
     }
 }
 
@@ -204,6 +253,11 @@ extension PackageCollectionsModel {
 
         /// The Swift version
         public let swiftVersion: SwiftLanguageVersion
+
+        package init(platform: PackageModel.Platform, swiftVersion: SwiftLanguageVersion) {
+            self.platform = platform
+            self.swiftVersion = swiftVersion
+        }
     }
 }
 
@@ -219,10 +273,20 @@ extension PackageCollectionsModel.Package {
         /// Service that provides the user information
         public let service: Service?
 
+        package init(username: String, url: URL?, service: Service?) {
+            self.username = username
+            self.url = url
+            self.service = service
+        }
+
         /// A representation of user service
         public struct Service: Equatable, Codable {
             /// The service name
             public let name: String
+
+            package init(name: String) {
+                self.name = name
+            }
         }
     }
 }
@@ -272,13 +336,13 @@ extension PackageCollectionsModel.Package.Version: Comparable {
 }
 
 extension Array where Element == PackageCollectionsModel.Package.Version {
-    var latestRelease: PackageCollectionsModel.Package.Version? {
+    package var latestRelease: PackageCollectionsModel.Package.Version? {
         self.filter { $0.version.prereleaseIdentifiers.isEmpty }
             .sorted(by: >)
             .first
     }
 
-    var latestPrerelease: PackageCollectionsModel.Package.Version? {
+    package var latestPrerelease: PackageCollectionsModel.Package.Version? {
         self.filter { !$0.version.prereleaseIdentifiers.isEmpty }
             .sorted(by: >)
             .first
