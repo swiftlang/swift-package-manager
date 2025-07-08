@@ -24,6 +24,20 @@ import struct Foundation.URL
 import struct TSCUtility.Version
 
 public struct Package {
+
+    public struct Template: Sendable {
+        public let name: String
+        public let description: String?
+        //public let permissions: [String]? TODO ADD
+        public let arguments: [TemplateArguments]?
+    }
+
+    public struct TemplateArguments: Sendable {
+        public let name: String
+        public let description: String?
+        public let isRequired: Bool?
+    }
+
     public enum Source {
         case indexAndCollections(collections: [PackageCollectionsModel.CollectionIdentifier], indexes: [URL])
         case registry(url: URL)
@@ -74,6 +88,7 @@ public struct Package {
     public let publishedAt: Date?
     public let signingEntity: SigningEntity?
     public let latestVersion: Version?
+    public let templates: [Template]?
 
     fileprivate init(
         identity: PackageIdentity,
@@ -89,7 +104,8 @@ public struct Package {
         publishedAt: Date? = nil,
         signingEntity: SigningEntity? = nil,
         latestVersion: Version? = nil,
-        source: Source
+        source: Source,
+        templates: [Template]? = nil
     ) {
         self.identity = identity
         self.location = location
@@ -105,6 +121,7 @@ public struct Package {
         self.signingEntity = signingEntity
         self.latestVersion = latestVersion
         self.source = source
+        self.templates = templates
     }
 }
 
@@ -164,6 +181,7 @@ public struct PackageSearchClient {
         public let description: String?
         public let publishedAt: Date?
         public let signingEntity: SigningEntity?
+        public let templates: [Package.Template]?
     }
 
     private func getVersionMetadata(
@@ -185,7 +203,8 @@ public struct PackageSearchClient {
             author: metadata.author.map { .init($0) },
             description: metadata.description,
             publishedAt: metadata.publishedAt,
-            signingEntity: metadata.sourceArchive?.signingEntity
+            signingEntity: metadata.sourceArchive?.signingEntity,
+            templates: metadata.templates?.map { .init($0) }
         )
     }
 
@@ -420,6 +439,24 @@ extension Package.Organization {
             email: organization.email,
             description: organization.description,
             url: organization.url
+        )
+    }
+}
+
+extension Package.Template {
+    fileprivate init(_ template: RegistryClient.PackageVersionMetadata.Template) {
+        self.init(
+            name: template.name, description: template.description, arguments: template.arguments?.map { .init($0) }
+        )
+    }
+}
+
+extension Package.TemplateArguments {
+    fileprivate init(_ argument: RegistryClient.PackageVersionMetadata.TemplateArguments) {
+        self.init(
+            name: argument.name,
+            description: argument.description,
+            isRequired: argument.isRequired
         )
     }
 }
