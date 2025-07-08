@@ -577,9 +577,9 @@ public struct SwiftSetting: Sendable {
 
     /// The interoperability mode
     public enum InteroperabilityMode: String {
-        /// Interoperate as C
+        /// Emit code compatible with being imported from C and Objective-C.
         case C
-        /// Interoperate as Cxx
+        /// Emit code compatible with being imported from C++ and Objective-C++.
         case Cxx
     }
 
@@ -594,7 +594,7 @@ public struct SwiftSetting: Sendable {
     /// - Since: First available in PackageDescription 5.9.
     ///
     /// - Parameters:
-    ///   - mode: The language mode, either C or Cxx.
+    ///   - mode: The interoperability mode, either C-compatible or C++-compatible.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
