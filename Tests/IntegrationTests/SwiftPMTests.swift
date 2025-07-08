@@ -202,7 +202,7 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test
+    @Test(.requireSwift6_2)
     func testCodeCoverageMergedAcrossSubprocesses() async throws {
         try await withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
