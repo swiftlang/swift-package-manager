@@ -2127,7 +2127,7 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        // We have turned of the unsafe flags check
+        // We have turned off the unsafe flags check
         XCTAssertEqual(observability.diagnostics.count, 0)
     }
 
