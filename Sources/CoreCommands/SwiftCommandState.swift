@@ -718,8 +718,8 @@ public final class SwiftCommandState {
         }
     }
 
-    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
-        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
+    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none, traitConfiguration: TraitConfiguration = .default) throws -> PluginScriptRunner {
+        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace(traitConfiguration: traitConfiguration).location.pluginWorkingDirectory
         let cacheDir = pluginsDir.appending("cache")
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
@@ -796,7 +796,6 @@ public final class SwiftCommandState {
 
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
-
         let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? self.options.build.buildSystem,
             explicitProduct: explicitProduct,

@@ -219,7 +219,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     explicitProduct: options.executable,
                     traitConfiguration: .init(traitOptions: self.options.traits)
                 )
-                let productName = try await findProductName(in: buildSystem.getPackageGraph())
+                let modulesGraph = try await buildSystem.getPackageGraph()
+                let productName = try findProductName(in: modulesGraph)
                 if options.shouldBuildTests {
                     try await buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {

@@ -743,13 +743,8 @@ extension Workspace {
             }
         }
 
-        observabilityScope.emit(warning: "bp top level mans: \(topLevelManifests.map(\.key.description))")
-        observabilityScope.emit(warning: "bp loaded: \(loadedManifests.map(\.key.description))")
-
         // Update enabled traits map
         self.enabledTraitsMap = .init(try precomputeTraits( topLevelManifests.values.map({ $0 }), loadedManifests))
-
-        observabilityScope.emit(warning: "bp !!!! enabled traits: \(self.enabledTraitsMap)")
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 

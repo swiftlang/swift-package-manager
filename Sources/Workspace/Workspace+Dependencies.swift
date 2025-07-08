@@ -529,8 +529,6 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-//        observabilityScope.emit(warning: "bp resolving + loading deps")
-
         // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,

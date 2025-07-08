@@ -152,7 +152,7 @@ public class Workspace {
     let fingerprints: PackageFingerprintStorage?
 
     /// The workspace configuration settings
-    let configuration: WorkspaceConfiguration
+    public let configuration: WorkspaceConfiguration
 
     // MARK: State
 
@@ -783,14 +783,6 @@ extension Workspace {
             defaultRequirement
         }
 
-        // TODO bp ensure this is correct.
-//        var dependencyEnabledTraits: Set<String> = Set(["default"])
-//        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
-//            .traits
-//        {
-//            dependencyEnabledTraits = Set(traits.map(\.name))
-//        }
-
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
@@ -955,8 +947,6 @@ extension Workspace {
         // such hosts processes call loadPackageGraph to make sure the workspace state is correct
         try await self.state.reload()
 
-        observabilityScope.emit(warning: "bp BEFORE COMP enabled traits map: \(self.enabledTraitsMap)")
-
         // Perform dependency resolution, if required.
         let manifests = try await self._resolve(
             root: root,
@@ -964,8 +954,6 @@ extension Workspace {
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
-
-//        observabilityScope.emit(warning: "bp enabled traits map: \(self.enabledTraitsMap)")
 
         let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in

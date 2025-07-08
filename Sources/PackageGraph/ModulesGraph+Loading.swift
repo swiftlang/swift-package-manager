@@ -191,8 +191,6 @@ extension ModulesGraph {
             .init(implementation: .minimumDeploymentTargetDefault)
         }
 
-        observabilityScope.emit(warning: "bp \(allNodes)")
-
         // Resolve dependencies and create resolved packages.
         let resolvedPackages = try createResolvedPackages(
             nodes: Array(allNodes.values),

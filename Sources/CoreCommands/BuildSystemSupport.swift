@@ -58,8 +58,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
                 )
             },
             pluginConfiguration: .init(
-                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
-                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                scriptRunner: self.swiftCommandState.getPluginScriptRunner(traitConfiguration: traitConfiguration),
+                workDirectory: try self.swiftCommandState.getActiveWorkspace(traitConfiguration: traitConfiguration).location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
             scratchDirectory: self.swiftCommandState.scratchDirectory,
@@ -136,8 +136,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             fileSystem: self.swiftCommandState.fileSystem,
             observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
             pluginConfiguration: .init(
-                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
-                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                scriptRunner: self.swiftCommandState.getPluginScriptRunner(traitConfiguration: traitConfiguration),
+                workDirectory: try self.swiftCommandState.getActiveWorkspace(traitConfiguration: traitConfiguration).location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
             delegate: delegate
