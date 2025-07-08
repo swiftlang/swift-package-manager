@@ -363,7 +363,20 @@ public final class RegistryClient: AsyncCancellable {
                 )
             },
             description: versionMetadata.metadata?.description,
-            publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt
+            publishedAt: versionMetadata.metadata?.originalPublicationTime ?? versionMetadata.publishedAt,
+            templates: versionMetadata.metadata?.templates?.compactMap { template in
+                PackageVersionMetadata.Template(
+                    name: template.name,
+                    description: template.description,
+                    arguments: template.arguments?.map { arg in
+                        PackageVersionMetadata.TemplateArguments(
+                            name: arg.name,
+                            description: arg.description,
+                            isRequired: arg.isRequired
+                        )
+                    }
+                )
+            }
         )
 
         return packageVersionMetadata
@@ -1724,9 +1737,43 @@ extension RegistryClient {
         public let author: Author?
         public let description: String?
         public let publishedAt: Date?
+        public let templates: [Template]?
 
         public var sourceArchive: Resource? {
             self.resources.first(where: { $0.name == "source-archive" })
+        }
+
+        public struct Template: Sendable {
+            public let name: String
+            public let description: String?
+            //public let permissions: [String]? TODO ADD
+            public let arguments: [TemplateArguments]?
+
+            public init(
+                name: String,
+                description: String? = nil,
+                arguments: [TemplateArguments]? = nil
+            ) {
+                self.name = name
+                self.description = description
+                self.arguments = arguments
+            }
+        }
+
+        public struct TemplateArguments: Sendable {
+            public let name: String
+            public let description: String?
+            public let isRequired: Bool?
+
+            public init(
+                name: String,
+                description: String? = nil,
+                isRequired: Bool? = nil
+            ) {
+                self.name = name
+                self.description = description
+                self.isRequired = isRequired
+            }
         }
 
         public struct Resource: Sendable {
@@ -2149,6 +2196,7 @@ extension RegistryClient {
                 public let readmeURL: String?
                 public let repositoryURLs: [String]?
                 public let originalPublicationTime: Date?
+                public let templates: [Template]?
 
                 public init(
                     author: Author? = nil,
@@ -2156,7 +2204,8 @@ extension RegistryClient {
                     licenseURL: String? = nil,
                     readmeURL: String? = nil,
                     repositoryURLs: [String]? = nil,
-                    originalPublicationTime: Date? = nil
+                    originalPublicationTime: Date? = nil,
+                    templates: [Template]? = nil
                 ) {
                     self.author = author
                     self.description = description
@@ -2164,8 +2213,23 @@ extension RegistryClient {
                     self.readmeURL = readmeURL
                     self.repositoryURLs = repositoryURLs
                     self.originalPublicationTime = originalPublicationTime
+                    self.templates = templates
                 }
             }
+
+            public struct Template: Codable {
+                public let name: String
+                public let description: String?
+                //public let permissions: [String]? TODO ADD
+                public let arguments: [TemplateArguments]?
+            }
+
+            public struct TemplateArguments: Codable {
+                public let name: String
+                public let description: String?
+                public let isRequired: Bool?
+            }
+
 
             public struct Author: Codable {
                 public let name: String

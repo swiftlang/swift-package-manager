@@ -40,6 +40,7 @@ import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
 import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
+import struct Basics.SourceControlURL
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
@@ -50,7 +51,7 @@ import struct PackageModel.TraitDescription
 import enum PackageModel.TraitConfiguration
 import class PackageModel.Manifest
 
-extension Workspace {
+public extension Workspace {
     enum ResolvedFileStrategy {
         case lockFile
         case update(forceResolution: Bool)
@@ -817,6 +818,91 @@ extension Workspace {
             return path
         }
     }
+
+    /*
+    func resolveTemplatePackage(
+        templateDirectory: AbsolutePath? = nil,
+
+        templateURL: SourceControlURL? = nil,
+        templatePackageID: PackageIdentity? = nil,
+        observabilityScope: ObservabilityScope,
+        revisionParsed: String?,
+        branchParsed: String?,
+        exactVersion: Version?,
+        fromParsed: String?,
+        toParsed: String?,
+        upToNextMinorParsed: String?
+
+    ) async throws -> AbsolutePath {
+        if let path = templateDirectory {
+            // Local filesystem path
+            let packageRef = PackageReference.root(identity: .init(path: path), path: path)
+            let dependency = try ManagedDependency.fileSystem(packageRef: packageRef)
+
+            guard case .fileSystem(let resolvedPath) = dependency.state else {
+                throw InternalError("invalid file system package state")
+            }
+
+            await self.state.add(dependency: dependency)
+            try await self.state.save()
+            return resolvedPath
+
+        } else if let url = templateURL {
+            // Git URL
+            let packageRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: url), url: url)
+
+            let requirement: PackageStateChange.Requirement
+            if let revision = revisionParsed {
+                if let branch = branchParsed {
+                    requirement = .revision(.init(identifier:revision), branch: branch)
+                } else {
+                    requirement = .revision(.init(identifier: revision), branch: nil)
+                }
+            } else if let version = exactVersion {
+                requirement = .version(version)
+            } else {
+                throw InternalError("No usable Git version/revision/branch provided")
+            }
+
+            return try await self.updateDependency(
+                package: packageRef,
+                requirement: requirement,
+                productFilter: .everything,
+                observabilityScope: observabilityScope
+            )
+
+        } else if let packageID = templatePackageID {
+            // Registry package
+            let identity = packageID
+            let packageRef = PackageReference.registry(identity: identity)
+
+            let requirement: PackageStateChange.Requirement
+            if let exact = exactVersion {
+                requirement = .version(exact)
+            } else if let from = fromParsed, let to = toParsed {
+                // Not supported in updateDependency – adjust logic if needed
+                throw InternalError("Version range constraints are not supported here")
+            } else if let upToMinor = upToNextMinorParsed {
+                // SwiftPM normally supports this – you may need to expand updateDependency to support it
+                throw InternalError("upToNextMinorFrom not currently supported")
+            } else {
+                throw InternalError("No usable Registry version provided")
+            }
+
+            return try await self.updateDependency(
+                package: packageRef,
+                requirement: requirement,
+                productFilter: .everything,
+                observabilityScope: observabilityScope
+            )
+
+        } else {
+            throw InternalError("No template source provided (path, url, or package-id)")
+        }
+    }
+
+     */
+
 
     public enum ResolutionPrecomputationResult: Equatable {
         case required(reason: WorkspaceResolveReason)
