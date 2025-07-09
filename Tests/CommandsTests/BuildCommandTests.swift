@@ -1354,8 +1354,11 @@ struct BuildCommandTestCases {
                  #expect(stdout.isEmpty)
             }
          } when: {
-             ProcessInfo.hostOperatingSystem == .windows &&
-             buildSystem == .swiftbuild
+             buildSystem == .swiftbuild && (
+                ProcessInfo.hostOperatingSystem == .windows || (
+                    ProcessInfo.hostOperatingSystem == .linux && configuration == .release
+                )
+            )
          }
     }
 
