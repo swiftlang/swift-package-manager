@@ -243,7 +243,7 @@ public enum TargetDependency {
 public protocol SourceModuleTarget: Target {
     /// The name of the module produced by the target.
     ///
-    /// Derived from the target name, though future SwiftPM versions may
+    /// Derived from the target name, though future Swift package manager versions may
     /// allow this to be customized.
     var moduleName: String { get }
 
@@ -371,7 +371,7 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
 
     /// The kind of module.
     ///
-    /// The kind of module describes whether it contains unit tests, contains
+    /// The kind of module describes whether it contains unit tests,
     /// the main entry point of an executable, or neither.
     public let kind: ModuleKind
 
