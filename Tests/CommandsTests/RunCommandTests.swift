@@ -420,9 +420,7 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            buildSystem == .swiftbuild &&
-            ProcessInfo.hostOperatingSystem == .linux &&
-            configuration == .release
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
         }
     }
 
