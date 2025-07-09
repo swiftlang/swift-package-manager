@@ -2024,7 +2024,8 @@ extension Sequence {
 
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
-        settings.filter(\.kind.isUnsafeFlags).isEmpty == false
+        // We no longer restrict unsafe flags
+        false
     }
 
     fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
