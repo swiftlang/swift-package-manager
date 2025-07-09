@@ -310,6 +310,8 @@ final class PluginTests {
                 #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
             } else if buildSystem == .swiftbuild {
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            } else {
+                Issue.record("Test has no expectation for \(buildSystem)")
             }
         }
     }
