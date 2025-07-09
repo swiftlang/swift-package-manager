@@ -459,6 +459,14 @@ public final class SwiftCommandState {
     /// Returns the currently active workspace.
     public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration = .default) throws -> Workspace {
         if let workspace = _workspace {
+            // Update the Workspace's trait configuration to the latest known trait configuration.
+            // Note: Previous calls to getActiveWorkspace could have not had an explicit trait configuration (default),
+            // however for particular cases where a PluginDelegate's createSymbolGraphForPlugin is being called (which happens
+            // after PluginCommand has begun running), it will need the latest traitConfiguration overridding what is already
+            // available in WorkspaceConfiguration.
+            if workspace.traitConfiguration != traitConfiguration {
+                workspace.updateConfiguration(with: traitConfiguration)
+            }
             return workspace
         }
 

@@ -152,7 +152,12 @@ public class Workspace {
     let fingerprints: PackageFingerprintStorage?
 
     /// The workspace configuration settings
-    public let configuration: WorkspaceConfiguration
+    private(set) var configuration: WorkspaceConfiguration
+
+    /// The trait configuration as described in the workspace's configuration.
+    public var traitConfiguration: TraitConfiguration {
+        configuration.traitConfiguration
+    }
 
     // MARK: State
 
@@ -1364,6 +1369,13 @@ extension Workspace {
 
         // Save the state.
         try await self.state.save()
+    }
+}
+
+// MARK: - Workspace configuration update extensions
+extension Workspace {
+    public func updateConfiguration(with traitConfiguration: TraitConfiguration) {
+        self.configuration.traitConfiguration = traitConfiguration
     }
 }
 
