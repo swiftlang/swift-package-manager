@@ -273,7 +273,7 @@ internal struct PkgConfigParser {
         variables["pc_sysrootdir"] = sysrootDir ?? Basics.AbsolutePath.root.pathString
 
         let fileContents: String = try fileSystem.readFileContents(pcFile)
-        for line in fileContents.components(separatedBy: "\n") {
+        for line in fileContents.components(separatedBy: .newlines) {
             // Remove commented or any trailing comment from the line.
             let uncommentedLine = removeComment(line: line)
             // Ignore any empty or whitespace line.

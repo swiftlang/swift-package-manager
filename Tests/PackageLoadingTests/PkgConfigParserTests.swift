@@ -19,8 +19,6 @@ import struct TSCBasic.ByteString
 
 final class PkgConfigParserTests: XCTestCase {
     func testCircularPCFile() throws {
-        try XCTSkipOnWindows()
-
         let observability = ObservabilitySystem.makeForTesting()
 
         _ = try PkgConfig(
@@ -36,8 +34,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testGTK3PCFile() throws {
-        try XCTSkipOnWindows()
-
         try! loadPCFile("gtk+-3.0.pc") { parser in
             XCTAssertEqual(parser.variables, [
                 "libdir": "/usr/local/Cellar/gtk+3/3.18.9/lib",
@@ -58,8 +54,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testEmptyCFlags() throws {
-        try XCTSkipOnWindows()
-
         try! loadPCFile("empty_cflags.pc") { parser in
             XCTAssertEqual(parser.variables, [
                 "prefix": "/usr/local/bin",
@@ -74,16 +68,12 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testCFlagsCaseInsensitveKeys() throws {
-        try XCTSkipOnWindows()
-
         try! loadPCFile("case_insensitive.pc") { parser in
             XCTAssertEqual(parser.cFlags, ["-I/usr/local/include"])
         }
     }
 
     func testVariableinDependency() throws {
-        try XCTSkipOnWindows()
-
         try! loadPCFile("deps_variable.pc") { parser in
             XCTAssertEqual(parser.variables, [
                 "prefix": "/usr/local/bin",
@@ -108,8 +98,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testEscapedSpaces() throws {
-        try XCTSkipOnWindows()
-
         try! loadPCFile("escaped_spaces.pc") { parser in
             XCTAssertEqual(parser.variables, [
                 "prefix": "/usr/local/bin",
@@ -125,8 +113,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testDummyDependency() throws {
-        try XCTSkipOnWindows()
-
         try loadPCFile("dummy_dependency.pc") { parser in
             XCTAssertEqual(parser.variables, [
                 "prefix": "/usr/local/bin",
@@ -213,8 +199,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testAbsolutePathDependency() throws {
-        try XCTSkipOnWindows()
-
         let libffiPath = "/usr/local/opt/libffi/lib/pkgconfig/libffi.pc"
 
         try loadPCFile("gobject-2.0.pc") { parser in
@@ -248,8 +232,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testUnevenQuotes() throws {
-        try XCTSkipOnWindows()
-
         do {
             try loadPCFile("quotes_failure.pc")
             XCTFail("Unexpected success")
@@ -259,8 +241,6 @@ final class PkgConfigParserTests: XCTestCase {
     }
 
     func testSysrootDir() throws {
-        try XCTSkipOnWindows()
-
         // sysroot should be prepended to all path variables, and should therefore appear in cflags and libs.
         try loadPCFile("gtk+-3.0.pc", sysrootDir: "/opt/sysroot/somewhere") { parser in
             XCTAssertEqual(parser.variables, [
