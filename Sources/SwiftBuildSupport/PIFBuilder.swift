@@ -359,15 +359,16 @@ public final class PIFBuilder {
                             buildCommands: result.buildCommands.map( { buildCommand in
                                 var newEnv: Environment = buildCommand.configuration.environment
 
-                                // TODO decide on the precedence of these environment settings
-                                for (key, value) in Environment.current {
-                                    newEnv[key] = value
-                                }
-
                                 let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
 
+                                // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
                                 for libPath in runtimeLibPaths {
                                     newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+                                }
+
+                                // Append the system path at the end so that necessary system tool paths can be found
+                                if let pathValue = Environment.current[EnvironmentKey.path] {
+                                    newEnv.appendPath(key: .path, value: pathValue)
                                 }
 
                                 let writableDirectories: [AbsolutePath] = [pluginOutputDir]
