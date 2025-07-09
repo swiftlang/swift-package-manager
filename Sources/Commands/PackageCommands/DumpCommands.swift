@@ -54,7 +54,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
             // We are enabling all traits for dumping the symbol graph.
-            traitConfiguration: .init(enableAllTraits: true),
+            traitConfiguration: .enableAllTraits,
             cacheBuildManifest: false
         )
         try await buildSystem.build()

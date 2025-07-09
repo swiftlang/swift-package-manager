@@ -793,7 +793,6 @@ public final class SwiftCommandState {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
-
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         let buildSystem = try await buildSystemProvider.createBuildSystem(

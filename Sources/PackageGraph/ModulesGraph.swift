@@ -447,11 +447,9 @@ func topologicalSortIdentifiable<T: Identifiable>(
 
 public func precomputeTraits(
     _ enabledTraitsMap: EnabledTraitsMap,
-//    root: PackageGraphRoot,
     _ topLevelManifests: [Manifest],
     _ manifestMap: [PackageIdentity: Manifest]
 ) throws -> [PackageIdentity: Set<String>] {
-//    var enabledTraits = root.enabledTraits
     var visited: Set<PackageIdentity> = []
 
     func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
@@ -477,6 +475,7 @@ public func precomputeTraits(
                     .init(parent)
                 )
 
+                // TODO bp
 //                enabledTraitsMap[dependency.identity] = calculatedTraits
 
                 let result = visited.insert(dependency.identity)

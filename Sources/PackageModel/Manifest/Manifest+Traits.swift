@@ -438,9 +438,8 @@ extension Manifest {
         target: String,
         _ dependency: TargetDescription.Dependency,
         enabledTraits: Set<String>,
-        enableAllTraits: Bool = false // TODO bp: remove this parameter
     ) throws -> Bool {
-        guard self.supportsTraits, !enableAllTraits else { return true }
+        guard self.supportsTraits else { return true }
         guard let target = self.targetMap[target] else { return false }
         guard target.dependencies.contains(where: { $0 == dependency }) else {
             throw InternalError(

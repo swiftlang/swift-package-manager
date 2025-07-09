@@ -685,7 +685,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        var root = try PackageGraphRoot(
+        let root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope
@@ -955,7 +955,7 @@ public final class MockWorkspace {
             packages: rootInput.packages,
             observabilityScope: observability.topScope
         )
-        var graphRoot = try PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope
@@ -964,8 +964,6 @@ public final class MockWorkspace {
             root: graphRoot,
             observabilityScope: observability.topScope
         )
-        // TODO bp
-//        graphRoot = manifests.root
         result(manifests, observability.diagnostics)
     }
 

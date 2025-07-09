@@ -184,7 +184,9 @@ struct PluginCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState
     ) async throws {
         // Load the workspace and resolve the package graph.
-        let packageGraph = try await swiftCommandState.loadPackageGraph()
+        let packageGraph = try await swiftCommandState.loadPackageGraph(
+            traitConfiguration: .enableAllTraits
+        )
 
         swiftCommandState.observabilityScope.emit(info: "Finding plugin for command ‘\(command)’")
         let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph, limitedTo: options.packageIdentity)

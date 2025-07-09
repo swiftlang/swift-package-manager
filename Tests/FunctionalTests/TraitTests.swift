@@ -102,8 +102,6 @@ struct TraitTests {
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
             let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
             #expect(!stderr.contains(unusedDependencyRegex))
-            print("computing: \(buildSystem.rawValue) with configuration \(configuration.rawValue)")
-            print(stderr)
             #expect(stdout == """
             Package1Library1 trait1 enabled
             Package2Library1 trait2 enabled

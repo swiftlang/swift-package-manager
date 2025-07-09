@@ -754,13 +754,12 @@ class ManifestTests: XCTestCase {
                 enabledTraits: ["Trait3"]
             ))
 
-            // Test if a trait-guarded dependency is enabled when passed a flag that enables all traits;
+            // Test if a trait-guarded dependency is enabled when passed all traits enabled;
             // should be true.
             XCTAssertTrue(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 trait3GuardedTargetDependency,
-                enabledTraits: ["default"],
-                enableAllTraits: true
+                enabledTraits: ["Trait1", "Trait2", "Trait3"]
             ))
 
             // Test if a trait-guarded dependency is enabled when there are no enabled traits passsed.
