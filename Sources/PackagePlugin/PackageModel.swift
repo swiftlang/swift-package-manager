@@ -122,7 +122,7 @@ public struct PackageDependency {
 public protocol Product {
     /// Unique identifier for the product.
     var id: ID { get }
-    /// The type that represents the identifier of a packge product.
+    /// The type that represents the identifier of a package product.
     typealias ID = String
 
     /// The name of the product, as defined in the package manifest.
