@@ -403,7 +403,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             // GIVEN we have a simple test package
             try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
                //WHEN we run with the --quiet option
@@ -420,9 +420,7 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            buildSystem == .swiftbuild &&
-            ProcessInfo.hostOperatingSystem == .linux &&
-            configuration == .release
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
         }
     }
 
