@@ -420,9 +420,9 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            ProcessInfo.hostOperatingSystem == .linux &&
             buildSystem == .swiftbuild &&
-            CiEnvironment.runningInSelfHostedPipeline
+            ProcessInfo.hostOperatingSystem == .linux &&
+            configuration == .release
         }
     }
 
