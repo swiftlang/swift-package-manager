@@ -25,7 +25,7 @@ final class LibraryDependencyTests: XCTestCase {
 
             let scratchPath = fixturePath.appending(component: ".build.tests")
             try await executeSwiftBuild(fixturePath,
-                configuration: .Debug,
+                configuration: .debug,
                 extraArgs: ["--scratch-path", scratchPath.pathString]
             )
 
