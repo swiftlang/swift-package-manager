@@ -59,7 +59,7 @@ final class LibraryDependencyTests: XCTestCase {
                     "schemaVersion": "1.2",
                     "artifacts": {
                         "KrabbyPatty": {
-                            "type": "library",
+                            "type": "dynamicLibrary",
                             "version": "0.0.0",
                             "variants": [{ "path": "KrabbyPatty" }]
                         }

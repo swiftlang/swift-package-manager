@@ -44,7 +44,7 @@ public struct ArtifactsArchiveMetadata: Equatable {
     // 3D models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
-        case library
+        case dynamicLibrary
         case staticLibrary
         case swiftSDK
 

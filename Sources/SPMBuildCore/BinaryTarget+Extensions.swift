@@ -76,7 +76,7 @@ extension BinaryModule {
     public func parseLibraries(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         return try metadata.artifacts.reduce(into: []) {
-            guard case .library = $1.value.type else {
+            guard case .dynamicLibrary = $1.value.type else {
                 return
             }
             guard let inhabitant: ArtifactsArchiveMetadata.Variant = $1.value.variants.first,

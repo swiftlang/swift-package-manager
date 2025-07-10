@@ -137,7 +137,7 @@ struct ArtifactsArchiveMetadataTests {
                 "schemaVersion": "1.2",
                 "artifacts": {
                     "KrabbyPatty": {
-                        "type": "library",
+                        "type": "dynamicLibrary",
                         "version": "1.0.0",
                         "variants": [{ "path": "KrabbyPatty" }]
                     }
@@ -151,7 +151,7 @@ struct ArtifactsArchiveMetadataTests {
             schemaVersion: "1.2",
             artifacts: [
                 "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
-                    type: .library,
+                    type: .dynamicLibrary,
                     version: "1.0.0",
                     variants: [
                         ArtifactsArchiveMetadata.Variant(
@@ -164,7 +164,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
         )
         let libraries = try binaryTarget.parseLibraries(
             for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
@@ -182,7 +182,7 @@ struct ArtifactsArchiveMetadataTests {
                 "schemaVersion": "1.2",
                 "artifacts": {
                     "KrabbyPatty": {
-                        "type": "library",
+                        "type": "dynamicLibrary",
                         "version": "1.0.0",
                         "variants": [
                             {
@@ -201,7 +201,7 @@ struct ArtifactsArchiveMetadataTests {
             schemaVersion: "1.2",
             artifacts: [
                 "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
-                    type: .library,
+                    type: .dynamicLibrary,
                     version: "1.0.0",
                     variants: [
                         ArtifactsArchiveMetadata.Variant(
@@ -214,7 +214,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
         )
         // library artifacts must not specify supported triples
         #expect(throws: (any Error).self) {
@@ -234,7 +234,7 @@ struct ArtifactsArchiveMetadataTests {
                 "schemaVersion": "1.2",
                 "artifacts": {
                     "KrabbyPatty": {
-                        "type": "library",
+                        "type": "dynamicLibrary",
                         "version": "1.0.0",
                         "variants": [
                             {
@@ -255,7 +255,7 @@ struct ArtifactsArchiveMetadataTests {
             schemaVersion: "1.2",
             artifacts: [
                 "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
-                    type: .library,
+                    type: .dynamicLibrary,
                     version: "1.0.0",
                     variants: [
                         ArtifactsArchiveMetadata.Variant(
@@ -272,7 +272,7 @@ struct ArtifactsArchiveMetadataTests {
         ))
 
         let binaryTarget = BinaryModule(
-            name: "KrabbyPatty", kind: .artifactsArchive(types: [.library]), path: .root, origin: .local
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
         )
         // library artifacts must not specify supported triples
         #expect(throws: (any Error).self) {
