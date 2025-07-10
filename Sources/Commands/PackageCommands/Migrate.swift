@@ -102,16 +102,21 @@ extension SwiftPackageCommand {
             // whole project to get diagnostic files.
 
             print("> Starting the build")
+            var buildResult: BuildOutputResult?
             if !targets.isEmpty {
                 for target in targets {
-                    try await buildSystem.build(subset: .target(target))
+                    buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [.buildPlan])
                 }
             } else {
-                try await buildSystem.build(subset: .allIncludingTests)
+                buildResult = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [.buildPlan])
             }
 
             // Determine all of the targets we need up update.
-            let buildPlan = try buildSystem.buildPlan
+            let buildPlan = buildResult!.buildPlan
+
+            guard let buildPlan else {
+                throw ExitCode.failure
+            }
 
             var modules: [any ModuleBuildDescription] = []
             if !targets.isEmpty {

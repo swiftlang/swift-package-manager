@@ -396,9 +396,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult {
         guard !self.config.shouldSkipBuilding(for: .target) else {
-            return
+            return BuildOutputResult()
         }
 
         let buildStartTime = DispatchTime.now()
@@ -422,7 +422,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // any errors up-front. Returns true if we should proceed with the build
         // or false if not. It will already have thrown any appropriate error.
         guard try await self.compilePlugins(in: subset) else {
-            return
+            if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
+                return BuildOutputResult(buildPlan: buildPlan)
+            } else {
+                return BuildOutputResult()
+            }
         }
 
         let configuration = self.config.configuration(for: .target)
@@ -463,7 +467,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
                     underlyingError: error
                 )
-                return
+
+                if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
+                    return BuildOutputResult(buildPlan: buildPlan)
+                } else {
+                    return BuildOutputResult()
+                }
             }
         }
 
@@ -478,6 +487,12 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 warning: "unable to create symbolic link at \(oldBuildPath)",
                 underlyingError: error
             )
+        }
+
+        if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
+            return BuildOutputResult(buildPlan: buildPlan)
+        } else {
+            return BuildOutputResult()
         }
     }
 

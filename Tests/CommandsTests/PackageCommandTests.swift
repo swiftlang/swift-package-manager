@@ -3343,16 +3343,25 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             // Check that if we don't pass any target, we successfully get symbol graph information for all targets in the package, and at different paths.
             do {
                 let (stdout, _) = try await self.execute(["generate-documentation"], packagePath: packageDir)
-                XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/mypackage/MyLibrary").pathString)))
-                XCTAssertMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/mypackage/MyCommand").pathString)))
-
+                if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/mypackage/MyLibrary").pathString)))
+                    XCTAssertMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/mypackage/MyCommand").pathString)))
+                } else if buildSystemProvider == .swiftbuild {
+                    XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/MyLibrary.symbolgraphs").pathString)))
+                    XCTAssertMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/MyCommand.symbolgraphs").pathString)))
+                }
             }
 
             // Check that if we pass a target, we successfully get symbol graph information for just the target we asked for.
             do {
                 let (stdout, _) = try await self.execute(["generate-documentation", "--target", "MyLibrary"], packagePath: packageDir)
-                XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/mypackage/MyLibrary").pathString)))
-                XCTAssertNoMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/mypackage/MyCommand").pathString)))
+                 if buildSystemProvider == .native {
+                    XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/mypackage/MyLibrary").pathString)))
+                    XCTAssertNoMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/mypackage/MyCommand").pathString)))
+                } else if buildSystemProvider == .swiftbuild {
+                    XCTAssertMatch(stdout, .and(.contains("MyLibrary:"), .contains(AbsolutePath("/MyLibrary.symbolgraphs").pathString)))
+                    XCTAssertNoMatch(stdout, .and(.contains("MyCommand:"), .contains(AbsolutePath("/MyCommand.symbolgraphs").pathString)))
+                }
             }
         }
     }
@@ -4119,7 +4128,8 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testCommandPluginSymbolGraphCallbacks() async throws {
-        throw XCTSkip("SWBINTTODO: Symbol graph extraction does not yet work with swiftbuild build system")
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
+        try await super.testCommandPluginSymbolGraphCallbacks()
     }
 
     override func testCommandPluginBuildingCallbacks() async throws {

@@ -279,17 +279,23 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         SwiftLanguageVersion.supportedSwiftLanguageVersions
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult {
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return BuildOutputResult()
         }
 
         try await writePIF(buildParameters: buildParameters)
 
-        try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+        try await startSWBuildOperation(pifTargetName: subset.pifTargetName, genSymbolGraph: buildOutputs.contains(.symbolGraph))
+
+        if buildOutputs.contains(.symbolGraph) {
+            return BuildOutputResult(symbolGraph: true)
+        }
+
+        return BuildOutputResult()
     }
 
-    private func startSWBuildOperation(pifTargetName: String) async throws {
+    private func startSWBuildOperation(pifTargetName: String, genSymbolGraph: Bool) async throws {
         let buildStartTime = ContinuousClock.Instant.now
 
         try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
@@ -339,7 +345,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath)
+                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -539,7 +545,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(genSymbolGraph: Bool) throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -557,6 +563,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+        if genSymbolGraph {
+            settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
+        }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
         if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
@@ -621,9 +630,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath) throws -> SWBBuildRequest {
+    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try makeBuildParameters()
+        request.parameters = try makeBuildParameters(genSymbolGraph: genSymbolGraph)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false

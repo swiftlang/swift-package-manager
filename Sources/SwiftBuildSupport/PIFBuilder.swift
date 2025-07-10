@@ -167,7 +167,7 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
     ) async throws -> String {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 

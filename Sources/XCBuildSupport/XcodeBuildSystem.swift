@@ -160,9 +160,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return []
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult {
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return BuildOutputResult()
         }
 
         let pifBuilder = try await getPIFBuilder()
@@ -244,9 +244,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
-        guard !self.logLevel.isQuiet else { return }
+        guard !self.logLevel.isQuiet else { return BuildOutputResult()}
         self.outputStream.send("Build complete!\n")
         self.outputStream.flush()
+
+        return BuildOutputResult()
     }
 
     func createBuildParametersFile() throws -> AbsolutePath {

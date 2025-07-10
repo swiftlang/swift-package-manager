@@ -34,6 +34,29 @@ public enum BuildSubset {
     case target(String, for: BuildParameters.Destination? = .none)
 }
 
+/// Represents possible extra build outputs for a build. Some build systems
+/// can produce certain extra outputs in the process of building. Not all
+/// build systems can produce all possible build outputs. The build output
+/// results will contain equivalent results only if the build system was capable
+/// of producing that extra output.
+public enum BuildOutput {
+    case symbolGraph
+    case buildPlan
+}
+
+/// Represents extra build outputs result that were requested with equivalent build
+/// outputs. This can signal to the caller that the output was produced during
+/// the process of the build, and provide any relevant details of the output.
+public struct BuildOutputResult {
+    public var symbolGraph: Bool
+    public var buildPlan: BuildPlan?
+
+    public init(symbolGraph: Bool = false, buildPlan: BuildPlan? = nil) {
+        self.symbolGraph = symbolGraph
+        self.buildPlan = buildPlan
+    }
+}
+
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the Swift Build backed `SwiftBuildSystem`.
 public protocol BuildSystem: Cancellable {
@@ -47,20 +70,17 @@ public protocol BuildSystem: Cancellable {
     /// Returns the package graph used by the build system.
     func getPackageGraph() async throws -> ModulesGraph
 
-    /// Builds a subset of the package graph.
-    /// - Parameters:
-    ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) async throws
-
-    var buildPlan: BuildPlan { get throws }
+    ///   - buildOutputs: Additional build outputs requested from the build system.
+    /// - Returns: A build output result with details about requested additional build outputs.
+    func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
 }
 
 extension BuildSystem {
-    /// Builds the default subset: all targets excluding tests.
+    /// Builds the default subset: all targets excluding tests with no extra build outputs.
     public func build() async throws {
-        try await build(subset: .allExcludingTests)
+        _ = try await build(subset: .allExcludingTests, buildOutputs: [])
     }
 }
 
