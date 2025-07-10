@@ -38,34 +38,6 @@ public struct PackageGraphRootInput {
     }
 }
 
-public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
-    public typealias Key = PackageIdentity
-    public typealias Value = Set<String>
-
-    var storage: [PackageIdentity: Set<String>] = [:]
-
-    public init() { }
-
-    public init(dictionaryLiteral elements: (Key, Value)...) {
-        for (key, value) in elements {
-            storage[key] = value
-        }
-    }
-
-    public init(_ dictionary: [Key: Value]) {
-        self.storage = dictionary
-    }
-
-    public subscript(key: PackageIdentity) -> Set<String> {
-        get { storage[key] ?? ["default"] }
-        set { storage[key] = newValue }
-    }
-
-    public var dictionaryLiteral: [PackageIdentity: Set<String>] {
-        return storage
-    }
-}
-
 /// Represents the inputs to the package graph.
 public struct PackageGraphRoot {
 
@@ -132,36 +104,6 @@ public struct PackageGraphRoot {
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
-
-        // TODO bp: remove
-        // Calculate the enabled traits for root.
-//        var enableTraitsMap: EnabledTraitsMap = [:]
-//        enableTraitsMap = try packages.reduce(into: EnabledTraitsMap()) { traitsMap, package in
-//            let manifest = package.value.manifest
-//            let traitConfiguration = input.traitConfiguration
-//
-//            // Should only ever have to use trait configuration here for roots.
-//            let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-//            traitsMap[package.key] = enabledTraits
-//
-//            // Calculate the enabled traits for each dependency of this root:
-//            manifest.dependencies.forEach { dependency in
-//                let explicitlyEnabledTraits = dependency.traits?.filter({
-//                    guard let condition = $0.condition else { return true }
-//                    return condition.isSatisfied(by: enabledTraits)
-//                }).map(\.name)
-//                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-//
-//                enabledTraitsSet?.formUnion(traitsMap[dependency.identity])
-//
-//                // to fix with precompute fix here
-//                if let enabledTraitsSet {
-//                    traitsMap[dependency.identity] = enabledTraitsSet
-//                }
-//            }
-//        }
-
-//        self.enabledTraits = enableTraitsMap
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.

@@ -220,9 +220,6 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
-
-//    @OptionGroup(visibility: .hidden)
-//    package var traits: TraitOptions
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -740,9 +737,6 @@ extension SwiftTestCommand {
         /// Options for Swift Testing's event stream.
         @OptionGroup()
         var testEventStreamOptions: TestEventStreamOptions
-
-//        @OptionGroup(visibility: .hidden)
-//        package var traits: TraitOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)

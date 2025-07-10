@@ -88,10 +88,6 @@ struct RunCommandOptions: ParsableArguments {
     @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
-    /// Specifies the traits to build the product with.
-//    @OptionGroup(visibility: .hidden)
-//    package var traits: TraitOptions
-
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
               help: "The arguments to pass to the executable.")

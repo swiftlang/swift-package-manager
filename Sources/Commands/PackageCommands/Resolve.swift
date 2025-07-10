@@ -31,10 +31,6 @@ extension SwiftPackageCommand {
 
         @Argument(help: "The name of the package to resolve.")
         var packageName: String?
-
-        /// Specifies the traits to build.
-//        @OptionGroup(visibility: .hidden)
-//        package var traits: TraitOptions
     }
 
     struct Resolve: AsyncSwiftCommand {

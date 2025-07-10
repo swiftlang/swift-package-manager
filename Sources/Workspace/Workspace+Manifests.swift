@@ -255,7 +255,6 @@ extension Workspace {
                             enabledTraits: node.enabledTraits
                         )
                         if !isDepUsed && workspace.configuration.pruneDependencies {
-                            // TODO bp: see if this produces expected result, since enabled traits is no longer optional
                             if !node.enabledTraits.isEmpty {
                                 observabilityScope.emit(debug: """
                             '\(package.identity)' from '\(package.locationString)' was omitted \
@@ -562,7 +561,6 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
             let deps = try manifest.dependencies.filter { dep in
-                // compute enabled traits map; todo bp cleanup
                 let explicitlyEnabledTraits = dep.traits?.filter({
                     guard let condition = $0.condition else { return true }
                     return condition.isSatisfied(by: parentEnabledTraits)
@@ -609,22 +607,6 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
             return try manifest.dependencies.filter { dep in
-                // Calculate conditional traits for dependencies here; add to enabled traits map.
-//                let enabledTraits: Set<String> = self.enabledTraitsMap[manifest.packageIdentity]
-//                let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
-//                let explicitlyEnabledTraits = dep.traits?.filter {
-//                    guard let condition = $0.condition else { return true }
-//                    return condition.isSatisfied(by: enabledTraits)
-//                }.map(\.name)
-//
-//                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-//                enabledTraitsSet?.formUnion(self.enabledTraitsMap[dep.identity])
-//
-//                if let enabledTraitsSet {
-//                    self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-//                }
-//
-//                return isDepUsed
                 let explicitlyEnabledTraits = dep.traits?.filter({
                     guard let condition = $0.condition else { return true }
                     return condition.isSatisfied(by: parentEnabledTraits)
@@ -667,7 +649,7 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
-            return try (dependenciesRequired /*+ dependenciesGuarded*/).compactMap { dependency in
+            return try dependenciesRequired.compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
 
                     let explicitlyEnabledTraits = dependency.traits?.filter {
@@ -677,12 +659,12 @@ extension Workspace {
 
                     var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
                     let precomputedTraits = self.enabledTraitsMap[dependency.identity]
-                    // TODO bp shouldn't union here if enabledTraitsMap returns "default" and we DO have explicitly enabled traits.
+                    // Shouldn't union here if enabledTraitsMap returns "default" and we DO have explicitly enabled traits, since we're meant to flatten the default traits.
                     if precomputedTraits == ["default"],
                        let enabledTraitsSet {
                         self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
                     } else {
-                        // unify traits
+                        // Unify traits
                         enabledTraitsSet?.formUnion(precomputedTraits)
                         if let enabledTraitsSet {
                             self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
@@ -694,9 +676,7 @@ extension Workspace {
                         .init(node.item.manifest)
                     )
 
-
-                    // TODO bp: precompute traits should take care of this, no longer need
-//                    enabledTraitsMap[manifest.packageIdentity, default: []].formUnion(calculatedTraits ?? [])
+                    self.enabledTraitsMap[dependency.identity] = calculatedTraits
 
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
@@ -737,8 +717,8 @@ extension Workspace {
                 successors: successorNodes
             ) {
                 allNodes[$0.key] = $0.item
-            } onDuplicate: { old, new in
-                // TODO bp
+            } onDuplicate: { _, _ in
+                // Nothing we need to compute here.
             }
         }
 

@@ -110,10 +110,6 @@ struct BuildCommandOptions: ParsableArguments {
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
 
-    /// Specifies the traits to build.
-//    @OptionGroup(visibility: .hidden)
-//    package var traits: TraitOptions
-
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false

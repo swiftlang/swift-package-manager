@@ -608,25 +608,6 @@ public class Workspace {
         }
 
         // initialize
-//        self.fileSystem = fileSystem
-//        self.configuration = configuration
-//        self.location = location
-//        self.delegate = delegate
-//        self.mirrors = mirrors
-//
-//        self.hostToolchain = hostToolchain
-//        self.manifestLoader = manifestLoader
-//        self.currentToolsVersion = currentToolsVersion
-//
-//        self.customPackageContainerProvider = customPackageContainerProvider
-//        self.repositoryManager = repositoryManager
-//        self.registryClient = registryClient
-//        self.registryDownloadsManager = registryDownloadsManager
-//        self.binaryArtifactsManager = binaryArtifactsManager
-//
-//        self.identityResolver = identityResolver
-//        self.dependencyMapper = dependencyMapper
-//        self.fingerprints = fingerprints
         let resolvedPackagesStore = LoadableResult {
             try ResolvedPackagesStore(
                 packageResolvedFile: location.resolvedVersionsFile,
@@ -1680,5 +1661,36 @@ extension ContainerUpdateStrategy {
         case .ifNeeded(let revision):
             .ifNeeded(revision: .init(identifier: revision))
         }
+    }
+}
+
+// MARK: - Enabled traits dictionary wrapper
+
+/// A wrapper for a dictionary that stores the transitively enabled traits for each package.
+public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
+    public typealias Key = PackageIdentity
+    public typealias Value = Set<String>
+
+    var storage: [PackageIdentity: Set<String>] = [:]
+
+    public init() { }
+
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        for (key, value) in elements {
+            storage[key] = value
+        }
+    }
+
+    public init(_ dictionary: [Key: Value]) {
+        self.storage = dictionary
+    }
+
+    public subscript(key: PackageIdentity) -> Set<String> {
+        get { storage[key] ?? ["default"] }
+        set { storage[key] = newValue }
+    }
+
+    public var dictionaryLiteral: [PackageIdentity: Set<String>] {
+        return storage
     }
 }

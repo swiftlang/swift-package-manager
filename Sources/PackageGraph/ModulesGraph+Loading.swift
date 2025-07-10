@@ -133,9 +133,8 @@ extension ModulesGraph {
             successors: nodeSuccessorProvider
         ) {
             allNodes[$0.key] = $0.item
-        } onDuplicate: { first, second in
-            // We are unifying the enabled traits on duplicate
-            // TODO bp: to remove this, precompute traits elsewhere
+        } onDuplicate: { _, _ in
+            // Nothing we need to compute here.
         }
 
         // Create the packages.
