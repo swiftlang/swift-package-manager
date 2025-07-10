@@ -299,13 +299,20 @@ final class PluginTests {
 
     @Test(
         .enabled(if: (try? UserToolchain.default)!.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency"),
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS")
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS"),
+        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
-    func testUseOfVendedBinaryTool() async throws {
+    func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"])
-            #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+            let (stdout, _) = try await executeSwiftBuild(fixturePath.appending("MyBinaryToolPlugin"), configuration: .debug, extraArgs: ["--product", "MyLocalTool"], buildSystem: buildSystem)
+            if buildSystem == .native {
+                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
+            } else if buildSystem == .swiftbuild {
+                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            } else {
+                Issue.record("Test has no expectation for \(buildSystem)")
+            }
         }
     }
 
