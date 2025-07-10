@@ -81,7 +81,7 @@ extension Workspace {
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
         // Load the current manifests.
-        var graphRoot = try PackageGraphRoot(
+        let graphRoot = try PackageGraphRoot(
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
@@ -91,8 +91,6 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
-        // TODO bp: find less hacky way to do this
-        graphRoot = currentManifests.root
 
         // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else { return nil }
@@ -166,8 +164,6 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
-        // TODO bp
-        graphRoot = updatedDependencyManifests.root
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages
         guard stillMissingPackages.isEmpty else {
@@ -368,9 +364,6 @@ extension Workspace {
                 root: graphRoot,
                 observabilityScope: observabilityScope
                 )
-
-            // TODO bp
-//            graphRoot = dependencyManifests.root
 
             return (dependencyManifests,
                 .notRequired
@@ -634,8 +627,6 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
-        // TODO bp
-//        graphRoot = updatedDependencyManifests.root
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
         let stillMissingPackages = try updatedDependencyManifests.missingPackages

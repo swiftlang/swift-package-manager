@@ -152,9 +152,9 @@ public class Workspace {
     let fingerprints: PackageFingerprintStorage?
 
     /// The workspace configuration settings
-    private(set) var configuration: WorkspaceConfiguration
+    let configuration: WorkspaceConfiguration
 
-    /// The trait configuration as described in the workspace's configuration.
+    /// The trait configuration as described in the Workspace's configuration.
     public var traitConfiguration: TraitConfiguration {
         configuration.traitConfiguration
     }
@@ -416,7 +416,7 @@ public class Workspace {
         )
     }
 
-    private init(
+    private convenience init(
         // core
         fileSystem: FileSystem,
         environment: Environment,
@@ -576,6 +576,7 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
+        var prebuiltsManager: PrebuiltsManager?
         if configuration.usePrebuilts,
            let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform,
            let swiftCompilerVersion = hostToolchain.swiftCompilerVersion
@@ -587,7 +588,7 @@ public class Workspace {
                 rootCertPath = nil
             }
 
-            let prebuiltsManager = PrebuiltsManager(
+            let prebuiltsManagerObj = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
                 swiftCompilerVersion: customPrebuiltsManager?.swiftVersion ?? swiftCompilerVersion,
@@ -600,13 +601,91 @@ public class Workspace {
                 prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
                 rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
             )
-            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
-            self.prebuiltsManager = prebuiltsManager
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManagerObj)
+            prebuiltsManager = prebuiltsManagerObj
         } else {
-            self.prebuiltsManager = nil
+            prebuiltsManager = nil
         }
 
         // initialize
+//        self.fileSystem = fileSystem
+//        self.configuration = configuration
+//        self.location = location
+//        self.delegate = delegate
+//        self.mirrors = mirrors
+//
+//        self.hostToolchain = hostToolchain
+//        self.manifestLoader = manifestLoader
+//        self.currentToolsVersion = currentToolsVersion
+//
+//        self.customPackageContainerProvider = customPackageContainerProvider
+//        self.repositoryManager = repositoryManager
+//        self.registryClient = registryClient
+//        self.registryDownloadsManager = registryDownloadsManager
+//        self.binaryArtifactsManager = binaryArtifactsManager
+//
+//        self.identityResolver = identityResolver
+//        self.dependencyMapper = dependencyMapper
+//        self.fingerprints = fingerprints
+        let resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
+                workingDirectory: location.scratchDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        let state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: location.scratchDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
+
+        self.init(
+            fileSystem: fileSystem,
+            configuration: configuration,
+            location: location,
+            delegate: delegate,
+            mirrors: mirrors,
+            hostToolchain: hostToolchain,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            customPackageContainerProvider: customPackageContainerProvider,
+            repositoryManager: repositoryManager,
+            registryClient: registryClient,
+            registryDownloadsManager: registryDownloadsManager,
+            binaryArtifactsManager: binaryArtifactsManager,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fingerprints: fingerprints,
+            resolvedPackagesStore: resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: state
+        )
+    }
+
+    private init(
+        fileSystem: any FileSystem,
+        configuration: WorkspaceConfiguration,
+        location: Location,
+        delegate: Delegate?,
+        mirrors: DependencyMirrors,
+        hostToolchain: UserToolchain,
+        manifestLoader: ManifestLoaderProtocol,
+        currentToolsVersion: ToolsVersion,
+        customPackageContainerProvider: PackageContainerProvider?,
+        repositoryManager: RepositoryManager,
+        registryClient: RegistryClient,
+        registryDownloadsManager: RegistryDownloadsManager,
+        binaryArtifactsManager: BinaryArtifactsManager,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fingerprints: PackageFingerprintStorage?,
+        resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
+        prebuiltsManager: PrebuiltsManager?,
+        state: WorkspaceState
+    ) {
         self.fileSystem = fileSystem
         self.configuration = configuration
         self.location = location
@@ -627,20 +706,10 @@ public class Workspace {
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
-        self.resolvedPackagesStore = LoadableResult {
-            try ResolvedPackagesStore(
-                packageResolvedFile: location.resolvedVersionsFile,
-                workingDirectory: location.scratchDirectory,
-                fileSystem: fileSystem,
-                mirrors: mirrors
-            )
-        }
+        self.resolvedPackagesStore = resolvedPackagesStore
+        self.prebuiltsManager = prebuiltsManager
 
-        self.state = WorkspaceState(
-            fileSystem: fileSystem,
-            storageDirectory: self.location.scratchDirectory,
-            initializationWarningHandler: initializationWarningHandler
-        )
+        self.state = state
     }
 }
 
@@ -1372,14 +1441,40 @@ extension Workspace {
     }
 }
 
-// MARK: - Workspace configuration update extensions
-extension Workspace {
-    public func updateConfiguration(with traitConfiguration: TraitConfiguration) {
-        self.configuration.traitConfiguration = traitConfiguration
-    }
-}
 
 // MARK: - Utility extensions
+
+extension Workspace {
+    /// Creates and returns a copy of the current workspace with an updated configuration using the passed parameters.
+    /// - Parameters:
+    /// - traitConfiguration: A configuration of traits that will override the existing trait configuration in the WorkspaceConfiguration.
+    public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
+        var newConfig = self.configuration
+        newConfig.traitConfiguration = traitConfiguration
+        
+        return Workspace(
+            fileSystem: self.fileSystem,
+            configuration: newConfig,
+            location: self.location,
+            delegate: self.delegate,
+            mirrors: self.mirrors,
+            hostToolchain: self.hostToolchain,
+            manifestLoader: self.manifestLoader,
+            currentToolsVersion: self.currentToolsVersion,
+            customPackageContainerProvider: self.customPackageContainerProvider,
+            repositoryManager: self.repositoryManager,
+            registryClient: self.registryClient,
+            registryDownloadsManager: self.registryDownloadsManager,
+            binaryArtifactsManager: self.binaryArtifactsManager,
+            identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
+            fingerprints: self.fingerprints,
+            resolvedPackagesStore: self.resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: self.state
+        )
+    }
+}
 
 extension Workspace.ManagedArtifact {
     fileprivate var originURL: String? {

@@ -96,9 +96,6 @@ extension ModulesGraph {
                         // required. This checks the current node and then enables the conditional
                         // dependencies of the dependency node.
 
-                        // TODO bp: shouldn't need to do any traits computation here,
-                        // if we've successfully computed them in the PackageGraphRoot.
-
                         return try KeyedPair(
                             GraphLoadingNode(
                                 identity: dependency.identity,

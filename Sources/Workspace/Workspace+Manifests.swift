@@ -323,7 +323,6 @@ extension Workspace {
                         return try manifestsMap[dependency.identity].map { manifest in
                             // Calculate all transitively enabled traits for this manifest.
 
-                            // TODO bp: see if this is corect
                             var allEnabledTraits: Set<String> = ["default"]
                             if let explicitlyEnabledTraits
                             {

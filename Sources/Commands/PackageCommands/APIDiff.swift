@@ -72,8 +72,8 @@ struct APIDiff: AsyncSwiftCommand {
             help: "One or more targets to include in the API comparison. If present, only the specified targets (and any products specified using `--products`) will be compared.")
     var targets: [String] = []
 
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
+//    @OptionGroup(visibility: .hidden)
+//    package var traits: TraitOptions
 
     @Option(name: .customLong("baseline-dir"),
             help: "The path to a directory used to store API baseline files. If unspecified, a temporary directory will be used.")
@@ -106,7 +106,6 @@ struct APIDiff: AsyncSwiftCommand {
             )
         } else {
             let buildSystem = try await swiftCommandState.createBuildSystem(
-                traitConfiguration: .init(traitOptions: self.traits),
                 cacheBuildManifest: false,
             )
             try await runWithSwiftPMCoordinatedDiffing(
@@ -207,7 +206,6 @@ struct APIDiff: AsyncSwiftCommand {
         )
         let delegate = DiagnosticsCapturingBuildSystemDelegate()
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            traitConfiguration: .init(traitOptions: self.traits),
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
             delegate: delegate
@@ -316,7 +314,6 @@ struct APIDiff: AsyncSwiftCommand {
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
             packageGraphLoader: { graph }

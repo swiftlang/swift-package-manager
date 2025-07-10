@@ -221,8 +221,8 @@ struct TestCommandOptions: ParsableArguments {
         return testOutput == .experimentalSummary
     }
 
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
+//    @OptionGroup(visibility: .hidden)
+//    package var traits: TraitOptions
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -659,7 +659,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            traitConfiguration: .init(traitOptions: self.options.traits)
+            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
         )
     }
 
@@ -741,8 +741,8 @@ extension SwiftTestCommand {
         @OptionGroup()
         var testEventStreamOptions: TestEventStreamOptions
 
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
+//        @OptionGroup(visibility: .hidden)
+//        package var traits: TraitOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
@@ -850,7 +850,7 @@ extension SwiftTestCommand {
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
-                traitConfiguration: .init(traitOptions: self.traits)
+                traitConfiguration: .init(traitOptions: self.globalOptions.traits)
             )
         }
     }
@@ -1561,7 +1561,6 @@ private func buildTestsIfNeeded(
     traitConfiguration: TraitConfiguration
 ) async throws -> [BuiltTestProduct] {
     let buildSystem = try await swiftCommandState.createBuildSystem(
-        traitConfiguration: traitConfiguration,
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )
