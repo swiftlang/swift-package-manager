@@ -1138,7 +1138,7 @@ extension Workspace {
                     // Store the manifest.
                     rootManifests[package] = manifest
 
-                    // TODO bp: compute the traits for roots here.
+                    // Compute the enabled traits for roots.
                     let traitConfiguration = self.configuration.traitConfiguration
                     let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
                     self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits

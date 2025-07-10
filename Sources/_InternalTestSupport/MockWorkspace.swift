@@ -103,6 +103,7 @@ public final class MockWorkspace {
         .SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
+    public var enabledTraitsMap: EnabledTraitsMap
     public let pruneDependencies: Bool
 
     public init(
@@ -125,7 +126,8 @@ public final class MockWorkspace {
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
-        pruneDependencies: Bool = false
+        pruneDependencies: Bool = false,
+        enabledTraitsMap: EnabledTraitsMap = .init()
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -164,6 +166,7 @@ public final class MockWorkspace {
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
+        self.enabledTraitsMap = enabledTraitsMap
         try await self.create()
     }
 
@@ -688,16 +691,14 @@ public final class MockWorkspace {
         let root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
 
         let dependencyManifests = try await workspace.loadDependencyManifests(
             root: root,
             observabilityScope: observability.topScope
         )
-
-        // TODO bp
-        // root.enabledTraits = dependencyManifests.root
 
         let result = try await workspace.precomputeResolution(
             root: root,
@@ -958,7 +959,8 @@ public final class MockWorkspace {
         let graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
         let manifests = try await workspace.loadDependencyManifests(
             root: graphRoot,

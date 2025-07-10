@@ -85,7 +85,8 @@ extension Workspace {
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
@@ -353,7 +354,8 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         // Load the `Package.resolved` store or abort now.
@@ -519,7 +521,8 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         // Of the enabled dependencies of targets, only consider these for dependency resolution

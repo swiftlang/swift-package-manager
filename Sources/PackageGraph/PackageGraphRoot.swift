@@ -122,7 +122,8 @@ public struct PackageGraphRoot {
         manifests: [AbsolutePath: Manifest],
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        enabledTraitsMap: EnabledTraitsMap = .init()
     ) throws {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
@@ -132,32 +133,33 @@ public struct PackageGraphRoot {
             }
         })
 
+        // TODO bp: remove
         // Calculate the enabled traits for root.
-        var enableTraitsMap: EnabledTraitsMap = [:]
-        enableTraitsMap = try packages.reduce(into: EnabledTraitsMap()) { traitsMap, package in
-            let manifest = package.value.manifest
-            let traitConfiguration = input.traitConfiguration
-
-            // Should only ever have to use trait configuration here for roots.
-            let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-            traitsMap[package.key] = enabledTraits
-
-            // Calculate the enabled traits for each dependency of this root:
-            manifest.dependencies.forEach { dependency in
-                let explicitlyEnabledTraits = dependency.traits?.filter({
-                    guard let condition = $0.condition else { return true }
-                    return condition.isSatisfied(by: enabledTraits)
-                }).map(\.name)
-                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-
-                enabledTraitsSet?.formUnion(traitsMap[dependency.identity])
-
-                // to fix with precompute fix here
-                if let enabledTraitsSet {
-                    traitsMap[dependency.identity] = enabledTraitsSet
-                }
-            }
-        }
+//        var enableTraitsMap: EnabledTraitsMap = [:]
+//        enableTraitsMap = try packages.reduce(into: EnabledTraitsMap()) { traitsMap, package in
+//            let manifest = package.value.manifest
+//            let traitConfiguration = input.traitConfiguration
+//
+//            // Should only ever have to use trait configuration here for roots.
+//            let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
+//            traitsMap[package.key] = enabledTraits
+//
+//            // Calculate the enabled traits for each dependency of this root:
+//            manifest.dependencies.forEach { dependency in
+//                let explicitlyEnabledTraits = dependency.traits?.filter({
+//                    guard let condition = $0.condition else { return true }
+//                    return condition.isSatisfied(by: enabledTraits)
+//                }).map(\.name)
+//                var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
+//
+//                enabledTraitsSet?.formUnion(traitsMap[dependency.identity])
+//
+//                // to fix with precompute fix here
+//                if let enabledTraitsSet {
+//                    traitsMap[dependency.identity] = enabledTraitsSet
+//                }
+//            }
+//        }
 
 //        self.enabledTraits = enableTraitsMap
 
@@ -174,7 +176,7 @@ public struct PackageGraphRoot {
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
             return manifests.values.reduce(false) { result, manifest in
-                let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity]
+                let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed
                 }
@@ -187,7 +189,7 @@ public struct PackageGraphRoot {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
-                    let enabledTraits: Set<String> = enableTraitsMap[manifest.packageIdentity]
+                    let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
                     return try manifest.dependenciesRequired(for: .everything, enabledTraits)
                 })
                 .flatMap({ $0 })
