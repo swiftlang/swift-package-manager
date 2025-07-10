@@ -75,7 +75,7 @@ final class LibraryDependencyTests: XCTestCase {
                     to: fixturePath.appending(component: "main.artifactbundle")
                 )
 
-                let (output, _) = try await executeSwiftRun(fixturePath, "KrustyKrab")
+                let (output, _) = try await executeSwiftRun(fixturePath, "KrustyKrab", buildSystem: .native)
                 XCTAssertTrue(
                     output.contains("Latest Krabby Patty formula version: v2"),
                     output
