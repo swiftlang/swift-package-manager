@@ -49,9 +49,6 @@ public struct PackageGraphRoot {
         return self.packages.compactMapValues { $0.manifest }
     }
 
-    /// The root manifest(s)'s enabled traits (and their transitively enabled traits).
-//    public var enabledTraits: EnabledTraitsMap
-
     /// The root package references.
     public var packageReferences: [PackageReference] {
         return self.packages.values.map { $0.reference }
