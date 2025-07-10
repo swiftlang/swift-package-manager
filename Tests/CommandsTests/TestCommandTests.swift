@@ -239,7 +239,8 @@ struct TestCommandTests {
             }
         } when: {
             (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+            // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+            || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
         }
     }
 
