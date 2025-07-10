@@ -1,8 +1,8 @@
-# How to use Environment-Dependent Shared Libraries
+# How to use Environment-Constrained Shared Libraries
 
-An Environment-Dependent Shared Library (EDSL) is a shared library that is built for a specific environment and can be upgraded without recompiling executables that depend on it.
+An Environment-Constrained Shared Library (ECSL) is a shared library that is built for a specific environment and can be upgraded without recompiling executables that depend on it.
 
-EDSLs bake in a number of assumptions, such as:
+ECSLs bake in a number of assumptions, such as:
 
 - The target Operating System
 - The target CPU architecture
@@ -13,9 +13,9 @@ EDSLs bake in a number of assumptions, such as:
 
 Therefore, they are generally intended for internal distribution, often across a fleet of identically-configured servers.
 
-This article will demonstrate how to create a simple EDSL called `libKrabbyPatty` and use it in a client application called `KrustyKrab`, all using SwiftPM.
+This article will demonstrate how to create a simple ECSL called `libKrabbyPatty` and use it in a client application called `KrustyKrab`, all using SwiftPM.
 
-## Creating the EDSL
+## Creating the ECSL
 
 Begin by setting up a standard SwiftPM project layout, containing a single module named `KrabbyPatty`.
 
@@ -64,7 +64,7 @@ let package:Package = .init(name: "swift-krabby-patty",
 )
 ```
 
-## Packaging the EDSL
+## Packaging the ECSL
 
 The `libKrabbyPatty` binary may be built simply by running `swift build`.
 
@@ -95,7 +95,7 @@ cat <<EOF
     "schemaVersion": "1.2",
     "artifacts": {
         "KrabbyPatty": {
-            "type": "library",
+            "type": "dynamicLibrary",
             "version": "1.0.0",
             "variants": [{ "path": "KrabbyPatty" }]
         }
@@ -105,7 +105,7 @@ EOF
 ) > main.artifactbundle/info.json
 ```
 
-Although `variants` is an array, an EDSL bundle must contain exactly one path per library. In this example, we named the directory `KrabbyPatty` to match the name of the library, but you could choose any name you like.
+Although `variants` is an array, an ECSL bundle must contain exactly one path per library. In this example, we named the directory `KrabbyPatty` to match the name of the library, but you could choose any name you like.
 
 You should now have a layout similar to the following:
 
@@ -120,7 +120,7 @@ You should now have a layout similar to the following:
 └── 📜 Package.swift
 ```
 
-## Consuming the EDSL
+## Consuming the ECSL
 
 Create a new SwiftPM project named `swift-krusty-krab` alongside the `swift-krabby-patty` project. The `swift-krusty-krab` project should contain a source directory for a module named `KrustyKrab`.
 
@@ -181,9 +181,9 @@ swift run KrustyKrab
 Latest Krabby Patty formula version: v1
 ```
 
-## Redeploying the EDSL
+## Redeploying the ECSL
 
-To get the most out of an EDSL, you should compile the client application with an `@rpath` that allows you to upgrade the library later without recompiling the client.
+To get the most out of an ECSL, you should compile the client application with an `@rpath` that allows you to upgrade the library later without recompiling the client.
 
 The command below builds the `KrustyKrab` executable against version 1.0.0 of `libKrabbyPatty`, and embeds an `@rpath` that points to some directory named `Libraries`.
 
