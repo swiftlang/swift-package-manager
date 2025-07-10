@@ -240,6 +240,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
+        guard !self.logLevel.isQuiet else { return }
         self.outputStream.send("Build complete!\n")
         self.outputStream.flush()
     }
@@ -406,11 +407,5 @@ extension BuildSubset {
         case .allIncludingTests:
             PIFBuilder.allIncludingTestsTargetName
         }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        self <= .info
     }
 }

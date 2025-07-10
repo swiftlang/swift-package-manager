@@ -1044,9 +1044,3 @@ extension BuildSubset {
         }
     }
 }
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        return self <= .info
-    }
-}
