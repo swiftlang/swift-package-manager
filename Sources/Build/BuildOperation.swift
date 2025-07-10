@@ -429,7 +429,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // delegate is only available after createBuildSystem is called
         progressTracker.buildStart(configuration: configuration)
 
-
         // Perform the build.
         let llbuildTarget = try await computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
