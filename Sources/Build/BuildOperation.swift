@@ -396,9 +396,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset) async throws -> BuildResult {
         guard !self.config.shouldSkipBuilding(for: .target) else {
-            return
+            return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")))
         }
 
         let buildStartTime = DispatchTime.now()
@@ -422,7 +422,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // any errors up-front. Returns true if we should proceed with the build
         // or false if not. It will already have thrown any appropriate error.
         guard try await self.compilePlugins(in: subset) else {
-            return
+            return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Plugin compilation failed")))
         }
 
         let configuration = self.config.configuration(for: .target)
@@ -452,6 +452,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         guard success else { throw Diagnostics.fatalError }
 
+        let serializedDiagnosticResult: Result<[String: [AbsolutePath]], Error>
+        var serializedDiagnosticPaths: [String: [AbsolutePath]] = [:]
+        do {
+            for module in try buildPlan.buildModules {
+                serializedDiagnosticPaths[module.module.name, default: []].append(contentsOf: module.diagnosticFiles)
+            }
+            serializedDiagnosticResult = .success(serializedDiagnosticPaths)
+        } catch {
+            serializedDiagnosticResult = .failure(error)
+        }
+
         // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = self.config.dataPath(for: .target).parentDirectory.appending(
             component: configuration.dirname
@@ -463,7 +474,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
                     underlyingError: error
                 )
-                return
+                return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult)
             }
         }
 
@@ -479,6 +490,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 underlyingError: error
             )
         }
+
+        return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult)
     }
 
     /// Compiles any plugins specified or implied by the build subset, returning
