@@ -334,6 +334,14 @@ struct PackagePIFProjectBuilder {
                 self.log(.debug, indent: 2, "Added asset catalog as source file '\(resourcePath)'")
             }
 
+            // String Catalogs can also generate symbols.
+            if SwiftBuild.SwiftBuildFileType.xcstrings.fileTypes.contains(resourcePath.pathExtension) {
+                self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
+                    BuildFile(id: id, fileRef: ref)
+                }
+                self.log(.debug, indent: 2, "Added string catalog as source file '\(resourcePath)'")
+            }
+
             self.log(.debug, indent: 2, "Added resource file '\(resourcePath)'")
         }
 
@@ -380,28 +388,36 @@ struct PackagePIFProjectBuilder {
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
     ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [String]) {
-        guard let pluginResult = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
+        guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             // We found no results for the target.
             return (sourceFilePaths: [], resourceFilePaths: [])
         }
 
-        // Process the results of applying any build tool plugins on the target.
-        // If we've been asked to add build tool commands for the result, we do so now.
-        if addBuildToolPluginCommands {
-            for command in pluginResult.buildCommands {
-                self.addBuildToolCommand(command, to: targetKeyPath)
-            }
-        }
+        var sourceFilePaths: [AbsolutePath] = []
+        var resourceFilePaths: [AbsolutePath] = []
 
-        // Process all the paths of derived output paths using the same rules as for source.
-        let result = self.process(
-            pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
-            forModule: module,
-            toolsVersion: self.package.manifest.toolsVersion
-        )
+        for pluginResult in pluginResults {
+            // Process the results of applying any build tool plugins on the target.
+            // If we've been asked to add build tool commands for the result, we do so now.
+            if addBuildToolPluginCommands {
+                for command in pluginResult.buildCommands {
+                    self.addBuildToolCommand(command, to: targetKeyPath)
+                }
+            }
+
+            // Process all the paths of derived output paths using the same rules as for source.
+            let result = self.process(
+                pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
+                forModule: module,
+                toolsVersion: self.package.manifest.toolsVersion
+            )
+
+            sourceFilePaths.append(contentsOf: result.sourceFilePaths)
+            resourceFilePaths.append(contentsOf: result.resourceFilePaths.map(\.path))
+        }
         return (
-            sourceFilePaths: result.sourceFilePaths,
-            resourceFilePaths: result.resourceFilePaths.map(\.path.pathString)
+            sourceFilePaths: sourceFilePaths,
+            resourceFilePaths: resourceFilePaths.map(\.pathString)
         )
     }
 
@@ -414,17 +430,19 @@ struct PackagePIFProjectBuilder {
         sourceFilePaths: [AbsolutePath],
         resourceFilePaths: [String]
     ) {
-        guard let pluginResult = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
+        guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             return
         }
 
-        for command in pluginResult.buildCommands {
-            let producesResources = Set(command.outputPaths).intersection(resourceFilePaths).hasContent
+        for pluginResult in pluginResults {
+            for command in pluginResult.buildCommands {
+                let producesResources = Set(command.outputPaths).intersection(resourceFilePaths).hasContent
 
-            if producesResources {
-                self.addBuildToolCommand(command, to: resourceBundleTargetKeyPath)
-            } else {
-                self.addBuildToolCommand(command, to: sourceModuleTargetKeyPath)
+                if producesResources {
+                    self.addBuildToolCommand(command, to: resourceBundleTargetKeyPath)
+                } else {
+                    self.addBuildToolCommand(command, to: sourceModuleTargetKeyPath)
+                }
             }
         }
     }

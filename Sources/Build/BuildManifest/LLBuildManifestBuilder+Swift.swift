@@ -106,25 +106,12 @@ extension LLBuildManifestBuilder {
         inputs: [Node],
         resolver: ArgsResolver,
         isMainModule: (Job) -> Bool,
-        uniqueExplicitDependencyTracker: UniqueExplicitDependencyJobTracker? = nil
     ) throws {
         // Add build jobs to the manifest
         for job in jobs {
             let tool = try resolver.resolve(.path(job.tool))
             let commandLine = try job.commandLine.map { try resolver.resolve($0) }
             let arguments = [tool] + commandLine
-
-            // Check if an explicit pre-build dependency job has already been
-            // added as a part of this build.
-            if let uniqueExplicitDependencyTracker,
-               job.isExplicitDependencyPreBuildJob
-            {
-                if try !uniqueExplicitDependencyTracker.registerExplicitDependencyBuildJob(job) {
-                    // This is a duplicate of a previously-seen identical job.
-                    // Skip adding it to the manifest
-                    continue
-                }
-            }
 
             let jobInputs = try job.inputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
             let jobOutputs = try job.outputs.map { try $0.resolveToNode(fileSystem: self.fileSystem) }
@@ -137,7 +124,7 @@ extension LLBuildManifestBuilder {
             // common intermediate dependency modules, such dependencies can lead
             // to cycles in the resulting manifest.
             var manifestNodeInputs: [Node] = []
-            if targetDescription.buildParameters.driverParameters.useExplicitModuleBuild && !isMainModule(job) {
+            if !isMainModule(job) {
                 manifestNodeInputs = jobInputs
             } else {
                 manifestNodeInputs = (inputs + jobInputs).uniqued()
@@ -170,207 +157,6 @@ extension LLBuildManifestBuilder {
                 )
             }
         }
-    }
-
-    // Building a Swift module in Explicit Module Build mode requires passing all of its module
-    // dependencies as explicit arguments to the build command. Thus, building a SwiftPM package
-    // with multiple inter-dependent targets requires that each module’s build job must
-    // have its module dependencies’ modules passed into it as explicit module dependencies.
-    // Because none of the targets have been built yet, a given target's dependency scanning
-    // action will not be able to discover its module dependencies' modules. Instead, it is
-    // SwiftPM's responsibility to communicate to the driver, when planning a given module's
-    // build, that this module has dependencies that are other targets, along with a list of
-    // future artifacts of such dependencies (.swiftmodule and .pcm files).
-    // The driver will then use those artifacts as explicit inputs to its module’s build jobs.
-    //
-    // Consider an example SwiftPM package with two targets: module B, and module A, where A
-    // depends on B:
-    // SwiftPM will process targets in a topological order and “bubble-up” each module’s
-    // inter-module dependency graph to its dependencies. First, SwiftPM will process B, and be
-    // able to plan its full build because it does not have any module dependencies. Then the
-    // driver is tasked with planning a build for A. SwiftPM will pass as input to the driver
-    // the module dependency graph of its module’s dependencies, in this case, just the
-    // dependency graph of B. The driver is then responsible for the necessary post-processing
-    // to merge the dependency graphs and plan the build for A, using artifacts of B as explicit
-    // inputs.
-    public func addTargetsToExplicitBuildManifest() throws {
-        // Sort the product targets in topological order in order to collect and "bubble up"
-        // their respective dependency graphs to the depending targets.
-        let allPackageDependencies = self.plan.targets.flatMap { $0.recursiveDependencies(using: self.plan) }
-
-        // Instantiate the inter-module dependency oracle which will cache commonly-scanned
-        // modules across targets' Driver instances.
-        let dependencyOracle = InterModuleDependencyOracle()
-
-        // Explicit dependency pre-build jobs may be common to multiple targets.
-        // We de-duplicate them here to avoid adding identical entries to the
-        // downstream LLBuild manifest
-        let explicitDependencyJobTracker = UniqueExplicitDependencyJobTracker()
-
-        // Create commands for all module descriptions in the plan.
-        for dependency in allPackageDependencies.reversed() {
-            guard case .module(let module, let description) = dependency else {
-                // Product dependency build jobs are added after the fact.
-                // Targets that depend on product dependencies will expand the corresponding
-                // product into its constituent targets.
-                continue
-            }
-
-            guard module.underlying.type != .systemModule,
-                  module.underlying.type != .binary
-            else {
-                // Much like non-Swift targets, system modules will consist of a modulemap
-                // somewhere in the filesystem, with the path to that module being either
-                // manually-specified or computed based on the system module type (apt, brew).
-                // Similarly, binary targets will bring in an .xcframework, the contents of
-                // which will be exposed via search paths.
-                //
-                // In both cases, the dependency scanning action in the driver will be automatically
-                // be able to detect such targets' modules.
-                continue
-            }
-
-            guard let description else {
-                throw InternalError("Expected description for module \(module)")
-            }
-
-            switch description {
-            case .swift(let desc):
-                try self.createExplicitSwiftTargetCompileCommand(
-                    description: desc,
-                    dependencyOracle: dependencyOracle,
-                    explicitDependencyJobTracker: explicitDependencyJobTracker
-                )
-            case .clang(let desc):
-                try self.createClangCompileCommand(desc)
-            }
-        }
-    }
-
-    private func createExplicitSwiftTargetCompileCommand(
-        description: SwiftModuleBuildDescription,
-        dependencyOracle: InterModuleDependencyOracle,
-        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker?
-    ) throws {
-        // Inputs.
-        let inputs = try self.computeSwiftCompileCmdInputs(description)
-
-        // Outputs.
-        let objectNodes = try description.objects.map(Node.file)
-        let moduleNode = Node.file(description.moduleOutputPath)
-        let cmdOutputs = objectNodes + [moduleNode]
-
-        // Commands.
-        try addExplicitBuildSwiftCmds(
-            description,
-            inputs: inputs,
-            dependencyOracle: dependencyOracle,
-            explicitDependencyJobTracker: explicitDependencyJobTracker
-        )
-
-        self.addTargetCmd(description, cmdOutputs: cmdOutputs)
-        try self.addModuleWrapCmd(description)
-    }
-
-    private func addExplicitBuildSwiftCmds(
-        _ targetDescription: SwiftModuleBuildDescription,
-        inputs: [Node],
-        dependencyOracle: InterModuleDependencyOracle,
-        explicitDependencyJobTracker: UniqueExplicitDependencyJobTracker? = nil
-    ) throws {
-        // Pass the driver its external dependencies (module dependencies)
-        var dependencyModuleDetailsMap: SwiftDriver.ExternalTargetModuleDetailsMap = [:]
-        // Collect paths for module dependencies of this module (direct and transitive)
-        try self.collectTargetDependencyModuleDetails(
-            for: .swift(targetDescription),
-            dependencyModuleDetailsMap: &dependencyModuleDetailsMap
-        )
-
-        // Compute the set of frontend
-        // jobs needed to build this Swift module.
-        var commandLine = try targetDescription.emitCommandLine()
-        commandLine.append("-driver-use-frontend-path")
-        commandLine.append(targetDescription.buildParameters.toolchain.swiftCompilerPath.pathString)
-        commandLine.append("-experimental-explicit-module-build")
-        let resolver = try ArgsResolver(fileSystem: self.fileSystem)
-        let executor = SPMSwiftDriverExecutor(
-            resolver: resolver,
-            fileSystem: self.fileSystem,
-            env: Environment.current
-        )
-        var driver = try Driver(
-            args: commandLine,
-            fileSystem: self.fileSystem,
-            executor: executor,
-            compilerIntegratedTooling: false,
-            externalTargetModuleDetailsMap: dependencyModuleDetailsMap,
-            interModuleDependencyOracle: dependencyOracle
-        )
-        try driver.checkLDPathOption(commandLine: commandLine)
-
-        let jobs = try driver.planBuild()
-        try self.addSwiftDriverJobs(
-            for: targetDescription,
-            jobs: jobs,
-            inputs: inputs,
-            resolver: resolver,
-            isMainModule: { driver.isExplicitMainModuleJob(job: $0) },
-            uniqueExplicitDependencyTracker: explicitDependencyJobTracker
-        )
-    }
-
-    /// Collect a map from all module dependencies of the specified module to the build planning artifacts for said
-    /// dependency,
-    /// in the form of a path to a .swiftmodule file and the dependency's InterModuleDependencyGraph.
-    private func collectTargetDependencyModuleDetails(
-        for targetDescription: ModuleBuildDescription,
-        dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
-    ) throws {
-        for dependency in targetDescription.dependencies(using: self.plan) {
-            switch dependency {
-            case .product(let product, let productDescription):
-                for productDependency in product.modules {
-                    guard let dependencyModuleDescription = self.plan.description(
-                        for: productDependency,
-                        context: productDescription?.destination ?? targetDescription.destination
-                    ) else
-                    {
-                        throw InternalError("unknown dependency target for \(productDependency)")
-                    }
-                    try self.addTargetDependencyInfo(
-                        for: dependencyModuleDescription,
-                        dependencyModuleDetailsMap: &dependencyModuleDetailsMap
-                    )
-                }
-            case .module(let dependencyModule, let dependencyDescription):
-                guard let dependencyDescription else {
-                    throw InternalError("No build description for module: \(dependencyModule)")
-                }
-                // Product dependencies are broken down into the targets that make them up.
-                try self.addTargetDependencyInfo(
-                    for: dependencyDescription,
-                    dependencyModuleDetailsMap: &dependencyModuleDetailsMap
-                )
-            }
-        }
-    }
-
-    private func addTargetDependencyInfo(
-        for targetDescription: ModuleBuildDescription,
-        dependencyModuleDetailsMap: inout SwiftDriver.ExternalTargetModuleDetailsMap
-    ) throws {
-        guard case .swift(let dependencySwiftTargetDescription) = targetDescription else {
-            return
-        }
-        dependencyModuleDetailsMap[ModuleDependencyId.swiftPlaceholder(targetDescription.module.c99name)] =
-            SwiftDriver.ExternalTargetModuleDetails(
-                path: TSCAbsolutePath(dependencySwiftTargetDescription.moduleOutputPath),
-                isFramework: false
-            )
-        try self.collectTargetDependencyModuleDetails(
-            for: targetDescription,
-            dependencyModuleDetailsMap: &dependencyModuleDetailsMap
-        )
     }
 
     private func addCmdWithBuiltinSwiftTool(
@@ -578,32 +364,6 @@ extension LLBuildManifestBuilder {
         self.manifest.addSwiftGetVersionCommand(swiftCompilerPath: swiftCompilerPath, swiftVersionFilePath: swiftVersionFilePath)
         swiftGetVersionFiles[swiftCompilerPath] = swiftVersionFilePath
         return swiftVersionFilePath
-    }
-}
-
-extension SwiftDriver.Job {
-    fileprivate var isExplicitDependencyPreBuildJob: Bool {
-        (kind == .emitModule && inputs.contains { $0.file.extension == "swiftinterface" }) || kind == .generatePCM
-    }
-}
-
-/// A simple mechanism to keep track of already-known explicit module pre-build jobs.
-/// It uses the output filename of the job (either a `.swiftmodule` or a `.pcm`) for uniqueness,
-/// because the SwiftDriver encodes the module's context hash into this filename. Any two jobs
-/// producing an binary module file with an identical name are therefore duplicate
-private class UniqueExplicitDependencyJobTracker {
-    private var uniqueDependencyModuleIDSet: Set<Int> = []
-
-    /// Registers the input Job with the tracker. Returns `false` if this job is already known
-    func registerExplicitDependencyBuildJob(_ job: SwiftDriver.Job) throws -> Bool {
-        guard job.isExplicitDependencyPreBuildJob,
-              let soleOutput = job.outputs.spm_only
-        else {
-            throw InternalError("Expected explicit module dependency build job")
-        }
-        let jobUniqueID = soleOutput.file.basename.hashValue
-        let (new, _) = self.uniqueDependencyModuleIDSet.insert(jobUniqueID)
-        return new
     }
 }
 

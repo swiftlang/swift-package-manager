@@ -768,7 +768,7 @@ extension PackagePIFProjectBuilder {
         //
         // An imparted build setting on C will propagate back to both B and A.
         impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
-            ["@loader_path"] +
+            ["$(RPATH_ORIGIN)"] +
             (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
 
         var impartedDebugSettings = impartedSettings

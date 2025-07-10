@@ -422,11 +422,6 @@ public final class SwiftCommandState {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
         }
 
-        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope
-                .emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
-        }
-
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
             observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: ["--arch", "--triple"]))
         }
@@ -792,7 +787,8 @@ public final class SwiftCommandState {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
@@ -811,7 +807,8 @@ public final class SwiftCommandState {
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel ?? self.logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
 
         // register the build system with the cancellation handler
@@ -874,12 +871,11 @@ public final class SwiftCommandState {
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
-                ),
+                ) && !options.build.sanitizers.contains(.fuzzer),
                 enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
                 explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
                     .modeParameter,
                 useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem

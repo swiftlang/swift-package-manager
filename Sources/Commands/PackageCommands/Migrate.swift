@@ -19,6 +19,8 @@ import CoreCommands
 
 import Foundation
 
+import OrderedCollections
+
 import PackageGraph
 import PackageModel
 
@@ -29,21 +31,24 @@ import var TSCBasic.stdoutStream
 
 struct MigrateOptions: ParsableArguments {
     @Option(
-        name: .customLong("targets"),
+        name: .customLong("target"),
         help: "The targets to migrate to specified set of features."
     )
     var _targets: String?
 
-    var targets: Set<String>? {
-        self._targets.flatMap { Set($0.components(separatedBy: ",")) }
+    var targets: OrderedSet<String> {
+        self._targets.flatMap { OrderedSet($0.components(separatedBy: ",")) } ?? []
     }
 
     @Option(
         name: .customLong("to-feature"),
-        parsing: .unconditionalSingleValue,
         help: "The Swift language upcoming/experimental feature to migrate to."
     )
-    var features: [String]
+    var _features: String
+
+    var features: Set<String> {
+        Set(self._features.components(separatedBy: ","))
+    }
 }
 
 extension SwiftPackageCommand {
@@ -85,52 +90,39 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
+            var targets = self.options.targets
+
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
-                targets: self.options.targets,
+                targets: targets,
                 features: features
             )
 
             // Next, let's build all of the individual targets or the
             // whole project to get diagnostic files.
-
             print("> Starting the build")
-            if let targets = self.options.targets {
+            var diagnosticsPaths: [String: [AbsolutePath]] = [:]
+            if !targets.isEmpty {
                 for target in targets {
-                    try await buildSystem.build(subset: .target(target))
+                    let buildResult = try await buildSystem.build(subset: .target(target))
+                    diagnosticsPaths.merge(try buildResult.serializedDiagnosticPathsByTargetName.get(), uniquingKeysWith: { $0 + $1 })
                 }
             } else {
-                try await buildSystem.build(subset: .allIncludingTests)
+                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests).serializedDiagnosticPathsByTargetName.get()
             }
-
-            // Determine all of the targets we need up update.
-            let buildPlan = try buildSystem.buildPlan
-
-            var modules: [any ModuleBuildDescription] = []
-            if let targets = self.options.targets {
-                for buildDescription in buildPlan.buildModules where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
-                }
-            } else {
-                let graph = try await buildSystem.getPackageGraph()
-                for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package) && buildDescription.module.type != .plugin
-                {
-                    modules.append(buildDescription)
-                }
-            }
-
-            // If the build suceeded, let's extract all of the diagnostic
-            // files from build plan and feed them to the fix-it tool.
-
-            print("> Applying fix-its")
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
+            let graph = try await buildSystem.getPackageGraph()
+            if targets.isEmpty {
+                targets = OrderedSet(graph.rootPackages.flatMap { $0.manifest.targets.filter { $0.type != .plugin }.map(\.name) })
+            }
+            print("> Applying fix-its")
             let fixItDuration = try ContinuousClock().measure {
-                for module in modules {
+                for target in targets {
                     let fixit = try SwiftFixIt(
-                        diagnosticFiles: module.diagnosticFiles,
+                        diagnosticFiles: Array(diagnosticsPaths[target] ?? []),
                         categories: Set(features.flatMap(\.categories)),
+                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
                         fileSystem: swiftCommandState.fileSystem
                     )
                     summary += try fixit.applyFixIts()
@@ -164,10 +156,10 @@ extension SwiftPackageCommand {
             // manifest with newly adopted feature settings.
 
             print("> Updating manifest")
-            for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
+            for target in targets {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
-                    for: module.name,
+                    for: target,
                     add: features,
                     using: swiftCommandState
                 )
@@ -176,7 +168,7 @@ extension SwiftPackageCommand {
 
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
-            targets: Set<String>? = .none,
+            targets: OrderedSet<String>,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
@@ -190,7 +182,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            if let targets {
+            if !targets.isEmpty {
                 targets.lazy.compactMap {
                     modulesGraph.module(for: $0)
                 }.forEach(addFeaturesToModule)
@@ -204,6 +196,9 @@ extension SwiftPackageCommand {
 
             return try await swiftCommandState.createBuildSystem(
                 traitConfiguration: .init(),
+                // Don't attempt to cache manifests with temporary
+                // feature flags added just for migration purposes.
+                cacheBuildManifest: false,
                 productsBuildParameters: destinationBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 // command result output goes on stdout

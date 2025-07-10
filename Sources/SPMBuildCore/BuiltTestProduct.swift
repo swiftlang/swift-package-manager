@@ -28,6 +28,10 @@ public struct BuiltTestProduct: Codable {
     /// When the test product is not bundled (for instance, when using XCTest on
     /// non-Darwin targets), this path is equal to ``binaryPath``.
     public var bundlePath: AbsolutePath {
+        // If the binary path is a test runner binary, return it as-is.
+        guard !binaryPath.basenameWithoutExt.hasSuffix("test-runner") else {
+            return binaryPath
+        }
         // Go up the folder hierarchy until we find the .xctest bundle.
         let pathExtension = ".xctest"
         let hierarchySequence = sequence(first: binaryPath, next: { $0.isRoot ? nil : $0.parentDirectory })

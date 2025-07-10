@@ -69,11 +69,14 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
             queue.async {
                 self.didEmitProgressOutput = true
                 let text = self.logLevel.isVerbose ? [info.executionDescription, info.commandLineDisplayString].compactMap { $0 }.joined(separator: "\n") : info.executionDescription
-                self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
+                if !self.logLevel.isQuiet {
+                    self.progressAnimation.update(step: self.percentComplete, total: 100, text: text)
+                }
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, willStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.executionDescription, verboseDescription: info.commandLineDisplayString))
             }
         case .taskOutput(let info):
+            guard !self.logLevel.isQuiet else { return }
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream.send("\(info.data)\n")
@@ -84,24 +87,28 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                 self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(name: "\(info.taskID)", description: info.result.rawValue))
             }
         case .buildDiagnostic(let info):
+            guard !self.logLevel.isQuiet else { return }
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .taskDiagnostic(let info):
+            guard !self.logLevel.isQuiet else { return }
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .targetDiagnostic(let info):
+            guard !self.logLevel.isQuiet else { return }
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream.send("\(info.message)\n")
                 self.outputStream.flush()
             }
         case .buildOutput(let info):
+            guard !self.logLevel.isQuiet else { return }
             queue.async {
                 self.progressAnimation.clear()
                 self.outputStream.send("\(info.data)\n")
@@ -121,7 +128,7 @@ extension XCBuildDelegate: XCBuildOutputParserDelegate {
                     self.outputStream.flush()
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: false)
                 case .ok:
-                    if self.didEmitProgressOutput {
+                    if self.didEmitProgressOutput && !self.logLevel.isQuiet {
                         self.progressAnimation.update(step: 100, total: 100, text: "Build succeeded")
                     }
                     self.buildSystem.delegate?.buildSystem(self.buildSystem, didFinishWithResult: true)

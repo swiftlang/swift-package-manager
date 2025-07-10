@@ -946,6 +946,11 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                 pifTarget.addSourceFile(resourceFile)
             }
 
+            // String Catalogs can also generate symbols.
+            if XCBuildFileType.xcstrings.fileTypes.contains(resource.path.extension ?? "") {
+                pifTarget.addSourceFile(resourceFile)
+            }
+
             resourcesTarget.addResourceFile(resourceFile)
         }
 

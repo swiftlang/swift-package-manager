@@ -682,7 +682,7 @@ private func createResolvedPackages(
             .flatMap(\.modules)
             .filter {
                 if case let systemLibrary as SystemLibraryModule = $0.module {
-                    return systemLibrary.isImplicit
+                    return systemLibrary.implicit
                 }
                 return false
             }

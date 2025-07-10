@@ -5793,20 +5793,8 @@ final class WorkspaceTests: XCTestCase {
 
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
-            testDiagnostics(diagnostics) { result in
-                let diagnostic1 = result.checkUnordered(
-                    diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
-                    severity: .error
-                )
-                XCTAssertEqual(diagnostic1?.metadata?.packageIdentity, .plain("foo"))
-                XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo")
-                let diagnostic2 = result.checkUnordered(
-                    diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
-                    severity: .error
-                )
-                XCTAssertEqual(diagnostic2?.metadata?.packageIdentity, .plain("foo"))
-                XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
-            }
+            // We have disabled the check so there shouldn't be any errors.
+            XCTAssert(diagnostics.filter({ $0.severity == .error }).isEmpty)
         }
     }
 
@@ -9230,6 +9218,11 @@ final class WorkspaceTests: XCTestCase {
                             type: .binary,
                             url: "https://a.com/a2.zip.zip",
                             checksum: "a3"
+                        ),
+                        MockTarget(
+                            name: "A4",
+                            type: .binary,
+                            path: "a4.zip"
                         ),
                     ],
                     products: []

@@ -29,6 +29,7 @@ import SPMBuildCore
 import _InternalBuildTestSupport
 import _InternalTestSupport
 import SwiftDriver
+import TSCTestSupport
 import Workspace
 import XCTest
 
@@ -876,105 +877,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #else
         XCTAssertNoDiagnostics(observability.diagnostics)
         #endif
-    }
-
-    func testExplicitSwiftPackageBuild() async throws {
-        // <rdar://82053045> Fix and re-enable SwiftPM test `testExplicitSwiftPackageBuild`
-        try XCTSkipIf(true)
-        try await withTemporaryDirectory { path in
-            // Create a test package with three targets:
-            // A -> B -> C
-            let fs = localFileSystem
-            try fs.changeCurrentWorkingDirectory(to: path)
-            let testDirPath = path.appending("ExplicitTest")
-            let buildDirPath = path.appending(".build")
-            let sourcesPath = testDirPath.appending("Sources")
-            let aPath = sourcesPath.appending("A")
-            let bPath = sourcesPath.appending("B")
-            let cPath = sourcesPath.appending("C")
-            let main = aPath.appending("main.swift")
-            let aSwift = aPath.appending("A.swift")
-            let bSwift = bPath.appending("B.swift")
-            let cSwift = cPath.appending("C.swift")
-            try localFileSystem.writeFileContents(main, string: "baz();")
-            try localFileSystem.writeFileContents(
-                aSwift,
-                string:
-                """
-                import B;\
-                import C;\
-                public func baz() { bar() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                bSwift,
-                string:
-                """
-                import C;
-                public func bar() { foo() }
-                """
-            )
-            try localFileSystem.writeFileContents(
-                cSwift,
-                string:
-                "public func foo() {}"
-            )
-
-            // Plan package build with explicit module build
-            let observability = ObservabilitySystem.makeForTesting()
-            let graph = try loadModulesGraph(
-                fileSystem: fs,
-                manifests: [
-                    Manifest.createRootManifest(
-                        displayName: "ExplicitTest",
-                        path: testDirPath,
-                        targets: [
-                            TargetDescription(name: "A", dependencies: ["B"]),
-                            TargetDescription(name: "B", dependencies: ["C"]),
-                            TargetDescription(name: "C", dependencies: []),
-                        ]
-                    ),
-                ],
-                observabilityScope: observability.topScope
-            )
-            XCTAssertNoDiagnostics(observability.diagnostics)
-            do {
-                let plan = try await mockBuildPlan(
-                    config: .release,
-                    triple: UserToolchain.default.targetTriple,
-                    toolchain: UserToolchain.default,
-                    graph: graph,
-                    driverParameters: .init(
-                        useExplicitModuleBuild: true
-                    ),
-                    fileSystem: fs,
-                    observabilityScope: observability.topScope
-                )
-
-                let yaml = buildDirPath.appending("release.yaml")
-                let llbuild = LLBuildManifestBuilder(
-                    plan,
-                    fileSystem: localFileSystem,
-                    observabilityScope: observability.topScope
-                )
-                try llbuild.generateManifest(at: yaml)
-                let contents: String = try localFileSystem.readFileContents(yaml)
-
-                // A few basic checks
-                XCTAssertMatch(contents, .contains("-disable-implicit-swift-modules"))
-                XCTAssertMatch(contents, .contains("-fno-implicit-modules"))
-                XCTAssertMatch(contents, .contains("-explicit-swift-module-map-file"))
-                XCTAssertMatch(contents, .contains("A-dependencies"))
-                XCTAssertMatch(contents, .contains("B-dependencies"))
-                XCTAssertMatch(contents, .contains("C-dependencies"))
-            } catch Driver.Error.unableToDecodeFrontendTargetInfo {
-                // If the toolchain being used is sufficiently old, the integrated driver
-                // will not be able to parse the `-print-target-info` output. In which case,
-                // we cannot yet rely on the integrated swift driver.
-                // This effectively guards the test from running on unsupported, older toolchains.
-                throw XCTSkip()
-            }
-        }
     }
 
     func testSwiftConditionalDependency() async throws {
@@ -2127,7 +2029,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         // D
         do {
-            let expectedBModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/B.build/module.modulemap").pathString
+            let expectedBInclude = AbsolutePath("/path/to/build/\(triple)/debug/B.build/include").pathString
             let expectedCModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/C.build/module.modulemap").pathString
             let expectedDModuleMap = AbsolutePath("/path/to/build/\(triple)/debug/D.build/module.modulemap").pathString
             let expectedModuleCache = AbsolutePath("/path/to/build/\(triple)/debug/ModuleCache").pathString
@@ -2149,13 +2051,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ]
             )
 
-#if os(macOS)
             try XCTAssertMatchesSubSequences(
                 result.moduleBuildDescription(for: "D").symbolGraphExtractArguments(),
                 // Swift Module dependencies
-                ["-Xcc", "-fmodule-map-file=\(expectedBModuleMap)"]
+                ["-Xcc", "-I", "-Xcc", "\(expectedBInclude)"]
             )
-#endif
         }
     }
 
@@ -4933,6 +4833,353 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await checkTriple(triple: .x86_64Windows)
     }
 
+    func testWarningLevelSettings() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "cLib", "lib.c").pathString,
+            Pkg.appending(components: "Sources", "cLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "swiftLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Test debug configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            XCTAssertMatch(swiftLib, [.anySequence, "-no-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wno-error", "-Wno-error=deprecated-declarations", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wno-error", "-Wno-error=deprecated-declarations", .anySequence])
+        }
+
+        // Test release configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            XCTAssertMatch(swiftLib, [.anySequence, "-warnings-as-errors", "-Werror", "DeprecatedDeclaration", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Werror", "-Werror=deprecated-declarations", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Werror", "-Werror=deprecated-declarations", .anySequence])
+        }
+    }
+
+    func testEnableDisableWarningSettings() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "cLib", "lib.c").pathString,
+            Pkg.appending(components: "Sources", "cLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "cLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            dependencies: [],
+                            settings: [
+                                .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                            ]
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Test debug configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check C flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wimplicit-fallthrough", .anySequence])
+
+            // Check C++ flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wimplicit-fallthrough", .anySequence])
+        }
+
+        // Test release configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check C flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            XCTAssertMatch(cLib, [.anySequence, "-Wno-unused-parameter", .anySequence])
+
+            // Check C++ flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            XCTAssertMatch(cxxLib, [.anySequence, "-Wno-unused-parameter", .anySequence])
+        }
+    }
+
+    func testWarningSettingsInRemotePackage() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let RootPkg: AbsolutePath = "/RootPkg"
+
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+            RootPkg.appending(components: "Sources", "swiftTarget", "target.swift").pathString,
+            Pkg.appending(components: "Sources", "swiftLib", "lib.swift").pathString,
+            Pkg.appending(components: "Sources", "cLib", "lib.c").pathString,
+            Pkg.appending(components: "Sources", "cLib", "include", "lib.h").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "lib.cpp").pathString,
+            Pkg.appending(components: "Sources", "cxxLib", "include", "lib.h").pathString
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "RootPkg",
+                    path: .init(validating: RootPkg.pathString),
+                    toolsVersion: .v6_2,
+                    dependencies: [
+                        .remoteSourceControl(url: "https://example.com/ext/pkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "swiftTarget",
+                            dependencies: [
+                                .product(name: "swiftLib", package: "pkg"),
+                                .product(name: "cLib", package: "pkg"),
+                                .product(name: "cxxLib", package: "pkg"),
+                            ]
+                        ),
+                    ]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "Pkg",
+                    url: "https://example.com/ext/pkg",
+                    path: .init(validating: Pkg.pathString),
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "swiftLib", type: .library(.static), targets: ["swiftLib"]),
+                        ProductDescription(name: "cLib", type: .library(.static), targets: ["cLib"]),
+                        ProductDescription(name: "cxxLib", type: .library(.static), targets: ["cxxLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "swiftLib",
+                            settings: [
+                                .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "debug")),
+                                .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cLib",
+                            settings: [
+                                .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .c, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "cxxLib",
+                            settings: [
+                                .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                                .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                            ]
+                        )
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let swiftWarningControlFlags: [StringPattern] = [
+            "DeprecatedDeclaration",
+            "-no-warnings-as-errors",
+            "-warnings-as-errors",
+            "-Wwarning",
+            "-Werror",
+        ]
+        let clangWarningControlFlags: [StringPattern] = [
+            "-Wno-error",
+            "-Werror",
+            .prefix("-Wno-error="),
+            .prefix("-Werror="),
+            .prefix("-W"),
+            .prefix("-Wno-"),
+        ]
+
+        // Test debug configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            for pattern in swiftWarningControlFlags {
+                XCTAssertNoMatch(swiftLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(swiftLib, [.anySequence, "-suppress-warnings", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            for pattern in clangWarningControlFlags {
+                XCTAssertNoMatch(cLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(cLib, [.anySequence, "-w", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            for pattern in clangWarningControlFlags {
+                XCTAssertNoMatch(cxxLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(cxxLib, [.anySequence, "-w", .anySequence])
+        }
+
+        // Test release configuration
+        do {
+            let result = try await BuildPlanResult(plan: mockBuildPlan(
+                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            ))
+
+            // Check Swift warning treatment flags
+            let swiftLib = try result.moduleBuildDescription(for: "swiftLib").swift().compileArguments()
+            for pattern in swiftWarningControlFlags {
+                XCTAssertNoMatch(swiftLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(swiftLib, [.anySequence, "-suppress-warnings", .anySequence])
+
+            // Check C warning treatment flags
+            let cLib = try result.moduleBuildDescription(for: "cLib").clang().basicArguments(isCXX: false)
+            for pattern in clangWarningControlFlags {
+                XCTAssertNoMatch(cLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(cLib, [.anySequence, "-w", .anySequence])
+
+            // Check C++ warning treatment flags
+            let cxxLib = try result.moduleBuildDescription(for: "cxxLib").clang().basicArguments(isCXX: true)
+            for pattern in clangWarningControlFlags {
+                XCTAssertNoMatch(cxxLib, [.anySequence, pattern, .anySequence])
+            }
+            XCTAssertMatch(cxxLib, [.anySequence, "-w", .anySequence])
+        }
+    }
+
     func testExtraBuildFlags() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -5732,7 +5979,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5742,7 +5989,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -5817,7 +6064,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5827,7 +6074,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -5907,7 +6154,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 .anySequence,
                 "-emit-objc-header",
                 "-emit-objc-header-path",
-                "\(buildPath.appending(components: "Foo.build", "Foo-Swift.h"))",
+                "\(buildPath.appending(components: "Foo.build", "include", "Foo-Swift.h"))",
                 .anySequence,
             ]
         )
@@ -5917,7 +6164,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             barTarget,
             [
                 .anySequence,
-                "-fmodule-map-file=\(buildPath.appending(components: "Foo.build", "module.modulemap"))",
+                "-I", "\(buildPath.appending(components: "Foo.build", "include"))",
                 .anySequence,
             ]
         )
@@ -6716,6 +6963,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await self.sanitizerTest(.scudo, expectedName: "scudo")
     }
 
+    func testFuzzerSanitizer() async throws {
+        try await self.sanitizerTest(.fuzzer, expectedName: "fuzzer")
+    }
+
     func testSnippets() async throws {
         let fs: FileSystem = InMemoryFileSystem(
             emptyFiles:
@@ -6822,6 +7073,14 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let clib = try result.moduleBuildDescription(for: "clib").clang().basicArguments(isCXX: false)
         XCTAssertMatch(clib, ["-fsanitize=\(expectedName)"])
+
+        if sanitizer == .fuzzer {
+            XCTAssertMatch(exe, ["-parse-as-library"])
+            XCTAssertNoMatch(exe, ["-Xlinker", "alias", "_main"])
+            XCTAssertMatch(lib, ["-parse-as-library"])
+            XCTAssertNoMatch(lib, ["-Xlinker", "alias", "_main"])
+            XCTAssertNoMatch(clib, ["-parse-as-library"])
+        }
 
         XCTAssertMatch(try result.buildProduct(for: "exe").linkArguments(), ["-sanitize=\(expectedName)"])
     }
@@ -7435,6 +7694,94 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             }
         }
     }
+
+    func testImplicitModules() async throws {
+        let fileSystem = InMemoryFileSystem(
+            emptyFiles:
+            "/A/Sources/ATarget/foo.swift",
+            "/A/Sources/AMacro/macro.swift",
+            "/A/Sources/AExecutable/main.swift",
+            "/A/Sources/ASystemLib/module.modulemap",
+            "/A/Plugins/APlugin/main.swift",
+            "/A/Tests/ATargetTests/foo.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "A",
+                    path: "/A",
+                    dependencies: [
+                    ],
+                    targets: [
+                        TargetDescription(name: "ATarget"),
+                        TargetDescription(
+                            name: "AMacro",
+                            dependencies: [],
+                            type: .`macro`
+                        ),
+                        TargetDescription(
+                            name: "AExecutable",
+                            dependencies: ["ATarget"],
+                            type: .executable
+                        ),
+                        TargetDescription(
+                            name: "APlugin",
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        TargetDescription(
+                            name: "ASystemLib",
+                            type: .system
+                        ),
+                        TargetDescription(
+                            name: "ATargetTests",
+                            dependencies: ["ATarget"],
+                            type: .test
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            graph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope
+        ))
+
+        struct ExpectedTarget: Hashable, Equatable {
+            let name: String
+            let implicit: Bool
+        }
+
+        var expectedTargets: Set<ExpectedTarget> = [
+            .init(name: "ATarget", implicit: false),
+            .init(name: "AMacro", implicit: false),
+            .init(name: "AExecutable", implicit: false),
+            .init(name: "ATargetTests", implicit: false),
+            .init(name: "APackageTests", implicit: true),
+        ]
+        #if !os(macOS)
+        expectedTargets.insert(.init(name: "APackageDiscoveredTests", implicit: true))
+        #endif
+        XCTAssertEqual(
+            Set(result.targetMap.map { ExpectedTarget(name: $0.module.name, implicit: $0.module.implicit) }),
+            expectedTargets
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "APlugin")?.implicit,
+            false
+        )
+        XCTAssertEqual(
+            result.plan.graph.module(for: "ASystemLib")?.implicit,
+            false
+        )
+    }
 }
 
 class BuildPlanNativeTests: BuildPlanTestCase {
@@ -7466,14 +7813,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
     }
 
     override func testPackageNameFlag() async throws {
-        try XCTSkipIfWorkingDirectoryUnsupported()
         try XCTSkipOnWindows(because: "Skip until there is a resolution to the partial linking with Windows that results in a 'subsystem must be defined' error.")
-#if os(Linux)
-        // Linking error: "/usr/bin/ld.gold: fatal error: -pie and -static are incompatible".
-        // Tracked by GitHub issue: https://github.com/swiftlang/swift-package-manager/issues/8499
-        throw XCTSkip("Skipping Swift Build testing on Linux because of linking issues.")
-#endif
-
         try await super.testPackageNameFlag()
     }
 

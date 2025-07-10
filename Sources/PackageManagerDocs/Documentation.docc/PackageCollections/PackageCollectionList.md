@@ -2,12 +2,67 @@
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "5.5")
 }
 
 List configured collections.
 
+## Overview
+
+This subcommand lists all collections that are configured by the user:
+
+```bash
+$ swift package-collection list [--json]
+Sample Package Collection - https://example.com/packages.json
+...
 ```
-package-collection list [--json] [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--enable-dependency-cache|disable-dependency-cache]  [--enable-build-manifest-caching|disable-build-manifest-caching] [--manifest-cache=<manifest-cache>] [--enable-experimental-prebuilts|disable-experimental-prebuilts] [--verbose] [--very-verbose|vv] [--quiet] [--color-diagnostics|no-color-diagnostics] [--disable-sandbox] [--netrc] [--enable-netrc|disable-netrc] [--netrc-file=<netrc-file>] [--enable-keychain|disable-keychain] [--resolver-fingerprint-checking=<resolver-fingerprint-checking>] [--resolver-signing-entity-checking=<resolver-signing-entity-checking>] [--enable-signature-validation|disable-signature-validation] [--enable-prefetching|disable-prefetching] [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file] [--skip-update] [--disable-scm-to-registry-transformation] [--use-registry-identity-for-scm] [--replace-scm-with-registry]  [--default-registry-url=<default-registry-url>] [--configuration=<configuration>] [--=<Xcc>...] [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]    [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]   [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...] [--auto-index-store|enable-index-store|disable-index-store]   [--enable-parseable-module-interfaces] [--jobs=<jobs>] [--use-integrated-swift-driver] [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>] [--experimental-explicit-module-build] [--build-system=<build-system>] [--=<debug-info-format>]      [--enable-dead-strip|disable-dead-strip] [--disable-local-rpath] [--version] [--help]
+
+The result can optionally be returned as JSON using `--json` for integration into other tools.
+
+## Usage
+
+```
+package-collection list [--json]
+  [--package-path=<package-path>] [--cache-path=<cache-path>]
+  [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...]
+  [--enable-dependency-cache] [--disable-dependency-cache]
+  [--enable-build-manifest-caching]
+  [--disable-build-manifest-caching]
+  [--manifest-cache=<manifest-cache>]
+  [--enable-experimental-prebuilts]
+  [--disable-experimental-prebuilts] [--verbose]
+  [--very-verbose|vv] [--quiet] [--color-diagnostics]
+  [--no-color-diagnostics] [--disable-sandbox] [--netrc]
+  [--enable-netrc] [--disable-netrc]
+  [--netrc-file=<netrc-file>] [--enable-keychain]
+  [--disable-keychain]
+  [--resolver-fingerprint-checking=<resolver-fingerprint-checking>]
+  [--resolver-signing-entity-checking=<resolver-signing-entity-checking>]
+  [--enable-signature-validation]
+  [--disable-signature-validation] [--enable-prefetching]
+  [--disable-prefetching]
+  [--force-resolved-versions|disable-automatic-resolution|only-use-versions-from-resolved-file]
+  [--skip-update] [--disable-scm-to-registry-transformation]
+  [--use-registry-identity-for-scm]
+  [--replace-scm-with-registry]
+  [--default-registry-url=<default-registry-url>]
+  [--configuration=<configuration>] [--=<Xcc>...]
+  [--=<Xswiftc>...] [--=<Xlinker>...] [--=<Xcxx>...]
+  [--triple=<triple>] [--sdk=<sdk>] [--toolchain=<toolchain>]
+  [--swift-sdk=<swift-sdk>] [--sanitize=<sanitize>...]
+  [--auto-index-store] [--enable-index-store]
+  [--disable-index-store]
+  [--enable-parseable-module-interfaces] [--jobs=<jobs>]
+  [--use-integrated-swift-driver]
+  [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>]
+  [--build-system=<build-system>] [--=<debug-info-format>]
+  [--enable-dead-strip] [--disable-dead-strip]
+  [--disable-local-rpath] [--version] [--help]
 ```
 
 - term **--json**:
@@ -227,9 +282,6 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--explicit-target-dependency-import-check=\<explicit-target-dependency-import-check\>**:
 
 *A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.*
-
-
-- term **--experimental-explicit-module-build**:
 
 
 - term **--build-system=\<build-system\>**:

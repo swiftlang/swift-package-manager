@@ -50,16 +50,28 @@ public protocol BuildSystem: Cancellable {
     /// Builds a subset of the package graph.
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) async throws
+    @discardableResult
+    func build(subset: BuildSubset) async throws -> BuildResult
 
     var buildPlan: BuildPlan { get throws }
+
+    var hasIntegratedAPIDigesterSupport: Bool { get }
 }
 
 extension BuildSystem {
     /// Builds the default subset: all targets excluding tests.
-    public func build() async throws {
+    @discardableResult
+    public func build() async throws -> BuildResult {
         try await build(subset: .allExcludingTests)
     }
+}
+
+public struct BuildResult {
+    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>) {
+        self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+    }
+    
+    public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
 
 public protocol ProductBuildDescription {
@@ -128,7 +140,8 @@ public protocol BuildSystemFactory {
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) async throws -> any BuildSystem
 }
 
@@ -156,7 +169,8 @@ public struct BuildSystemProvider {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -170,7 +184,8 @@ public struct BuildSystemProvider {
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
     }
 }

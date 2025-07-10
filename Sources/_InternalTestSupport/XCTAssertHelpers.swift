@@ -10,11 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
 import SPMBuildCore
+import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
 
@@ -46,7 +48,7 @@ public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), 
 
 public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isInCiEnvironment {
+    if CiEnvironment.runningInSmokeTestPipeline {
         let failureCause = reason ?? "Skipping because the test is being run on CI"
         throw XCTSkip(failureCause, file: file, line: line)
     }
@@ -54,7 +56,7 @@ public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticStrin
 
 public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
     // TODO: is this actually the right variable now?
-    if isSelfHostedCiEnvironment {
+    if CiEnvironment.runningInSelfHostedPipeline {
         throw XCTSkip(reason, file: file, line: line)
     }
 }
@@ -67,10 +69,15 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     } else {
         failureCause = ""
     }
-    if (skipPlatformCi || skipSelfHostedCI) {
+    if (skipPlatformCi) {
         try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+    }
+
+    if (skipSelfHostedCI) {
         try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
-    } else {
+    }
+
+    if (!skipPlatformCi && !skipSelfHostedCI) {
         throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
     }
     #endif
@@ -139,7 +146,7 @@ package func XCTAssertAsyncNoThrow<T>(
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
-    configurations: Set<Configuration> = [.Debug, .Release],
+    configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -169,7 +176,7 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -316,22 +323,20 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+
+    package init(result: AsyncProcessResult, stdout: String, stderr: String) {
+        self.result = result
+        self.stdout = stdout
+        self.stderr = stderr
+    }
 }
 
-/// Skips the test if running on a platform which lacks the ability for build tasks to set a working directory due to lack of requisite system API.
-///
-/// Presently, relevant platforms include Amazon Linux 2 and OpenBSD.
-///
-/// - seealso: https://github.com/swiftlang/swift-package-manager/issues/8560
-public func XCTSkipIfWorkingDirectoryUnsupported() throws {
-    func unavailable() throws {
-        throw XCTSkip("https://github.com/swiftlang/swift-package-manager/issues/8560: Thread-safe process working directory support is unavailable on this platform.")
-    }
-    #if os(Linux)
-    if FileManager.default.contents(atPath: "/etc/system-release").map({ String(decoding: $0, as: UTF8.self) == "Amazon Linux release 2 (Karoo)\n" }) ?? false {
-        try unavailable()
-    }
-    #elseif os(OpenBSD)
-    try unavailable()
-    #endif
+
+public func XCTExhibitsGitHubIssue(_ number: Int) throws {
+    let envVar = "SWIFTCI_EXHIBITS_GH_\(number)"
+
+    try XCTSkipIf(
+        ProcessInfo.processInfo.environment[envVar] != nil,
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+    )
 }

@@ -233,6 +233,7 @@ private func _testAPI(
     let swiftFixIt = try SwiftFixIt(
         diagnostics: flatDiagnostics,
         categories: categories,
+        excludedSourceDirectories: [],
         fileSystem: localFileSystem
     )
     let actualSummary = try swiftFixIt.applyFixIts()

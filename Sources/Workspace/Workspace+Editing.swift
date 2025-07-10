@@ -98,17 +98,14 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            // TODO: replace with async/await when available
             let repository = try dependency.packageRef.makeRepositorySpecifier()
             let handle = try await repositoryManager.lookup(
                 package: dependency.packageRef.identity,
                 repository: repository,
                 updateStrategy: .never,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: observabilityScope
             )
-            let repo = try handle.open()
+            let repo = try await handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
