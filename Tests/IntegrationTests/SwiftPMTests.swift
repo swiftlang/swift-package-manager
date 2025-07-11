@@ -201,4 +201,93 @@ private struct SwiftPMTests {
             }
         }
     }
+
+    @Test(.requireSwift6_2)
+    func testCodeCoverageMergedAcrossSubprocesses() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending(component: "test-package-coverage")
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "empty"])
+            try await executeSwiftPackage(packagePath, extraArgs: ["add-target", "--type", "test", "ReproTests"])
+            try localFileSystem.writeFileContents(
+                AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
+                string: """
+                struct Subject {
+                    static func a() { _ = "a" }
+                    static func b() { _ = "b" }
+                }
+                """
+            )
+            try localFileSystem.writeFileContents(
+                AbsolutePath(validating: "Tests/ReproTests/ReproTests.swift", relativeTo: packagePath),
+                string: """
+                import Testing
+                import class Foundation.ProcessInfo
+                @Suite struct Suite {
+                    @Test func testProfilePathCanary() throws {
+                        let pattern = try #require(ProcessInfo.processInfo.environment["LLVM_PROFILE_FILE"])
+                        #expect(pattern.hasSuffix(".%p.profraw"))
+                    }
+                    @Test func testA() async { await #expect(processExitsWith: .success) { Subject.a() } }
+                    @Test func testB() async { await #expect(processExitsWith: .success) { Subject.b() } }
+                }
+                """
+            )
+            let expectedCoveragePath = try await executeSwiftTest(packagePath, extraArgs: ["--show-coverage-path"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await executeSwiftTest(packagePath, extraArgs: ["--enable-code-coverage", "--disable-xctest"])
+            let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
+
+            // Check the coverage path exists.
+            #expect(localFileSystem.exists(coveragePath))
+
+            // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
+            struct Coverage: Codable {
+                var data: [Entry]
+                struct Entry: Codable {
+                    var files: [File]
+                    struct File: Codable {
+                        var filename: String
+                        var summary: Summary
+                        struct Summary: Codable {
+                            var functions: Functions
+                            struct Functions: Codable {
+                                var count, covered: Int
+                                var percent: Double
+                            }
+                        }
+                    }
+                }
+            }
+            let coverageJSON = try localFileSystem.readFileContents(coveragePath)
+            let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
+
+            // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
+            let subjectCoverage = coverage.data.first?.files.first(where: { $0.filename.hasSuffix("Subject.swift") })
+            #expect(subjectCoverage?.summary.functions.count == 2)
+            #expect(subjectCoverage?.summary.functions.covered == 2)
+            #expect(subjectCoverage?.summary.functions.percent == 100)
+
+            // Check the directory with the coverage path contains the profraw files.
+            let coverageDirectory = coveragePath.parentDirectory
+            let coverageDirectoryContents = try localFileSystem.getDirectoryContents(coverageDirectory)
+
+            // SwiftPM uses an LLVM_PROFILE_FILE that ends with ".%p.profraw", which we validated in the test above.
+            // Let's first check all the files have the expected extension.
+            let profrawFiles = coverageDirectoryContents.filter { $0.hasSuffix(".profraw") }
+
+            // Then check that %p expanded as we expected: to something that plausibly looks like a PID.
+            for profrawFile in profrawFiles {
+                let shouldBePID = try #require(profrawFile.split(separator: ".").dropLast().last)
+                #expect(Int(shouldBePID) != nil)
+            }
+
+            // Group the files by binary identifier (have a different prefix, before the per-PID suffix).
+            let groups = Dictionary(grouping: profrawFiles) { path in path.split(separator: ".").dropLast(2) }.values
+
+            // Check each group has 3 files: one per PID (the above suite has 2 exit tests => 2 forks => 3 PIDs total).
+            for binarySpecificProfrawFiles in groups {
+                #expect(binarySpecificProfrawFiles.count == 3)
+            }
+        }
+    }
 }

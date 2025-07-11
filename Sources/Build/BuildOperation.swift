@@ -396,9 +396,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
         guard !self.config.shouldSkipBuilding(for: .target) else {
-            return BuildOutputResult()
+            return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")))
         }
 
         let buildStartTime = DispatchTime.now()
@@ -423,9 +423,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // or false if not. It will already have thrown any appropriate error.
         guard try await self.compilePlugins(in: subset) else {
             if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
-                return BuildOutputResult(buildPlan: buildPlan)
+                return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Plugin compilation failed")), buildPlan: buildPlan)
             } else {
-                return BuildOutputResult()
+                return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Plugin compilation failed")))
             }
         }
 
@@ -456,6 +456,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         guard success else { throw Diagnostics.fatalError }
 
+        let serializedDiagnosticResult: Result<[String: [AbsolutePath]], Error>
+        var serializedDiagnosticPaths: [String: [AbsolutePath]] = [:]
+        do {
+            for module in try buildPlan.buildModules {
+                serializedDiagnosticPaths[module.module.name, default: []].append(contentsOf: module.diagnosticFiles)
+            }
+            serializedDiagnosticResult = .success(serializedDiagnosticPaths)
+        } catch {
+            serializedDiagnosticResult = .failure(error)
+        }
+
         // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = self.config.dataPath(for: .target).parentDirectory.appending(
             component: configuration.dirname
@@ -469,9 +480,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 )
 
                 if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
-                    return BuildOutputResult(buildPlan: buildPlan)
+                    return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult, buildPlan: buildPlan)
                 } else {
-                    return BuildOutputResult()
+                    return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult)
                 }
             }
         }
@@ -490,9 +501,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         if buildOutputs.contains(.buildPlan), let buildPlan = try? self.buildPlan {
-            return BuildOutputResult(buildPlan: buildPlan)
+            return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult, buildPlan: buildPlan)
         } else {
-            return BuildOutputResult()
+            return BuildResult(serializedDiagnosticPathsByTargetName: serializedDiagnosticResult)
         }
     }
 

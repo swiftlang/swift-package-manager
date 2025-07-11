@@ -90,7 +90,7 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
-            let targets = self.options.targets
+            var targets = self.options.targets
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
@@ -100,54 +100,30 @@ extension SwiftPackageCommand {
 
             // Next, let's build all of the individual targets or the
             // whole project to get diagnostic files.
-
             print("> Starting the build")
-            var buildResult: BuildOutputResult?
+
+            var diagnosticsPaths: [String: [AbsolutePath]] = [:]
             if !targets.isEmpty {
                 for target in targets {
-                    buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [.buildPlan])
+                    let buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [])
+                    diagnosticsPaths.merge(try buildResult.serializedDiagnosticPathsByTargetName.get(), uniquingKeysWith: { $0 + $1 })
                 }
             } else {
-                buildResult = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [.buildPlan])
+                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: []).serializedDiagnosticPathsByTargetName.get()
             }
-
-            // Determine all of the targets we need up update.
-            let buildPlan = buildResult!.buildPlan
-
-            guard let buildPlan else {
-                throw ExitCode.failure
-            }
-
-            var modules: [any ModuleBuildDescription] = []
-            if !targets.isEmpty {
-                for buildDescription in buildPlan.buildModules
-                    where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
-                }
-            } else {
-                let graph = try await buildSystem.getPackageGraph()
-                for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package)
-                {
-                    let module = buildDescription.module
-                    guard module.type != .plugin, !module.implicit else {
-                        continue
-                    }
-                    modules.append(buildDescription)
-                }
-            }
-
-            // If the build suceeded, let's extract all of the diagnostic
-            // files from build plan and feed them to the fix-it tool.
-
-            print("> Applying fix-its")
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
+            let graph = try await buildSystem.getPackageGraph()
+            if targets.isEmpty {
+                targets = OrderedSet(graph.rootPackages.flatMap { $0.manifest.targets.filter { $0.type != .plugin }.map(\.name) })
+            }
+            print("> Applying fix-its")
             let fixItDuration = try ContinuousClock().measure {
-                for module in modules {
+                for target in targets {
                     let fixit = try SwiftFixIt(
-                        diagnosticFiles: module.diagnosticFiles,
+                        diagnosticFiles: Array(diagnosticsPaths[target] ?? []),
                         categories: Set(features.flatMap(\.categories)),
+                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
                         fileSystem: swiftCommandState.fileSystem
                     )
                     summary += try fixit.applyFixIts()
@@ -181,10 +157,10 @@ extension SwiftPackageCommand {
             // manifest with newly adopted feature settings.
 
             print("> Updating manifest")
-            for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
+            for target in targets {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
-                    for: module.name,
+                    for: target,
                     add: features,
                     using: swiftCommandState
                 )

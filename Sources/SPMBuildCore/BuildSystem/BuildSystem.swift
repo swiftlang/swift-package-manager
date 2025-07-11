@@ -36,25 +36,11 @@ public enum BuildSubset {
 
 /// Represents possible extra build outputs for a build. Some build systems
 /// can produce certain extra outputs in the process of building. Not all
-/// build systems can produce all possible build outputs. The build output
-/// results will contain equivalent results only if the build system was capable
-/// of producing that extra output.
+/// build systems can produce all possible build outputs. Check the build
+/// result for indication that the output was produced.
 public enum BuildOutput {
     case symbolGraph
     case buildPlan
-}
-
-/// Represents extra build outputs result that were requested with equivalent build
-/// outputs. This can signal to the caller that the output was produced during
-/// the process of the build, and provide any relevant details of the output.
-public struct BuildOutputResult {
-    public var symbolGraph: Bool
-    public var buildPlan: BuildPlan?
-
-    public init(symbolGraph: Bool = false, buildPlan: BuildPlan? = nil) {
-        self.symbolGraph = symbolGraph
-        self.buildPlan = buildPlan
-    }
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -71,17 +57,30 @@ public protocol BuildSystem: Cancellable {
     func getPackageGraph() async throws -> ModulesGraph
 
     ///   - buildOutputs: Additional build outputs requested from the build system.
-    /// - Returns: A build output result with details about requested additional build outputs.
-    func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildOutputResult
+    /// - Returns: A build result with details about requested build and outputs.
+    func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
 }
 
 extension BuildSystem {
     /// Builds the default subset: all targets excluding tests with no extra build outputs.
-    public func build() async throws {
-        _ = try await build(subset: .allExcludingTests, buildOutputs: [])
+    @discardableResult
+    public func build() async throws -> BuildResult {
+        try await build(subset: .allExcludingTests, buildOutputs: [])
     }
+}
+
+public struct BuildResult {
+    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>, symbolGraph: Bool = false, buildPlan: BuildPlan? = nil) {
+        self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+        self.symbolGraph = symbolGraph
+        self.buildPlan = buildPlan
+    }
+    
+    public var symbolGraph: Bool
+    public var buildPlan: BuildPlan?
+    public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
 
 public protocol ProductBuildDescription {

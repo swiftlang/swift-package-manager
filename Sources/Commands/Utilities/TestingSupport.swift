@@ -197,12 +197,25 @@ enum TestingSupport {
         if buildParameters.testingParameters.enableCodeCoverage {
             // Defines the path at which the profraw files will be written on test execution.
             //
-            // `%m` will create a pool of profraw files and append the data from
-            // each execution in one of the files. This doesn't matter for serial
-            // execution but is required when the tests are running in parallel as
-            // SwiftPM repeatedly invokes the test binary with the test case name as
-            // the filter.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.profraw")
+            // `%Nm` will create a pool of N profraw files and append the data from each execution
+            // in one of the files. The runtime takes care of selecting a raw profile from the pool,
+            // locking it, and updating it before the program exits. If N is not specified, it is
+            // inferred to be 1.
+            //
+            // This is fine for parallel execution within a process, but for parallel tests, SwiftPM
+            // repeatedly invokes the test binary with the testcase name as the filter and the
+            // locking cannot be enforced by the runtime across the process boundaries.
+            //
+            // It's also possible that tests themselves will fork (e.g. for exit tests provided by
+            // Swift Testing), which will inherit the environment of the parent process, and so
+            // write to the same file, leading to profile data corruption.
+            //
+            // For these reasons, we unilaterally also add a %p, which will cause uniquely named
+            // files per process.
+            //
+            // These are all merged using `llvm-profdata merge` once the outer test command has
+            // completed.
+            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.%p.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
         #if !os(macOS)
