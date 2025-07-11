@@ -88,7 +88,7 @@ extension SwiftPackageCommand {
                 commandState.preferredBuildConfiguration = .release
             }
 
-            _ = try await commandState.createBuildSystem(explicitProduct: productToInstall.name, traitConfiguration: .init())
+            try await commandState.createBuildSystem(explicitProduct: productToInstall.name, traitConfiguration: .init())
                 .build(subset: .product(productToInstall.name), buildOutputs: [])
 
             let binPath = try commandState.productsBuildParameters.buildPath.appending(component: productToInstall.name)

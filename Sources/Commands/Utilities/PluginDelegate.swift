@@ -499,7 +499,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 extension BuildSystem {
     fileprivate func buildIgnoringError(subset: BuildSubset) async -> Bool {
         do {
-            _ = try await self.build(subset: subset, buildOutputs: [])
+            try await self.build(subset: subset, buildOutputs: [])
             return true
         } catch {
             return false
