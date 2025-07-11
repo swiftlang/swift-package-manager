@@ -18,7 +18,7 @@ import TSCLibc
 import Android
 #endif
 
-#if !os(Windows)
+#if !os(Windows) && !canImport(Darwin)
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
@@ -29,7 +29,7 @@ import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 #endif // #if USE_IMPL_ONLY_IMPORTS
-#endif // #if os(Linux)
+#endif
 
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
@@ -621,11 +621,15 @@ package final class AsyncProcess {
         defer { posix_spawn_file_actions_destroy(&fileActions) }
 
         if let workingDirectory = workingDirectory?.pathString {
+            #if canImport(Darwin)
+            posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+            #else
             guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
                 throw AsyncProcess.Error.workingDirectoryNotSupported
             }
 
             SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
+            #endif
         }
 
         var stdinPipe: [Int32] = [-1, -1]
