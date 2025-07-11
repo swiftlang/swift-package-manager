@@ -195,7 +195,6 @@ extension SwiftPackageCommand {
             }
 
             return try await swiftCommandState.createBuildSystem(
-                traitConfiguration: .init(),
                 // Don't attempt to cache manifests with temporary
                 // feature flags added just for migration purposes.
                 cacheBuildManifest: false,

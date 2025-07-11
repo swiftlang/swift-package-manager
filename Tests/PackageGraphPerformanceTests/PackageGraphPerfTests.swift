@@ -98,7 +98,8 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 binaryArtifacts: [:],
                 prebuilts: [:],
                 fileSystem: fs,
-                observabilityScope: observability.topScope
+                observabilityScope: observability.topScope,
+                enabledTraitsMap: [:]
             )
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(observability.diagnostics)

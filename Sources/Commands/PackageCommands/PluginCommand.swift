@@ -338,7 +338,6 @@ struct PluginCommand: AsyncSwiftCommand {
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystemKind,
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParameters,
