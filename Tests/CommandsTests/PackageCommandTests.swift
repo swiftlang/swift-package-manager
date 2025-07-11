@@ -571,6 +571,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
     func testDumpSymbolGraphPrettyFormatting() async throws {
         // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
         try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        try XCTSkipIf(buildSystemProvider == .swiftbuild, "skipping test because pretty printing isn't yet supported with swiftbuild build system via swift build and the swift compiler")
 
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let prettyGraphData = try await XCTAsyncUnwrap(await symbolGraph(atPath: fixturePath, withPrettyPrinting: true))
