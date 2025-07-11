@@ -568,6 +568,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if genSymbolGraph {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
+            // TODO set additional symbol graph options from the build output here, such as "include-spi-symbols"
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)

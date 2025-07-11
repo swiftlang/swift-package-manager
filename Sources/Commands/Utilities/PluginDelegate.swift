@@ -415,6 +415,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Build the target, if needed. We are interested in symbol graph (ideally) or a build plan.
+        // TODO pass along the options as associated values to the symbol graph build output (e.g. includeSPI)
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph, .buildPlan])
 
         if buildResult.symbolGraph {

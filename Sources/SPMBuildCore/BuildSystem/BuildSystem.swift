@@ -40,6 +40,12 @@ public enum BuildSubset {
 /// result for indication that the output was produced.
 public enum BuildOutput {
     case symbolGraph
+    // TODO associated values for the following symbol graph options:
+    // "-skip-inherited-docs"
+    // "-symbol-graph-minimum-access-level", “<LEVEL>”
+    // "-include-spi-symbols"
+    // "-emit-extension-block-symbols"
+    // "-emit-synthesized-members"
     case buildPlan
 }
 
