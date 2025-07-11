@@ -50,7 +50,8 @@ public protocol BuildSystem: Cancellable {
     /// Builds a subset of the package graph.
     /// - Parameters:
     ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) async throws
+    @discardableResult
+    func build(subset: BuildSubset) async throws -> BuildResult
 
     var buildPlan: BuildPlan { get throws }
 
@@ -59,9 +60,18 @@ public protocol BuildSystem: Cancellable {
 
 extension BuildSystem {
     /// Builds the default subset: all targets excluding tests.
-    public func build() async throws {
+    @discardableResult
+    public func build() async throws -> BuildResult {
         try await build(subset: .allExcludingTests)
     }
+}
+
+public struct BuildResult {
+    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>) {
+        self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+    }
+    
+    public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
 
 public protocol ProductBuildDescription {

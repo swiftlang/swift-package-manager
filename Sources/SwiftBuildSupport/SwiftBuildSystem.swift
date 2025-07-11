@@ -41,20 +41,22 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService(
+func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
-    body: @escaping (_ service: SWBBuildService) async throws -> Void
-) async throws {
+    body: @escaping (_ service: SWBBuildService) async throws -> T
+) async throws -> T {
     let service = try await SWBBuildService(connectionMode: connectionMode, variant: variant, serviceBundleURL: serviceBundleURL)
+    let result: T
     do {
-        try await body(service)
+        result = try await body(service)
     } catch {
         await service.close()
         throw error
     }
     await service.close()
+    return result
 }
 
 public func createSession(
@@ -279,20 +281,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         SwiftLanguageVersion.supportedSwiftLanguageVersions
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset) async throws -> BuildResult {
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")))
         }
 
         try await writePIF(buildParameters: buildParameters)
 
-        try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+        return try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
     }
 
-    private func startSWBuildOperation(pifTargetName: String) async throws {
+    private func startSWBuildOperation(pifTargetName: String) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
 
-        try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+        return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
             let progressAnimation = ProgressAnimation.percent(
@@ -302,6 +304,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 isColorized: self.buildParameters.outputParameters.isColorized
             )
 
+            var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
@@ -451,6 +454,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+                            if let targetName = targetInfo?.targetName {
+                                serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+                                    try? Basics.AbsolutePath(validating: $0.pathString)
+                                })
+                            }
                         case .targetStarted(let info):
                             try buildState.started(target: info)
                         case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
@@ -503,6 +511,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             } catch {
                 throw error
             }
+            return BuildResult(serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName))
         }
     }
 
