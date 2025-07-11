@@ -249,7 +249,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             traitConfiguration: .init(),
             toolsBuildParameters: toolsBuildParameters
         )
-        _ = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+        try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.

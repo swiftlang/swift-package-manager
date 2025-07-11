@@ -123,8 +123,8 @@ struct APIDiff: AsyncSwiftCommand {
         let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftCommandState.fileSystem, tool: apiDigesterPath)
 
         // Build the current package.
-        let buildOutputResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
-        guard let buildPlan = buildOutputResult.buildPlan else {
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
+        guard let buildPlan = buildResult.buildPlan else {
             throw ExitCode.failure
         }
 

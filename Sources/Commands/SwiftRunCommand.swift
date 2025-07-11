@@ -168,9 +168,9 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    _ = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
                 } else if options.shouldBuild {
-                    _ = try await buildSystem.build(subset: .product(productName), buildOutputs: [])
+                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
                 let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
@@ -224,9 +224,9 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    _ = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
                 } else if options.shouldBuild {
-                    _ = try await buildSystem.build(subset: .product(productName), buildOutputs: [])
+                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
                 let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)

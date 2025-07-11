@@ -56,8 +56,11 @@ public protocol BuildSystem: Cancellable {
     /// Returns the package graph used by the build system.
     func getPackageGraph() async throws -> ModulesGraph
 
+    /// Builds a subset of the package graph.
+    /// - Parameters:
     ///   - buildOutputs: Additional build outputs requested from the build system.
     /// - Returns: A build result with details about requested build and outputs.
+    @discardableResult
     func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
