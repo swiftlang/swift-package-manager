@@ -2158,6 +2158,44 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 3 fix-its in 2 files")
     }
 
+    func testMigrateCommandWithBuildToolPlugins() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/ExistentialAnyWithPluginMigration") { fixturePath in
+            let (stdout, _) = try await self.execute(
+                ["migrate", "--to-feature", "ExistentialAny"],
+                packagePath: fixturePath
+            )
+
+            // Check the plugin target in the manifest wasn't updated
+            let manifestContent = try localFileSystem.readFileContents(fixturePath.appending(component: "Package.swift")).description
+            XCTAssertTrue(manifestContent.contains(".plugin(name: \"Plugin\", capability: .buildTool, dependencies: [\"Tool\"]),"))
+
+            // Building the package produces migration fix-its in both an authored and generated source file. Check we only applied fix-its to the hand-authored one.
+            XCTAssertMatch(stdout, .regex("> \("Applied 3 fix-its in 1 file")" + #" \([0-9]\.[0-9]{1,3}s\)"#))
+        }
+    }
+
+    func testMigrateCommandWhenDependencyBuildsForHostAndTarget() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/ExistentialAnyWithCommonPluginDependencyMigration") { fixturePath in
+            let (stdout, _) = try await self.execute(
+                ["migrate", "--to-feature", "ExistentialAny"],
+                packagePath: fixturePath
+            )
+
+            // Even though the CommonLibrary dependency built for both the host and destination, we should only apply a single fix-it once to its sources.
+            XCTAssertMatch(stdout, .regex("> \("Applied 1 fix-it in 1 file")" + #" \([0-9]\.[0-9]{1,3}s\)"#))
+        }
+    }
+
     func testBuildToolPlugin() async throws {
         try await testBuildToolPlugin(staticStdlib: false)
     }
@@ -4105,6 +4143,14 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testMigrateCommand() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandWithBuildToolPlugins() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandWhenDependencyBuildsForHostAndTarget() async throws {
         throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
     }
 
