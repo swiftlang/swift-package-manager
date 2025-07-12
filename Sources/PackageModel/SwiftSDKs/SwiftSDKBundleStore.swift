@@ -70,7 +70,7 @@ public final class SwiftSDKBundleStore {
     let fileSystem: any FileSystem
 
     /// Observability scope used for logging.
-    private let observabilityScope: ObservabilityScope
+    let observabilityScope: ObservabilityScope
 
     /// Closure invoked for output produced by this store during its operation.
     private let outputHandler: (Output) -> Void

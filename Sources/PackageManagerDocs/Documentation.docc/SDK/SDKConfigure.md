@@ -21,7 +21,7 @@ sdk configure [--package-path=<package-path>]
   [--include-search-path=<include-search-path>...]
   [--library-search-path=<library-search-path>...]
   [--toolset-path=<toolset-path>...] [--reset]
-  [--show-configuration] <sdk-id> <target-triple> [--version]
+  [--show-configuration] <sdk-id> [target-triple...] [--version]
   [--help]
 ```
 
