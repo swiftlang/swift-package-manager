@@ -113,11 +113,11 @@ extension SwiftPackageCommand {
             // Determine all of the targets we need up update.
             let buildPlan = try buildSystem.buildPlan
 
-            var modules: [any ModuleBuildDescription] = []
+            var modules = [String: [AbsolutePath]]()
             if !targets.isEmpty {
                 for buildDescription in buildPlan.buildModules
                     where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
+                    modules[buildDescription.module.name, default: []].append(contentsOf: buildDescription.diagnosticFiles)
                 }
             } else {
                 let graph = try await buildSystem.getPackageGraph()
@@ -128,7 +128,7 @@ extension SwiftPackageCommand {
                     guard module.type != .plugin, !module.implicit else {
                         continue
                     }
-                    modules.append(buildDescription)
+                    modules[buildDescription.module.name, default: []].append(contentsOf: buildDescription.diagnosticFiles)
                 }
             }
 
@@ -139,10 +139,11 @@ extension SwiftPackageCommand {
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
             let fixItDuration = try ContinuousClock().measure {
-                for module in modules {
+                for (_, diagnosticFiles) in modules {
                     let fixit = try SwiftFixIt(
-                        diagnosticFiles: module.diagnosticFiles,
+                        diagnosticFiles: diagnosticFiles,
                         categories: Set(features.flatMap(\.categories)),
+                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
                         fileSystem: swiftCommandState.fileSystem
                     )
                     summary += try fixit.applyFixIts()
@@ -176,10 +177,10 @@ extension SwiftPackageCommand {
             // manifest with newly adopted feature settings.
 
             print("> Updating manifest")
-            for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
+            for (name, _) in modules {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(name)'")
                 try self.updateManifest(
-                    for: module.name,
+                    for: name,
                     add: features,
                     using: swiftCommandState
                 )
