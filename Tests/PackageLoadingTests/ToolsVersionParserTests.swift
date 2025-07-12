@@ -369,6 +369,31 @@ final class ToolsVersionParserTests: XCTestCase {
         }
     }
 
+    /// Verifies that the correct error is thrown for each Swift tools version specification missing entirely..
+    func testMissingSwiftToolsVersion() throws {
+        let manifestSnippetsWithoutVersionSpecifier = [
+            "\n import PackageDescription",
+        ]
+
+        // TODO bp update comments here, as this was copied from above test
+        // seems that this was introduced in https://github.com/swiftlang/swift-package-manager/pull/4302
+        for manifestSnippet in manifestSnippetsWithoutVersionSpecifier {
+            XCTAssertThrowsError(
+                try self.parse(manifestSnippet),
+                "a 'ToolsVersionLoader.Error' should've been thrown, because the version specifier is missing from the Swift tools version specification"
+            ) { error in
+                guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
+                    XCTFail("'ToolsVersionLoader.Error.malformedToolsVersionSpecification(.versionSpecifier(.isMissing))' should've been thrown, but a different error is thrown")
+                    return
+                }
+                XCTAssertEqual(
+                    error.description,
+                    "the manifest is missing a Swift tools version specification; consider prepending to the manifest '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+                )
+            }
+        }
+    }
+
     /// Verifies that the correct error is thrown for each misspelt comment marker in Swift tools version specification.
     func testMisspeltSpecificationCommentMarkers() throws {
         let manifestSnippetsWithMisspeltSpecificationCommentMarker = [

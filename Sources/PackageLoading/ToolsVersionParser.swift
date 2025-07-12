@@ -55,11 +55,7 @@ public struct ToolsVersionParser {
             throw ManifestParseError.emptyManifest(path: manifestPath)
         }
 
-        do {
           return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
-        } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
-          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
-        }
     }
 
     public static func parse(utf8String: String) throws -> ToolsVersion {
