@@ -101,14 +101,15 @@ extension SwiftPackageCommand {
             // Next, let's build all of the individual targets or the
             // whole project to get diagnostic files.
             print("> Starting the build")
+
             var diagnosticsPaths: [String: [AbsolutePath]] = [:]
             if !targets.isEmpty {
                 for target in targets {
-                    let buildResult = try await buildSystem.build(subset: .target(target))
+                    let buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [])
                     diagnosticsPaths.merge(try buildResult.serializedDiagnosticPathsByTargetName.get(), uniquingKeysWith: { $0 + $1 })
                 }
             } else {
-                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests).serializedDiagnosticPathsByTargetName.get()
+                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: []).serializedDiagnosticPathsByTargetName.get()
             }
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)

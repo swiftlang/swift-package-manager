@@ -146,7 +146,11 @@ struct APIDigesterBaselineDumper {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: { graph }
         )
-        try await buildSystem.build()
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
+
+        guard let buildPlan = buildResult.buildPlan else {
+            throw Diagnostics.fatalError
+        }
 
         // Dump the SDK JSON.
         try swiftCommandState.fileSystem.createDirectory(baselineDir, recursive: true)
@@ -158,7 +162,7 @@ struct APIDigesterBaselineDumper {
                         try apiDigesterTool.emitAPIBaseline(
                             to: baselinePath(module),
                             for: module,
-                            buildPlan: buildSystem.buildPlan
+                            buildPlan: buildPlan
                         )
                         return nil
                     } catch {

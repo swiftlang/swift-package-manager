@@ -266,7 +266,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
-            try await buildSystem.build(subset: .allExcludingTests)
+            try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [])
         }
 
         func createBuildSystem(

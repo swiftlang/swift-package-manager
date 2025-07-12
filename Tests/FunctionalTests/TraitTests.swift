@@ -595,7 +595,7 @@ struct TraitTests {
             // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
              try await withKnownIssue(
                 "https://github.com/swiftlang/swift-build/issues/609",
-                isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+                isIntermittent: true,
             ) {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
@@ -608,7 +608,7 @@ struct TraitTests {
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
             } when: {
-               buildSystem == .swiftbuild
+               buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
     }

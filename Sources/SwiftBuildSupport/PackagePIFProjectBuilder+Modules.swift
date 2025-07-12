@@ -730,6 +730,8 @@ extension PackagePIFProjectBuilder {
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
 
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.

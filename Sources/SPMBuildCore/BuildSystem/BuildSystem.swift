@@ -34,6 +34,21 @@ public enum BuildSubset {
     case target(String, for: BuildParameters.Destination? = .none)
 }
 
+/// Represents possible extra build outputs for a build. Some build systems
+/// can produce certain extra outputs in the process of building. Not all
+/// build systems can produce all possible build outputs. Check the build
+/// result for indication that the output was produced.
+public enum BuildOutput {
+    case symbolGraph
+    // TODO associated values for the following symbol graph options:
+    // "-skip-inherited-docs"
+    // "-symbol-graph-minimum-access-level", “<LEVEL>”
+    // "-include-spi-symbols"
+    // "-emit-extension-block-symbols"
+    // "-emit-synthesized-members"
+    case buildPlan
+}
+
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the Swift Build backed `SwiftBuildSystem`.
 public protocol BuildSystem: Cancellable {
@@ -49,28 +64,31 @@ public protocol BuildSystem: Cancellable {
 
     /// Builds a subset of the package graph.
     /// - Parameters:
-    ///   - subset: The subset of the package graph to build.
+    ///   - buildOutputs: Additional build outputs requested from the build system.
+    /// - Returns: A build result with details about requested build and outputs.
     @discardableResult
-    func build(subset: BuildSubset) async throws -> BuildResult
-
-    var buildPlan: BuildPlan { get throws }
+    func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
 }
 
 extension BuildSystem {
-    /// Builds the default subset: all targets excluding tests.
+    /// Builds the default subset: all targets excluding tests with no extra build outputs.
     @discardableResult
     public func build() async throws -> BuildResult {
-        try await build(subset: .allExcludingTests)
+        try await build(subset: .allExcludingTests, buildOutputs: [])
     }
 }
 
 public struct BuildResult {
-    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>) {
+    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>, symbolGraph: Bool = false, buildPlan: BuildPlan? = nil) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+        self.symbolGraph = symbolGraph
+        self.buildPlan = buildPlan
     }
     
+    public var symbolGraph: Bool
+    public var buildPlan: BuildPlan?
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
 
