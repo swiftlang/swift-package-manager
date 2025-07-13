@@ -85,6 +85,22 @@ public final class SwiftSDKConfigurationStore {
         try encoder.encode(path: configurationPath, fileSystem: fileSystem, properties)
     }
 
+    private func swiftSDKs(for id: String) throws -> [SwiftSDK] {
+        for bundle in try self.swiftSDKBundleStore.allValidBundles {
+            for (artifactID, variants) in bundle.artifacts {
+                guard artifactID == id else {
+                    continue
+                }
+
+                for variant in variants {
+                    return variant.swiftSDKs
+                }
+            }
+        }
+
+        return []
+    }
+
     public func readConfiguration(
         sdkID: String,
         targetTriple: Triple
@@ -139,6 +155,102 @@ public final class SwiftSDKConfigurationStore {
         }
 
         try fileSystem.removeFileTree(configurationPath)
+        return true
+    }
+
+    /// Configures the specified Swift SDK and identified target triple with the configuration parameter.
+    /// - Parameters:
+    ///   - sdkID: ID of the Swift SDK to operate on.
+    ///   - tripleString: run-time triple for which the properties should be configured, or nil to configure all triples for the Swift SDK
+    ///   - showConfiguration: if true, simply print the current configuration for the target triple(s)
+    ///   - resetConfiguration: if true, reset the configuration for the target triple(s)
+    ///   - config: the configuration parameters to set for for the target triple(s)
+    /// - Returns: `true` if custom configuration was successful, `false` if no configuration was performed.
+    package func configure(
+        sdkID: String,
+        targetTriple: String?,
+        showConfiguration: Bool,
+        resetConfiguration: Bool,
+        config: SwiftSDK.PathsConfiguration<String>
+    ) throws -> Bool {
+        let targetTriples: [Triple]
+        if let targetTriple = targetTriple {
+            targetTriples = try [Triple(targetTriple)]
+        } else {
+            // when `targetTriple` is unspecified, configure every triple for the SDK
+            let validBundles = try self.swiftSDKs(for: sdkID)
+            targetTriples = validBundles.compactMap(\.targetTriple)
+            if targetTriples.isEmpty {
+                throw SwiftSDKError.swiftSDKNotFound(
+                    artifactID: sdkID,
+                    hostTriple: hostTriple,
+                    targetTriple: nil
+                )
+            }
+        }
+
+        for targetTriple in targetTriples {
+            guard let swiftSDK = try self.readConfiguration(
+                sdkID: sdkID,
+                targetTriple: targetTriple
+            ) else {
+                throw SwiftSDKError.swiftSDKNotFound(
+                    artifactID: sdkID,
+                    hostTriple: hostTriple,
+                    targetTriple: targetTriple
+                )
+            }
+
+            if showConfiguration {
+                print(swiftSDK.pathsConfiguration)
+                continue
+            }
+
+            if resetConfiguration {
+                if try !self.resetConfiguration(sdkID: sdkID, targetTriple: targetTriple) {
+                    swiftSDKBundleStore.observabilityScope.emit(
+                        warning: "No configuration for Swift SDK `\(sdkID)`"
+                    )
+                } else {
+                    swiftSDKBundleStore.observabilityScope.emit(
+                        info: """
+                        All configuration properties of Swift SDK `\(sdkID)` for target triple \
+                        `\(targetTriple)` were successfully reset.
+                        """
+                    )
+                }
+            } else {
+                var configuration = swiftSDK.pathsConfiguration
+                let updatedProperties = try configuration.merge(with: config, relativeTo: fileSystem.currentWorkingDirectory)
+
+                guard !updatedProperties.isEmpty else {
+                    swiftSDKBundleStore.observabilityScope.emit(
+                        error: """
+                        No properties of Swift SDK `\(sdkID)` for target triple `\(targetTriple)` were updated \
+                        since none were specified. Pass `--help` flag to see the list of all available properties.
+                        """
+                    )
+                    return false
+                }
+
+                var swiftSDK = swiftSDK
+                swiftSDK.pathsConfiguration = configuration
+                swiftSDK.targetTriple = targetTriple
+                try self.updateConfiguration(sdkID: sdkID, swiftSDK: swiftSDK)
+
+                swiftSDKBundleStore.observabilityScope.emit(
+                    info: """
+                    These properties of Swift SDK `\(sdkID)` for target triple \
+                    `\(targetTriple)` were successfully updated: \(updatedProperties.joined(separator: ", ")).
+                    """
+                )
+            }
+
+            if swiftSDKBundleStore.observabilityScope.errorsReported {
+                return false
+            }
+        }
+
         return true
     }
 }
