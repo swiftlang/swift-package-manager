@@ -511,7 +511,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             } catch {
                 throw error
             }
-            return BuildResult(serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName), symbolGraph: genSymbolGraph)
+
+            return BuildResult(serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName), symbolGraph: SymbolGraphResult(outputLocationForTarget: { target, buildParameters in
+                return ["\(buildParameters.triple.archName)", "\(target).symbolgraphs"]
+            }))
         }
     }
 

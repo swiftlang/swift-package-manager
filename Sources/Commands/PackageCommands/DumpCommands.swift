@@ -66,14 +66,16 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
         try? fs.removeFileTree(symbolGraphDirectory)
         try fs.createDirectory(symbolGraphDirectory, recursive: true)
 
-        if buildResult.symbolGraph {
+        if let symbolGraph = buildResult.symbolGraph {
             // The build system produced symbol graphs for us, one for each target.
             let buildPath = try swiftCommandState.productsBuildParameters.buildPath
 
             // Copy the symbol graphs from the target-specific locations to the single output directory
             for rootPackage in try await buildSystem.getPackageGraph().rootPackages {
                 for module in rootPackage.modules {
-                    if case let sgDir = buildPath.appending(components: "\(try swiftCommandState.productsBuildParameters.triple.archName)", "\(module.name).symbolgraphs"), fs.exists(sgDir) {
+                    let sgDir = symbolGraph.outputLocationForTarget(module.name, try swiftCommandState.productsBuildParameters)
+
+                    if case let sgDir = buildPath.appending(components: sgDir), fs.exists(sgDir) {
                         for sgFile in try fs.getDirectoryContents(sgDir) {
                             try fs.copy(from: sgDir.appending(components: sgFile), to: symbolGraphDirectory.appending(sgFile))
                         }

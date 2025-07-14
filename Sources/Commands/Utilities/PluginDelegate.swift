@@ -418,9 +418,9 @@ final class PluginDelegate: PluginInvocationDelegate {
         // TODO pass along the options as associated values to the symbol graph build output (e.g. includeSPI)
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph, .buildPlan])
 
-        if buildResult.symbolGraph {
+        if let symbolGraph = buildResult.symbolGraph {
             let path = (try swiftCommandState.productsBuildParameters.buildPath)
-            return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(try swiftCommandState.productsBuildParameters.triple.archName)/\(targetName).symbolgraphs")
+            return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(
                 for moduleName: String,

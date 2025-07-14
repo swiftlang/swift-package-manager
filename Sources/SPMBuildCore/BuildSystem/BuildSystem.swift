@@ -80,14 +80,25 @@ extension BuildSystem {
     }
 }
 
+public struct SymbolGraphResult {
+    public init(outputLocationForTarget: @escaping (String, BuildParameters) -> [String]) {
+        self.outputLocationForTarget = outputLocationForTarget
+    }
+
+    /// Find the build path relative location of the symbol graph output directory
+    /// for a provided target and build parameters. Note that the directory may not
+    /// exist when the target doesn't have any symbol graph output, as one example.
+    public let outputLocationForTarget: (String, BuildParameters) -> [String]
+}
+
 public struct BuildResult {
-    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>, symbolGraph: Bool = false, buildPlan: BuildPlan? = nil) {
+    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>, symbolGraph: SymbolGraphResult? = nil, buildPlan: BuildPlan? = nil) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
         self.symbolGraph = symbolGraph
         self.buildPlan = buildPlan
     }
     
-    public var symbolGraph: Bool
+    public var symbolGraph: SymbolGraphResult?
     public var buildPlan: BuildPlan?
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
