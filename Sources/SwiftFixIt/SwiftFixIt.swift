@@ -143,7 +143,7 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
         }
 
         // Skip if no location.
-        if diagnostic.hasNoLocation {
+        guard let location = diagnostic.location else {
             return true
         }
 
@@ -155,9 +155,12 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
             }
         }
 
-        // Skip if the source file the diagnostic appears in is in an excluded directory.
-        if let sourceFilePath = try? diagnostic.location.map({ try AbsolutePath(validating: $0.filename) }) {
-            guard !self.excludedSourceDirectories.contains(where: { $0.isAncestor(of: sourceFilePath) }) else {
+        // Skip if excluded directories were given and the source file the
+        // diagnostic appears in is in any of them.
+        if !self.excludedSourceDirectories.isEmpty {
+            if let sourceFilePath = try? AbsolutePath(validating: location.filename),
+               self.excludedSourceDirectories.contains(where: sourceFilePath.isDescendant(of:))
+            {
                 return true
             }
         }
