@@ -412,6 +412,7 @@ struct FilteringTests {
         }
     }
 
+    @Test
     func testDuplicateInsertionFixIts() throws {
         try testAPI1File { path in
             .init(
@@ -517,6 +518,93 @@ struct FilteringTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 5),
                                         text: "y"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                ]
+            )
+        }
+    }
+
+    @Test
+    func testExcludedSourceDirectories() throws {
+        // Each generated file has a distinct parent directory.
+        try testAPI2Files { path1, path2 in
+            .init(
+                edits: (
+                    .init(input: "var x = 1", result: "var x = 1"),
+                    .init(input: "var x = 1", result: "var y = 2")
+                ),
+                summary: .init(
+                    // 6 because skipped by SwiftIDEUtils.FixItApplier, not SwiftFixIt.
+                    numberOfFixItsApplied: 2,
+                    numberOfFilesChanged: 1
+                ),
+                excludedSourceDirectories: [path1.parentDirectory],
+                diagnostics: [
+                    // path1.
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error1_fixit1",
+                        location: .init(path: path1, line: 1, column: 5),
+                        fixIts: [
+                            // Skipped, excluded directory.
+                            .init(
+                                start: .init(path: path1, line: 1, column: 5),
+                                end: .init(path: path1, line: 1, column: 6),
+                                text: "y"
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error2_fixit2",
+                        location: .init(path: path1, line: 1, column: 9),
+                        notes: [
+                            Note(
+                                text: "error2_note1",
+                                location: .init(path: path1, line: 1, column: 9),
+                                fixIts: [
+                                    // Skipped, excluded directory.
+                                    .init(
+                                        start: .init(path: path1, line: 1, column: 9),
+                                        end: .init(path: path1, line: 1, column: 10),
+                                        text: "2"
+                                    ),
+                                ]
+                            ),
+                        ]
+                    ),
+                    // path2.
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error1_fixit1",
+                        location: .init(path: path2, line: 1, column: 5),
+                        fixIts: [
+                            // Applied.
+                            .init(
+                                start: .init(path: path2, line: 1, column: 5),
+                                end: .init(path: path2, line: 1, column: 6),
+                                text: "y"
+                            ),
+                        ]
+                    ),
+                    PrimaryDiagnostic(
+                        level: .error,
+                        text: "error2_fixit2",
+                        location: .init(path: path2, line: 1, column: 9),
+                        notes: [
+                            Note(
+                                text: "error2_note1",
+                                location: .init(path: path2, line: 1, column: 9),
+                                fixIts: [
+                                    // Applied.
+                                    .init(
+                                        start: .init(path: path2, line: 1, column: 9),
+                                        end: .init(path: path2, line: 1, column: 10),
+                                        text: "2"
                                     ),
                                 ]
                             ),

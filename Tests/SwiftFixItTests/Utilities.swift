@@ -178,9 +178,10 @@ struct Summary {
 }
 
 struct TestCase<T> {
-    let edits: T
-    let summary: Summary
-    let diagnostics: [PrimaryDiagnostic]
+    var edits: T
+    var summary: Summary
+    var excludedSourceDirectories: Set<AbsolutePath> = []
+    var diagnostics: [PrimaryDiagnostic]
 }
 
 extension Testing.Issue {
@@ -211,6 +212,7 @@ private func _testAPI(
     _ expectedSummary: Summary,
     _ diagnostics: [PrimaryDiagnostic],
     _ categories: Set<String>,
+    _ excludedSourceDirectories: Set<AbsolutePath>,
 ) throws {
     for (path, edit) in sourceFilePathsAndEdits {
         try localFileSystem.writeFileContents(path, string: edit.input)
@@ -233,7 +235,7 @@ private func _testAPI(
     let swiftFixIt = try SwiftFixIt(
         diagnostics: flatDiagnostics,
         categories: categories,
-        excludedSourceDirectories: [],
+        excludedSourceDirectories: excludedSourceDirectories,
         fileSystem: localFileSystem
     )
     let actualSummary = try swiftFixIt.applyFixIts()
@@ -261,17 +263,14 @@ private func _testAPI(
     }
 }
 
-private func uniqueSwiftFileName() -> String {
-    "\(UUID().uuidString).swift"
-}
-
 // Cannot use variadic generics: crashes.
 func testAPI1File(
+    function: StaticString = #function,
     categories: Set<String> = [],
     _ getTestCase: (AbsolutePath) -> TestCase<SourceFileEdit>
 ) throws {
-    try testWithTemporaryDirectory { fixturePath in
-        let sourceFilePath = fixturePath.appending(uniqueSwiftFileName())
+    try testWithTemporaryDirectory(function: function) { fixturePath in
+        let sourceFilePath = fixturePath.appending("file.swift")
 
         let testCase = getTestCase(sourceFilePath)
 
@@ -279,18 +278,22 @@ func testAPI1File(
             [(sourceFilePath, testCase.edits)],
             testCase.summary,
             testCase.diagnostics,
-            categories
+            categories,
+            testCase.excludedSourceDirectories,
         )
     }
 }
 
 func testAPI2Files(
+    function: StaticString = #function,
     categories: Set<String> = [],
     _ getTestCase: (AbsolutePath, AbsolutePath) -> TestCase<(SourceFileEdit, SourceFileEdit)>,
 ) throws {
-    try testWithTemporaryDirectory { fixturePath in
-        let sourceFilePath1 = fixturePath.appending(uniqueSwiftFileName())
-        let sourceFilePath2 = fixturePath.appending(uniqueSwiftFileName())
+    try testWithTemporaryDirectory(function: function) { fixturePath in
+        // Create each file in a separate subdirectory so that we can test
+        // directory exclusion.
+        let sourceFilePath1 = fixturePath.appending(components: [UUID().uuidString, "file.swift"])
+        let sourceFilePath2 = fixturePath.appending(components: [UUID().uuidString, "file.swift"])
 
         let testCase = getTestCase(sourceFilePath1, sourceFilePath2)
 
@@ -298,7 +301,8 @@ func testAPI2Files(
             [(sourceFilePath1, testCase.edits.0), (sourceFilePath2, testCase.edits.1)],
             testCase.summary,
             testCase.diagnostics,
-            categories
+            categories,
+            testCase.excludedSourceDirectories,
         )
     }
 }
