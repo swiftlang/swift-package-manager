@@ -90,44 +90,66 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
-            var targets = self.options.targets
-
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
-                targets: targets,
+                targets: self.options.targets,
                 features: features
             )
 
-            // Next, let's build all of the individual targets or the
-            // whole project to get diagnostic files.
-            print("> Starting the build")
+            // Compute the set of targets to migrate.
+            let targetsToMigrate: Set<String>
+            if self.options.targets.isEmpty {
+                let graph = try await buildSystem.getPackageGraph()
+                targetsToMigrate = Set(
+                    graph.rootPackages.lazy.map { package in
+                        package.manifest.targets.lazy.filter { target in
+                            // FIXME: Plugin target init does not have Swift settings.
+                            // Exclude them from migration.
+                            target.type != .plugin
+                        }.map(\.name)
+                    }.joined()
+                )
+            } else {
+                targetsToMigrate = Set(self.options.targets.elements)
+            }
 
-            var diagnosticsPaths: [String: [AbsolutePath]] = [:]
-            if !targets.isEmpty {
-                for target in targets {
-                    let buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [])
-                    diagnosticsPaths.merge(try buildResult.serializedDiagnosticPathsByTargetName.get(), uniquingKeysWith: { $0 + $1 })
+            // Next, let's build the requested targets or, if none were given,
+            // the whole project to get diagnostic files.
+            print("> Starting the build")
+            var diagnosticFiles: [[AbsolutePath]] = []
+            if self.options.targets.isEmpty {
+                // No targets were requested. Build everything.
+                let buildResult = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                for (target, files) in try buildResult.serializedDiagnosticPathsByTargetName.get() {
+                    if targetsToMigrate.contains(target) {
+                        diagnosticFiles.append(files)
+                    }
                 }
             } else {
-                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: []).serializedDiagnosticPathsByTargetName.get()
+                // Build only requested targets.
+                for target in self.options.targets.elements {
+                    // TODO: It would be nice if BuildSubset had a case for an
+                    // array of targets so that we can move the build out of
+                    // this enclosing if/else and avoid repetition.
+                    let buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [])
+                    for (target, files) in try buildResult.serializedDiagnosticPathsByTargetName.get() {
+                        if targetsToMigrate.contains(target) {
+                            diagnosticFiles.append(files)
+                        }
+                    }
+                }
             }
 
-            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
-            let graph = try await buildSystem.getPackageGraph()
-            if targets.isEmpty {
-                targets = OrderedSet(graph.rootPackages.flatMap { $0.manifest.targets.filter { $0.type != .plugin }.map(\.name) })
-            }
             print("> Applying fix-its")
+            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
             let fixItDuration = try ContinuousClock().measure {
-                for target in targets {
-                    let fixit = try SwiftFixIt(
-                        diagnosticFiles: Array(diagnosticsPaths[target] ?? []),
-                        categories: Set(features.flatMap(\.categories)),
-                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
-                        fileSystem: swiftCommandState.fileSystem
-                    )
-                    summary += try fixit.applyFixIts()
-                }
+                let applier = try SwiftFixIt(
+                    diagnosticFiles: diagnosticFiles.joined(),
+                    categories: Set(features.flatMap(\.categories)),
+                    excludedSourceDirectories: [swiftCommandState.scratchDirectory],
+                    fileSystem: swiftCommandState.fileSystem
+                )
+                summary = try applier.applyFixIts()
             }
 
             // Report the changes.
@@ -155,9 +177,8 @@ extension SwiftPackageCommand {
 
             // Once the fix-its were applied, it's time to update the
             // manifest with newly adopted feature settings.
-
             print("> Updating manifest")
-            for target in targets {
+            for target in targetsToMigrate {
                 swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
                     for: target,

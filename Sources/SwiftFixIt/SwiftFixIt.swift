@@ -211,7 +211,7 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
     private let diagnosticsPerFile: DiagnosticsPerFile
 
     package init(
-        diagnosticFiles: [AbsolutePath],
+        diagnosticFiles: some Collection<AbsolutePath>,
         categories: Set<String> = [],
         excludedSourceDirectories: Set<AbsolutePath> = [],
         fileSystem: any FileSystem
