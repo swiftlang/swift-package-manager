@@ -22,16 +22,8 @@ extension ProcessInfo {
                 return false
             }
         }
-        let lines = contentString.components(separatedBy: .newlines)
-        for line in lines {
-            if line.starts(with: "ID=") {
-                let id = line.replacingOccurrences(of: "ID=", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-                if id == "amzn" { // ID for Amazon Linux is "amzn"
-                    return true
-                }
-            }
-        }
-        return false
+        let al2_name = "PRETTY_NAME=\"Amazon Linux 2\""
+        return contentString.contains(al2_name)
     }
 
 }
