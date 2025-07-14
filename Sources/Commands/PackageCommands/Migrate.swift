@@ -125,6 +125,9 @@ extension SwiftPackageCommand {
                     where graph.isRootPackage(buildDescription.package)
                 {
                     let module = buildDescription.module
+                    // FIXME: Plugin target init does not have a Swift settings
+                    // parameter, so we won't be able to enable the feature.
+                    // Exclude plugins from migration.
                     guard module.type != .plugin, !module.implicit else {
                         continue
                     }
@@ -139,15 +142,13 @@ extension SwiftPackageCommand {
 
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
             let fixItDuration = try ContinuousClock().measure {
-                for (_, diagnosticFiles) in modules {
-                    let fixit = try SwiftFixIt(
-                        diagnosticFiles: diagnosticFiles,
-                        categories: Set(features.flatMap(\.categories)),
-                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
-                        fileSystem: swiftCommandState.fileSystem
-                    )
-                    summary += try fixit.applyFixIts()
-                }
+                let applier = try SwiftFixIt(
+                    diagnosticFiles: modules.values.joined(),
+                    categories: Set(features.flatMap(\.categories)),
+                    excludedSourceDirectories: [swiftCommandState.scratchDirectory],
+                    fileSystem: swiftCommandState.fileSystem
+                )
+                summary = try applier.applyFixIts()
             }
 
             // Report the changes.
