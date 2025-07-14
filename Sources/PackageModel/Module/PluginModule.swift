@@ -45,7 +45,8 @@ public final class PluginModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: false
         )
     }
 }

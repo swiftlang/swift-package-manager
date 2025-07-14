@@ -18,7 +18,7 @@ import TSCLibc
 import Android
 #endif
 
-#if os(Linux)
+#if !os(Windows) && !canImport(Darwin)
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
@@ -29,7 +29,7 @@ import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
 private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
 #endif // #if USE_IMPL_ONLY_IMPORTS
-#endif // #if os(Linux)
+#endif
 
 import class TSCBasic.CStringArray
 import class TSCBasic.LocalFileOutputByteStream
@@ -622,22 +622,13 @@ package final class AsyncProcess {
 
         if let workingDirectory = workingDirectory?.pathString {
             #if canImport(Darwin)
-            // The only way to set a workingDirectory is using an availability-gated initializer, so we don't need
-            // to handle the case where the posix_spawn_file_actions_addchdir_np method is unavailable. This check only
-            // exists here to make the compiler happy.
-            if #available(macOS 10.15, *) {
-                posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            }
-            #elseif os(FreeBSD)
             posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            #elseif os(Linux)
+            #else
             guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
                 throw AsyncProcess.Error.workingDirectoryNotSupported
             }
 
             SPM_posix_spawn_file_actions_addchdir_np(&fileActions, workingDirectory)
-            #else
-            throw AsyncProcess.Error.workingDirectoryNotSupported
             #endif
         }
 

@@ -568,7 +568,10 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        if configuration.usePrebuilts, let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform {
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform,
+           let swiftCompilerVersion = hostToolchain.swiftCompilerVersion
+        {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
                 rootCertPath = try AbsolutePath(validating: path)
@@ -579,6 +582,7 @@ public class Workspace {
             let prebuiltsManager = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
+                swiftCompilerVersion: customPrebuiltsManager?.swiftVersion ?? swiftCompilerVersion,
                 authorizationProvider: authorizationProvider,
                 scratchPath: location.prebuiltsDirectory,
                 cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
@@ -965,7 +969,14 @@ extension Workspace {
             }
 
         let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
-            let prebuilt = PrebuiltLibrary(identity: $1.identity, libraryName: $1.libraryName, path: $1.path, products: $1.products, cModules: $1.cModules)
+            let prebuilt = PrebuiltLibrary(
+                identity: $1.identity,
+                libraryName: $1.libraryName,
+                path: $1.path,
+                checkoutPath: $1.checkoutPath,
+                products: $1.products,
+                includePath: $1.includePath,
+                cModules: $1.cModules)
             for product in $1.products {
                 $0[$1.identity, default: [:]][product] = prebuilt
             }
@@ -1077,7 +1088,7 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadRootManifests(
@@ -1150,18 +1161,25 @@ extension Workspace {
                         if let path = target.path {
                             let artifactPath = try manifest.path.parentDirectory
                                 .appending(RelativePath(validating: path))
-                            guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                            if artifactPath.extension?.lowercased() == "zip" {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: .unknown,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else if let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
                                 fileSystem: self.fileSystem,
                                 path: artifactPath,
                                 observabilityScope: observabilityScope
-                            ) else {
+                            ) {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: artifactKind,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                            partial[target.name] = BinaryArtifact(
-                                kind: artifactKind,
-                                originURL: .none,
-                                path: artifactPath
-                            )
                         } else if let url = target.url.flatMap(URL.init(string:)) {
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
@@ -1266,7 +1284,7 @@ extension Workspace {
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
+        completion: @escaping @Sendable (Result<Package, Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadPackage(
@@ -1342,7 +1360,7 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try self.removeRepository(dependency: dependencyToRemove)
+            try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }

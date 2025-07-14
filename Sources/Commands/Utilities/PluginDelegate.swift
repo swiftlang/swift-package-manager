@@ -25,11 +25,13 @@ import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
+    let buildSystem: BuildSystemProvider.Kind
     let plugin: PluginModule
     var lineBufferedOutput: Data
 
-    init(swiftCommandState: SwiftCommandState, plugin: PluginModule) {
+    init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
+        self.buildSystem = buildSystem
         self.plugin = plugin
         self.lineBufferedOutput = Data()
     }
@@ -167,7 +169,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystem,
             explicitProduct: explicitProduct,
             traitConfiguration: .init(),
             cacheBuildManifest: false,
@@ -179,30 +181,39 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the build. This doesn't return until the build is complete.
         let success = await buildSystem.buildIgnoringError(subset: buildSubset)
 
-        // Create and return the build result record based on what the delegate collected and what's in the build plan.
-        let builtProducts = try buildSystem.buildPlan.buildProducts.filter {
-            switch subset {
-            case .all(let includingTests):
-                return includingTests ? true : $0.product.type != .test
-            case .product(let name):
-                return $0.product.name == name
-            case .target(let name):
-                return $0.product.name == name
+        let packageGraph = try await buildSystem.getPackageGraph()
+
+        var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = []
+
+        for rootPkg in packageGraph.rootPackages {
+            let builtProducts = rootPkg.products.filter {
+                switch subset {
+                case .all(let includingTests):
+                    return includingTests ? true : $0.type != .test
+                case .product(let name):
+                    return $0.name == name
+                case .target(let name):
+                    return $0.name == name
+                }
             }
-        }
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = try builtProducts.compactMap {
-            switch $0.product.type {
-            case .library(let kind):
-                return try .init(
-                    path: $0.binaryPath.pathString,
-                    kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
-                )
-            case .executable:
-                return try .init(path: $0.binaryPath.pathString, kind: .executable)
-            default:
-                return nil
+
+            let artifacts: [PluginInvocationBuildResult.BuiltArtifact] = try builtProducts.compactMap {
+                switch $0.type {
+                case .library(let kind):
+                    return .init(
+                        path: try buildParameters.binaryPath(for: $0).pathString,
+                        kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
+                    )
+                case .executable:
+                    return .init(path: try buildParameters.binaryPath(for: $0).pathString, kind: .executable)
+                default:
+                    return nil
+                }
             }
+
+            builtArtifacts.append(contentsOf: artifacts)
         }
+
         return PluginInvocationBuildResult(
             succeeded: success,
             logText: bufferedOutputStream.bytes.cString,
@@ -398,7 +409,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystem,
             traitConfiguration: TraitConfiguration(enableAllTraits: true),
             cacheBuildManifest: false
         )

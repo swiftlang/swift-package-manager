@@ -38,6 +38,7 @@ add_library(Basics
   FileSystem/RelativePath.swift
   FileSystem/TemporaryFile.swift
   FileSystem/TSCAdapters.swift
+  FileSystem/VirtualFileSystem.swift
   FileSystem/VFSOverlay.swift
   Graph/AdjacencyMatrix.swift
   Graph/DirectedGraph.swift
@@ -60,6 +61,7 @@ add_library(Basics
   Netrc.swift
   Observability.swift
   OSSignpost.swift
+  Process.swift
   ProgressAnimation/NinjaProgressAnimation.swift
   ProgressAnimation/PercentProgressAnimation.swift
   ProgressAnimation/ProgressAnimationProtocol.swift

@@ -19,6 +19,8 @@ import CoreCommands
 
 import Foundation
 
+import OrderedCollections
+
 import PackageGraph
 import PackageModel
 
@@ -29,21 +31,24 @@ import var TSCBasic.stdoutStream
 
 struct MigrateOptions: ParsableArguments {
     @Option(
-        name: .customLong("targets"),
+        name: .customLong("target"),
         help: "The targets to migrate to specified set of features."
     )
     var _targets: String?
 
-    var targets: Set<String>? {
-        self._targets.flatMap { Set($0.components(separatedBy: ",")) }
+    var targets: OrderedSet<String> {
+        self._targets.flatMap { OrderedSet($0.components(separatedBy: ",")) } ?? []
     }
 
     @Option(
         name: .customLong("to-feature"),
-        parsing: .unconditionalSingleValue,
         help: "The Swift language upcoming/experimental feature to migrate to."
     )
-    var features: [String]
+    var _features: String
+
+    var features: Set<String> {
+        Set(self._features.components(separatedBy: ","))
+    }
 }
 
 extension SwiftPackageCommand {
@@ -85,125 +90,216 @@ extension SwiftPackageCommand {
                 features.append(feature)
             }
 
+            var targets = self.options.targets
+
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
+                targets: targets,
                 features: features
             )
 
             // Next, let's build all of the individual targets or the
             // whole project to get diagnostic files.
-
-            print("> Starting the build.")
-            if let targets = self.options.targets {
+            print("> Starting the build")
+            var diagnosticsPaths: [String: [AbsolutePath]] = [:]
+            if !targets.isEmpty {
                 for target in targets {
-                    try await buildSystem.build(subset: .target(target))
+                    let buildResult = try await buildSystem.build(subset: .target(target))
+                    diagnosticsPaths.merge(try buildResult.serializedDiagnosticPathsByTargetName.get(), uniquingKeysWith: { $0 + $1 })
                 }
             } else {
-                try await buildSystem.build(subset: .allIncludingTests)
+                diagnosticsPaths = try await buildSystem.build(subset: .allIncludingTests).serializedDiagnosticPathsByTargetName.get()
             }
 
-            // Determine all of the targets we need up update.
-            let buildPlan = try buildSystem.buildPlan
-
-            var modules: [any ModuleBuildDescription] = []
-            if let targets = self.options.targets {
-                for buildDescription in buildPlan.buildModules where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
-                }
-            } else {
-                let graph = try await buildSystem.getPackageGraph()
-                for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package) && buildDescription.module.type != .plugin
-                {
-                    modules.append(buildDescription)
+            var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
+            let graph = try await buildSystem.getPackageGraph()
+            if targets.isEmpty {
+                targets = OrderedSet(graph.rootPackages.flatMap { $0.manifest.targets.filter { $0.type != .plugin }.map(\.name) })
+            }
+            print("> Applying fix-its")
+            let fixItDuration = try ContinuousClock().measure {
+                for target in targets {
+                    let fixit = try SwiftFixIt(
+                        diagnosticFiles: Array(diagnosticsPaths[target] ?? []),
+                        categories: Set(features.flatMap(\.categories)),
+                        excludedSourceDirectories: [swiftCommandState.scratchDirectory],
+                        fileSystem: swiftCommandState.fileSystem
+                    )
+                    summary += try fixit.applyFixIts()
                 }
             }
 
-            // If the build suceeded, let's extract all of the diagnostic
-            // files from build plan and feed them to the fix-it tool.
-
-            print("> Applying fix-its.")
-            for module in modules {
-                let fixit = try SwiftFixIt(
-                    diagnosticFiles: module.diagnosticFiles,
-                    categories: Set(features.map(\.name)),
-                    fileSystem: swiftCommandState.fileSystem
+            // Report the changes.
+            do {
+                var message = "> Applied \(summary.numberOfFixItsApplied) fix-it"
+                if summary.numberOfFixItsApplied != 1 {
+                    message += "s"
+                }
+                message += " in \(summary.numberOfFilesChanged) file"
+                if summary.numberOfFilesChanged != 1 {
+                    message += "s"
+                }
+                message += " ("
+                message += fixItDuration.formatted(
+                    .units(
+                        allowed: [.seconds],
+                        width: .narrow,
+                        fractionalPart: .init(lengthLimits: 0 ... 3, roundingRule: .up)
+                    )
                 )
-                try fixit.applyFixIts()
+                message += ")"
+
+                print(message)
             }
 
             // Once the fix-its were applied, it's time to update the
             // manifest with newly adopted feature settings.
 
-            print("> Updating manifest.")
-            for module in modules.map(\.module) {
-                print("> Adding feature(s) to '\(module.name)'.")
-                for feature in features {
-                    self.updateManifest(
-                        for: module.name,
-                        add: feature,
-                        using: swiftCommandState
-                    )
-                }
+            print("> Updating manifest")
+            for target in targets {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
+                try self.updateManifest(
+                    for: target,
+                    add: features,
+                    using: swiftCommandState
+                )
             }
         }
 
         private func createBuildSystem(
             _ swiftCommandState: SwiftCommandState,
+            targets: OrderedSet<String>,
             features: [SwiftCompilerFeature]
         ) async throws -> BuildSystem {
             let toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-            var destinationBuildParameters = try swiftCommandState.productsBuildParameters
+            let destinationBuildParameters = try swiftCommandState.productsBuildParameters
 
-            // Inject feature settings as flags. This is safe and not as invasive
-            // as trying to update manifest because in adoption mode the features
-            // can only produce warnings.
-            for feature in features {
-                destinationBuildParameters.flags.swiftCompilerFlags.append(contentsOf: [
-                    "-Xfrontend",
-                    "-enable-\(feature.upcoming ? "upcoming" : "experimental")-feature",
-                    "-Xfrontend",
-                    "\(feature.name):migrate",
-                ])
+            let modulesGraph = try await swiftCommandState.loadPackageGraph()
+
+            let addFeaturesToModule = { (module: ResolvedModule) in
+                for feature in features {
+                    module.underlying.buildSettings.add(.init(values: feature.migrationFlags), for: .OTHER_SWIFT_FLAGS)
+                }
+            }
+
+            if !targets.isEmpty {
+                targets.lazy.compactMap {
+                    modulesGraph.module(for: $0)
+                }.forEach(addFeaturesToModule)
+            } else {
+                for package in modulesGraph.rootPackages {
+                    package.modules.filter {
+                        $0.type != .plugin
+                    }.forEach(addFeaturesToModule)
+                }
             }
 
             return try await swiftCommandState.createBuildSystem(
                 traitConfiguration: .init(),
+                // Don't attempt to cache manifests with temporary
+                // feature flags added just for migration purposes.
+                cacheBuildManifest: false,
                 productsBuildParameters: destinationBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 // command result output goes on stdout
                 // ie "swift build" should output to stdout
-                outputStream: TSCBasic.stdoutStream
+                packageGraphLoader: {
+                    modulesGraph
+                },
+                outputStream: TSCBasic.stdoutStream,
+                observabilityScope: swiftCommandState.observabilityScope
             )
         }
 
         private func updateManifest(
             for target: String,
-            add feature: SwiftCompilerFeature,
+            add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
-        ) {
+        ) throws {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
-            let setting: (SwiftSetting, String) = switch feature {
-            case .upcoming(name: let name, migratable: _, enabledIn: _):
-                (.upcomingFeature, "\(name)")
-            case .experimental(name: let name, migratable: _):
-                (.experimentalFeature, "\(name)")
+            let settings: [(SwiftSetting, String)] = try features.map {
+                (try $0.swiftSetting, $0.name)
             }
 
             do {
                 try SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
-                    [setting]
+                    settings,
+                    verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                print(
-                    "! Couldn't update manifest due to - \(error); Please add '.enable\(feature.upcoming ? "Upcoming" : "Experimental")Feature(\"\(feature.name)\")' to target '\(target)' settings manually."
+                try swiftCommandState.observabilityScope.emit(
+                    error: """
+                    Could not update manifest for '\(target)' (\(error)). \
+                    Please enable '\(
+                        features.map { try $0.swiftSettingDescription }
+                            .joined(separator: ", ")
+                    )' features manually
+                    """
                 )
             }
         }
 
         public init() {}
+    }
+}
+
+fileprivate extension SwiftCompilerFeature {
+    /// Produce the set of command-line flags to pass to the compiler to enable migration for this feature.
+    var migrationFlags: [String] {
+        precondition(migratable)
+
+        switch self {
+        case .upcoming(name: let name, migratable: _, categories: _, enabledIn: _):
+            return ["-Xfrontend", "-enable-upcoming-feature", "-Xfrontend", "\(name):migrate"]
+        case .experimental(name: let name, migratable: _, categories: _):
+            return ["-Xfrontend", "-enable-experimental-feature", "-Xfrontend", "\(name):migrate"]
+        case .optional(name: _, migratable: _, categories: _, flagName: let flagName):
+            let flags = flagName.split(separator: " ")
+            var resultFlags: [String] = []
+            for (index, flag) in flags.enumerated() {
+                resultFlags.append("-Xfrontend")
+                if index == flags.endIndex - 1 {
+                    resultFlags.append(String(flag) + ":migrate")
+                } else {
+                    resultFlags.append(String(flag))
+                }
+            }
+
+            return resultFlags
+        }
+    }
+
+    /// Produce the Swift setting corresponding to this compiler feature.
+    var swiftSetting: SwiftPackageCommand.AddSetting.SwiftSetting {
+        get throws {
+            switch self {
+            case .upcoming:
+                return .upcomingFeature
+            case .experimental:
+                return .experimentalFeature
+            case .optional(name: "StrictMemorySafety", migratable: _, categories: _, flagName: _):
+                return .strictMemorySafety
+            case .optional(name: let name, migratable: _, categories: _, flagName: _):
+                throw InternalError("Unsupported optional feature: \(name)")
+            }
+        }
+    }
+
+    var swiftSettingDescription: String {
+        get throws {
+            switch self {
+            case .upcoming(name: let name, migratable: _, categories: _, enabledIn: _):
+                return #".enableUpcomingFeature("\#(name)")"#
+            case .experimental(name: let name, migratable: _, categories: _):
+                return #".enableExperimentalFeature("\#(name)")"#
+            case .optional(name: "StrictMemorySafety", migratable: _, categories: _, flagName: _):
+                return ".strictMemorySafety()"
+            case .optional(name: let name, migratable: _, categories: _, flagName: _):
+                throw InternalError("Unsupported optional feature: \(name)")
+            }
+        }
     }
 }

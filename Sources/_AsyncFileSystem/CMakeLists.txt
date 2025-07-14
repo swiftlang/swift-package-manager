@@ -12,6 +12,7 @@ add_library(_AsyncFileSystem
   MockFileSystem.swift
   OpenReadableFile.swift
   OpenWritableFile.swift
+  OSFileSystem.swift
   ReadableFileStream.swift
   WritableStream.swift
 )

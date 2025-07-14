@@ -50,7 +50,7 @@ extension Workspace {
         )
 
         // Check out the given revision.
-        let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
+        let workingCopy = try await self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
         // Inform the delegate that we're about to start.
         delegate?.willCheckOut(
@@ -147,7 +147,7 @@ extension Workspace {
             // This can become invalid if the build directory is moved.
             fetch: if self.fileSystem.isDirectory(checkoutPath) {
                 // Fetch the checkout in case there are updates available.
-                let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
+                let workingCopy = try await self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
                 // Ensure that the alternative object store is still valid.
                 guard try self.repositoryManager.isValidWorkingCopy(workingCopy, for: repository) else {
@@ -172,14 +172,11 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        // FIXME: this should not block
         let handle = try await self.repositoryManager.lookup(
             package: package.identity,
             repository: repository,
             updateStrategy: .never,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope
         )
 
         // Clone the repository into the checkouts.
@@ -198,7 +195,7 @@ extension Workspace {
         let start = DispatchTime.now()
 
         // Create the working copy.
-        _ = try handle.createWorkingCopy(at: checkoutPath, editable: false)
+        _ = try await handle.createWorkingCopy(at: checkoutPath, editable: false)
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
@@ -213,14 +210,14 @@ extension Workspace {
     }
 
     /// Removes the clone and checkout of the provided specifier.
-    func removeRepository(dependency: ManagedDependency) throws {
+    func removeRepository(dependency: ManagedDependency) async throws {
         guard case .sourceControlCheckout = dependency.state else {
             throw InternalError("cannot remove repository for \(dependency) with state \(dependency.state)")
         }
 
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
-        let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
+        let workingCopy = try await self.repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
             throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: dependencyPath)
         }

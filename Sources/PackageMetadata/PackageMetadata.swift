@@ -232,15 +232,15 @@ public struct PackageSearchClient {
         let fetchStandalonePackageByURL = { (error: Error?) async throws -> [Package] in
             let url = SourceControlURL(query)
             do {
-                return try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
+                return try await withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
                     let tempPath = tempDir.appending(component: url.lastPathComponent)
                     let repositorySpecifier = RepositorySpecifier(url: url)
-                    try self.repositoryProvider.fetch(
+                    try await self.repositoryProvider.fetch(
                         repository: repositorySpecifier,
                         to: tempPath,
                         progressHandler: nil
                     )
-                    guard try self.repositoryProvider.isValidDirectory(tempPath), let repository = try self.repositoryProvider.open(
+                    guard try self.repositoryProvider.isValidDirectory(tempPath), let repository = try await self.repositoryProvider.open(
                         repository: repositorySpecifier,
                         at: tempPath
                     ) as? GitRepository else {

@@ -22,15 +22,21 @@ import struct TSCUtility.Version
 /// Delegate to notify clients about actions being performed by BinaryArtifactsDownloadsManage.
 public protocol PrebuiltsManagerDelegate {
     /// The workspace has started downloading a binary artifact.
-    func willDownloadPrebuilt(from url: String, fromCache: Bool)
+    func willDownloadPrebuilt(
+        for package: PackageIdentity,
+        from url: String,
+        fromCache: Bool
+    )
     /// The workspace has finished downloading a binary artifact.
     func didDownloadPrebuilt(
+        for package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
     func downloadingPrebuilt(
+        for package: PackageIdentity,
         from url: String,
         bytesDownloaded: Int64,
         totalBytesToDownload: Int64?
@@ -47,14 +53,15 @@ extension Workspace {
         public struct Library: Identifiable, Codable {
             public let name: String
             public var products: [String]
-            public var cModules: [String]
-            public var artifacts: [Artifact]
+            public var cModules: [String]?
+            public var includePath: [RelativePath]?
+            public var artifacts: [Artifact]?
 
             public var id: String { name }
 
             public struct Artifact: Identifiable, Codable {
                 public let platform: Platform
-                public let checksum: String
+                public var checksum: String
 
                 public var id: Platform { platform }
 
@@ -67,12 +74,14 @@ extension Workspace {
             public init(
                 name: String,
                 products: [String] = [],
-                cModules: [String] = [],
-                artifacts: [Artifact] = []
+                cModules: [String]? = nil,
+                includePath: [RelativePath]? = nil,
+                artifacts: [Artifact]? = nil
             ) {
                 self.name = name
                 self.products = products
                 self.cModules = cModules
+                self.includePath = includePath
                 self.artifacts = artifacts
             }
         }
@@ -127,6 +136,7 @@ extension Workspace {
 
     /// For simplified init in tests
     public struct CustomPrebuiltsManager {
+        let swiftVersion: String
         let httpClient: HTTPClient?
         let archiver: Archiver?
         let useCache: Bool?
@@ -134,12 +144,14 @@ extension Workspace {
         let rootCertPath: AbsolutePath?
 
         public init(
+            swiftVersion: String,
             httpClient: HTTPClient? = .none,
             archiver: Archiver? = .none,
             useCache: Bool? = .none,
             hostPlatform: PrebuiltsManifest.Platform? = nil,
             rootCertPath: AbsolutePath? = nil
         ) {
+            self.swiftVersion = swiftVersion
             self.httpClient = httpClient
             self.archiver = archiver
             self.useCache = useCache
@@ -153,6 +165,7 @@ extension Workspace {
         public typealias Delegate = PrebuiltsManagerDelegate
 
         private let fileSystem: FileSystem
+        private let swiftVersion: String
         private let authorizationProvider: AuthorizationProvider?
         private let httpClient: HTTPClient
         private let archiver: Archiver
@@ -167,6 +180,7 @@ extension Workspace {
         init(
             fileSystem: FileSystem,
             hostPlatform: PrebuiltsManifest.Platform,
+            swiftCompilerVersion: String,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
             cachePath: AbsolutePath?,
@@ -178,6 +192,7 @@ extension Workspace {
         ) {
             self.fileSystem = fileSystem
             self.hostPlatform = hostPlatform
+            self.swiftVersion = swiftCompilerVersion
             self.authorizationProvider = authorizationProvider
             self.httpClient = customHTTPClient ?? HTTPClient()
 
@@ -221,9 +236,6 @@ extension Workspace {
         }
 
         private let prebuiltPackages: [PrebuiltPackage]
-
-        // Version of the compiler we're building against
-        private let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
 
         fileprivate func findPrebuilts(packages: [PackageReference]) -> [PrebuiltPackage] {
             var prebuilts: [PrebuiltPackage] = []
@@ -308,6 +320,11 @@ extension Workspace {
                     try fileSystem.removeFileTree(destination)
                     return nil
                 }
+            }
+
+            // Skip prebuilts if this file exists.
+            if let cachePath, fileSystem.exists(cachePath.appending("noprebuilts")) {
+                return nil
             }
 
             if fileSystem.exists(destination), let manifest = try? await loadManifest() {
@@ -438,8 +455,14 @@ extension Workspace {
                     if artifactURL.scheme == "file" {
                         let artifactPath = try AbsolutePath(validating: artifactURL.path)
                         if fileSystem.exists(artifactPath) {
+                            self.delegate?.willDownloadPrebuilt(
+                                for: package.identity,
+                                from: artifactURL.absoluteString,
+                                fromCache: true
+                            )
                             try fileSystem.copy(from: artifactPath, to: destination)
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .success((destination, false)),
                                 duration: fetchStart.distance(to: .now())
@@ -465,6 +488,7 @@ extension Workspace {
                         request.options.validResponseCodes = [200]
 
                         self.delegate?.willDownloadPrebuilt(
+                            for: package.identity,
                             from: artifactURL.absoluteString,
                             fromCache: false
                         )
@@ -473,6 +497,7 @@ extension Workspace {
                                 bytesDownloaded,
                                 totalBytesToDownload in
                                 self.delegate?.downloadingPrebuilt(
+                                    for: package.identity,
                                     from: artifactURL.absoluteString,
                                     bytesDownloaded: bytesDownloaded,
                                     totalBytesToDownload: totalBytesToDownload
@@ -484,6 +509,7 @@ extension Workspace {
                                 underlyingError: error
                             )
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .failure(error),
                                 duration: fetchStart.distance(to: .now())
@@ -497,6 +523,7 @@ extension Workspace {
                                 "Prebuilt artifact \(artifactFile) checksum mismatch"
                             observabilityScope.emit(info: errorString)
                             self.delegate?.didDownloadPrebuilt(
+                                for: package.identity,
                                 from: artifactURL.absoluteString,
                                 result: .failure(StringError(errorString)),
                                 duration: fetchStart.distance(to: .now())
@@ -505,6 +532,7 @@ extension Workspace {
                         }
 
                         self.delegate?.didDownloadPrebuilt(
+                            for: package.identity,
                             from: artifactURL.absoluteString,
                             result: .success((destination, false)),
                             duration: fetchStart.distance(to: .now())
@@ -575,7 +603,7 @@ extension Workspace {
             let hostPlatform = prebuiltsManager.hostPlatform
 
             for library in prebuiltManifest.libraries {
-                for artifact in library.artifacts where artifact.platform == hostPlatform {
+                for artifact in library.artifacts ?? [] where artifact.platform == hostPlatform {
                     if let path = try await prebuiltsManager
                         .downloadPrebuilt(
                             package: prebuilt,
@@ -584,15 +612,19 @@ extension Workspace {
                             artifact: artifact,
                             observabilityScope: observabilityScope
                         )
-                    {   
+                    {
                         // Add to workspace state
+                        let checkoutPath = self.location.repositoriesCheckoutsDirectory
+                            .appending(component: prebuilt.identity.description)
                         let managedPrebuilt = ManagedPrebuilt(
                             identity: prebuilt.identity,
                             version: packageVersion,
                             libraryName: library.name,
                             path: path,
+                            checkoutPath: checkoutPath,
                             products: library.products,
-                            cModules: library.cModules
+                            includePath: library.includePath,
+                            cModules: library.cModules ?? []
                         )
                         addedPrebuilts.add(managedPrebuilt)
                         await self.state.prebuilts.add(managedPrebuilt)

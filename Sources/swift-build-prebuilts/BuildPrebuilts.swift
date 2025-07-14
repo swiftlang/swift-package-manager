@@ -19,27 +19,36 @@
 import ArgumentParser
 import Basics
 import Foundation
+import PackageModel
 import struct TSCBasic.ByteString
 import struct TSCBasic.SHA256
 import Workspace
 
-struct PrebuiltRepos: Identifiable {
+// Format for the .zip.json files.
+struct Artifact: Codable {
+    var platform: Workspace.PrebuiltsManifest.Platform
+    var checksum: String
+    var libraryName: String?
+    var products: [String]?
+    var includePath: [RelativePath]?
+    var cModules: [String]? // deprecated, includePath is the way forward
+    var swiftVersion: String?
+}
+
+// The master list of repos and their versions
+struct PrebuiltRepos: Codable {
     let url: URL
     let versions: [Version]
 
-    var id: URL { url }
-
-    struct Version: Identifiable {
+    struct Version: Identifiable, Codable {
         let tag: String
         let manifest: Workspace.PrebuiltsManifest
-        let cModulePaths: [String: [String]]
-        let addProduct: (Workspace.PrebuiltsManifest.Library, AbsolutePath) async throws -> ()
 
         var id: String { tag }
     }
 }
 
-var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
+var prebuiltRepos: [PrebuiltRepos] = [
     .init(
         url: .init(string: "https://github.com/swiftlang/swift-syntax")!,
         versions: [
@@ -65,36 +74,9 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                             "SwiftSyntaxMacrosGenericTestSupport",
                             "_SwiftCompilerPluginMessageHandling",
                             "_SwiftLibraryPluginProvider",
-                        ],
-                        cModules: [
-                            "_SwiftSyntaxCShims",
                         ]
                     ),
-                ]),
-                cModulePaths: [
-                    "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
-                ],
-                addProduct: { library, repoDir in
-                    let targets = [
-                        "SwiftBasicFormat",
-                        "SwiftCompilerPlugin",
-                        "SwiftDiagnostics",
-                        "SwiftIDEUtils",
-                        "SwiftOperators",
-                        "SwiftParser",
-                        "SwiftParserDiagnostics",
-                        "SwiftRefactor",
-                        "SwiftSyntax",
-                        "SwiftSyntaxBuilder",
-                        "SwiftSyntaxMacros",
-                        "SwiftSyntaxMacroExpansion",
-                        "SwiftSyntaxMacrosTestSupport",
-                        "SwiftSyntaxMacrosGenericTestSupport",
-                        "SwiftCompilerPluginMessageHandling",
-                        "SwiftLibraryPluginProvider",
-                    ]
-                    try await shell("swift package add-product \(library.name) --type static-library --targets \(targets.joined(separator: " "))", cwd: repoDir)
-                }
+                ])
             ),
             .init(
                 tag:"601.0.1",
@@ -120,70 +102,21 @@ var prebuiltRepos: IdentifiableSet<PrebuiltRepos> = [
                             "SwiftSyntaxMacrosGenericTestSupport",
                             "_SwiftCompilerPluginMessageHandling",
                             "_SwiftLibraryPluginProvider",
-                        ],
-                        cModules: [
-                            "_SwiftSyntaxCShims",
                         ]
                     ),
-
-                ]),
-                cModulePaths: [
-                    "_SwiftSyntaxCShims": ["Sources", "_SwiftSyntaxCShims"]
-                ],
-                addProduct: { library, repoDir in
-                    let targets = [
-                        "SwiftBasicFormat",
-                        "SwiftCompilerPlugin",
-                        "SwiftDiagnostics",
-                        "SwiftIDEUtils",
-                        "SwiftIfConfig",
-                        "SwiftLexicalLookup",
-                        "SwiftOperators",
-                        "SwiftParser",
-                        "SwiftParserDiagnostics",
-                        "SwiftRefactor",
-                        "SwiftSyntax",
-                        "SwiftSyntaxBuilder",
-                        "SwiftSyntaxMacros",
-                        "SwiftSyntaxMacroExpansion",
-                        "SwiftSyntaxMacrosTestSupport",
-                        "SwiftSyntaxMacrosGenericTestSupport",
-                        "SwiftCompilerPluginMessageHandling",
-                        "SwiftLibraryPluginProvider",
-                    ]
-                    // swift package add-product doesn't work here since it's now computed
-                    let packageFile = repoDir.appending(component: "Package.swift")
-                    var package = try String(contentsOf: packageFile.asURL)
-                    package.replace("products: products,", with: """
-                        products: products + [
-                            .library(name: "\(library.name)", type: .static, targets: [
-                                \(targets.map({ "\"\($0)\"" }).joined(separator: ","))
-                            ])
-                        ],
-                        """)
-                    try package.write(to: packageFile.asURL, atomically: true, encoding: .utf8)
-                }
+                ])
             ),
         ]
     ),
 ]
-
-let swiftVersion = "\(SwiftVersion.current.major).\(SwiftVersion.current.minor)"
-let dockerImageRoot = "swiftlang/swift:nightly-6.1-"
 
 @main
 struct BuildPrebuilts: AsyncParsableCommand {
     @Option(help: "The directory to generate the artifacts to.")
     var stageDir = try! AbsolutePath(validating: FileManager.default.currentDirectoryPath).appending("stage")
 
-    @Flag(help: "Whether to build artifacts using docker.")
-    var docker = false
-
-    @Flag(help: "Whether to build artifacts using docker only.")
-    var dockerOnly = false
-
-    @Option(help: "The command to use for docker.")
-    var dockerCommand: String = "docker"
+    @Option(help: "The config file used to determine the prebuilts to build")
+    var config = try! AbsolutePath(validating: #file).parentDirectory.appending("config.json")
 
     @Flag(help: "Whether to build the prebuilt artifacts")
     var build = false
@@ -196,6 +129,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
     @Option(name: .customLong("cert-chain-path"), help: "Path to a certificate (DER encoded) in the chain. The certificate used for signing must be first and the root certificate last.")
     var certChainPathStrs: [String] = []
+
+    @Option(help: .hidden)
+    var prebuiltsUrl: String = "https://download.swift.org/prebuilts"
 
     @Flag(help: .hidden)
     var testSigning: Bool = false
@@ -216,6 +152,21 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
     }
 
+    func computeSwiftVersion() throws -> String? {
+        let fileSystem = localFileSystem
+
+        let environment = Environment.current
+        let hostToolchain = try UserToolchain(
+            swiftSDK: SwiftSDK.hostSwiftSDK(
+                environment: environment,
+                fileSystem: fileSystem
+            ),
+            environment: environment
+        )
+
+        return hostToolchain.swiftCompilerVersion
+    }
+
     mutating func run() async throws {
         if build {
             try await build()
@@ -230,6 +181,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let fileSystem = localFileSystem
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
+
+        guard let swiftVersion = try computeSwiftVersion() else {
+            print("Unable to determine swift compiler version")
+            return
+        }
 
         print("Stage directory: \(stageDir)")
 
@@ -255,7 +211,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             try fileSystem.removeFileTree(includesDir)
         }
 
-        for repo in prebuiltRepos.values {
+        for repo in prebuiltRepos {
             let repoDir = srcDir.appending(repo.url.lastPathComponent)
             let scratchDir = repoDir.appending(".build")
             let buildDir = scratchDir.appending("release")
@@ -272,10 +228,34 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
                 try await shell("git checkout \(version.tag)", cwd: repoDir)
 
-                var newLibraries: IdentifiableSet<Workspace.PrebuiltsManifest.Library> = []
+                // Update package with the libraries
+                let packageFile = repoDir.appending(component: "Package.swift")
+                let workspace = try Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
+                let package = try await workspace.loadRootPackage(
+                    at: repoDir,
+                    observabilityScope: ObservabilitySystem { _, diag in print(diag) }.topScope
+                )
 
+                // Gather the list of targets for the libraries' products
+                let libraryTargets: [String: [Module]] = version.manifest.libraries.reduce(into: [:]) {
+                    $0[$1.name] = package.targets(forProducts: $1.products)
+                }
+
+                var packageContents = try String(contentsOf: packageFile.asURL)
+                for (library, targets) in libraryTargets {
+                    packageContents += """
+                        package.products += [
+                            .library(name: "\(library)", type: .static, targets: [
+                                \(targets.map({ "\"\($0.name)\"" }).joined(separator: ","))
+                            ])
+                        ]
+                        """
+                }
+                try packageContents.write(to: packageFile.asURL, atomically: true, encoding: .utf8)
+
+                // Build
                 for library in version.manifest.libraries {
-                    try await version.addProduct(library, repoDir)
+                    let cModules = libraryTargets[library.name]?.compactMap({ $0 as? ClangModule }) ?? []
 
                     for platform in Workspace.PrebuiltsManifest.Platform.allCases {
                         guard canBuild(platform) else {
@@ -292,11 +272,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         }
 
                         // Build
-                        var cmd = ""
-                        if docker, let dockerTag = platform.dockerTag, let dockerPlatform = platform.arch.dockerPlatform {
-                            cmd += "\(dockerCommand) run --rm --platform \(dockerPlatform) -v \(repoDir):\(repoDir) -w \(repoDir) \(dockerImageRoot)\(dockerTag) "
-                        }
-                        cmd += "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(library.name)"
+                        let cmd = "swift build -c release -debug-info-format none --arch \(platform.arch) --product \(library.name)"
                         try await shell(cmd, cwd: repoDir)
 
                         // Copy the library to staging
@@ -309,10 +285,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         }
 
                         // Do a deep copy of the C module headers
-                        for cModule in library.cModules {
-                            let cModuleDir = version.cModulePaths[cModule] ?? ["Sources", cModule]
-                            let srcIncludeDir = repoDir.appending(components: cModuleDir).appending("include")
-                            let destIncludeDir = includesDir.appending(cModule)
+                        for cModule in cModules {
+                            let srcIncludeDir = cModule.includeDir
+                            let destIncludeDir = includesDir.appending(cModule.name)
 
                             try fileSystem.createDirectory(destIncludeDir, recursive: true)
                             try fileSystem.enumerate(directory: srcIncludeDir) { srcPath in
@@ -323,7 +298,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         }
 
                         // Zip it up
-                        let contentDirs = ["lib", "Modules"] + (library.cModules.isEmpty ? [] : ["include"])
+                        let contentDirs = ["lib", "Modules"] + (cModules.isEmpty ? [] : ["include"])
 #if os(Windows)
                         let zipFile = versionDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip")
                         try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
@@ -338,31 +313,26 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         let contents = try ByteString(Data(contentsOf: zipFile.asURL))
 #endif
 
+                        // Manifest fragment for the zip file
                         let checksum = SHA256().hash(contents).hexadecimalRepresentation
-                        let artifact: Workspace.PrebuiltsManifest.Library.Artifact =
-                            .init(platform: platform, checksum: checksum)
+                        let artifact = Artifact(
+                            platform: platform,
+                            checksum: checksum,
+                            libraryName: library.name,
+                            products: library.products,
+                            includePath: cModules.map({ $0.includeDir.relative(to: repoDir ) }),
+                            cModules: cModules.map(\.name),
+                            swiftVersion: swiftVersion
+                        )
 
                         let artifactJsonFile = versionDir.appending("\(swiftVersion)-\(library.name)-\(platform).zip.json")
                         try fileSystem.writeFileContents(artifactJsonFile, data: encoder.encode(artifact))
 
+                        // Clean up
                         try fileSystem.removeFileTree(libDir)
                         try fileSystem.removeFileTree(modulesDir)
                         try fileSystem.removeFileTree(includesDir)
                     }
-
-                    let decoder = JSONDecoder()
-                    let newLibrary = Workspace.PrebuiltsManifest.Library(
-                        name: library.name,
-                        products: library.products,
-                        cModules: library.cModules,
-                        artifacts: try fileSystem.getDirectoryContents(versionDir)
-                            .filter({ $0.hasSuffix(".zip.json")})
-                            .compactMap({
-                                let data: Data = try fileSystem.readFileContents(versionDir.appending($0))
-                                return try? decoder.decode(Workspace.PrebuiltsManifest.Library.Artifact.self, from: data)
-                            })
-                    )
-                    newLibraries.insert(newLibrary)
 
                     try await shell("git restore .", cwd: repoDir)
                 }
@@ -379,25 +349,127 @@ struct BuildPrebuilts: AsyncParsableCommand {
         encoder.outputFormatting = .prettyPrinted
         let decoder = JSONDecoder()
 
-        for repo in prebuiltRepos.values {
+        let httpClient = HTTPClient()
+
+        guard let swiftVersion = try computeSwiftVersion() else {
+            print("Unable to determine swift compiler version")
+            _exit(1)
+        }
+
+        for repo in prebuiltRepos {
             let prebuiltDir = stageDir.appending(repo.url.lastPathComponent)
             for version in repo.versions {
                 let versionDir = prebuiltDir.appending(version.tag)
-                let manifestFile = versionDir.appending("\(swiftVersion)-manifest.json")
 
-                var manifest = version.manifest
-                manifest.libraries = try manifest.libraries.map({
-                    .init(name: $0.name,
-                          products: $0.products,
-                          cModules: $0.cModules,
-                          artifacts: try fileSystem.getDirectoryContents(versionDir)
-                              .filter({ $0.hasSuffix(".zip.json")})
-                              .compactMap({
-                                  let data: Data = try fileSystem.readFileContents(versionDir.appending($0))
-                                  return try? decoder.decode(Workspace.PrebuiltsManifest.Library.Artifact.self, from: data)
-                              })
-                    )
-                })
+                // Load artifacts
+                let artifacts = try fileSystem.getDirectoryContents(versionDir)
+                    .filter({ $0.hasSuffix(".zip.json") })
+                    .map {
+                        let data: Data = try fileSystem.readFileContents(versionDir.appending($0))
+                        var artifact = try decoder.decode(Artifact.self, from: data)
+                        if artifact.swiftVersion == nil || artifact.libraryName == nil {
+                            let regex = try Regex(#"(.+)-([^-]+)-[^-]+.zip.json"#)
+                            if let match = try regex.firstMatch(in: $0),
+                               match.count > 2,
+                               let swiftVersion = match[1].substring,
+                               let libraryName = match[2].substring
+                            {
+                                artifact.swiftVersion = .init(swiftVersion)
+                                artifact.libraryName = .init(libraryName)
+                            }
+                        }
+                        return artifact
+                    }
+
+                // Fetch manifests for requested swift versions
+                let swiftVersions: Set<String> = .init(artifacts.compactMap(\.swiftVersion))
+                var manifests: [String: Workspace.PrebuiltsManifest] = [:]
+                for swiftVersion in swiftVersions {
+                    let manifestFile = "\(swiftVersion)-manifest.json"
+                    let destination = versionDir.appending(component: manifestFile)
+                    if fileSystem.exists(destination) {
+                        let signedManifest = try decoder.decode(
+                            path: destination,
+                            fileSystem: fileSystem,
+                            as: Workspace.SignedPrebuiltsManifest.self
+                        )
+                        manifests[swiftVersion] = signedManifest.manifest
+                    } else {
+                        let manifestURL = URL(string: prebuiltsUrl)?.appending(components: repo.url.lastPathComponent, version.tag, manifestFile)
+                        guard let manifestURL else {
+                            print("Invalid URL \(prebuiltsUrl)")
+                            _exit(1)
+                        }
+
+                        var headers = HTTPClientHeaders()
+                        headers.add(name: "Accept", value: "application/json")
+                        var request = HTTPClient.Request.download(
+                            url: manifestURL,
+                            headers: headers,
+                            fileSystem: fileSystem,
+                            destination: destination
+                        )
+                        request.options.retryStrategy = .exponentialBackoff(
+                            maxAttempts: 3,
+                            baseDelay: .milliseconds(50)
+                        )
+                        request.options.validResponseCodes = [200]
+
+                        do {
+                            _ = try await httpClient.execute(request) { _, _ in }
+                        } catch {
+                            manifests[swiftVersion] = .init()
+                            continue
+                        }
+
+                        let signedManifest = try decoder.decode(
+                            path: destination,
+                            fileSystem: fileSystem,
+                            as: Workspace.SignedPrebuiltsManifest.self
+                        )
+
+                        manifests[swiftVersion] = signedManifest.manifest
+                    }
+                }
+
+                // Merge in the artifacts
+                for artifact in artifacts {
+                    let swiftVersion = artifact.swiftVersion ?? swiftVersion
+                    var manifest = manifests[swiftVersion, default: version.manifest]
+                    let libraryName = artifact.libraryName ?? manifest.libraries[0].name
+                    var library = manifest.libraries.first(where: { $0.name == libraryName }) ?? .init(name: libraryName)
+                    var newArtifacts = library.artifacts ?? []
+
+                    if let products = artifact.products {
+                        library.products = products
+                    }
+
+                    if let includePath = artifact.includePath {
+                        library.includePath = includePath
+                    }
+
+                    if let cModules = artifact.cModules {
+                        library.cModules = cModules
+                    }
+
+                    if let index = newArtifacts.firstIndex(where: { $0.platform == artifact.platform }) {
+                        var oldArtifact = newArtifacts[index]
+                        oldArtifact.checksum = artifact.checksum
+                        newArtifacts[index] = oldArtifact
+                    } else {
+                        newArtifacts.append(.init(platform: artifact.platform, checksum: artifact.checksum))
+                    }
+
+                    library.artifacts = newArtifacts
+
+                    if let index = manifest.libraries.firstIndex(where: { $0.name == libraryName }) {
+                        manifest.libraries[index] = library
+                    } else {
+                        manifest.libraries.append(library)
+                    }
+
+                    manifests[swiftVersion] = manifest
+                }
 
                 if testSigning {
                     // Use SwiftPM's test certificate chain and private key for testing
@@ -432,39 +504,33 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         observabilityScope: ObservabilitySystem { _, diagnostic in print(diagnostic) }.topScope
                     )
 
-                    let signature = try await signer.sign(
-                        manifest: manifest,
-                        certChainPaths: certChainPaths,
-                        certPrivateKeyPath: privateKeyPath,
-                        fileSystem: fileSystem
-                    )
+                    for (swiftVersion, manifest) in manifests where !manifest.libraries.flatMap({ $0.artifacts ?? [] }).isEmpty {
+                        let signature = try await signer.sign(
+                            manifest: manifest,
+                            certChainPaths: certChainPaths,
+                            certPrivateKeyPath: privateKeyPath,
+                            fileSystem: fileSystem
+                        )
 
-                    let signedManifest = Workspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
-                    try encoder.encode(signedManifest).write(to: manifestFile.asURL)
+                        let signedManifest = Workspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
+                        let manifestFile = versionDir.appending(component: "\(swiftVersion)-manifest.json")
+                        try encoder.encode(signedManifest).write(to: manifestFile.asURL)
+                    }
                 }
             }
         }
-
     }
 
     func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
-        if dockerOnly {
-            return platform.os == .linux
-        }
 #if os(macOS)
-        if platform.os == .macos {
-            return true
-        }
+        return platform.os == .macos
 #elseif os(Windows)
-        if platform.os == .windows {
-            return true
-        }
+        return platform.os == .windows
 #elseif os(Linux)
-        if platform == Workspace.PrebuiltsManifest.Platform.hostPlatform {
-            return true
-        }
+        return platform == Workspace.PrebuiltsManifest.Platform.hostPlatform
+#else
+        return false
 #endif
-        return docker && platform.os == .linux
     }
 
     func make(path: String) throws -> AbsolutePath {
@@ -540,5 +606,37 @@ extension Workspace.PrebuiltsManifest.Platform.Arch {
 extension AbsolutePath: ExpressibleByArgument {
     public init?(argument: String) {
         try? self.init(validating: argument)
+    }
+}
+
+extension Package {
+    /// The transitive list of targets in this package for the given list of products
+    func targets(forProducts productNames: [String]) -> [Module] {
+        var targets: [String: Module] = [:]
+        for productName in productNames {
+            if let product = products.first(where: { $0.name == productName }) {
+                for target in product.modules {
+                    if !targets.keys.contains(target.name) {
+                        func transitTarget(_ target: Module) {
+                            for dep in target.dependencies {
+                                switch dep {
+                                case .module(let module, conditions: _):
+                                    if !targets.keys.contains(module.name) {
+                                        targets[module.name] = module
+                                        transitTarget(module)
+                                    }
+                                default:
+                                    break
+                                }
+                            }
+                        }
+
+                        targets[target.name] = target
+                        transitTarget(target)
+                    }
+                }
+            }
+        }
+        return Array(targets.values)
     }
 }

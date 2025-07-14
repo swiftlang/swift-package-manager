@@ -464,7 +464,9 @@ extension WorkspaceStateStorage {
             let version: TSCUtility.Version
             let libraryName: String
             let path: Basics.AbsolutePath
+            let checkoutPath: Basics.AbsolutePath?
             let products: [String]
+            let includePath: [Basics.RelativePath]?
             let cModules: [String]
 
             init(_ managedPrebuilt: Workspace.ManagedPrebuilt) {
@@ -472,7 +474,9 @@ extension WorkspaceStateStorage {
                 self.version = managedPrebuilt.version
                 self.libraryName = managedPrebuilt.libraryName
                 self.path = managedPrebuilt.path
+                self.checkoutPath = managedPrebuilt.checkoutPath
                 self.products = managedPrebuilt.products
+                self.includePath = managedPrebuilt.includePath
                 self.cModules = managedPrebuilt.cModules
             }
         }
@@ -546,7 +550,9 @@ extension Workspace.ManagedPrebuilt {
             version: prebuilt.version,
             libraryName: prebuilt.libraryName,
             path: prebuilt.path,
+            checkoutPath: prebuilt.checkoutPath,
             products: prebuilt.products,
+            includePath: prebuilt.includePath,
             cModules: prebuilt.cModules
         )
     }

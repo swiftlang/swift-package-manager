@@ -98,17 +98,14 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            // TODO: replace with async/await when available
             let repository = try dependency.packageRef.makeRepositorySpecifier()
             let handle = try await repositoryManager.lookup(
                 package: dependency.packageRef.identity,
                 repository: repository,
                 updateStrategy: .never,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                observabilityScope: observabilityScope
             )
-            let repo = try handle.open()
+            let repo = try await handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
@@ -118,7 +115,7 @@ extension Workspace {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
-            let workingCopy = try handle.createWorkingCopy(at: destination, editable: true)
+            let workingCopy = try await handle.createWorkingCopy(at: destination, editable: true)
             try workingCopy.checkout(revision: revision ?? checkoutState.revision)
 
             // Checkout to the new branch if provided.
@@ -187,7 +184,7 @@ extension Workspace {
         let path = self.location.editSubdirectory(for: dependency)
         // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingCopy = try repositoryManager.openWorkingCopy(at: path)
+            let workingCopy = try await repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
                 throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }

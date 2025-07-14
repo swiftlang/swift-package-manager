@@ -27,7 +27,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
     private let path: Basics.AbsolutePath
     private let cachePath: Basics.AbsolutePath?
     private let registryClient: RegistryClient
-    private let delegate: Delegate?
+    private let delegate: RegistryDownloadManagerDelegateProxy?
 
     struct PackageLookup: Hashable {
         let package: PackageIdentity
@@ -48,14 +48,13 @@ public class RegistryDownloadsManager: AsyncCancellable {
         self.path = path
         self.cachePath = cachePath
         self.registryClient = registryClient
-        self.delegate = delegate
+        self.delegate = RegistryDownloadManagerDelegateProxy(delegate)
     }
 
     public func lookup(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> Basics.AbsolutePath {
         let packageRelativePath: Basics.RelativePath
         let packagePath: Basics.AbsolutePath
@@ -82,9 +81,9 @@ public class RegistryDownloadsManager: AsyncCancellable {
                     // inform delegate that we are starting to fetch
                     // calculate if cached (for delegate call) outside queue as it may change while queue is processing
                     let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
-                    delegateQueue.async { [delegate = self.delegate] in
+                    Task {
                         let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                        delegate?.willFetch(package: package, version: version, fetchDetails: details)
+                        await delegate?.willFetch(package: package, version: version, fetchDetails: details)
                     }
 
                     // make sure destination is free.
@@ -96,18 +95,17 @@ public class RegistryDownloadsManager: AsyncCancellable {
                             package: package,
                             version: version,
                             packagePath: packagePath,
-                            observabilityScope: observabilityScope,
-                            delegateQueue: delegateQueue
+                            observabilityScope: observabilityScope
                         )
                         // inform delegate that we finished to fetch
                         let duration = start.distance(to: .now())
-                        delegateQueue.async { [delegate = self.delegate] in
-                            delegate?.didFetch(package: package, version: version, result: .success(result), duration: duration)
+                        Task {
+                            await delegate?.didFetch(package: package, version: version, result: .success(result), duration: duration)
                         }
                     } catch {
                         let duration = start.distance(to: .now())
-                        delegateQueue.async { [delegate = self.delegate] in
-                            delegate?.didFetch(package: package, version: version, result: .failure(error), duration: duration)
+                        Task {
+                            await delegate?.didFetch(package: package, version: version, result: .failure(error), duration: duration)
                         }
                         throw error
                     }
@@ -126,16 +124,14 @@ public class RegistryDownloadsManager: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Basics.AbsolutePath, Error>) -> Void
+        completion: @escaping @Sendable (Result<Basics.AbsolutePath, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.lookup(
                 package: package,
                 version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -149,8 +145,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         packagePath: Basics.AbsolutePath,
-        observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws -> FetchDetails {
         if let cachePath {
             do {
@@ -238,8 +233,8 @@ public class RegistryDownloadsManager: AsyncCancellable {
         // utility to update progress
 
         @Sendable func updateDownloadProgress(downloaded: Int64, total: Int64?) {
-            delegateQueue.async { [delegate = self.delegate] in
-                delegate?.fetching(
+            Task {
+                await delegate?.fetching(
                     package: package,
                     version: version,
                     bytesDownloaded: downloaded,
@@ -325,6 +320,34 @@ public protocol RegistryDownloadsManagerDelegate: Sendable {
 
     /// Called every time the progress of a repository fetch operation updates.
     func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+}
+
+actor RegistryDownloadManagerDelegateProxy {
+    private let delegate: RegistryDownloadsManagerDelegate
+
+    init?(_ delegate: RegistryDownloadsManagerDelegate?) {
+        guard let delegate else {
+            return nil
+        }
+        self.delegate = delegate
+    }
+
+    func willFetch(package: PackageIdentity, version: Version, fetchDetails: RegistryDownloadsManager.FetchDetails) {
+        self.delegate.willFetch(package: package, version: version, fetchDetails: fetchDetails)
+    }
+
+    func didFetch(
+        package: PackageIdentity,
+        version: Version,
+        result: Result<RegistryDownloadsManager.FetchDetails, Error>,
+        duration: DispatchTimeInterval
+    ) {
+        self.delegate.didFetch(package: package, version: version, result: result, duration: duration)
+    }
+
+    func fetching(package: PackageIdentity, version: Version, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        self.delegate.fetching(package: package, version: version, bytesDownloaded: bytesDownloaded, totalBytesToDownload: totalBytesToDownload)
+    }
 }
 
 extension Dictionary where Key == RegistryDownloadsManager.PackageLookup {

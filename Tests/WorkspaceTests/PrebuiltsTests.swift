@@ -205,11 +205,12 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
                     rootCertPath: rootCertPath
-                )
+                ),
             )
 
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
@@ -268,6 +269,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -372,6 +374,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -434,6 +437,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -486,6 +490,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     rootCertPath: rootCertPath
@@ -551,6 +556,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .ubuntu_noble_x86_64,
@@ -600,6 +606,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     rootCertPath: rootCertPath
@@ -625,7 +632,9 @@ final class PrebuiltsTests: XCTestCase {
         try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { goodManifest, rootCertPath, rootPackage, swiftSyntax in
             // Make a change in the manifest
             var manifest = goodManifest.manifest
-            manifest.libraries[0].artifacts[0] = .init(platform: manifest.libraries[0].artifacts[0].platform, checksum: "BAD")
+            var artifacts = try XCTUnwrap(manifest.libraries[0].artifacts)
+            artifacts[0] = .init(platform: artifacts[0].platform, checksum: "BAD")
+            manifest.libraries[0].artifacts = artifacts
             let badManifest = Workspace.SignedPrebuiltsManifest(
                 manifest: manifest,
                 signature: goodManifest.signature
@@ -666,6 +675,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -727,6 +737,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -790,6 +801,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver,
                     hostPlatform: .macos_aarch64,
@@ -846,6 +858,7 @@ final class PrebuiltsTests: XCTestCase {
                     swiftSyntax
                 ],
                 prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
                     httpClient: httpClient,
                     archiver: archiver
                 )

@@ -139,15 +139,25 @@ public protocol WorkspaceDelegate: AnyObject {
     func didDownloadAllBinaryArtifacts()
 
     /// The workspace has started downloading a binary artifact.
-    func willDownloadPrebuilt(from url: String, fromCache: Bool)
+    func willDownloadPrebuilt(
+        package: PackageIdentity,
+        from url: String,
+        fromCache: Bool
+    )
     /// The workspace has finished downloading a binary artifact.
     func didDownloadPrebuilt(
+        package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     )
     /// The workspace is downloading a binary artifact.
-    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?)
+    func downloadingPrebuilt(
+        package: PackageIdentity,
+        from url: String,
+        bytesDownloaded: Int64,
+        totalBytesToDownload: Int64?
+    )
     /// The workspace finished downloading all binary artifacts.
     func didDownloadAllPrebuilts()
 
@@ -444,20 +454,40 @@ struct WorkspacePrebuiltsManagerDelegate: Workspace.PrebuiltsManager.Delegate {
         self.workspaceDelegate = workspaceDelegate
     }
 
-    func willDownloadPrebuilt(from url: String, fromCache: Bool) {
-        self.workspaceDelegate?.willDownloadPrebuilt(from: url, fromCache: fromCache)
+    func willDownloadPrebuilt(
+        for package: PackageIdentity,
+        from url: String,
+        fromCache: Bool
+    ) {
+        self.workspaceDelegate?.willDownloadPrebuilt(
+            package: package,
+            from: url,
+            fromCache: fromCache
+        )
     }
 
     func didDownloadPrebuilt(
+        for package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
     ) {
-        self.workspaceDelegate?.didDownloadPrebuilt(from: url, result: result, duration: duration)
+        self.workspaceDelegate?.didDownloadPrebuilt(
+            package: package,
+            from: url,
+            result: result,
+            duration: duration
+        )
     }
 
-    func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    func downloadingPrebuilt(
+        for package: PackageIdentity,
+        from url: String,
+        bytesDownloaded: Int64,
+        totalBytesToDownload: Int64?
+    ) {
         self.workspaceDelegate?.downloadingPrebuilt(
+            package: package,
             from: url,
             bytesDownloaded: bytesDownloaded,
             totalBytesToDownload: totalBytesToDownload

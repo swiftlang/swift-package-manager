@@ -198,7 +198,7 @@ public struct CachingOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-prebuilts"),
           inversion: .prefixedEnableDisable,
           help: "Whether to use prebuilt swift-syntax libraries for macros.")
-    public var usePrebuilts: Bool = false
+    public var usePrebuilts: Bool = true
 
     /// Hidden option to override the prebuilts download location for testing
     @Option(
@@ -529,10 +529,6 @@ public struct BuildOptions: ParsableArguments {
     /// their explicitly-declared dependencies
     @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
-
-    /// Whether to use the explicit module build flow (with the integrated driver)
-    @Flag(name: .customLong("experimental-explicit-module-build"))
-    public var useExplicitModuleBuild: Bool = false
 
     /// The build system to use.
     @Option(name: .customLong("build-system"))

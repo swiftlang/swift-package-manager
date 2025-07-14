@@ -47,6 +47,7 @@ import Bionic
 import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
+import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
 import enum TSCBasic.ProcessLockError
@@ -287,6 +288,8 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    private let targetInfo: JSON?
+
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
     /// Create an instance of this tool.
@@ -323,10 +326,12 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
+        targetInfo: JSON? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws {
         self.hostTriple = hostTriple
+        self.targetInfo = targetInfo
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
@@ -415,11 +420,6 @@ public final class SwiftCommandState {
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
         if options.locations.multirootPackageDataFile != nil {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
-        }
-
-        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope
-                .emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
@@ -787,7 +787,8 @@ public final class SwiftCommandState {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
@@ -806,7 +807,8 @@ public final class SwiftCommandState {
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel ?? self.logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
 
         // register the build system with the cancellation handler
@@ -869,12 +871,11 @@ public final class SwiftCommandState {
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
-                ),
+                ) && !options.build.sanitizers.contains(.fuzzer),
                 enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
                 explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
                     .modeParameter,
                 useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
@@ -968,7 +969,11 @@ public final class SwiftCommandState {
         }
 
         return Result(catching: {
-            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+            try UserToolchain(
+                swiftSDK: swiftSDK,
+                environment: self.environment,
+                customTargetInfo: targetInfo,
+                fileSystem: self.fileSystem)
         })
     }()
 
@@ -983,6 +988,7 @@ public final class SwiftCommandState {
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
+            customTargetInfo: targetInfo,
             fileSystem: self.fileSystem
         )
     })

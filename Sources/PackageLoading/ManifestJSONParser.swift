@@ -749,6 +749,45 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .swiftLanguageMode(version)
+        case "treatAllWarnings":
+            guard values.count == 1 else {
+                throw InternalError("invalid build settings value")
+            }
+
+            let rawLevel = values[0]
+
+            guard let level = TargetBuildSettingDescription.WarningLevel(rawValue: rawLevel) else {
+                throw InternalError("unknown warning treat level: \(rawLevel)")
+            }
+
+            return .treatAllWarnings(level)
+
+        case "treatWarning":
+            guard values.count == 2 else {
+                throw InternalError("invalid build settings value")
+            }
+
+            let name = values[0]
+            let rawValue = values[1]
+
+            guard let level = TargetBuildSettingDescription.WarningLevel(rawValue: rawValue) else {
+                throw InternalError("unknown warning treat level: \(rawValue)")
+            }
+
+            return .treatWarning(name, level)
+
+        case "enableWarning":
+            guard values.count == 1 else {
+                throw InternalError("invalid build settings value")
+            }
+            return .enableWarning(values[0])
+
+        case "disableWarning":
+            guard values.count == 1 else {
+                throw InternalError("invalid build settings value")
+            }
+            return .disableWarning(values[0])
+
         case "defaultIsolation":
             guard let rawValue = values.first else {
                 throw InternalError("invalid (empty) build settings value")

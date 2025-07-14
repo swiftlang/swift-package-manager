@@ -8,7 +8,7 @@ Organize, manage, and edit Swift packages.
 
 ## Overview
 
-The Swift Package Manager leets you share your code as a package, depend on and use other share packages, as well as build, test, document, and run your code.
+The Swift Package Manager lets you share your code as a package, depend on and use other share packages, as well as build, test, document, and run your code.
 
 ## Topics
 
@@ -16,10 +16,26 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 
 - <doc:GettingStarted>      <!-- tutorial or article based walk through -->
 - <doc:IntroducingPackages>
+- <doc:PackageSecurity>
 
 ### Guides
 
-- <doc:ExploreDependencies>
+- <doc:CreatingSwiftPackage>
+- <doc:SettingSwiftToolsVersion>
+- <doc:AddingDependencies>
+- <doc:ResolvingPackageVersions>
+- <doc:CreatingCLanguageTargets>
+- <doc:UsingBuildConfigurations>
+- <doc:SwiftVersionSpecificPackaging>
+- <doc:BundlingResources>
+- <doc:ReleasingPublishingAPackage>
+- <doc:ContinuousIntegration>
+- <doc:Plugins>
+- <doc:ModuleAliasing>
+- <doc:UsingSwiftPackageRegistry>
+- <doc:PackageCollections>
+- <doc:UsingShellCompletion>
+- <doc:SwiftPMAsALibrary>
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
@@ -27,8 +43,8 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 <!-- - <doc:swift-docc-plugin> -->
 <!-- - <doc:swift-container-plugin> -->
 
-<!-- ### Reference -->
-<!-- link to PackageDescription API reference docc -->
+ ### Reference
+- <doc:PackageDescription> <!-- redirect page to PackageDescription API reference docc -->
 <!-- link to Command API reference docc - the DocC Plugin API (PackagePlugin) -->
 
 <!-- reference content for the CLI commands `swift ...` -->
@@ -43,3 +59,5 @@ The Swift Package Manager leets you share your code as a package, depend on and 
 - <doc:SwiftRun>
 
 ### Design
+
+- <doc:RegistryServerSpecification>

@@ -346,7 +346,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .xcode:
                 return try XcodeBuildSystem(
@@ -355,17 +356,34 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .swiftbuild:
+                let pluginScriptRunner = DefaultPluginScriptRunner(
+                    fileSystem: self.fileSystem,
+                    cacheDir: scratchDirectory.appending("plugin-cache"),
+                    toolchain: self.hostToolchain,
+                    extraPluginSwiftCFlags: [],
+                    enableSandbox: true,
+                    verboseOutput: self.logLevel <= .info
+                )
+
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     packageManagerResourcesDirectory: nil,
+                    additionalFileRules: [],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    pluginConfiguration: .init(
+                        scriptRunner: pluginScriptRunner,
+                        workDirectory: scratchDirectory.appending(component: "plugin-working-directory"),
+                        disableSandbox: false
+                    ),
+                    delegate: nil,
                 )
             }
         }

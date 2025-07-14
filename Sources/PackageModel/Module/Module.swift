@@ -231,7 +231,7 @@ public class Module {
     public let others: [AbsolutePath]
 
     /// The build settings assignments of this module.
-    public let buildSettings: BuildSettings.AssignmentTable
+    public package(set) var buildSettings: BuildSettings.AssignmentTable
 
     @_spi(SwiftPMInternal)
     public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
@@ -241,6 +241,10 @@ public class Module {
 
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
+
+    /// Whether this module comes from a declaration in the manifest file
+    /// or was synthesized (i.e. some test modules are synthesized).
+    public let implicit: Bool
 
     init(
         name: String,
@@ -256,7 +260,8 @@ public class Module {
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
-        usesUnsafeFlags: Bool
+        usesUnsafeFlags: Bool,
+        implicit: Bool
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -273,15 +278,7 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
-    }
-
-    @_spi(SwiftPMInternal)
-    public var isEmbeddedSwiftTarget: Bool {
-        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
-            return true
-        }
-
-        return false
+        self.implicit = implicit
     }
 }
 

@@ -9,27 +9,35 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 import DriverSupport
 import PackageModel
 import TSCBasic
-import XCTest
+import Testing
 import _InternalTestSupport
 
-final class StaticBinaryLibraryTests: XCTestCase {
-    func testStaticLibrary() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8657")
+struct StaticBinaryLibraryTests {
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8657")
+    )
+    func staticLibrary() async throws {
 
-        try await fixture(name: "BinaryLibraries") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftRun(
-                fixturePath.appending("Static").appending("Package1"),
-                "Example",
-                extraArgs: ["--experimental-prune-unused-dependencies"]
-            )
-            XCTAssertEqual(stdout,  """
-            42
-            42
+        try await withKnownIssue {
+            try await fixture(name: "BinaryLibraries") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Static").appending("Package1"),
+                    "Example",
+                    extraArgs: ["--experimental-prune-unused-dependencies"],
+                    buildSystem: .native,
+                )
+                #expect(stdout == """
+                42
+                42
 
-            """)
+                """)
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 }

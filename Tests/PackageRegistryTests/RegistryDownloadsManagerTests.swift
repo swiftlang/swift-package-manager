@@ -409,17 +409,6 @@ private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManag
     }
 }
 
-extension RegistryDownloadsManager {
-    fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) async throws -> AbsolutePath {
-        try await self.lookup(
-            package: package,
-            version: version,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
-        )
-    }
-}
-
 fileprivate struct PackageVersion: Hashable, Equatable, Sendable {
     let package: PackageIdentity
     let version: Version

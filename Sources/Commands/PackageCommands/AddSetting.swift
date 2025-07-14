@@ -29,7 +29,7 @@ extension SwiftPackageCommand {
             case experimentalFeature
             case upcomingFeature
             case languageMode
-            case strictMemorySafety
+            case strictMemorySafety = "StrictMemorySafety"
         }
 
         package static let configuration = CommandConfiguration(
@@ -44,7 +44,7 @@ extension SwiftPackageCommand {
 
         @Option(
             name: .customLong("swift"),
-            parsing: .unconditionalSingleValue,
+            parsing: .upToNextOption,
             help: "The Swift language setting(s) to add. Supported settings: \(SwiftSetting.allCases.map(\.rawValue).joined(separator: ", "))."
         )
         var _swiftSettings: [String]
@@ -150,8 +150,8 @@ extension SwiftPackageCommand {
                         manifest: manifestSyntax
                     )
                 case .strictMemorySafety:
-                    guard value.isEmpty else {
-                        throw ValidationError("'strictMemorySafety' doesn't have an argument")
+                    guard value.isEmpty || value == SwiftSetting.strictMemorySafety.rawValue else {
+                        throw ValidationError("'strictMemorySafety' does not support argument '\(value)'")
                     }
 
                     editResult = try AddSwiftSetting.strictMemorySafety(

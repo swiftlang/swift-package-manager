@@ -80,13 +80,16 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
+    public var hasIntegratedAPIDigesterSupport: Bool { false }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        delegate: BuildSystemDelegate?
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -94,6 +97,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         self.logLevel = logLevel
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Xcode Build System")
+        self.delegate = delegate
         self.isColorized = buildParameters.outputParameters.isColorized
         if let xcbuildTool = Environment.current["XCBUILD_TOOL"] {
             xcbuildPath = try AbsolutePath(validating: xcbuildTool)
@@ -156,9 +160,9 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return []
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset) async throws -> BuildResult {
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("XCBuild does not support reporting serialized diagnostics.")))
         }
 
         let pifBuilder = try await getPIFBuilder()
@@ -240,8 +244,12 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
-        self.outputStream.send("Build complete!\n")
-        self.outputStream.flush()
+        if !logLevel.isQuiet {
+            self.outputStream.send("Build complete!\n")
+            self.outputStream.flush()
+        }
+
+        return BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("XCBuild does not support reporting serialized diagnostics.")))
     }
 
     func createBuildParametersFile() throws -> AbsolutePath {
@@ -406,11 +414,5 @@ extension BuildSubset {
         case .allIncludingTests:
             PIFBuilder.allIncludingTestsTargetName
         }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        self <= .info
     }
 }

@@ -585,8 +585,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
         // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
-        let buildPath = self.destinationBuildParameters.buildPath.pathString
-        var arguments = ["-I", buildPath]
+        var arguments: [String] = []
 
         // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
         // will silently error failing the operation.  Filter out this flag
@@ -610,7 +609,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for target in self.targets {
             switch target {
             case .swift(let targetDescription):
-                arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                if target.destination == .target {
+                    // Include in the analysis surface target destination. That way auxiliary
+                    // modules from building a build tool (destination == .host) won't conflict
+                    // with the modules intended to analyze.
+                    arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                }
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]

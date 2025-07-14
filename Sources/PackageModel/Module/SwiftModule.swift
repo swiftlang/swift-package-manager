@@ -33,7 +33,8 @@ public final class SwiftModule: Module {
         dependencies: [Module.Dependency],
         packageAccess: Bool,
         testDiscoverySrc: Sources,
-        buildSettings: BuildSettings.AssignmentTable = .init()) {
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        implicit: Bool) {
         self.declaredSwiftVersions = []
 
         super.init(
@@ -46,7 +47,8 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: implicit
         )
     }
 
@@ -68,7 +70,8 @@ public final class SwiftModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
-        usesUnsafeFlags: Bool
+        usesUnsafeFlags: Bool,
+        implicit: Bool
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
@@ -85,7 +88,8 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
-            usesUnsafeFlags: usesUnsafeFlags
+            usesUnsafeFlags: usesUnsafeFlags,
+            implicit: implicit
         )
     }
 
@@ -133,7 +137,8 @@ public final class SwiftModule: Module {
             buildSettings: buildSettings,
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: true
         )
     }
 

@@ -20,7 +20,6 @@ import struct TSCBasic.ByteString
 import struct TSCBasic.Format
 import class TSCBasic.Thread
 import func TSCBasic.withTemporaryFile
-import func TSCTestSupport.withCustomEnv
 
 #if os(Windows)
 let catExecutable = "type"
@@ -168,7 +167,7 @@ final class AsyncProcessTests: XCTestCase {
             #endif
             try localFileSystem.writeFileContents(tempExecutable, bytes: exitScriptContent)
 
-            try withCustomEnv(["PATH": tmpdir.pathString]) {
+            try Environment.makeCustom(["PATH": tmpdir.pathString]) {
                 XCTAssertEqual(AsyncProcess.findExecutable("nonExecutableProgram"), nil)
             }
         }
@@ -184,7 +183,7 @@ final class AsyncProcessTests: XCTestCase {
 
             """)
 
-            try withCustomEnv(["PATH": tmpdir.pathString]) {
+            try Environment.makeCustom(["PATH": tmpdir.pathString]) {
                 do {
                     let process = AsyncProcess(args: "nonExecutableProgram")
                     try process.launch()
@@ -390,12 +389,7 @@ final class AsyncProcessTests: XCTestCase {
     }
 
     func testWorkingDirectory() throws {
-        guard #available(macOS 10.15, *) else {
-            // Skip this test since it's not supported in this OS.
-            return
-        }
-
-        #if os(Linux) || os(Android)
+        #if !os(Windows)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             // Skip this test since it's not supported in this OS.
             return

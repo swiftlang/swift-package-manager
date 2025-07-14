@@ -226,7 +226,7 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                var traits: Set<String>? = rootEnabledTraitsMap[package.reference.identity] ?? []
+                let traits: Set<String>? = rootEnabledTraitsMap[package.reference.identity] ?? []
 
                 let node = try GraphLoadingNode(
                     identity: identity,
@@ -239,7 +239,7 @@ extension Workspace {
                 let package = dependency.packageRef
                 inputIdentities.append(package)
                 return try manifestsMap[dependency.identity].map { manifest in
-                    var traits: Set<String>? = rootDependenciesEnabledTraitsMap[dependency.identity] ?? []
+                    let traits: Set<String>? = rootDependenciesEnabledTraitsMap[dependency.identity] ?? []
 
                     return try GraphLoadingNode(
                         identity: dependency.identity,
@@ -629,7 +629,7 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             try manifest.dependencies.filter { dep in
                 guard configuration.pruneDependencies else { return true }
-                var enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
+                let enabledTraits: Set<String>? = root.enabledTraits[manifest.packageIdentity]
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits)
                 return isDepUsed
             }.map(\.packageRef)
@@ -990,8 +990,7 @@ extension Workspace {
                     let container = try await self.packageContainerProvider.getContainer(
                         for: dependency.packageRef,
                         updateStrategy: .never,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                     if let customContainer = container as? CustomPackageContainer {
                         let newPath = try customContainer.retrieve(at: version, observabilityScope: observabilityScope)

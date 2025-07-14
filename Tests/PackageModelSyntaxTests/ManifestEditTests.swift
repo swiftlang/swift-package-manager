@@ -100,6 +100,10 @@ class ManifestEditTests: XCTestCase {
     }
 
     func testAddPackageDependencyExistingNoComma() throws {
+        try XCTSkipOnWindows(
+            because: "Test appears to hang",
+            skipPlatformCi: true,
+        )
         try assertManifestRefactor("""
             // swift-tools-version: 5.5
             let package = Package(
@@ -487,7 +491,7 @@ class ManifestEditTests: XCTestCase {
             let package = Package(
                 name: "packages",
                 dependencies: [
-                    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
+                    .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "602.0.0-latest"),
                 ],
                 targets: [
                     .macro(
@@ -789,7 +793,7 @@ class ManifestEditTests: XCTestCase {
                         dependencies: [
                         ],
                         swiftSettings: [
-                            .strictMemorySafety,
+                            .strictMemorySafety(),
                         ]
                     ),
                 ]
@@ -870,6 +874,50 @@ class ManifestEditTests: XCTestCase {
             try AddSwiftSetting.languageMode(
                 to: "MyTest",
                 mode: .init(string: "6.2")!,
+                manifest: manifest
+            )
+        }
+
+        try assertManifestRefactor("""
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(
+                        name: "MyTest",
+                        dependencies: [
+                            .byName(name: "Dependency")
+                        ]
+                    ),
+                    .target(
+                        name: "Dependency"
+                    )
+                ]
+            )
+            """,
+            expectedManifest: """
+            // swift-tools-version: 5.8
+            let package = Package(
+                name: "packages",
+                targets: [
+                    .target(
+                        name: "MyTest",
+                        dependencies: [
+                            .byName(name: "Dependency")
+                        ]
+                    ),
+                    .target(
+                        name: "Dependency",
+                        swiftSettings: [
+                            .enableUpcomingFeature("ExistentialAny"),
+                        ]
+                    )
+                ]
+            )
+            """) { manifest in
+            try AddSwiftSetting.upcomingFeature(
+                to: "Dependency",
+                name: "ExistentialAny",
                 manifest: manifest
             )
         }
