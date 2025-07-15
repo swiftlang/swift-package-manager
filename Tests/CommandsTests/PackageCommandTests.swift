@@ -559,7 +559,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 
     func testDumpSymbolGraphCompactFormatting() async throws {
         // Depending on how the test is running, the `swift-symbolgraph-extract` tool might be unavailable.
-        try XCTSkipIf((try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        try XCTSkipIf(buildSystemProvider == .native && (try? UserToolchain.default.getSymbolGraphExtract()) == nil, "skipping test because the `swift-symbolgraph-extract` tools isn't available")
+        try XCTSkipIf(buildSystemProvider == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows, "skipping test for Windows because of long file path issues")
 
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let compactGraphData = try await XCTAsyncUnwrap(await symbolGraph(atPath: fixturePath, withPrettyPrinting: false))
