@@ -57,7 +57,7 @@ extension SwiftPackageCommand {
             abstract: "Migrate a package or its individual targets to use the given set of features."
         )
 
-        @OptionGroup()
+        @OptionGroup(visibility: .hidden)
         public var globalOptions: GlobalOptions
 
         @OptionGroup()
