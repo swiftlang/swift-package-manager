@@ -180,7 +180,7 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
             }
-            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+            guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
                 Issue.record("Incorrect error was raised.")
                 return
             }
@@ -208,7 +208,7 @@ struct TestCommandTests {
                     throwIfCommandFails: true,
                 )
             }
-            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+            guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
                 Issue.record("Incorrect error was raised.")
                 return
             }
@@ -262,7 +262,7 @@ struct TestCommandTests {
                         buildSystem: buildSystem,
                     )
                 }
-                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
                     Issue.record("Incorrect error was raised.")
                     return
                 }

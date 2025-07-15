@@ -2108,6 +2108,15 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    func testMigrateCommandHelp() async throws {
+        let (stdout, _) = try await self.execute(
+            ["migrate", "--help"],
+        )
+
+        // Global options are hidden.
+        XCTAssertNoMatch(stdout, .contains("--package-path"))
+    }
+
     func testMigrateCommand() async throws {
         try XCTSkipIf(
             !UserToolchain.default.supportesSupportedFeatures,
