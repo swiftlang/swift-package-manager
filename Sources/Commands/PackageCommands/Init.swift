@@ -78,11 +78,6 @@ extension SwiftPackageCommand {
             }
         }
 
-
-        //
-        //
-        //
-        //
         /// Path to a local template.
         @Option(name: .customLong("path"), help: "Path to the local template.", completion: .directory)
         var templateDirectory: Basics.AbsolutePath?
@@ -313,18 +308,21 @@ extension SwiftPackageCommand {
             )
 
             let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-            let response = try initTemplatePackage.promptUser(tool: toolInfo, arguments: args)
+            let cliResponses = try initTemplatePackage.promptUser(command: toolInfo.command, arguments: args)
 
-            do {
-                let _ = try await TemplatePluginRunner.run(
-                    plugin: matchingPlugins[0],
-                    package: packageGraph.rootPackages.first!,
-                    packageGraph: packageGraph,
-                    arguments: response,
-                    swiftCommandState: swiftCommandState
-                )
-            }
-        }
+            for response in cliResponses {
+                print(response)
+                do {
+                    let _ = try await TemplatePluginRunner.run(
+                        plugin: matchingPlugins[0],
+                        package: packageGraph.rootPackages.first!,
+                        packageGraph: packageGraph,
+                        arguments: response,
+                        swiftCommandState: swiftCommandState
+                    )
+                }
+            }}
+
 
         /// Validates the loaded manifest to determine package type.
         private func checkConditions(_ swiftCommandState: SwiftCommandState, template: String?) async throws -> InitPackage.PackageType {
