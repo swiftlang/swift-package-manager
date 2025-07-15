@@ -32,7 +32,7 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [],//[.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
@@ -73,7 +73,7 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [],//[.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
@@ -237,7 +237,7 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [],//[.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         return Manifest(

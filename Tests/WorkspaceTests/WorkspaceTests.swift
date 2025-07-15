@@ -15872,16 +15872,12 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
             PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
-//                result.check(packages: "Baz", "Foo", "Boo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
             XCTAssertNoDiagnostics(diagnostics)
-//            testDiagnostics(diagnostics) { result in
-//                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
-//            }
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
