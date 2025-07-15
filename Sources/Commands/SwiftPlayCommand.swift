@@ -95,7 +95,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
             productsBuildParameters.flags = flags
         }
 
-        var playAgain: Bool = false
+        var buildAndPlayAgain: Bool = false
 
         repeat {
             do {
@@ -104,25 +104,26 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                     productsBuildParameters: productsBuildParameters
                 )
 
-                switch buildResult {
-                case .success(_):
-                    let result = try await startPlaygroundAndMonitorFilesIfNeeded(
-                        buildResult: buildResult,
-                        swiftCommandState: swiftCommandState
-                    )
-                    playAgain = (result == .shouldPlayAgain)
-
-                case .failure(_):
+                if case .failure(_) = buildResult {
                     print("Build failed")
-                    if !playAgain {
+
+                    if !buildAndPlayAgain {
+                        // Exit immediately when initial build fails
                         break
                     }
                 }
 
+                let result = try await startPlaygroundAndMonitorFilesIfNeeded(
+                    buildResult: buildResult,
+                    swiftCommandState: swiftCommandState
+                )
+
+                buildAndPlayAgain = (result == .shouldPlayAgain)
+
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
             }
-        } while (playAgain)
+        } while (buildAndPlayAgain)
     }
 
     /// Builds the playground runner executable product.
