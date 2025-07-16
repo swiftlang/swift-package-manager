@@ -1120,13 +1120,40 @@ extension BuildPlan {
             guard visited.insert(.package(package)).inserted else {
                 return []
             }
-            return package.modules.compactMap {
-                if case .test = $0.underlying.type,
-                   !self.graph.rootPackages.contains(id: package.id)
+
+            var successors: [TraversalNode] = []
+            for product in package.products {
+                if case .test = product.underlying.type,
+                   !graph.rootPackages.contains(id: package.id)
                 {
-                    return nil
+                    continue
                 }
-                return .init(module: $0, context: .target)
+
+                successors.append(.init(product: product, context: .target))
+            }
+
+            for module in package.modules {
+                // Tests are discovered through an aggregate product which also
+                // informs their destination.
+                if case .test = module.type {
+                    continue
+                }
+                successors.append(.init(module: module, context: .target))
+            }
+
+            return successors
+        }
+
+        func successors(
+            for product: ResolvedProduct,
+            destination: Destination
+        ) -> [TraversalNode] {
+            guard destination == .host || product.underlying.type == .test else {
+                return []
+            }
+
+            return product.modules.map { module in
+                TraversalNode(module: module, context: destination)
             }
         }
 
@@ -1156,8 +1183,8 @@ extension BuildPlan {
                 successors(for: package)
             case .module(let module, let destination):
                 successors(for: module, destination: destination)
-            case .product:
-                []
+            case .product(let product, let destination):
+                successors(for: product, destination: destination)
             }
         } onNext: { current, parent in
             let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {
