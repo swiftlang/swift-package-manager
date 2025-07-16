@@ -21,6 +21,47 @@ import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
 
 extension ModulesGraph {
+    package static func load(
+        root: PackageGraphRoot,
+        identityResolver: IdentityResolver,
+        additionalFileRules: [FileRuleDescription] = [],
+        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
+        requiredDependencies: [PackageReference] = [],
+        unsafeAllowedPackages: Set<PackageReference> = [],
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
+        shouldCreateMultipleTestProducts: Bool = false,
+        createREPLProduct: Bool = false,
+        customPlatformsRegistry: PlatformRegistry? = .none,
+        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
+        testEntryPointPath: AbsolutePath? = nil,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        productsFilter: ((Product) -> Bool)? = nil,
+        modulesFilter: ((Module) -> Bool)? = nil
+    ) throws -> ModulesGraph {
+        try Self.load(
+            root: root,
+            identityResolver: identityResolver,
+            additionalFileRules: additionalFileRules,
+            externalManifests: externalManifests,
+            requiredDependencies: requiredDependencies,
+            unsafeAllowedPackages: unsafeAllowedPackages,
+            binaryArtifacts: binaryArtifacts,
+            prebuilts: prebuilts,
+            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
+            createREPLProduct: createREPLProduct,
+            customPlatformsRegistry: customPlatformsRegistry,
+            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
+            testEntryPointPath: testEntryPointPath,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            productsFilter: productsFilter,
+            modulesFilter: modulesFilter,
+            enabledTraitsMap: .init()
+        )
+    }
+
     /// Load the package graph for the given package path.
     package static func load(
         root: PackageGraphRoot,

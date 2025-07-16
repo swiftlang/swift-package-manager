@@ -182,7 +182,7 @@ public struct PackageContainerConstraint: Equatable, Hashable {
 
 extension PackageContainerConstraint: CustomStringConvertible {
     public var description: String {
-        return "Constraint(\(self.package), \(requirement), \(products), \(enabledTraits ?? [])"
+        return "Constraint(\(self.package), \(requirement), \(products), \(enabledTraits)"
     }
 }
 
