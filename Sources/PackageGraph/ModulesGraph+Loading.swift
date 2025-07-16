@@ -21,47 +21,6 @@ import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
 
 extension ModulesGraph {
-    package static func load(
-        root: PackageGraphRoot,
-        identityResolver: IdentityResolver,
-        additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
-        requiredDependencies: [PackageReference] = [],
-        unsafeAllowedPackages: Set<PackageReference> = [],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
-        shouldCreateMultipleTestProducts: Bool = false,
-        createREPLProduct: Bool = false,
-        customPlatformsRegistry: PlatformRegistry? = .none,
-        customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-        testEntryPointPath: AbsolutePath? = nil,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope,
-        productsFilter: ((Product) -> Bool)? = nil,
-        modulesFilter: ((Module) -> Bool)? = nil
-    ) throws -> ModulesGraph {
-        try Self.load(
-            root: root,
-            identityResolver: identityResolver,
-            additionalFileRules: additionalFileRules,
-            externalManifests: externalManifests,
-            requiredDependencies: requiredDependencies,
-            unsafeAllowedPackages: unsafeAllowedPackages,
-            binaryArtifacts: binaryArtifacts,
-            prebuilts: prebuilts,
-            shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-            createREPLProduct: createREPLProduct,
-            customPlatformsRegistry: customPlatformsRegistry,
-            customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-            testEntryPointPath: testEntryPointPath,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
-            productsFilter: productsFilter,
-            modulesFilter: modulesFilter,
-            enabledTraitsMap: .init()
-        )
-    }
-
     /// Load the package graph for the given package path.
     package static func load(
         root: PackageGraphRoot,
@@ -193,6 +152,14 @@ extension ModulesGraph {
             let packagePath = manifest.path.parentDirectory
             nodeObservabilityScope.trap {
                 // Create a package from the manifest and sources.
+
+                // Special case to handle: if the traits enabled for this node is simply ["default"],
+                // this means that we don't have any defined traits for this package and should there
+                // flatten the set to be empty for the PackageBuilder.
+                var enabledTraits = node.enabledTraits
+                if enabledTraits == ["default"] {
+                    enabledTraits = []
+                }
                 let builder = PackageBuilder(
                     identity: node.identity,
                     manifest: manifest,
@@ -206,7 +173,7 @@ extension ModulesGraph {
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
                     fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope,
-                    enabledTraits: node.enabledTraits
+                    enabledTraits: enabledTraits
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package

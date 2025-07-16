@@ -180,7 +180,6 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Run the build. This doesn't return until the build is complete.
         let success = await buildSystem.buildIgnoringError(subset: buildSubset)
 
-        swiftCommandState.observabilityScope.emit(warning: "plugin delegate getting package graph")
         let packageGraph = try await buildSystem.getPackageGraph()
 
         var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = []
