@@ -49,7 +49,7 @@ final class SwiftSDKCommandTests: CommandsTestCase {
 
     func testInstallSubcommand() async throws {
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            try await fixture(name: "SwiftSDKs") { fixturePath in
+            try await fixtureXCTest(name: "SwiftSDKs") { fixturePath in
                 for bundle in ["test-sdk.artifactbundle.tar.gz", "test-sdk.artifactbundle.zip"] {
                     var (stdout, stderr) = try await command.execute(
                         [
@@ -138,7 +138,7 @@ final class SwiftSDKCommandTests: CommandsTestCase {
             """
 
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            try await fixture(name: "SwiftSDKs") { fixturePath in
+            try await fixtureXCTest(name: "SwiftSDKs") { fixturePath in
                 let bundle = "test-sdk.artifactbundle.zip"
 
                 var (stdout, stderr) = try await command.execute([

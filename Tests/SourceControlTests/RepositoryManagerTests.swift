@@ -126,7 +126,7 @@ final class RepositoryManagerTests: XCTestCase {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
 
-        try await fixture(name: "DependencyResolution/External/Simple") { (fixturePath: AbsolutePath) in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { (fixturePath: AbsolutePath) in
             let cachePath = fixturePath.appending("cache")
             let repositoriesPath = fixturePath.appending("repositories")
             let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))

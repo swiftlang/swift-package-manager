@@ -570,7 +570,7 @@ class CertificatePolicyTests: XCTestCase {
     private func readTestCertChain(paths: (AbsolutePath) -> [AbsolutePath]) async throws -> [Certificate] {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                     let certPaths = paths(fixturePath)
                     let certificates = try certPaths.map { certPath in
                         try Certificate(derEncoded: try localFileSystem.readFileContents(certPath).contents)

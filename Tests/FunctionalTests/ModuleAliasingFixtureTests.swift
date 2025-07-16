@@ -19,7 +19,7 @@ import XCTest
  
 final class ModuleAliasingFixtureTests: XCTestCase {
     func testModuleDirectDeps1() async throws {
-        try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
+        try await fixtureXCTest(name: "ModuleAliasing/DirectDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
@@ -31,7 +31,7 @@ final class ModuleAliasingFixtureTests: XCTestCase {
     }
 
     func testModuleDirectDeps2() async throws {
-        try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
+        try await fixtureXCTest(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
@@ -43,7 +43,7 @@ final class ModuleAliasingFixtureTests: XCTestCase {
     }
 
     func testModuleNestedDeps1() async throws {
-        try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
+        try await fixtureXCTest(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
@@ -59,7 +59,7 @@ final class ModuleAliasingFixtureTests: XCTestCase {
     }
 
     func testModuleNestedDeps2() async throws {
-        try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
+        try await fixtureXCTest(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
