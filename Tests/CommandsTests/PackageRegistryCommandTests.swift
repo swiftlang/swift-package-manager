@@ -89,7 +89,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testLocalConfiguration() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -202,7 +202,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     // TODO: Test global configuration
 
     func testSetMissingURL() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -219,7 +219,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testSetInvalidURL() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -236,7 +236,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testSetInsecureURL() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -253,7 +253,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testSetAllowedInsecureURL() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -270,7 +270,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testSetInvalidScope() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -292,7 +292,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     func testUnsetMissingEntry() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             let configurationFilePath = AbsolutePath(
                 ".swiftpm/configuration/registries.json",
@@ -792,7 +792,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -903,7 +903,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -1010,7 +1010,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let intermediateCertificatePath = temporaryDirectory.appending(component: "intermediate.cer")
             let privateKeyPath = temporaryDirectory.appending(component: "private-key.p8")
 
-            try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+            try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                 try localFileSystem.copy(
                     from: fixturePath.appending(components: "Certificates", "Test_ec.cer"),
                     to: certificatePath
@@ -1120,7 +1120,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     }
 
     private func testRoots() throws -> [[UInt8]] {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
             let rootCA = try localFileSystem
                 .readFileContents(fixturePath.appending(components: "Certificates", "TestRootCA.cer")).contents
             return [rootCA]

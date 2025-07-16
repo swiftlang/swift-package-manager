@@ -27,7 +27,7 @@ final class MiscellaneousTestCase: XCTestCase {
         // verifies the stdout contains information about
         // the selected version of the package
 
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(fixturePath.appending("Bar"))
             // package resolution output goes to stderr
             XCTAssertMatch(stderr, .regex("Computed .* at 1\\.2\\.3"))
@@ -47,7 +47,7 @@ final class MiscellaneousTestCase: XCTestCase {
         // regression test to ensure that dependencies of other dependencies
         // are not passed into the build-command.
 
-        try await fixture(name: "Miscellaneous/ExactDependencies") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/ExactDependencies") { fixturePath in
             await XCTAssertBuilds(fixturePath.appending("app"))
             let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertFileExists(buildDir.appending(executableName("FooExec")))
@@ -61,7 +61,7 @@ final class MiscellaneousTestCase: XCTestCase {
         // subsequent executions to an unmodified source tree
         // should immediately exit with exit-status: `0`
 
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Complex") { fixturePath in
             await XCTAssertBuilds(fixturePath.appending("app"))
             await XCTAssertBuilds(fixturePath.appending("app"))
             await XCTAssertBuilds(fixturePath.appending("app"))
@@ -78,7 +78,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCompileFailureExitsGracefully() async throws {
-        try await fixture(name: "Miscellaneous/CompileFails") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/CompileFails") { fixturePath in
             await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(fixturePath)) { error in
                 // if our code crashes we'll get an exit code of 256
                 guard error.result.exitStatus == .terminated(code: 1) else {
@@ -92,7 +92,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testPackageManagerDefineAndXArgs() async throws {
-        try await fixture(name: "Miscellaneous/-DSWIFT_PACKAGE") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/-DSWIFT_PACKAGE") { fixturePath in
             await XCTAssertBuildFails(fixturePath)
             await XCTAssertBuilds(fixturePath, Xcc: ["-DEXTRA_C_DEFINE=2"], Xswiftc: ["-DEXTRA_SWIFTC_DEFINE"])
         }
@@ -103,7 +103,7 @@ final class MiscellaneousTestCase: XCTestCase {
      any executables that link to that module to be relinked.
     */
     func testInternalDependencyEdges() async throws {
-        try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
             let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString
 
             await XCTAssertBuilds(fixturePath)
@@ -127,7 +127,7 @@ final class MiscellaneousTestCase: XCTestCase {
      any executables that link to that module in the root package.
     */
     func testExternalDependencyEdges1() async throws {
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Complex") { fixturePath in
             let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString
 
             let packageRoot = fixturePath.appending("app")
@@ -154,7 +154,7 @@ final class MiscellaneousTestCase: XCTestCase {
      any executables for another external package to be rebuilt.
      */
     func testExternalDependencyEdges2() async throws {
-        try await fixture(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
             let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "dep2").pathString]
 
             let packageRoot = fixturePath.appending("root")
@@ -177,7 +177,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testSpaces() async throws {
-        try await fixture(name: "Miscellaneous/Spaces Fixture") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Spaces Fixture") { fixturePath in
             await XCTAssertBuilds(fixturePath)
             XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
@@ -187,7 +187,7 @@ final class MiscellaneousTestCase: XCTestCase {
         // This has been failing on the Swift CI sometimes, need to investigate.
       #if false
         // Make sure that swiftpm doesn't rebuild second time if the modulemap is being generated.
-        try fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
+        try fixtureXCTest(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             var output = try await executeSwiftBuild(prefix)
             XCTAssertFalse(output.isEmpty, output)
             output = try await executeSwiftBuild(prefix)
@@ -200,7 +200,7 @@ final class MiscellaneousTestCase: XCTestCase {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try await fixture(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
             let hostTriple = try UserToolchain.default.targetTriple
             try await executeSwiftBuild(fixturePath, Xswiftc: ["-target", "\(hostTriple.archName)-apple-macosx41.0"])
         }
@@ -208,7 +208,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
     func testPkgConfigCFamilyTargets() async throws {
         try XCTSkipOnWindows(because: "fails to build on windows (maybe not be supported?)")
-        try await fixture(name: "Miscellaneous/PkgConfig") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/PkgConfig") { fixturePath in
             let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
@@ -252,7 +252,7 @@ final class MiscellaneousTestCase: XCTestCase {
     func testCanKillSubprocessOnSigInt() throws {
         // <rdar://problem/31890371> swift-pm: Spurious? failures of MiscellaneousTestCase.testCanKillSubprocessOnSigInt on linux
         #if false
-        try fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
 
             let fakeGit = fixturePath.appending(components: "bin", "git")
             let waitFile = fixturePath.appending(components: "waitfile")
@@ -304,7 +304,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testReportingErrorFromGitCommand() async throws {
-        try await fixture(name: "Miscellaneous/MissingDependency") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/MissingDependency") { fixturePath in
             // This fixture has a setup that is intentionally missing a local
             // dependency to induce a failure.
 
@@ -323,7 +323,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testLocalPackageUsedAsURLValidation() async throws {
-        try await fixture(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/LocalPackageAsURL", createGitRepo: false) { fixturePath in
             // This fixture has a setup that is trying to use a local package
             // as a url that hasn't been initialized as a repo
             await XCTAssertAsyncThrowsError(try await SwiftPM.Build.execute(packagePath: fixturePath.appending("Bar"))) { error in
@@ -345,7 +345,7 @@ final class MiscellaneousTestCase: XCTestCase {
         // - https://github.com/swiftlang/swift/pull/69696
         // - https://github.com/swiftlang/swift/pull/61766
         // - https://github.com/swiftlang/swift-package-manager/pull/5842#issuecomment-1301632685
-        try await fixture(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/LTO/SwiftAndCTargets") { fixturePath in
             /*let output =*/
             try await executeSwiftBuild(
                 fixturePath,
@@ -362,7 +362,7 @@ final class MiscellaneousTestCase: XCTestCase {
     func testUnicode() async throws {
         try XCTSkipOnWindows(because: "Filepath too long error")
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
-        try await fixture(name: "Miscellaneous/Unicode") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Unicode") { fixturePath in
             // See the fixture manifest for an explanation of this string.
             let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
             let verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
@@ -397,7 +397,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testTestsCanLinkAgainstExecutable() async throws {
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath)
                 // in "swift test" build output goes to stderr
@@ -429,7 +429,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
     @available(macOS 15, *)
     func testTestsCanLinkAgainstAsyncExecutable() async throws {
-        try await fixture(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/TestableAsyncExe") { fixturePath in
             let (stdout, stderr) = try await executeSwiftTest(fixturePath)
             // in "swift test" build output goes to stderr
             XCTAssertMatch(stderr, .contains("Linking TestableAsyncExe1"))
@@ -448,7 +448,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testExecutableTargetMismatch() async throws {
-        try await fixture(name: "Miscellaneous/TargetMismatch") { path in
+        try await fixtureXCTest(name: "Miscellaneous/TargetMismatch") { path in
             do {
                 let output = try await executeSwiftBuild(path)
                 // in "swift build" build output goes to stdout
@@ -461,7 +461,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testLibraryTriesToIncludeExecutableTarget() async throws {
-        try await fixture(name: "Miscellaneous/PackageWithMalformedLibraryProduct") { path in
+        try await fixtureXCTest(name: "Miscellaneous/PackageWithMalformedLibraryProduct") { path in
             await XCTAssertThrowsCommandExecutionError(try await executeSwiftBuild(path)) { error in
                 // if our code crashes we'll get an exit code of 256
                 guard error.result.exitStatus == .terminated(code: 1) else {
@@ -473,7 +473,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testEditModeEndToEnd() async throws {
-        try await fixture(name: "Miscellaneous/Edit") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Edit") { fixturePath in
             #if os(Windows)
             let prefix = fixturePath
             #else
@@ -529,7 +529,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCustomCachePath() async throws {
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             let customCachePath = path.appending(components: "custom", "cache")
             XCTAssertNoSuchPath(customCachePath)
             try await SwiftPM.Build.execute(["--cache-path", customCachePath.pathString], packagePath: path)
@@ -538,7 +538,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
         // `FileSystem` does not support `chmod` on Linux
         #if os(macOS)
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customCachePath = path.appending(components: "custom", "cache")
             XCTAssertNoSuchPath(customCachePath)
@@ -554,7 +554,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCustomConfigPath() async throws {
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             let customConfigPath = path.appending(components: "custom", "config")
             XCTAssertNoSuchPath(customConfigPath)
             try await SwiftPM.Build.execute(["--config-path", customConfigPath.pathString], packagePath: path)
@@ -563,7 +563,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
         // `FileSystem` does not support `chmod` on Linux
         #if os(macOS)
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customConfigPath = path.appending(components: "custom", "config")
             XCTAssertNoSuchPath(customConfigPath)
@@ -579,7 +579,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCustomSecurityPath() async throws {
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             let customSecurityPath = path.appending(components: "custom", "security")
             XCTAssertNoSuchPath(customSecurityPath)
             try await SwiftPM.Build.execute(["--security-path", customSecurityPath.pathString], packagePath: path)
@@ -588,7 +588,7 @@ final class MiscellaneousTestCase: XCTestCase {
 
         // `FileSystem` does not support `chmod` on Linux
         #if os(macOS)
-        try await fixture(name: "Miscellaneous/Simple") { path in
+        try await fixtureXCTest(name: "Miscellaneous/Simple") { path in
             try localFileSystem.chmod(.userUnWritable, path: path)
             let customSecurityPath = path.appending(components: "custom", "security")
             XCTAssertNoSuchPath(customSecurityPath)
@@ -612,7 +612,7 @@ final class MiscellaneousTestCase: XCTestCase {
             skipPlatformCi: true,
         )
 
-        try await fixture(name: "Miscellaneous/PluginGeneratedResources") { path in
+        try await fixtureXCTest(name: "Miscellaneous/PluginGeneratedResources") { path in
             let result = try await SwiftPM.Run.execute(packagePath: path)
             XCTAssertEqual(result.stdout, "Hello, World!\n", "executable did not produce expected output")
             XCTAssertTrue(result.stderr.contains("Copying best.txt\n"), "build log is missing message about copying resource file")
@@ -620,13 +620,13 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testCompileCXX17CrashWithFModules() async throws {
-        try await fixture(name: "Miscellaneous/CXX17CompilerCrash/v5_8") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/CXX17CompilerCrash/v5_8") { fixturePath in
             await XCTAssertBuilds(fixturePath)
         }
     }
 
     func testNoJSONOutputWithFlatPackageStructure() async throws {
-        try await fixture(name: "Miscellaneous/FlatPackage") { package in
+        try await fixtureXCTest(name: "Miscellaneous/FlatPackage") { package in
             // First build, make sure we got the `.build` directory where we expect it, and that there is no JSON output (by looking for known output).
             let (stdout1, stderr1) = try await SwiftPM.Build.execute(packagePath: package)
             XCTAssertDirectoryExists(package.appending(".build"))
@@ -642,7 +642,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependencies() async throws {
-        try await fixture(name: "Miscellaneous/DependenciesWarnings") { path in
+        try await fixtureXCTest(name: "Miscellaneous/DependenciesWarnings") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
             initGitRepo(dependency1Path, tag: "1.0.0")
@@ -659,7 +659,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testNoWarningFromRemoteDependenciesWithWarningsAsErrors() async throws {
-        try await fixture(name: "Miscellaneous/DependenciesWarnings2") { path in
+        try await fixtureXCTest(name: "Miscellaneous/DependenciesWarnings2") { path in
             // prepare the deps as git sources
             let dependency1Path = path.appending("dep1")
             initGitRepo(dependency1Path, tag: "1.0.0")
@@ -675,7 +675,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testRootPackageWithConditionals() async throws {
-        try await fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
+        try await fixtureXCTest(name: "Miscellaneous/RootPackageWithConditionals") { path in
             let (_, stderr) = try await SwiftPM.Build.execute(packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
             let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
                                                                   .filter { !$0.contains("Unable to locate libSwiftScan") }
@@ -690,7 +690,7 @@ final class MiscellaneousTestCase: XCTestCase {
             throw XCTSkip("Skipping Swift Build testing on Amazon Linux because of platform issues.")
         }
 #endif
-        try await fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
+        try await fixtureXCTest(name: "Miscellaneous/RootPackageWithConditionals") { path in
             _ = try await SwiftPM.Build.execute(["--build-system=swiftbuild"], packagePath: path, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
         }
     }

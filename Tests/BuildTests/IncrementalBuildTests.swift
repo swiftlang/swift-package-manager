@@ -40,7 +40,7 @@ final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixture(name: "CFamilyTargets/CLibrarySources") { fixturePath in
+        try await fixtureXCTest(name: "CFamilyTargets/CLibrarySources") { fixturePath in
             // Build it once and capture the log (this will be a full build).
             let (fullLog, _) = try await executeSwiftBuild(fixturePath)
 
@@ -98,7 +98,7 @@ final class IncrementalBuildTests: XCTestCase {
 
     func testBuildManifestCaching() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
                 return try await executeSwiftBuild(fixturePath).stdout
@@ -132,7 +132,7 @@ final class IncrementalBuildTests: XCTestCase {
 
     func testDisableBuildManifestCaching() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
                 return try await executeSwiftBuild(fixturePath, extraArgs: ["--disable-build-manifest-caching"]).stdout
@@ -152,7 +152,7 @@ final class IncrementalBuildTests: XCTestCase {
 #if os(macOS)
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
 
-        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+        try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             let environment: Environment = [

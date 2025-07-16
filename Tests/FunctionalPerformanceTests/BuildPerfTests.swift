@@ -60,7 +60,7 @@
 //    }
 //
 //    func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
-//        try fixture(name: name) { fixturePath in
+//        try fixtureXCTest(name: name) { fixturePath in
 //            let app = fixturePath.appending(components: (appString ?? ""))
 //            let triple = try UserToolchain.default.targetTriple
 //            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)
@@ -74,7 +74,7 @@
 //    }
 //
 //    func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
-//        try fixture(name: name) { fixturePath in
+//        try fixtureXCTest(name: name) { fixturePath in
 //            let app = fixturePath.appending(components: (appString ?? ""))
 //            let triple = try UserToolchain.default.targetTriple
 //            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)

@@ -19,7 +19,7 @@ import var TSCBasic.localFileSystem
 final class BuildSystemDelegateTests: XCTestCase {
     func testDoNotFilterLinkerDiagnostics() async throws {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
-        try await fixture(name: "Miscellaneous/DoNotFilterLinkerDiagnostics") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/DoNotFilterLinkerDiagnostics") { fixturePath in
             #if !os(macOS)
             // These linker diagnostics are only produced on macOS.
             try XCTSkipIf(true, "test is only supported on macOS")
@@ -39,7 +39,7 @@ final class BuildSystemDelegateTests: XCTestCase {
         #else
         let executableExt = ""
         #endif
-        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/TestableExe") { fixturePath in
             _ = try await executeSwiftBuild(fixturePath)
             let execPath = fixturePath.appending(components: ".build", "debug", "TestableExe1\(executableExt)")
             XCTAssertTrue(localFileSystem.exists(execPath), "executable not found at '\(execPath)'")
