@@ -111,15 +111,18 @@ struct TestEventStreamOptions: ParsableArguments {
             help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
 
-    /// Legacy equivalent of ``eventStreamVersion``.
+    /// The experimental version number of Swift Testing's event stream to use.
+    ///
+    /// Unlike ``eventStreamVersion``, this permits specifying a version which
+    /// is experimental.
     @Option(name: .customLong("experimental-event-stream-version"),
             help: .private)
-    var experimentalEventStreamVersion: Int?
+    var experimentalEventStreamVersion: String?
 
-    /// The schema version of swift-testing's JSON input/output.
+    /// The version number of Swift Testing's event stream to use.
     @Option(name: .customLong("event-stream-version"),
             help: .hidden)
-    var eventStreamVersion: Int?
+    var eventStreamVersion: String?
 
     /// Experimental path for writing attachments (Swift Testing only.)
     @Option(name: .customLong("experimental-attachments-path"),
