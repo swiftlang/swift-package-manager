@@ -369,7 +369,7 @@ final class ToolsVersionParserTests: XCTestCase {
         }
     }
 
-    /// Verifies that the correct error is thrown for each Swift tools version specification missing entirely..
+    /// Verifies that the correct error is thrown for each Swift tools version specification missing entirely.
     func testMissingSwiftToolsVersion() throws {
         let manifestSnippetsWithoutVersionSpecifier = "\n import PackageDescription"
 
