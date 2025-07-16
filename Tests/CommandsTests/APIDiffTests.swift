@@ -103,7 +103,11 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testMultiTargetAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -116,16 +120,24 @@ struct APIDiffTests {
                 string: "public class Qux<T, U> { private let x = 1 }"
             )
             try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                #expect(error.stdout.contains("2 breaking changes detected in Qux"))
-                #expect(error.stdout.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                #expect(error.stdout.contains("💔 API breakage: var Qux.x has been removed"))
-                #expect(error.stdout.contains("1 breaking change detected in Baz"))
-                #expect(error.stdout.contains("💔 API breakage: func bar() has been removed"))
+                withKnownIssue {
+                    #expect(error.stdout.contains("2 breaking changes detected in Qux"))
+                    #expect(error.stdout.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
+                    #expect(error.stdout.contains("💔 API breakage: var Qux.x has been removed"))
+                    #expect(error.stdout.contains("1 breaking change detected in Baz"))
+                    #expect(error.stdout.contains("💔 API breakage: func bar() has been removed"))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
             }
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testBreakageAllowlist(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
@@ -146,17 +158,25 @@ struct APIDiffTests {
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
                             packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
-                #expect(error.stdout.contains("1 breaking change detected in Qux"))
                 #expect(!error.stdout.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
-                #expect(error.stdout.contains("💔 API breakage: var Qux.x has been removed"))
-                #expect(error.stdout.contains("1 breaking change detected in Baz"))
-                #expect(error.stdout.contains("💔 API breakage: func bar() has been removed"))
+                withKnownIssue {
+                    #expect(error.stdout.contains("1 breaking change detected in Qux"))
+                    #expect(error.stdout.contains("💔 API breakage: var Qux.x has been removed"))
+                    #expect(error.stdout.contains("1 breaking change detected in Baz"))
+                    #expect(error.stdout.contains("💔 API breakage: func bar() has been removed"))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
             }
 
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testCheckVendedModulesOnly(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
@@ -177,11 +197,15 @@ struct APIDiffTests {
                 string: "public class Qux<T, U> { private let x = 1 }"
             )
             try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                #expect(error.stdout.contains("💔 API breakage"))
-                let regex = try Regex("\\d+ breaking change(s?) detected in Foo")
-                #expect(error.stdout.contains(regex))
-                #expect(error.stdout.contains(regex))
-                #expect(error.stdout.contains(regex))
+                try withKnownIssue {
+                    #expect(error.stdout.contains("💔 API breakage"))
+                    let regex = try Regex("\\d+ breaking change(s?) detected in Foo")
+                    #expect(error.stdout.contains(regex))
+                    #expect(error.stdout.contains(regex))
+                    #expect(error.stdout.contains(regex))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
 
                 // Qux is not part of a library product, so any API changes should be ignored
                 #expect(!error.stdout.contains("Qux"))
@@ -189,7 +213,11 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testFilters(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
@@ -212,10 +240,18 @@ struct APIDiffTests {
             try await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--products", "One", "--targets", "Bar"], packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
-                #expect(error.stdout.contains("💔 API breakage"))
+                withKnownIssue {
+                    #expect(error.stdout.contains("💔 API breakage"))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
                 let regex = try Regex("\\d+ breaking change(s?) detected in Foo")
-                #expect(error.stdout.contains(regex))
-                #expect(error.stdout.contains(regex))
+
+                withKnownIssue {
+                    #expect(error.stdout.contains(regex))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
 
                 // Baz and Qux are not included in the filter, so any API changes should be ignored.
                 #expect(!error.stdout.contains("Baz"))
@@ -226,9 +262,13 @@ struct APIDiffTests {
             try await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Baz"], packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
-                #expect(error.stdout.contains("💔 API breakage"))
-                let regex = try Regex("\\d+ breaking change(s?) detected in Baz")
-                #expect(error.stdout.contains(regex))
+                try withKnownIssue {
+                    #expect(error.stdout.contains("💔 API breakage"))
+                    let regex = try Regex("\\d+ breaking change(s?) detected in Baz")
+                    #expect(error.stdout.contains(regex))
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
+                }
 
                 // Only Baz is included, we should not see any other API changes.
                 #expect(!error.stdout.contains("Foo"))
@@ -294,53 +334,69 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testNoBreakingChanges(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending("Bar")
-            // Introduce an API-compatible change
-            try localFileSystem.writeFileContents(
-                packageRoot.appending(components: "Sources", "Baz", "Baz.swift"),
-                string: "public func bar() -> Int { 100 }"
-            )
-            let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
-            #expect(output.contains("No breaking changes detected in Baz"))
-            #expect(output.contains("No breaking changes detected in Qux"))
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+                let packageRoot = fixturePath.appending("Bar")
+                // Introduce an API-compatible change
+                try localFileSystem.writeFileContents(
+                    packageRoot.appending(components: "Sources", "Baz", "Baz.swift"),
+                    string: "public func bar() -> Int { 100 }"
+                )
+                let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
+                #expect(output.contains("No breaking changes detected in Baz"))
+                #expect(output.contains("No breaking changes detected in Qux"))
+            }
+        } when : {
+            buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresAPIDigester,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testAPIDiffAfterAddingNewTarget(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
-            let packageRoot = fixturePath.appending("Bar")
-            try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
-            try localFileSystem.writeFileContents(
-                packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
-                string: #"public let foo = "All new module!""#
-            )
-            try localFileSystem.writeFileContents(packageRoot.appending("Package.swift"), string:
-                """
-                // swift-tools-version:4.2
-                import PackageDescription
-
-                let package = Package(
-                    name: "Bar",
-                    products: [
-                        .library(name: "Baz", targets: ["Baz"]),
-                        .library(name: "Qux", targets: ["Qux", "Foo"]),
-                    ],
-                    targets: [
-                        .target(name: "Baz"),
-                        .target(name: "Qux"),
-                        .target(name: "Foo")
-                    ]
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+                let packageRoot = fixturePath.appending("Bar")
+                try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
+                try localFileSystem.writeFileContents(
+                    packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
+                    string: #"public let foo = "All new module!""#
                 )
-                """
-            )
-            let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
-            #expect(output.contains("No breaking changes detected in Baz"))
-            #expect(output.contains("No breaking changes detected in Qux"))
-            #expect(output.contains("Skipping Foo because it does not exist in the baseline"))
+                try localFileSystem.writeFileContents(packageRoot.appending("Package.swift"), string:
+                    """
+                    // swift-tools-version:4.2
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "Bar",
+                        products: [
+                            .library(name: "Baz", targets: ["Baz"]),
+                            .library(name: "Qux", targets: ["Qux", "Foo"]),
+                        ],
+                        targets: [
+                            .target(name: "Baz"),
+                            .target(name: "Qux"),
+                            .target(name: "Foo")
+                        ]
+                    )
+                    """
+                )
+                let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
+                #expect(output.contains("No breaking changes detected in Baz"))
+                #expect(output.contains("No breaking changes detected in Qux"))
+                #expect(output.contains("Skipping Foo because it does not exist in the baseline"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.isHostAmazonLinux2()
         }
     }
 

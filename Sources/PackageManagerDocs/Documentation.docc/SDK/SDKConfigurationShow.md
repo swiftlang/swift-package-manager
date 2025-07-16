@@ -8,7 +8,14 @@
 Prints all configuration properties currently applied to a given Swift SDK and target triple.
 
 ```
-sdk configuration show [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   <sdk-id> <target-triple> [--version] [--help]
+sdk configuration show [--package-path=<package-path>]
+  [--cache-path=<cache-path>] [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...] <sdk-id>
+  <target-triple> [--version] [--help]
 ```
 
 - term **--package-path=\<package-path\>**:

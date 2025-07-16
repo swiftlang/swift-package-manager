@@ -493,8 +493,7 @@ struct TraitTests {
             #expect(stdout.contains(expectedOut))
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
-            || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
+            (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -559,24 +558,28 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                fixturePath.appending("Package10"),
-                configuration: configuration,
-                extraArgs: ["dump-symbol-graph"],
-                buildSystem: buildSystem,
-            )
-            let optionalPath = stdout
-                .lazy
-                .split(whereSeparator: \.isNewline)
-                .first { String($0).hasPrefix("Files written to ") }?
-                .dropFirst(17)
+        try await withKnownIssue(isIntermittent: true, {
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, _) = try await executeSwiftPackage(
+                    fixturePath.appending("Package10"),
+                    configuration: configuration,
+                    extraArgs: ["dump-symbol-graph"],
+                    buildSystem: buildSystem,
+                )
+                let optionalPath = stdout
+                    .lazy
+                    .split(whereSeparator: \.isNewline)
+                    .first { String($0).hasPrefix("Files written to ") }?
+                    .dropFirst(17)
 
-            let path = try String(#require(optionalPath))
-            let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
-            #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
-            #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
-        }
+                let path = try String(#require(optionalPath))
+                let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
+                #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
+                #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
+            }
+        }, when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        })
     }
 
     @Test(
@@ -594,7 +597,7 @@ struct TraitTests {
             // The swiftbuild build system doesn't yet have the ability for command plugins to request symbol graphs
              try await withKnownIssue(
                 "https://github.com/swiftlang/swift-build/issues/609",
-                isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+                isIntermittent: true,
             ) {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
@@ -607,7 +610,7 @@ struct TraitTests {
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
             } when: {
-               buildSystem == .swiftbuild
+               buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
     }

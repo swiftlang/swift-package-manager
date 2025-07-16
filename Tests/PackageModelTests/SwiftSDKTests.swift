@@ -25,6 +25,7 @@ private let hostTriple = try! Triple("arm64-apple-darwin22.1.0")
 private let olderHostTriple = try! Triple("arm64-apple-darwin20.1.0")
 private let linuxGNUTargetTriple = try! Triple("x86_64-unknown-linux-gnu")
 private let linuxMuslTargetTriple = try! Triple("x86_64-unknown-linux-musl")
+private let androidTargetTriple = try! Triple("aarch64-unknown-linux-android28")
 private let wasiTargetTriple = try! Triple("wasm32-unknown-wasi")
 private let extraFlags = BuildFlags(
     cCompilerFlags: ["-fintegrated-as"],
@@ -179,6 +180,20 @@ private let toolsetRootSwiftSDKv4 = (
             "\#(linuxGNUTargetTriple.tripleString)": {
                 "sdkRootPath": "\#(sdkRootDir)",
                 "toolsetPaths": ["/tools/someToolsWithRoot.json", "/tools/otherToolsNoRoot.json"]
+            }
+        },
+        "schemaVersion": "4.0"
+    }
+    """# as SerializedJSON
+)
+
+private let androidWithoutSDKRootPathSwiftSDKv4 = (
+    path: bundleRootPath.appending(component: "androidWithoutSDKRootPathSwiftSDKv4.json"),
+    json: #"""
+    {
+        "targetTriples": {
+            "\#(androidTargetTriple.tripleString)": {
+                "toolsetPaths": ["/tools/otherToolsNoRoot.json"]
             }
         },
         "schemaVersion": "4.0"
@@ -351,6 +366,23 @@ private let parsedToolsetRootDestination = SwiftSDK(
     )
 )
 
+private let parsedToolsetNoSDKRootPathDestination = SwiftSDK(
+    targetTriple: androidTargetTriple,
+    toolset: .init(
+        knownTools: [
+            .librarian: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.librarian]!)")),
+            .linker: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.linker]!)")),
+            .debugger: .init(path: try! AbsolutePath(validating: "\(usrBinTools[.debugger]!)")),
+        ],
+        rootPaths: []
+    ),
+    pathsConfiguration: .init(
+        sdkRootPath: nil,
+        toolsetPaths: ["/tools/otherToolsNoRoot.json"]
+            .map { try! AbsolutePath(validating: $0) }
+    )
+)
+
 private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
     destinationV1,
     destinationV2,
@@ -365,6 +397,7 @@ private let testFiles: [(path: AbsolutePath, json: SerializedJSON)] = [
     invalidVersionSwiftSDKv4,
     invalidToolsetSwiftSDKv4,
     wasiWithoutToolsetsSwiftSDKv4,
+    androidWithoutSDKRootPathSwiftSDKv4,
     otherToolsNoRoot,
     someToolsWithRoot,
     invalidToolset,
@@ -487,6 +520,15 @@ final class SwiftSDKTests: XCTestCase {
         )
 
         XCTAssertEqual(toolsetRootSwiftSDKv4Decoded, [parsedToolsetRootDestination])
+
+        let androidWithoutSDKRootPathSwiftSDKv4Decoded = try SwiftSDK.decode(
+            fromFile: androidWithoutSDKRootPathSwiftSDKv4.path,
+            hostToolchainBinDir: toolchainBinAbsolutePath,
+            fileSystem: fs,
+            observabilityScope: observability
+        )
+
+        XCTAssertEqual(androidWithoutSDKRootPathSwiftSDKv4Decoded, [parsedToolsetNoSDKRootPathDestination])
 
         XCTAssertThrowsError(try SwiftSDK.decode(
             fromFile: missingToolsetSwiftSDKv4.path,

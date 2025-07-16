@@ -197,7 +197,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try await buildSystem.build(subset: subset)
+            try await buildSystem.build(subset: subset, buildOutputs: [])
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }

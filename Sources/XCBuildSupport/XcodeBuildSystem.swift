@@ -160,9 +160,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         return []
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
+        let buildResult = BuildResult(serializedDiagnosticPathsByTargetName: .failure(StringError("XCBuild does not support reporting serialized diagnostics.")))
+
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return buildResult
         }
 
         let pifBuilder = try await getPIFBuilder()
@@ -244,8 +246,11 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
+        guard !self.logLevel.isQuiet else { return buildResult }
         self.outputStream.send("Build complete!\n")
         self.outputStream.flush()
+
+        return buildResult
     }
 
     func createBuildParametersFile() throws -> AbsolutePath {
@@ -410,11 +415,5 @@ extension BuildSubset {
         case .allIncludingTests:
             PIFBuilder.allIncludingTestsTargetName
         }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        self <= .info
     }
 }

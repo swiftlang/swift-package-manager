@@ -1565,7 +1565,7 @@ private func buildTestsIfNeeded(
         .allIncludingTests
     }
 
-    try await buildSystem.build(subset: subset)
+    try await buildSystem.build(subset: subset, buildOutputs: [])
 
     // Find the test product.
     let testProducts = await buildSystem.builtTestProducts
