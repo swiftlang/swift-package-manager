@@ -123,14 +123,17 @@ struct APIDiff: AsyncSwiftCommand {
         let apiDigesterTool = SwiftAPIDigester(fileSystem: swiftCommandState.fileSystem, tool: apiDigesterPath)
 
         // Build the current package.
-        try await buildSystem.build()
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
+        guard let buildPlan = buildResult.buildPlan else {
+            throw ExitCode.failure
+        }
 
         // Dump JSON for the baseline package.
         let baselineDumper = try APIDigesterBaselineDumper(
             baselineRevision: baselineRevision,
             packageRoot: swiftCommandState.getPackageRoot(),
-            productsBuildParameters: try buildSystem.buildPlan.destinationBuildParameters,
-            toolsBuildParameters: try buildSystem.buildPlan.toolsBuildParameters,
+            productsBuildParameters: buildPlan.destinationBuildParameters,
+            toolsBuildParameters: buildPlan.toolsBuildParameters,
             apiDigesterTool: apiDigesterTool,
             observabilityScope: swiftCommandState.observabilityScope
         )
@@ -159,7 +162,7 @@ struct APIDiff: AsyncSwiftCommand {
                         if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
                             at: moduleBaselinePath,
                             for: module,
-                            buildPlan: try buildSystem.buildPlan,
+                            buildPlan: buildPlan,
                             except: breakageAllowlistPath
                         ) {
                             return comparisonResult
