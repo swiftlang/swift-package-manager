@@ -292,7 +292,7 @@ public final class SwiftCommandState {
 
     package var preferredBuildConfiguration = BuildConfiguration.debug
 
-    public var traitConfiguration: TraitConfiguration
+    package let traitConfiguration: TraitConfiguration
 
     /// Create an instance of this tool.
     ///
