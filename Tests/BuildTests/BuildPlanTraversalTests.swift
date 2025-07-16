@@ -124,6 +124,43 @@ struct BuildPlanTraversalTests {
     }
 
     @Test
+    func traversalWithTestThatDependsOnMacro() async throws {
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        let (graph, fs, scope) = try macrosTestsPackageGraph()
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                triple: toolsTriple
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        // Tests that if one of the test targets directly depends
+        // on a macro - all tests are built for the "host".
+        var results: [Result] = []
+        plan.traverseModules {
+            results.append(Result(parent: $1, module: $0))
+        }
+
+        let package = try #require(graph.package(for: "swift-mmio"))
+
+        // Tests that if one of the test targets directly depends
+        // on a macro - all tests are built for the "host".
+        for module in package.modules where module.type == .test {
+            let results = getResults(for: module.name, in: results)
+            #expect(results.allSatisfy { $0.module.1 == .host })
+        }
+    }
+
+    @Test
     func recursiveDependencyTraversal() async throws {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
