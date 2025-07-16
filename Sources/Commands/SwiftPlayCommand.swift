@@ -238,24 +238,24 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 throw ExitCode.failure
             }
 
-#if os(macOS)
-            // Monitor for file changes
-            let fileMonitor: FileMonitor
+            // Monitor for file changes (if supported)
+            var fileMonitor: FileMonitor? = nil
             do {
                 verboseLog("Monitoring files at \(monitorURL)")
                 fileMonitor = try FileMonitor(
-                    url: monitorURL,
                     verboseLogging: globalOptions.logging.veryVerbose
                 )
+                try fileMonitor?.startMonitoring(atURL: monitorURL)
+            } catch FileMonitor.FileMonitorError.notSupported {
+                verboseLog("Monitoring files not supported on this platform")
             } catch {
                 print("FileMonitor failed for \(monitorURL): \(error)")
                 throw ExitCode.failure
             }
 
             defer {
-                fileMonitor.cancel()
+                fileMonitor?.stopMonitoring()
             }
-#endif
 
             verboseLog("swift play waiting...")
 
@@ -283,13 +283,13 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                     }
                 }
 
-#if os(macOS)
-                // Task to wait for file changes
-                group.addTask {
-                    await fileMonitor.waitForChanges()
-                    return .fileChanged
+                if let fileMonitor {
+                    // Task to wait for file changes
+                    group.addTask {
+                        await fileMonitor.waitForChanges()
+                        return .fileChanged
+                    }
                 }
-#endif
 
                 // Return the first result from either task
                 let firstResult = await group.next()
@@ -359,28 +359,83 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     public init() {}
 }
 
-#if os(macOS)
+// MARK: - File Monitoring -
+
 final private class FileMonitor {
-    
-    let url: URL
-    var fileHandles: [FileHandle] = []
-    var sources: [DispatchSourceFileSystemObject] = []
-    
+    var isMonitoring: Bool = false
+
+    enum FileMonitorError: Error {
+        case alreadyMonitoring
+        case notSupported
+    }
+
+    private let verboseLogging: Bool
+    private let fileWatcher: FileWatcher
     private let changeStream: AsyncStream<Void>
     private let changeContinuation: AsyncStream<Void>.Continuation
-    var verboseLogging: Bool
 
-    init(url: URL, verboseLogging: Bool = false) throws {
-        self.url = url
+    init(verboseLogging: Bool = false) throws {
         self.verboseLogging = verboseLogging
+
+        // Try to create a platform-specific file watcher. These aren't
+        // available for every platform, in which case throw notSupported.
+        guard let fileWatcher = try makeFileWatcher(verboseLogging: verboseLogging) else {
+            throw FileMonitorError.notSupported
+        }
+        self.fileWatcher = fileWatcher
 
         // Create an async stream for file change notifications
         (self.changeStream, self.changeContinuation) = AsyncStream<Void>.makeStream()
-        
-        try initializeMonitoring(for: url)
     }
-    
-    private func initializeMonitoring(for url: URL) throws {
+
+    deinit {
+        stopMonitoring()
+        changeContinuation.finish()
+    }
+
+    /// Starts monitoring for any files changes under the path at `url`.
+    /// Call `waitForChanges()` to wait for any file change events.
+    func startMonitoring(atURL url: URL) throws {
+        guard !isMonitoring else {
+            throw FileMonitorError.alreadyMonitoring
+        }
+
+        // Register files to be monitored
+        try initializeMonitoring(forFilesAtURL: url)
+
+        // Start monitoring for any file changes
+        fileWatcher.startWatching {
+            self.changeContinuation.yield()
+        }
+
+        isMonitoring = true
+    }
+
+    /// Stops all file monitoring.
+    func stopMonitoring() {
+        guard isMonitoring else { return }
+        fileWatcher.stopWatching()
+        isMonitoring = false
+    }
+
+    /// Recursively initializes file monitoring for a directory and all its subdirectories.
+    ///
+    /// This method traverses the directory structure starting from the specified URL and registers
+    /// each directory (including the root directory) with the file watcher for monitoring. Hidden
+    /// directories (those starting with a dot) are excluded from monitoring.
+    ///
+    /// - Parameter url: The root directory URL to begin monitoring. All subdirectories within
+    ///                  this directory will also be monitored recursively.
+    ///
+    /// - Throws: An error if:
+    ///   - The directory contents cannot be read
+    ///   - File system access fails when checking if items are directories
+    ///   - The underlying file watcher fails to monitor any directory
+    ///
+    /// - Note: This method excludes hidden directories (those with names starting with ".") from
+    ///         monitoring to avoid watching temporary files, version control directories, and
+    ///         system directories that typically don't contain user source code.
+    private func initializeMonitoring(forFilesAtURL url: URL) throws {
         let directoryContents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         let subdirs = directoryContents
             .filter { $0.lastPathComponent.hasPrefix(".") == false }
@@ -391,56 +446,14 @@ final private class FileMonitor {
                 }
                 return false
             }
-        
+
+        // Monitor the current directory
+        try fileWatcher.register(urlToWatch: url)
+
         for subdirURL in subdirs {
-            try monitor(url: subdirURL)
-            try initializeMonitoring(for: subdirURL)
+            try fileWatcher.register(urlToWatch: subdirURL)
+            try initializeMonitoring(forFilesAtURL: subdirURL)
         }
-    }
-
-    private func monitor(url: URL) throws {
-        let monitoredFolderFileDescriptor = open(url.relativePath, O_EVTONLY)
-        let fileHandle = FileHandle(fileDescriptor: monitoredFolderFileDescriptor, closeOnDealloc: true)
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fileHandle.fileDescriptor,
-            eventMask: [.all],
-            queue: DispatchQueue.global(qos: .background)
-        )
-        
-        source.setEventHandler {
-            let event = source.data
-            self.process(event: event)
-        }
-        
-        source.setCancelHandler {
-            try? fileHandle.close()
-        }
-        
-        source.activate()
-        
-        sources.append(source)
-        fileHandles.append(fileHandle)
-
-        if verboseLogging { print("[Monitoring files at \(url.path())]") }
-    }
-
-    func cancel() {
-        changeContinuation.finish()
-        for source in sources {
-            if !source.isCancelled {
-                source.cancel()
-            }
-        }
-        self.fileHandles = []
-    }
-    
-    deinit {
-        cancel()
-    }
-    
-    private func process(event: DispatchSource.FileSystemEvent) {
-        if verboseLogging { print("[FileMonitor event \(event) for \(url.path())]") }
-        changeContinuation.yield()
     }
 
     /// Asynchronously wait for file changes
@@ -456,4 +469,156 @@ final private class FileMonitor {
         if verboseLogging { print("[FileMonitor stream ended without changes]") }
     }
 }
+
+fileprivate protocol FileWatcher {
+    init(verboseLogging: Bool) throws
+
+    func register(urlToWatch url: URL) throws
+
+    typealias ChangeHandler = () -> ()
+
+    func startWatching(withChangeHandler changeHandler: @escaping ChangeHandler)
+
+    func stopWatching()
+}
+
+fileprivate func makeFileWatcher(verboseLogging: Bool) throws -> (any FileWatcher)? {
+#if os(macOS)
+    return try MacFileWatcher(verboseLogging: verboseLogging)
+#elseif os(Linux)
+    return try LinuxFileWatcher(verboseLogging: verboseLogging)
+#else
+    return nil
+#endif
+}
+
+#if os(macOS)
+
+fileprivate final class MacFileWatcher: FileWatcher {
+    var fileHandles: [FileHandle] = []
+    var sources: [DispatchSourceFileSystemObject] = []
+    var changeHandler: ChangeHandler? = nil
+    let verboseLogging: Bool
+
+    init(verboseLogging: Bool) throws {
+        self.verboseLogging = verboseLogging
+    }
+
+    func register(urlToWatch url: URL) throws {
+        let monitoredFolderFileDescriptor = open(url.relativePath, O_EVTONLY)
+        let fileHandle = FileHandle(fileDescriptor: monitoredFolderFileDescriptor, closeOnDealloc: true)
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fileHandle.fileDescriptor,
+            eventMask: [.all],
+            queue: DispatchQueue.global(qos: .background)
+        )
+
+        source.setEventHandler {
+            let event = source.data
+            self.process(event: event)
+        }
+
+        source.setCancelHandler {
+            try? fileHandle.close()
+        }
+
+        source.activate()
+
+        sources.append(source)
+        fileHandles.append(fileHandle)
+
+        if verboseLogging { print("[Monitoring files at \(url.path())]") }
+    }
+
+    func startWatching(withChangeHandler changeHandler: @escaping ChangeHandler) {
+        self.changeHandler = changeHandler
+    }
+
+    func stopWatching() {
+        for source in sources {
+            if !source.isCancelled {
+                source.cancel()
+            }
+        }
+        self.fileHandles = []
+    }
+
+    private func process(event: DispatchSource.FileSystemEvent) {
+        if verboseLogging { print("[FileMonitor event \(event)]") }
+        self.changeHandler?()
+    }
+}
+
+#elseif os(Linux)
+
+fileprivate final class LinuxFileWatcher: FileWatcher {
+    let inotifyFileDescriptor: Int32
+    var watchDescriptors: [Int32] = []
+    var monitoringTask: Task<Void, Never>?
+    let verboseLogging: Bool
+
+    init(verboseLogging: Bool = false) throws {
+        self.verboseLogging = verboseLogging
+
+        // Initialize inotify
+        self.inotifyFileDescriptor = inotify_init1(Int32(IN_CLOEXEC))
+        guard self.inotifyFileDescriptor != -1 else {
+            throw POSIXError(.init(rawValue: errno) ?? .ENODEV)
+        }
+    }
+
+    func startWatching(withChangeHandler changeHandler: @escaping FileWatcher.ChangeHandler) {
+        monitoringTask = Task {
+            while !Task.isCancelled {
+                // Read events from inotify
+                var buffer = [UInt8](repeating: 0, count: 4096)
+                let bytesRead = read(inotifyFileDescriptor, &buffer, buffer.count)
+
+                if bytesRead > 0 {
+                    if verboseLogging { print("[FileMonitor detected change via inotify]") }
+                    changeHandler()
+                } else if bytesRead == -1 {
+                    if errno == EINTR || errno == EAGAIN {
+                        // Interrupted or would block, continue
+                        continue
+                    } else {
+                        // Error occurred
+                        if verboseLogging { print("[FileMonitor read error: \(String(cString: strerror(errno)))]") }
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    func register(urlToWatch url: URL) throws {
+        let watchDescriptor = inotify_add_watch(
+            inotifyFileDescriptor,
+            url.path,
+            UInt32(IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVE)
+        )
+
+        guard watchDescriptor != -1 else {
+            throw POSIXError(.init(rawValue: errno) ?? .ENODEV)
+        }
+
+        watchDescriptors.append(watchDescriptor)
+
+        if verboseLogging { print("[Monitoring files at \(url.path())]") }
+    }
+
+    func stopWatching() {
+        monitoringTask?.cancel()
+
+        // Remove all watch descriptors
+        for watchDescriptor in watchDescriptors {
+            inotify_rm_watch(inotifyFileDescriptor, watchDescriptor)
+        }
+        watchDescriptors.removeAll()
+
+        // Close inotify file descriptor
+        close(inotifyFileDescriptor)
+    }
+}
+
 #endif
