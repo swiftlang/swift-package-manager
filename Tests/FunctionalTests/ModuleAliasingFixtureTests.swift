@@ -42,6 +42,19 @@ final class ModuleAliasingFixtureTests: XCTestCase {
         }
     }
 
+    func testModuleDirectDeps3() async throws {
+        try await fixture(name: "ModuleAliasing/DirectDeps3") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: executableName("App")))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "GameUtils.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "GameLib.swiftmodule"))
+            XCTAssertFileExists(buildPath.appending(components: "Modules", "Utils.swiftmodule"))
+            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+        }
+    }
+
     func testModuleNestedDeps1() async throws {
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
@@ -68,6 +81,16 @@ final class ModuleAliasingFixtureTests: XCTestCase {
             XCTAssertFileExists(buildPath.appending(components: "Modules", "BUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "CUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "XUtils.swiftmodule"))
+            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+        }
+    }
+
+    func testModuleNestedDeps3() async throws {
+        try await fixture(name: "ModuleAliasing/NestedDeps3") { fixturePath in
+            let pkgPath = fixturePath.appending(components: "AppPkg")
+            let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            XCTAssertFileExists(buildPath.appending(components: executableName("App")))
             _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
         }
     }
