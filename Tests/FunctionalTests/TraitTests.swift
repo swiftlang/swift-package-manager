@@ -101,7 +101,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -140,7 +140,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -183,7 +183,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -216,7 +216,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -252,7 +252,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -296,7 +296,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -343,7 +343,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
         }
     }
 
@@ -410,17 +410,16 @@ struct TraitTests {
     func tests_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "Traits") { fixturePath in
-                let (stdout, _) = try await executeSwiftTest(
-                    fixturePath.appending("Example"),
-                    extraArgs: [
-                        "--enable-all-traits",
-                        "--disable-default-traits",
-                    ],
-                    buildSystem: buildSystem,
-                )
-                let expectedOut = """
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, _) = try await executeSwiftTest(
+                fixturePath.appending("Example"),
+                extraArgs: [
+                    "--enable-all-traits",
+                    "--disable-default-traits",
+                ],
+                buildSystem: buildSystem,
+            )
+            let expectedOut = """
                 Package1Library1 trait1 enabled
                 Package2Library1 trait2 enabled
                 Package3Library1 trait3 enabled
@@ -435,12 +434,9 @@ struct TraitTests {
                 DEFINE1 enabled
                 DEFINE2 enabled
                 DEFINE3 enabled
-
+                
                 """
-                #expect(stdout.contains(expectedOut))
-            }
-        } when: {
-            buildSystem == .swiftbuild
+            #expect(stdout.contains(expectedOut))
         }
     }
 
@@ -519,7 +515,7 @@ struct TraitTests {
             }
 
             let expectedErr = """
-                    error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
 
                     """
             #expect(stderr.contains(expectedErr))

@@ -879,11 +879,8 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: []))
-//            XCTAssertFalse(try manifest.isPackageDependencyUsed(baz))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(baz, enabledTraits: ["Trait3"]))
-//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bam))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
 
@@ -891,7 +888,6 @@ class ManifestTests: XCTestCase {
             // dependency that depends on the same package as another target dependency, but
             // is unguarded by traits; therefore, this package dependency should be considered used
             // in every scenario, regardless of the passed trait configuration.
-//            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: nil))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
         }
