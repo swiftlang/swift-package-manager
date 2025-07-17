@@ -343,11 +343,11 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         result: CommandExtendedResult
     ) {
         // FIXME: This should really happen at the command-level and is just a stopgap measure.
-        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
-            .result != .failed
+        let shouldFilterOutput = !self.logLevel.isVerbose
         self.queue.async {
             if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
                 self.progressAnimation.clear()
+                self.outputStream.send("EXTRA VERBOSE [exit status \(result.exitStatus)] \(command.verboseDescription): ")
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
                 self.nonSwiftMessageBuffers[command.name] = nil
@@ -628,8 +628,14 @@ extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
         switch kind {
         case .began(let info):
-            ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        case .skipped, .finished, .abnormal, .signalled, .unparsableOutput:
+            "EXTRA VERBOSE [\(info.pid)]: \(([info.commandExecutable] + info.commandArguments).joined(separator: " "))"
+        case .finished(let info),
+             .abnormal(let info),
+             .signalled(let info):
+            "EXTRA VERBOSE [\(info.pid)]: \(info.output ?? "no output")"
+        case .unparsableOutput(let output):
+            "EXTRA VERBOSE [unknown PID]: \(output)"
+        case .skipped:
             nil
         }
     }
