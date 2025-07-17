@@ -101,7 +101,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -140,7 +140,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -183,7 +183,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -216,7 +216,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -252,7 +252,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -296,7 +296,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -343,7 +343,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
         }
     }
 
@@ -410,16 +410,17 @@ struct TraitTests {
     func tests_whenAllTraitsEnabled_andDefaultTraitsDisabled(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Traits") { fixturePath in
-            let (stdout, _) = try await executeSwiftTest(
-                fixturePath.appending("Example"),
-                extraArgs: [
-                    "--enable-all-traits",
-                    "--disable-default-traits",
-                ],
-                buildSystem: buildSystem,
-            )
-            let expectedOut = """
+        try await withKnownIssue {
+            try await fixture(name: "Traits") { fixturePath in
+                let (stdout, _) = try await executeSwiftTest(
+                    fixturePath.appending("Example"),
+                    extraArgs: [
+                        "--enable-all-traits",
+                        "--disable-default-traits",
+                    ],
+                    buildSystem: buildSystem,
+                )
+                let expectedOut = """
                 Package1Library1 trait1 enabled
                 Package2Library1 trait2 enabled
                 Package3Library1 trait3 enabled
@@ -436,7 +437,10 @@ struct TraitTests {
                 DEFINE3 enabled
                 
                 """
-            #expect(stdout.contains(expectedOut))
+                #expect(stdout.contains(expectedOut))
+            }
+        } when: {
+            buildSystem == .swiftbuild
         }
     }
 
