@@ -48,7 +48,6 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--experimental-prune-unused-dependencies"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -97,7 +96,7 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--traits", "default,Package9,Package10", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "default,Package9,Package10"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -150,7 +149,7 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--traits", "default,Package9", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "default,Package9"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -204,7 +203,6 @@ struct TraitTests {
                 extraArgs: [
                     "--traits",
                     "default,Package5,Package7,BuildCondition3",
-                    "--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
@@ -254,7 +252,7 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--disable-default-traits", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--disable-default-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -298,7 +296,7 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--traits", "Package5,Package7", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "Package5,Package7"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -346,7 +344,7 @@ struct TraitTests {
                 fixturePath.appending("Example"),
                 "Example",
                 configuration: configuration,
-                extraArgs: ["--enable-all-traits", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--enable-all-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -405,7 +403,6 @@ struct TraitTests {
                 extraArgs: [
                     "--enable-all-traits",
                     "--disable-default-traits",
-                    "--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
@@ -478,7 +475,6 @@ struct TraitTests {
             let (stdout, _) = try await executeSwiftTest(
                 fixturePath.appending("Example"),
                 configuration: configuration,
-                extraArgs: ["--experimental-prune-unused-dependencies"],
                 buildSystem: buildSystem,
             )
             let expectedOut = """
@@ -522,7 +518,6 @@ struct TraitTests {
                     extraArgs: [
                         "--enable-all-traits",
                         "--disable-default-traits",
-                        "--experimental-prune-unused-dependencies",
                     ],
                     buildSystem: buildSystem,
                 )
@@ -565,7 +560,7 @@ struct TraitTests {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
                     configuration: configuration,
-                    extraArgs: ["dump-symbol-graph", "--experimental-prune-unused-dependencies"],
+                    extraArgs: ["dump-symbol-graph"],
                     buildSystem: buildSystem,
                 )
                 let optionalPath = stdout
@@ -604,7 +599,7 @@ struct TraitTests {
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
                     configuration: configuration,
-                    extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
+                    extraArgs: ["plugin", "extract"],
                     buildSystem: buildSystem,
                 )
                 let path = String(stdout.split(whereSeparator: \.isNewline).first!)
@@ -649,9 +644,9 @@ struct TraitTests {
                 }
 
                 let expectedErr = """
-                        error: Disabled default traits by package 'disablingemptydefaultsexample' on package 'Package11' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
 
-                        """
+                    """
                 #expect(stderr.contains(expectedErr))
             } when: {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux

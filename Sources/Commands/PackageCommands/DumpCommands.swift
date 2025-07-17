@@ -53,7 +53,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
         // We turn build manifest caching off because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             // We are enabling all traits for dumping the symbol graph.
-            traitConfiguration: .init(enableAllTraits: true),
+            enableAllTraits: true,
             cacheBuildManifest: false
         )
         // TODO pass along the various flags as associated values to the symbol graph build output (e.g. includeSPISymbols)

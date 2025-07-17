@@ -171,7 +171,6 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
             explicitProduct: explicitProduct,
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
             outputStream: outputStream,
@@ -246,7 +245,6 @@ final class PluginDelegate: PluginInvocationDelegate {
         toolsBuildParameters.testingParameters.explicitlyEnabledTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            traitConfiguration: .init(),
             toolsBuildParameters: toolsBuildParameters
         )
         try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
@@ -410,7 +408,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
-            traitConfiguration: TraitConfiguration(enableAllTraits: true),
+            enableAllTraits: true,
             cacheBuildManifest: false
         )
 
