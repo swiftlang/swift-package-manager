@@ -634,6 +634,7 @@ extension ManifestLoader {
         }, uniquingKeysWith: { $1 })
 
         let regularManifest = packagePath.appending(component: Manifest.filename)
+//        let versionSpecificCandidate = versionSpecificManifests.keys.sorted(by: >).first(where: { $0 <= currentToolsVersion })
 
         // Try to get the tools version of the regular manifest.  As the comment marker is missing, we default to
         // tools version 3.1.0 (as documented).
@@ -641,8 +642,13 @@ extension ManifestLoader {
         do {
             regularManifestToolsVersion = try ToolsVersionParser.parse(manifestPath: regularManifest, fileSystem: fileSystem)
         }
-        catch let error as UnsupportedToolsVersion where error.packageToolsVersion == .v3 {
-          regularManifestToolsVersion = .v3
+        catch let error as ToolsVersionParser.Error {
+            if case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error,
+               !versionSpecificManifests.isEmpty {
+                regularManifestToolsVersion = .v3
+            } else {
+                throw error
+            }
         }
 
         // Find the newest version-specific manifest that is compatible with the current tools version.
