@@ -101,7 +101,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -140,7 +140,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -183,7 +183,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -216,7 +216,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -252,7 +252,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -296,7 +296,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -343,7 +343,7 @@ struct TraitTests {
             """)
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline || (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
@@ -440,7 +440,7 @@ struct TraitTests {
                 #expect(stdout.contains(expectedOut))
             }
         } when: {
-            buildSystem == .swiftbuild
+            (buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
