@@ -368,8 +368,8 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let fileSystem: FileSystem
         let destination: AbsolutePath
         let progressHandler: LegacyHTTPClient.ProgressHandler?
-        let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         let completionHandler: LegacyHTTPClient.CompletionHandler
+        let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
         var moveFileError: Error?
 
