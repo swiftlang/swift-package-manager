@@ -1079,7 +1079,7 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                // unsafe flags disabled in 6.2
+                // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
             )
@@ -1126,7 +1126,7 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                // unsafe flags disabled in 6.2
+                // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
             )
