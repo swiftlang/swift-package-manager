@@ -470,12 +470,90 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
+
+    let manifestMap = manifests.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
+        manifestMap[manifest.packageIdentity] = manifest
+    }
+
+    // Note: The following is a copy of the existing `Workspace.precomputeTraits` method
+    func precomputeTraits(
+        _ enabledTraitsMap: EnabledTraitsMap,
+        _ topLevelManifests: [Manifest],
+        _ manifestMap: [PackageIdentity: Manifest]
+    ) throws -> [PackageIdentity: Set<String>] {
+        var visited: Set<PackageIdentity> = []
+        var enabledTraitsMap = enabledTraitsMap
+
+        func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
+            let parentTraits = enabledTraitsMap[parent.packageIdentity]
+            let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
+            let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
+
+            _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
+                return try manifestMap[dependency.identity].flatMap({ manifest in
+
+                    let explicitlyEnabledTraits = dependency.traits?.filter {
+                        guard let condition = $0.condition else { return true }
+                        return condition.isSatisfied(by: parentTraits)
+                    }.map(\.name)
+
+                    var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
+                    let precomputedTraits = enabledTraitsMap[dependency.identity]
+
+                    if precomputedTraits == ["default"],
+                       let enabledTraitsSet {
+                        enabledTraitsMap[dependency.identity] = enabledTraitsSet
+                    } else {
+                        // unify traits
+                        enabledTraitsSet?.formUnion(precomputedTraits)
+                        if let enabledTraitsSet {
+                            enabledTraitsMap[dependency.identity] = enabledTraitsSet
+                        }
+                    }
+
+                    let calculatedTraits = try manifest.enabledTraits(
+                        using: enabledTraitsSet ?? ["default"],
+                        .init(parent)
+                    )
+
+                    enabledTraitsMap[dependency.identity] = calculatedTraits
+                    let result = visited.insert(dependency.identity)
+                    if result.inserted {
+                        try dependencies(of: manifest, dependency.productFilter)
+                    }
+
+                    return manifest
+                })
+            })
+        }
+
+        for manifest in topLevelManifests {
+            // Track already-visited manifests to avoid cycles
+            let result = visited.insert(manifest.packageIdentity)
+            if result.inserted {
+                try dependencies(of: manifest)
+            }
+        }
+
+        return enabledTraitsMap.dictionaryLiteral
+    }
+
+
+    // Precompute enabled traits for roots.
+    var enabledTraitsMap: EnabledTraitsMap = [:]
+    for root in rootManifests.values {
+        let enabledTraits = try root.enabledTraits(using: traitConfiguration)
+        enabledTraitsMap[root.packageIdentity] = enabledTraits
+    }
+    enabledTraitsMap = .init(try precomputeTraits(enabledTraitsMap, manifests, manifestMap))
+
     let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     let graphRoot = try PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,
-        observabilityScope: observabilityScope
+        observabilityScope: observabilityScope,
+        enabledTraitsMap: enabledTraitsMap
     )
 
     return try ModulesGraph.load(
@@ -492,6 +570,7 @@ public func loadModulesGraph(
         fileSystem: fileSystem,
         observabilityScope: observabilityScope,
         productsFilter: nil,
-        modulesFilter: nil
+        modulesFilter: nil,
+        enabledTraitsMap: enabledTraitsMap
     )
 }

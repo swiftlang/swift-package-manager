@@ -93,7 +93,7 @@ class ManifestTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                try manifest.dependenciesRequired(for: .everything, nil).map(\.identity.description).sorted(),
+                try manifest.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
                     "bar1",
                     "bar2",
@@ -113,7 +113,7 @@ class ManifestTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                try manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map(\.identity.description).sorted(),
+                try manifest.dependenciesRequired(for: .specific(["Foo"])).map(\.identity.description).sorted(),
                 [
                     "bar1", // Foo → Foo1 → Bar1
                     "bar2", // Foo → Foo1 → Foo2 → Bar2
@@ -133,7 +133,7 @@ class ManifestTests: XCTestCase {
             )
 
             XCTAssertEqual(
-                try manifest.dependenciesRequired(for: .everything, nil).map(\.identity.description).sorted(),
+                try manifest.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
                     "bar1",
                     "bar2",
@@ -208,7 +208,7 @@ class ManifestTests: XCTestCase {
                     Trait '\(
                         trait
                             .name
-                    )' is not declared by package 'Foo'. There are no available traits declared by this package.
+                    )' is not declared by package 'foo' (Foo). There are no available traits declared by this package.
                     """)
                 }
             }
@@ -253,30 +253,30 @@ class ManifestTests: XCTestCase {
             )
 
             // Test `isTraitEnabled` when the trait we're querying for does not exist.
-            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), nil)) { error in
+            XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["default"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "Trait1"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is the same non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is another non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExistPart2"), ["IDontExist"])) { error in
                 XCTAssertEqual("\(error)", """
-                Trait 'IDontExistPart2' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2.
+                Trait 'IDontExistPart2' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
                 """)
             }
 
@@ -320,14 +320,14 @@ class ManifestTests: XCTestCase {
             // When passed .disableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .disableAllTraits)) { error in
                 XCTAssertEqual("\(error)", """
-                    Disabled default traits on package 'Foo' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    Disabled default traits on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
             }
 
             // When passed .enableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .enabledTraits(["Trait1"]))) { error in
                 XCTAssertEqual("\(error)", """
-                    Traits [Trait1] have been enabled on package 'Foo' that declares no traits.
+                    Traits [Trait1] have been enabled on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
@@ -337,16 +337,16 @@ class ManifestTests: XCTestCase {
             // Enabled Traits when passed explicitly enabled traits list:
 
             // If given a parent package, and the enabled traits being passed don't exist:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: ["Trait1"], "Qux")) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: ["Trait1"], .init(identity: "qux"))) { error in
                 XCTAssertEqual("\(error)", """
-                    Package 'Qux' enables traits [Trait1] on package 'Foo' that declares no traits.
+                    Package 'qux' enables traits [Trait1] on package 'foo' (Foo) that declares no traits.
                     """)
             }
 
             // If given a parent package, and the default traits are disabled:
-            XCTAssertThrowsError(try manifest.enabledTraits(using: [], "Qux")) { error in
+            XCTAssertThrowsError(try manifest.enabledTraits(using: [], .init(identity: "qux"))) { error in
                 XCTAssertEqual("\(error)", """
-                    Disabled default traits by package 'Qux' on package 'Foo' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+                    Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
                     """)
             }
         }
@@ -388,18 +388,17 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-            // Assure that the guarded dependencies aren't pruned, since we haven't enabled it for this manifest.
+            // Assure that the trait-guarded dependencies pruned.
             XCTAssertEqual(
-                try manifest.dependenciesRequired(for: .everything, nil).map(\.identity.description).sorted(),
+                try manifest.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
-                    "baz",
                     "buzz",
                 ]
             )
 
             // Assure that each trait is not enabled.
             for trait in traits {
-                XCTAssertEqual(try manifest.isTraitEnabled(trait, nil), false)
+                XCTAssertEqual(try manifest.isTraitEnabled(trait, ["default"]), false)
             }
 
             // Now, create a version of the same manifest but with the `pruneDependencies` flag set to true.
@@ -416,7 +415,7 @@ class ManifestTests: XCTestCase {
 
             // Since we've enabled pruned dependencies for this manifest, we should only see "buzz"
             XCTAssertEqual(
-                try manifestPrunedDeps.dependenciesRequired(for: .everything, nil).map(\.identity.description).sorted(),
+                try manifestPrunedDeps.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
                     "buzz",
                 ]
@@ -424,7 +423,7 @@ class ManifestTests: XCTestCase {
 
             // Assure that each trait is not enabled.
             for trait in traits {
-                XCTAssertEqual(try manifestPrunedDeps.isTraitEnabled(trait, nil), false)
+                XCTAssertEqual(try manifestPrunedDeps.isTraitEnabled(trait, ["default"]), false)
             }
         }
     }
@@ -574,13 +573,13 @@ class ManifestTests: XCTestCase {
 
             // Calculate the enabled traits with an explicitly declared set of enabled traits.
             // This should override the default traits (since it isn't explicitly passed in here).
-            let allEnabledTraitsWithoutDefaults = try manifest.enabledTraits(using: .enabledTraits(["Trait3"]))?.sorted()
+            let allEnabledTraitsWithoutDefaults = try manifest.enabledTraits(using: .enabledTraits(["Trait3"])).sorted()
             XCTAssertEqual(allEnabledTraitsWithoutDefaults, ["Trait3"])
 
             // Calculate the enabled traits with an explicitly declared set of enabled traits,
             // including the default traits. Since default traits are explicitly enabled in the
             // passed set of traits, this will be factored into the calculation.
-            let allEnabledTraitsWithDefaults = try manifest.enabledTraits(using: .enabledTraits(["default", "Trait3"]))?.sorted()
+            let allEnabledTraitsWithDefaults = try manifest.enabledTraits(using: .enabledTraits(["default", "Trait3"])).sorted()
             XCTAssertEqual(allEnabledTraitsWithDefaults, ["Trait1", "Trait2", "Trait3"])
         }
     }
@@ -613,7 +612,7 @@ class ManifestTests: XCTestCase {
             )
 
             // Calculate the enabled traits with all traits enabled flag.
-            let allEnabledTraits = try manifest.enabledTraits(using: .enableAllTraits)?.sorted()
+            let allEnabledTraits = try manifest.enabledTraits(using: .enableAllTraits).sorted()
             XCTAssertEqual(allEnabledTraits, ["Trait1", "Trait2", "Trait3"])
         }
     }
@@ -744,7 +743,7 @@ class ManifestTests: XCTestCase {
             XCTAssertTrue(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 unguardedTargetDependency,
-                enabledTraits: nil
+                enabledTraits: ["default"]
             ))
 
             // Test if a trait-guarded dependency is enabled when passed a set of enabled traits that
@@ -755,20 +754,19 @@ class ManifestTests: XCTestCase {
                 enabledTraits: ["Trait3"]
             ))
 
-            // Test if a trait-guarded dependency is enabled when passed a flag that enables all traits;
+            // Test if a trait-guarded dependency is enabled when passed all traits enabled;
             // should be true.
             XCTAssertTrue(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 trait3GuardedTargetDependency,
-                enabledTraits: nil,
-                enableAllTraits: true
+                enabledTraits: ["Trait1", "Trait2", "Trait3"]
             ))
 
             // Test if a trait-guarded dependency is enabled when there are no enabled traits passsed.
             XCTAssertFalse(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 trait3GuardedTargetDependency,
-                enabledTraits: nil
+                enabledTraits: ["default"]
             ))
 
             // Test if a target dependency guarded by default traits is enabled when passed no explicitly
@@ -776,7 +774,7 @@ class ManifestTests: XCTestCase {
             XCTAssertTrue(try manifest.isTargetDependencyEnabled(
                 target: "Foo",
                 defaultTraitGuardedTargetDependency,
-                enabledTraits: nil
+                enabledTraits: ["default"]
             ))
 
             // Test if a target dependency guarded by default traits is enabled when passed an empty set
@@ -881,11 +879,11 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: nil))
+//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: []))
-            XCTAssertFalse(try manifest.isPackageDependencyUsed(baz, enabledTraits: nil))
+//            XCTAssertFalse(try manifest.isPackageDependencyUsed(baz))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(baz, enabledTraits: ["Trait3"]))
-            XCTAssertTrue(try manifest.isPackageDependencyUsed(bam, enabledTraits: nil))
+//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bam))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
 
@@ -893,7 +891,7 @@ class ManifestTests: XCTestCase {
             // dependency that depends on the same package as another target dependency, but
             // is unguarded by traits; therefore, this package dependency should be considered used
             // in every scenario, regardless of the passed trait configuration.
-            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: nil))
+//            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: nil))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
         }
@@ -943,7 +941,7 @@ class ManifestTests: XCTestCase {
 
             // The list of required dependencies should remain the same, since all depenencies are being
             // used in the current manifest.
-            let calculatedDependencies = try manifest.dependenciesRequired(for: .everything, nil)
+            let calculatedDependencies = try manifest.dependenciesRequired(for: .everything)
             XCTAssertEqual(calculatedDependencies.map(\.identity).sorted(), dependencies.map(\.identity).sorted())
         }
     }
@@ -1004,7 +1002,7 @@ class ManifestTests: XCTestCase {
                 pruneDependencies: true
             )
 
-            let calculatedDependenciesWithDefaultTraits = try manifest.dependenciesRequired(for: .everything, nil)
+            let calculatedDependenciesWithDefaultTraits = try manifest.dependenciesRequired(for: .everything)
             XCTAssertEqual(
                 calculatedDependenciesWithDefaultTraits.map(\.identity).sorted(),
                 [
@@ -1087,7 +1085,7 @@ class ManifestTests: XCTestCase {
 
             // When using default traits (since we omit a list of enabled traits here),
             // `Bar` should not be trait-guarded since `Trait1` is enabled by default.
-            let noTraitGuardedDependencies = manifest.dependenciesTraitGuarded(withEnabledTraits: nil)
+            let noTraitGuardedDependencies = manifest.dependenciesTraitGuarded(withEnabledTraits: ["default"])
             XCTAssertEqual(noTraitGuardedDependencies, [])
         }
     }

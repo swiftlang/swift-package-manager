@@ -43,7 +43,6 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--experimental-prune-unused-dependencies"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -81,7 +80,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "default,Package9,Package10", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "default,Package9,Package10"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -122,7 +121,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "default,Package9", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "default,Package9"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -164,7 +163,6 @@ struct TraitTests {
                 extraArgs: [
                     "--traits",
                     "default,Package5,Package7,BuildCondition3",
-                    "--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
@@ -205,7 +203,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--disable-default-traits", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--disable-default-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -238,7 +236,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--traits", "Package5,Package7", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--traits", "Package5,Package7"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -274,7 +272,7 @@ struct TraitTests {
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
                 "Example",
-                extraArgs: ["--enable-all-traits", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["--enable-all-traits"],
                 buildSystem: buildSystem,
             )
             // We expect no warnings to be produced. Specifically no unused dependency warnings.
@@ -321,7 +319,6 @@ struct TraitTests {
                 extraArgs: [
                     "--enable-all-traits",
                     "--disable-default-traits",
-                    "--experimental-prune-unused-dependencies",
                 ],
                 buildSystem: buildSystem,
             )
@@ -384,7 +381,6 @@ struct TraitTests {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftTest(
                 fixturePath.appending("Example"),
-                extraArgs: ["--experimental-prune-unused-dependencies"],
                 buildSystem: buildSystem,
             )
             let expectedOut = """
@@ -421,7 +417,6 @@ struct TraitTests {
                     extraArgs: [
                         "--enable-all-traits",
                         "--disable-default-traits",
-                        "--experimental-prune-unused-dependencies",
                     ],
                     buildSystem: buildSystem,
                 )
@@ -461,7 +456,7 @@ struct TraitTests {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftPackage(
                 fixturePath.appending("Package10"),
-                extraArgs: ["dump-symbol-graph", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["dump-symbol-graph"],
                 buildSystem: buildSystem,
             )
             let optionalPath = stdout
@@ -469,6 +464,7 @@ struct TraitTests {
                 .split(whereSeparator: \.isNewline)
                 .first { String($0).hasPrefix("Files written to ") }?
                 .dropFirst(17)
+
 
             let path = try String(#require(optionalPath))
             let symbolGraph = try String(contentsOfFile: "\(path)/Package10Library1.symbols.json", encoding: .utf8)
@@ -489,7 +485,7 @@ struct TraitTests {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftPackage(
                 fixturePath.appending("Package10"),
-                extraArgs: ["plugin", "extract", "--experimental-prune-unused-dependencies"],
+                extraArgs: ["plugin", "extract"],
                 buildSystem: buildSystem,
             )
             let path = String(stdout.split(whereSeparator: \.isNewline).first!)

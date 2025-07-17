@@ -88,10 +88,6 @@ struct RunCommandOptions: ParsableArguments {
     @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
-    /// Specifies the traits to build the product with.
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
-
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
               help: "The arguments to pass to the executable.")
@@ -139,7 +135,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
-                traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
                 packageGraphLoader: asyncUnsafeGraphLoader
             )
@@ -161,7 +156,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    traitConfiguration: .init(traitOptions: self.options.traits)
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
@@ -217,9 +211,9 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    traitConfiguration: .init(traitOptions: self.options.traits)
                 )
-                let productName = try await findProductName(in: buildSystem.getPackageGraph())
+                let modulesGraph = try await buildSystem.getPackageGraph()
+                let productName = try findProductName(in: modulesGraph)
                 if options.shouldBuildTests {
                     try await buildSystem.build(subset: .allIncludingTests)
                 } else if options.shouldBuild {

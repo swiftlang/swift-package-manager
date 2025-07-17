@@ -46,12 +46,12 @@ public class MockPackageContainer: CustomPackageContainer {
         return _versions
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) -> [MockPackageContainer.Constraint] {
         requestedVersions.insert(version)
         return getDependencies(at: version.description, productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) -> [MockPackageContainer.Constraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) -> [MockPackageContainer.Constraint] {
         let dependencies: [Dependency]
         if filteredMode {
             dependencies = filteredDependencies[productFilter]!
@@ -64,17 +64,12 @@ public class MockPackageContainer: CustomPackageContainer {
         }
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) -> [MockPackageContainer.Constraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) -> [MockPackageContainer.Constraint] {
         return unversionedDeps
     }
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         return self.package
-    }
-
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // This mock does not currently need support for traits.
-        return []
     }
 
     public func isToolsVersionCompatible(at version: Version) -> Bool {
