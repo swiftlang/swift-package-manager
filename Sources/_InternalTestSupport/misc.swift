@@ -28,6 +28,7 @@ import SPMBuildCore
 import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
+import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
 
@@ -112,7 +113,8 @@ public func testWithTemporaryDirectory<Result>(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-@discardableResult public func fixture<T>(
+@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
+@discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -133,7 +135,44 @@ public func testWithTemporaryDirectory<Result>(
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let fixtureDir = try verifyFixtureExistsXCTest(at: fixtureSubpath, file: file, line: line)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
+@discardableResult public func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    body: (AbsolutePath) throws -> T
+) throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
             let preparedFixture = try setup(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
@@ -154,7 +193,8 @@ public enum TestError: Error {
     case platformNotSupported
 }
 
-@discardableResult public func fixture<T>(
+@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
+@discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -175,7 +215,7 @@ public enum TestError: Error {
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
+            let fixtureDir = try verifyFixtureExistsXCTest(at: fixtureSubpath, file: file, line: line)
             let preparedFixture = try setup(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
@@ -192,13 +232,63 @@ public enum TestError: Error {
     }
 }
 
-fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
+@discardableResult public func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    body: (AbsolutePath) async throws -> T
+) async throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+
+            defer {
+                // Unblock and remove the tmp dir on deinit.
+                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                try? localFileSystem.removeFileTree(tmpDirPath)
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try await body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
+fileprivate func verifyFixtureExistsXCTest(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
     let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
         .appending(fixtureSubpath)
 
     // Check that the fixture is really there.
     guard localFileSystem.isDirectory(fixtureDir) else {
         XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        throw SwiftPMError.packagePathNotFound
+    }
+
+    return fixtureDir
+}
+
+fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, sourceLocation: SourceLocation = #_sourceLocation) throws -> AbsolutePath {
+    let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
+        .appending(fixtureSubpath)
+
+    // Check that the fixture is really there.
+    guard localFileSystem.isDirectory(fixtureDir) else {
+        Issue.record("No such fixture: \(fixtureDir)", sourceLocation: sourceLocation)
         throw SwiftPMError.packagePathNotFound
     }
 
