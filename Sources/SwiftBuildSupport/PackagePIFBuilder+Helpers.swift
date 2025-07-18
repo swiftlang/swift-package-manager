@@ -55,12 +55,6 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
-// TODO: Move this back to `PackagePIFBuilder` once we get rid of `#if canImport(SwiftBuild)`.
-func targetName(forProductName name: String, suffix: String? = nil) -> String {
-    let suffix = suffix ?? ""
-    return "\(name)\(suffix)-product"
-}
-
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -74,7 +68,7 @@ enum TargetSuffix: String {
 }
 
 extension TargetSuffix? {
-    func description(forName name: String) -> String {
+    func uniqueDescription(forName name: String) -> String {
         switch self {
         case .some(let suffix):
             "-\(String(name.hash, radix: 16, uppercase: true))-\(suffix.rawValue)"
@@ -132,7 +126,7 @@ extension PackagePIFBuilder {
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
     static func targetGUID(forModuleName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.description(forName: name)
+        let suffixDescription = suffix.uniqueDescription(forName: name)
         return "PACKAGE-TARGET:\(name)\(suffixDescription)"
     }
 
@@ -141,15 +135,17 @@ extension PackagePIFBuilder {
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
     static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.description(forName: name)
+        let suffixDescription = suffix.uniqueDescription(forName: name)
         return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
     }
     
     /// Helper function to consistently generate a target name string for a product in a package.
-    /// This format helps make sure that targets and products with the same name (as they often have) have different
-    /// target names in the PIF.
+    ///
+    /// This format helps make sure that modules and products with the same name (as they often have)
+    /// have different target names in the PIF.
     static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
-        return SwiftBuildSupport.targetName(forProductName: name, suffix: suffix?.rawValue)
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)-product"
     }
 }
 
