@@ -862,12 +862,29 @@ final class ToolsVersionParserTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let root = AbsolutePath("/pkg")
 
+        // First, test the missing comment marker with the latest tools version.
         try fs.writeFileContents(root.appending("Package.swift"), string: "\n import PackageDescription")
         XCTAssertThrowsError(
             try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: .current)
         ) { error in
             guard let error = error as? ToolsVersionParser.Error, case .malformedToolsVersionSpecification(.commentMarker(.isMissing)) = error else {
                 XCTFail("'ToolsVersionParser.Error.malformedToolsVersionSpecification(.commentMarker(.isMissing))' should've been thrown, but a different error is thrown.")
+                return
+            }
+
+            XCTAssertEqual(
+                error.description,
+                "the manifest is missing a Swift tools version specification; consider prepending to the manifest '\(ToolsVersion.current.specification())' to specify the current Swift toolchain version as the lowest Swift version supported by the project; if such a specification already exists, consider moving it to the top of the manifest, or prepending it with '//' to help Swift Package Manager find it"
+            )
+        }
+
+        // Next, test the missing comment marker with tools version .v4. This should default to using 3.1.0.
+        try fs.writeFileContents(root.appending("Package.swift"), string: "\n import PackageDescription")
+        XCTAssertThrowsError(
+            try ManifestLoader.findManifest(packagePath: root, fileSystem: fs, currentToolsVersion: .v4)
+        ) { error in
+            guard let error = error as? UnsupportedToolsVersion, error.packageToolsVersion == .v3 else {
+                XCTFail("'UnsupportedToolsVersion' should've been thrown, but a different error is thrown.")
                 return
             }
 
