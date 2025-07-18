@@ -39,7 +39,7 @@ extension PackagePIFProjectBuilder {
         let pluginTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
                 id: pluginModule.pifTargetGUID,
-                productType: .executable,
+                productType: .hostBuildTool,
                 name: pluginModule.name,
                 productName: pluginModule.name
             )
