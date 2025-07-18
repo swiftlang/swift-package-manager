@@ -1079,7 +1079,8 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
             )
         } else {
@@ -1125,7 +1126,8 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
             )
         }
@@ -2024,8 +2026,7 @@ extension Sequence {
 
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
-        // We no longer restrict unsafe flags
-        false
+        settings.filter(\.kind.isUnsafeFlags).isEmpty == false
     }
 
     fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
