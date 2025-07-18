@@ -121,7 +121,7 @@ public protocol BuildPlan {
 public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
@@ -149,7 +149,7 @@ public struct BuildSystemProvider {
     public func createBuildSystem(
         kind: Kind,
         explicitProduct: String? = .none,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool = false,
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
@@ -163,7 +163,7 @@ public struct BuildSystemProvider {
         }
         return try await buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
-            traitConfiguration: traitConfiguration,
+            enableAllTraits: enableAllTraits,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,

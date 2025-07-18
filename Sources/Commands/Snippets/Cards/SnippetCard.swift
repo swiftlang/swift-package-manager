@@ -112,7 +112,7 @@ struct SnippetCard: Card {
 
     func runExample() async throws {
         print("Building '\(snippet.path)'\n")
-        let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name, traitConfiguration: .init())
+        let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name)
         try await buildSystem.build(subset: .product(snippet.name))
         let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
         if let exampleTarget = try await buildSystem.getPackageGraph().module(for: snippet.name) {

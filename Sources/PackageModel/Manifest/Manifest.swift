@@ -199,7 +199,7 @@ public final class Manifest: Sendable {
     ///
     /// If we set the `enabledTraits` to be `["Trait1"]`, then the list of dependencies guarded by traits would be `[]`.
     /// Otherwise, if `enabledTraits` were `nil`, then the dependencies guarded by traits would be `["Bar"]`.
-    public func dependenciesTraitGuarded(withEnabledTraits enabledTraits: Set<String>?) -> [PackageDependency] {
+    public func dependenciesTraitGuarded(withEnabledTraits enabledTraits: Set<String>) -> [PackageDependency] {
         guard supportsTraits else {
             return []
         }
@@ -249,8 +249,7 @@ public final class Manifest: Sendable {
                         continue
                     }
 
-                    if let enabledTraits,
-                        guardingTraits.intersection(enabledTraits) != guardingTraits
+                    if guardingTraits.intersection(enabledTraits) != guardingTraits
                     {
                         guardedDependencies.insert(dependency.identity)
                     }
@@ -267,7 +266,7 @@ public final class Manifest: Sendable {
     /// Returns the package dependencies required for a particular products filter and trait configuration.
     public func dependenciesRequired(
         for productFilter: ProductFilter,
-        _ enabledTraits: Set<String>?
+        _ enabledTraits: Set<String> = ["default"]
     ) throws -> [PackageDependency] {
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // If we have already calculated it, returned the cached value.
@@ -287,21 +286,18 @@ public final class Manifest: Sendable {
 
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
-            if pruneDependencies {
                 dependencies = try dependencies.filter({
-                    return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+                    let isUsed = try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
+                    return isUsed
                 })
-            }
             return dependencies
         }
 
         // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
         if var dependencies = self._requiredDependencies[.nothing] {
-            if self.pruneDependencies {
                 dependencies = try dependencies.filter({
                     return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                 })
-            }
             return dependencies
         } else {
             var requiredDependencies: Set<PackageIdentity> = []
