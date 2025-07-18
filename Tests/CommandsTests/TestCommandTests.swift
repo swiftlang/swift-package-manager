@@ -220,13 +220,17 @@ struct TestCommandTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8955", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func enableDisableTestabilityDefaultShouldRunWithTestability(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("fails to build the package") {
+        try await withKnownIssue(
+            "fails to build the package",
+            isIntermittent: (CiEnvironment.runningInSmokeTestPipeline),
+        ) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -238,7 +242,7 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
             || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
