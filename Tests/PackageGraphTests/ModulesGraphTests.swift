@@ -2058,7 +2058,7 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testUnsafeFlags() throws {
+    func loadUnsafeModulesGraph(toolsVersion: ToolsVersion) throws -> TestingObservability {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Foo/Sources/Foo/foo.swift",
@@ -2071,6 +2071,7 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
+
         _ = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
@@ -2088,6 +2089,7 @@ final class ModulesGraphTests: XCTestCase {
                 Manifest.createFileSystemManifest(
                     displayName: "Bar",
                     path: "/Bar",
+                    toolsVersion: toolsVersion,
                     products: [
                         ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar", "Bar2", "Bar3"]),
                         ProductDescription(
@@ -2127,8 +2129,39 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
+        return observability
+    }
+
+    func testUnsafeFlagsDisabled() throws {
+        let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_2)
+
         // We have turned off the unsafe flags check
         XCTAssertEqual(observability.diagnostics.count, 0)
+    }
+
+    func testUnsafeFlagsEnabled() throws {
+        let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_1)
+
+        XCTAssertEqual(observability.diagnostics.count, 3)
+        testDiagnostics(observability.diagnostics) { result in
+            var expectedMetadata = ObservabilityMetadata()
+            expectedMetadata.moduleName = "Foo2"
+            let diagnostic1 = result.checkUnordered(
+                diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"),
+                severity: .error
+            )
+            XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo2")
+            let diagnostic2 = result.checkUnordered(
+                diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"),
+                severity: .error
+            )
+            XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
+            let diagnostic3 = result.checkUnordered(
+                diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"),
+                severity: .error
+            )
+            XCTAssertEqual(diagnostic3?.metadata?.moduleName, "Foo")
+        }
     }
 
     func testConditionalTargetDependency() throws {

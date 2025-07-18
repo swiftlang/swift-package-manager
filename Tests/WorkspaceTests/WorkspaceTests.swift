@@ -5746,7 +5746,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Foo",
@@ -5769,7 +5769,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Baz",
@@ -5786,7 +5786,8 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"]
+                    versions: ["1.0.0", "1.5.0"],
+                    toolsVersion: .minimumRequired
                 ),
             ]
         )
@@ -5794,7 +5795,18 @@ final class WorkspaceTests: XCTestCase {
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
             // We have disabled the check so there shouldn't be any errors.
-            XCTAssert(diagnostics.filter({ $0.severity == .error }).isEmpty)
+            testDiagnostics(diagnostics) { result in
+                let diagnostic1 = result.checkUnordered(
+                    diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
+                    severity: .error
+                )
+                XCTAssertEqual(diagnostic1?.metadata?.packageIdentity, .plain("foo"))
+                XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo")
+
+                // since Bar is using the current tools version and we've disabled the check since 6.2,
+                // the result should now be empty.
+                result.checkIsEmpty()
+            }
         }
     }
 
