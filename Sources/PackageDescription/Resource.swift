@@ -30,8 +30,7 @@
 /// Alternatively, exclude resource files from a target by passing them to the
 /// target initializer's ``Target/exclude`` parameter.
 ///
-/// To learn more about package resources, see
-/// <doc:bundling-resources-with-a-swift-package>.
+/// To learn more about package resources, see [Bundling resources as a Swift Package](https://developer.apple.com/documentation/xcode/bundling-resources-with-a-swift-package).
 @available(_PackageDescription, introduced: 5.3)
 public struct Resource: Sendable {
 
