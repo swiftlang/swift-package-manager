@@ -25,42 +25,46 @@ public protocol Plugin {
     init()
 }
 
-/// Defines functionality for all plugins having a `buildTool` capability.
+/// A protocol you implement to define a build-tool plugin.
 public protocol BuildToolPlugin: Plugin {
-    /// Invoked by SwiftPM to create build commands for a particular target.
-    /// The context parameter contains information about the package and its
-    /// dependencies, as well as other environmental inputs.
+    /// Creates build commands for the given target.
     ///
-    /// This function should create and return build commands or prebuild
-    /// commands, configured based on the information in the context. Note
-    /// that it does not directly run those commands.
+    /// - Parameters:
+    ///   - context: Information about the package and its
+    ///     dependencies, as well as other environmental inputs.
+    ///   - target: The build target for which the package manager invokes the plugin.
+    /// - Returns: A list of commands that the system runs before it performs the build action (for ``Command/prebuildCommand(displayName:executable:arguments:environment:outputFilesDirectory:)-enum.case``),
+    ///   or as specific steps during the build (for ``Command/buildCommand(displayName:executable:arguments:environment:inputFiles:outputFiles:)-enum.case``).
+    ///
+    /// You don't run commands directly in your implementation of this method. Instead, create and return ``Command`` instances.
+    /// The system runs pre-build commands before it performs the build action, and adds build commands to the dependency tree for the build
+    /// based on which steps create the command's inputs, and which steps depend on the command's outputs.
     func createBuildCommands(
         context: PluginContext,
         target: Target
     ) async throws -> [Command]
 }
 
-/// Defines functionality for all plugins that have a `command` capability.
+/// A protocol you implement to define a command plugin.
 public protocol CommandPlugin: Plugin {
-    /// Invoked by SwiftPM to perform the custom actions of the command.
+    /// Performs the command's custom actions.
+    ///
+    /// - Parameters:
+    ///   - context: Information about the package and other environmental inputs.
+    ///   - arguments: Literal arguments that someone passed in the command invocation, after the command verb.
     func performCommand(
-        /// The context in which the plugin is invoked. This is the same for all
-        /// kinds of plugins, and provides access to the package graph, to cache
-        /// directories, etc.
         context: PluginContext,
-        
-        /// Any literal arguments passed after the verb in the command invocation.
         arguments: [String]
     ) async throws
 
-    /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
-    /// through which the plugin can ask for specialized information or actions.
+    /// An object that represents the Swift Package Manager or IDE hosting the command plugin.
+    ///
+    /// Use this object to discover specialized information about the plugin host, or actions your plugin can invoke.
     var packageManager: PackageManager { get }
 }
 
 extension CommandPlugin {    
-    /// A proxy to the Swift Package Manager or IDE hosting the command plugin,
-    /// through which the plugin can ask for specialized information or actions.
+    /// An object that represents the Swift Package Manager or IDE hosting the command plugin.
     public var packageManager: PackageManager {
         return PackageManager()
     }
