@@ -40,6 +40,7 @@ extension Tag.Feature.Command {
     @Tag public static var Build: Tag
     @Tag public static var Test: Tag
     @Tag public static var Run: Tag
+    @Tag public static var Play: Tag
 }
 
 extension Tag.Feature.Command.Package {
