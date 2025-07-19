@@ -525,6 +525,29 @@ public func executeSwiftTest(
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
+@discardableResult
+public func executeSwiftPlay(
+    _ packagePath: AbsolutePath?,
+    configuration: BuildConfiguration = .debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    throwIfCommandFails: Bool = false,
+    buildSystem: BuildSystemProvider.Kind = .native
+) async throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem
+    )
+    return try await SwiftPM.Play.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
+}
+
 private func swiftArgs(
     configuration: BuildConfiguration,
     extraArgs: [String],
