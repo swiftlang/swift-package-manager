@@ -26,8 +26,8 @@ public struct Diagnostics {
     /// - Parameters:
     ///   - severity: The severity of the diagnostic.
     ///   - description: The description of the diagnostic.
-    ///   - file: The file that generated the diagnostic, that defaults to `#file`.
-    ///   - line: The line that generated the diagnostic, that defaults to `#line`.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func emit(_ severity: Severity, _ description: String, file: String? = #file, line: Int? = #line) {
         let message: PluginToHostMessage
         switch severity {
@@ -45,8 +45,8 @@ public struct Diagnostics {
     /// Emits an error with the message you specify.
     /// - Parameters:
     ///   - message: The description of the error.
-    ///   - file: The file that generated the diagnostic, that defaults to `#file`.
-    ///   - line: The line that generated the diagnostic, that defaults to `#line`.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func error(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.error, message, file: file, line: line)
     }
@@ -54,8 +54,8 @@ public struct Diagnostics {
     /// Emits a warning with the message you specify.
     /// - Parameters:
     ///   - message: The description of the warning.
-    ///   - file: The file that generated the diagnostic, that defaults to `#file`.
-    ///   - line: The line that generated the diagnostic, that defaults to `#line`.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func warning(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.warning, message, file: file, line: line)
     }
@@ -63,14 +63,14 @@ public struct Diagnostics {
     /// Emits a remark with the message you specify.
     /// - Parameters:
     ///   - message: The description of the remark.
-    ///   - file: The file that generated the diagnostic, that defaults to `#file`.
-    ///   - line: The line that generated the diagnostic, that defaults to `#line`.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func remark(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.remark, message, file: file, line: line)
     }
 
-    /// Emits a progress message
-    /// - Parameter message: The decription of the progress.
+    /// Emits a progress message.
+    /// - Parameter message: The description of the progress.
     public static func progress(_ message: String) {
         try? pluginHostConnection.sendMessage(.emitProgress(message: message))
     }

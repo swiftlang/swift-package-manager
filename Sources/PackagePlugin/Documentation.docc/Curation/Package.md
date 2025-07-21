@@ -25,4 +25,3 @@
 - ``products``
 - ``products(named:)``
 - ``products(ofType:)``
-

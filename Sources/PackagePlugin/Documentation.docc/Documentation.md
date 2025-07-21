@@ -5,8 +5,8 @@ Create plugins that extend the Swift Package Manager.
 <!-- swift package --disable-sandbox preview-documentation --target PackagePlugin -->
 ## Overview
 
-Build tool plugins generate source files that as part of a build, or perform other actions at the start of every build.
-Build tool plugins are invoked before a package is built in order to construct command invocations to run as part of the build.
+Build tool plugins generate source files as part of a build, or perform other actions at the start of every build.
+The package manager invokes build tool plugins before a package is built in order to construct command invocations to run as part of the build.
 Command plugins provide actions that users can perform at any time and aren't associated with a build.
 
 Read [Writing a build tool plugin](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/WritingBuildToolPlugin) to learn how to create build tool plugins, or [Writing a command plugin](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/WritingCommandPlugin) to learn how to create command plugins.

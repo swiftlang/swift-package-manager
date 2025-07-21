@@ -14,8 +14,8 @@ import Foundation
 
 /// A command to run during the build.
 ///
-/// The command includes the executable, command lines, environment variables, initial working directory, and so on.
-/// All paths should be based on the ones passed to the plugin in the target build context.
+/// A command includes the executable, command lines, environment variables, initial working directory, and so on.
+/// All paths should be based on the ones that SwiftPM passes to the plugin in the target build context.
 public enum Command {
     /// Returns a command that runs when any of its output files are needed by
     /// the build and are out-of-date.
@@ -25,14 +25,14 @@ public enum Command {
     ///
     /// - Note: the paths in the list of output files may depend on the list of
     ///   input file paths, but **must not** depend on reading the contents of
-    ///   any input files. Use a `prebuildCommand`instead, if your functionality
+    ///   any input files. Use a `prebuildCommand`if the functionality of your plugin
     ///   requires you to read the contents of an input file.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: The command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
     ///   - environment: Any environment variable assignments visible to the
     ///     executable.
     ///   - inputFiles: A list of files on which the contents of output files may depend.
@@ -63,17 +63,18 @@ public enum Command {
     /// determine this list without first running the command, so
     /// instead of encoding that list, the caller supplies an
     /// `outputFilesDirectory` parameter, and all files in that
-    /// directory after the command runs are treated as output files.
+    /// directory after the command runs are treated as the output files
+    /// of the plugin.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: The command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
     ///   - environment: Any environment variable assignments visible to the executable.
     ///   - outputFilesDirectory: A directory into which the command writes its
-    ///     output files.  Any files there recognizable by their extension as
-    ///     source files (for example, `.swift`) are compiled into the target for which
+    ///     output files.  The package manager compiles any files there recognizable by
+    ///     their extension as source files (for example, `.swift`) into the target for which
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
@@ -101,16 +102,16 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: Command-line arguments for the executable.
     ///   - environment: Environment variable assignments visible to the
     ///     executable.
     ///   - inputFiles: Files on which the contents of output files may depend.
     ///     Any paths passed as `arguments` should typically be passed here as
     ///     well.
-    ///   - outputFiles: Files to be generated or updated by the executable.
-    ///     Any files recognizable by their extension as source files
-    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///   - outputFiles: The files that the plugin generates or updates using the executable.
+    ///     The package manager compiles any files recognizable by their extension as source files
+    ///     (e.g. `.swift`) into the target for which this command
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
@@ -145,14 +146,14 @@ extension Command {
     ///
     /// - Note: the paths in the list of output files may depend on the list
     ///   of input file paths, but **must not** depend on reading the contents
-    ///   of any input files. Use a `prebuildCommand`instead, if your functionality
+    ///   of any input files. Use a `prebuildCommand`if the functionality of your plugin
     ///   requires you to read the contents of an input file.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: The command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
     ///   - environment: Any environment variable assignments visible to the executable.
     ///   - workingDirectory: Optional initial working directory when the executable
     ///     runs.
@@ -198,8 +199,8 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: The command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
     ///   - environment: Any environment variable assignments visible to the executable.
     ///   - outputFilesDirectory: A directory into which the command writes its
     ///     output files.  Any files there recognizable by their extension as
@@ -241,8 +242,8 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: The command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
     ///   - environment: Any environment variable assignments visible to the executable.
     ///   - workingDirectory: Optional initial working directory when the executable
     ///     runs.

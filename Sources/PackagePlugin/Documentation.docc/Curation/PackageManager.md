@@ -12,12 +12,14 @@
 - ``BuildLogVerbosity``
 
 ### Testing a Package
+
 - ``test(_:parameters:)``
 - ``TestSubset``
 - ``TestParameters``
 - ``TestResult``
 
 ### Retrieving Symbols for a Package
+
 - ``getSymbolGraph(for:options:)``
 - ``SymbolGraphOptions``
 - ``SymbolGraphResult``

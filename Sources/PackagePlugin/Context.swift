@@ -12,43 +12,43 @@
 
 import Foundation
 
-/// A collection of information about the package on which the plugin is invoked,
+/// A collection of information about the package on which the package manager invokes the  plugin,
 /// as well as contextual information based on the plugin's intent and requirements.
 public struct PluginContext {
-    /// Information about the package on which the plugin is being applied.
+    /// Information about the package the plugin works on.
     public let package: Package
 
     /// The path of a writable directory into which the plugin or the build
-    /// commands it constructs can write anything it wants.
+    /// commands can write files.
     ///
     /// This could include
-    /// any generated source files that should be processed further, and it
-    /// could include any caches used by the build tool or the plugin itself.
+    /// generated source files to processed further, as well as
+    /// any caches used by the build tool or the plugin.
     /// The plugin is in complete control of what is written under this directory,
-    /// and the contents are preserved between builds.
+    /// and the package manager preserves the contents between builds.
     ///
-    /// A plugin would usually create a separate subdirectory of this directory
-    /// for each command it creates, and the command would be configured to
-    /// write its outputs to that directory. The plugin may also create other
+    /// A plugin may create a separate subdirectory
+    /// for each command it creates, with the command configured to
+    /// write its output to that directory. The plugin may also create other
     /// directories for cache files and other file system content that either
     /// it or the command will need.
     @available(_PackageDescription, deprecated: 6.0, renamed: "pluginWorkDirectoryURL")
     public let pluginWorkDirectory: Path
 
-    /// The path of a writable directory into which the plugin or the build
+    /// The URL of a writable directory into which the plugin or the build
     /// commands it constructs can write anything it wants.
     ///
     /// This could include
-    /// any generated source files that should be processed further, and it
-    /// could include any caches used by the build tool or the plugin itself.
+    /// generated source files to processed further, as well as
+    /// any caches used by the build tool or the plugin.
     /// The plugin is in complete control of what is written under this directory,
-    /// and the contents are preserved between builds.
+    /// and the package manager preserves the contents between builds.
     ///
-    /// A plugin should create a separate subdirectory in this directory
-    /// for each command it creates, and the command configured to
-    /// write its outputs to that directory. The plugin may also create other
-    /// directories for cache files, and other file system content that either
-    /// it or a command may need.
+    /// A plugin may create a separate subdirectory
+    /// for each command it creates, with the command configured to
+    /// write its output to that directory. The plugin may also create other
+    /// directories for cache files and other file system content that either
+    /// it or the command will need.
     @available(_PackageDescription, introduced: 6.0)
     public let pluginWorkDirectoryURL: URL
 
@@ -86,7 +86,7 @@ public struct PluginContext {
         throw PluginContextError.toolNotFound(name: name)
     }
 
-    /// A mapping from tool names to their paths and triples.
+    /// A map from tool names to their paths and triples.
     ///
     /// This is not directly available to the plugin, but is used by  ``tool(named:)``.
     let accessibleTools: [String: (path: URL, triples: [String]?)]

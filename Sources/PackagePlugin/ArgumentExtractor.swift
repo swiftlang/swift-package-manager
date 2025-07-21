@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A rudimentary helper for extracting options and flags from a list of strings that represents command line arguments.
+/// A rudimentary helper for extracting options and flags from a list of strings that represent command line arguments.
 ///
 /// Create the extractor with the full command line arguments provided, then extract all known
-/// options and flags, leaving the positional arguments.
+/// options and flags, which leaves the positional arguments.
 ///
-/// This does not handle the case where positional arguments (or option argument values) have the same
-/// name as an option or a flag. It only handles the long form of options, not short forms, for example: `--<name>`.
+/// This does not handle the case where positional arguments (or optional argument values) have the same
+/// name as an option or a flag. It only handles the long form of options, not short forms, for example: `--<name>`, not `-n`.
 /// It respects an argument that consists of two hyphens (`--`) as an indication that all remaining arguments are positional.
 public struct ArgumentExtractor {
     private var args: [String]
@@ -24,7 +24,7 @@ public struct ArgumentExtractor {
 
     /// Creates an argument extractor with a list of strings from which to extract flags and options.
     ///
-    /// If the list contains `--`, any arguments that follow it are considered to be positional arguments.
+    /// If the list contains `--`, any arguments that follow it are considered positional arguments.
     public init(_ arguments: [String]) {
         // Split the array on the first `--`, if there is one. Everything after that is a literal.
         let parts = arguments.split(separator: "--", maxSplits: 1, omittingEmptySubsequences: false)
@@ -77,7 +77,7 @@ public struct ArgumentExtractor {
 
     /// Returns any unextracted flags or options.
     ///
-    /// This is based strictly on whether remaining arguments have a "--" prefix.
+    /// This is based strictly on whether remaining arguments have a `--` prefix.
     public var unextractedOptionsOrFlags: [String] {
         return args.filter{ $0.hasPrefix("--") }
     }
