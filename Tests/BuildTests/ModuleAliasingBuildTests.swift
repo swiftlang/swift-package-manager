@@ -1806,9 +1806,11 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         result.checkProductsCount(1)
         result.checkTargetsCount(9)
+        // The root-level package is the most down-stream, so it sets the upstream module's name via the
+        // aliases. It shouldn't have an alias itself since it references the module by the alias name.
         XCTAssertTrue(
             result.targetMap.values
-                .contains { $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "XUtils" }
+                .contains { $0.module.name == "A" && $0.module.moduleAliases == nil}
         )
         XCTAssertTrue(
             result.targetMap.values
@@ -2021,12 +2023,12 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
-
+        // The root-level package is the most down-stream, so it sets the upstream module's name via the
+        // aliases. It shouldn't have an alias itself since it references the module by the alias name.
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?
-                        .count == 1
+                    $0.module.name == "A" && $0.module.moduleAliases == nil
                 }
         )
         XCTAssertTrue(
@@ -2240,11 +2242,12 @@ final class ModuleAliasingBuildTests: XCTestCase {
 
         result.checkProductsCount(1)
         result.checkTargetsCount(8)
+        // The root-level package is the most down-stream, so it sets the upstream module's name via the
+        // aliases. It shouldn't have an alias itself since it references the module by the alias name.
         XCTAssertTrue(
             result.targetMap.values
                 .contains {
-                    $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == "XUtils" && $0.module
-                        .moduleAliases?["Log"] == "XLog" && $0.module.moduleAliases?.count == 2
+                    $0.module.name == "A" && $0.module.moduleAliases == nil
                 }
         )
         XCTAssertTrue(

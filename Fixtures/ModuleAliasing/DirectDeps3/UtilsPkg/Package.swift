@@ -4,7 +4,6 @@ import PackageDescription
 let package = Package(
     name: "UtilsPkg",
     products: [
-        .library(name: "Utils", targets: ["Utils"]),
         .library(name: "Lib", targets: ["Lib", "Utils"])
     ],
     targets: [
