@@ -32,14 +32,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .root(path),
-            packageIdentity: .plain(displayName),
+            packageIdentity: .plain(displayName.lowercased()),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -73,14 +73,14 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         Self.createManifest(
             displayName: displayName,
             path: path,
             packageKind: .fileSystem(path),
-            packageIdentity: .plain(displayName),
+            packageIdentity: .plain(displayName.lowercased()),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -120,7 +120,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .localSourceControl(path),
-            packageIdentity: .plain(displayName),
+            packageIdentity: .plain(displayName.lowercased()),
             packageLocation: path.pathString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -161,7 +161,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .remoteSourceControl(url),
-            packageIdentity: .plain(displayName),
+            packageIdentity: .plain(displayName.lowercased()),
             packageLocation: url.absoluteString,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -201,7 +201,7 @@ extension Manifest {
             displayName: displayName,
             path: path,
             packageKind: .registry(identity),
-            packageIdentity: .plain(displayName),
+            packageIdentity: .plain(displayName.lowercased()),
             packageLocation: identity.description,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
@@ -237,7 +237,7 @@ extension Manifest {
         dependencies: [PackageDependency] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
-        traits: Set<TraitDescription> = [.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         pruneDependencies: Bool = false
     ) -> Manifest {
         return Manifest(

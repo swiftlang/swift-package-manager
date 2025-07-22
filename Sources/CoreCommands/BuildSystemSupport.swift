@@ -29,7 +29,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
 
     func makeBuildSystem(
         explicitProduct: String?,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
@@ -38,7 +38,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?
     ) async throws -> any BuildSystem {
-        _ = try await swiftCommandState.getRootPackageInformation(traitConfiguration: traitConfiguration)
+        _ = try await swiftCommandState.getRootPackageInformation(enableAllTraits)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
         let cacheBuildManifest = if cacheBuildManifest {
             try await self.swiftCommandState.canUseCachedBuildManifest()
@@ -52,7 +52,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
-                    traitConfiguration: traitConfiguration,
+                    enableAllTraits: enableAllTraits,
                     testEntryPointPath: testEntryPointPath
                 )
             },
@@ -62,7 +62,7 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
             scratchDirectory: self.swiftCommandState.scratchDirectory,
-            traitConfiguration: traitConfiguration,
+            traitConfiguration: enableAllTraits ? .enableAllTraits : self.swiftCommandState.traitConfiguration,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
             pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
@@ -77,7 +77,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
 
     func makeBuildSystem(
         explicitProduct: String?,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
@@ -91,7 +91,7 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
-                    traitConfiguration: traitConfiguration
+                    enableAllTraits: enableAllTraits
                 )
             },
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
@@ -107,7 +107,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
 
     func makeBuildSystem(
         explicitProduct: String?,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
@@ -120,7 +120,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                    explicitProduct: explicitProduct,
+                    enableAllTraits: enableAllTraits,
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,

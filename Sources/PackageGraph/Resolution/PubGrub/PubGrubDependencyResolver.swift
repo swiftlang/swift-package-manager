@@ -165,12 +165,12 @@ public struct PubGrubDependencyResolver {
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint], traitConfiguration: TraitConfiguration = .default) async -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint]) async -> Result<[DependencyResolverBinding], Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
             // root level package, use it as our resolution root
-            root = .root(package: constraint.package, traitConfiguration: traitConfiguration)
+            root = .root(package: constraint.package, enabledTraits: constraint.enabledTraits)
         } else {
             // more complex setup requires a synthesized root
             root = .root(
@@ -178,7 +178,7 @@ public struct PubGrubDependencyResolver {
                     identity: .plain("<synthesized-root>"),
                     path: .root
                 ),
-                traitConfiguration: traitConfiguration
+                enabledTraits: ["default"]
             )
         }
 
