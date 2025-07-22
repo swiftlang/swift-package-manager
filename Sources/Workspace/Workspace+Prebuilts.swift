@@ -221,6 +221,11 @@ extension Workspace {
                             identity: .plain("swift-syntax"),
                             kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax.git")
                         ),
+                        // The old site that's being redirected but still in use.
+                        .init(
+                            identity: .plain("swift-syntax"),
+                            kind: .remoteSourceControl("https://github.com/apple/swift-syntax.git")
+                        ),
                         .init(
                             identity: .plain("swift-syntax"),
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
