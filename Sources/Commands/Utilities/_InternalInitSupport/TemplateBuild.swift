@@ -46,10 +46,62 @@ enum TemplateBuildSupport {
         swiftCommandState: SwiftCommandState,
         buildOptions: BuildCommandOptions,
         globalOptions: GlobalOptions,
-        cwd: Basics.AbsolutePath
+        cwd: Basics.AbsolutePath,
+        transitiveFolder: Basics.AbsolutePath? = nil
     ) async throws {
+
+
         let buildSystem = try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+            .withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+
+                try await swiftCommandState.createBuildSystem(
+                    explicitProduct: buildOptions.product,
+                    traitConfiguration: .init(traitOptions: buildOptions.traits),
+                    shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
+                    productsBuildParameters: swiftCommandState.productsBuildParameters,
+                    toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+                    outputStream: TSCBasic.stdoutStream
+                )
+            }
+
+        guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
+            throw ExitCode.failure
+        }
+
+
+
+        try await swiftCommandState
+            .withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+                do {
+                    try await buildSystem.build(subset: subset)
+                } catch _ as Diagnostics {
+                    throw ExitCode.failure
+                }
+            }
+    }
+
+    static func buildForTesting(
+        swiftCommandState: SwiftCommandState,
+        buildOptions: BuildCommandOptions,
+        testingFolder: Basics.AbsolutePath
+    ) async throws {
+
+        var productsBuildParameters = try swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+
+        if buildOptions.enableCodeCoverage {
+            productsBuildParameters.testingParameters.enableCodeCoverage = true
+            toolsBuildParameters.testingParameters.enableCodeCoverage = true
+        }
+
+        if buildOptions.printPIFManifestGraphviz {
+            productsBuildParameters.printPIFManifestGraphviz = true
+            toolsBuildParameters.printPIFManifestGraphviz = true
+        }
+
+
+        let buildSystem = try await swiftCommandState
+            .withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
                 try await swiftCommandState.createBuildSystem(
                     explicitProduct: buildOptions.product,
                     traitConfiguration: .init(traitOptions: buildOptions.traits),
@@ -65,7 +117,7 @@ enum TemplateBuildSupport {
         }
 
         try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+            .withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
                 do {
                     try await buildSystem.build(subset: subset)
                 } catch _ as Diagnostics {
@@ -73,4 +125,5 @@ enum TemplateBuildSupport {
                 }
             }
     }
+
 }

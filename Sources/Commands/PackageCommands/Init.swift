@@ -37,7 +37,9 @@ extension SwiftPackageCommand {
 
         @Option(
             name: .customLong("type"),
-            help: ArgumentHelp("Package type:", discussion: """
+            help: ArgumentHelp("Specifies the package type or template.", discussion: """
+                Valid values include:
+
                 library           - A package with a library.
                 executable        - A package with an executable.
                 tool              - A package with an executable that uses
@@ -47,6 +49,9 @@ extension SwiftPackageCommand {
                 command-plugin    - A package that vends a command plugin.
                 macro             - A package that vends a macro.
                 empty             - An empty package with a Package.swift manifest.
+                <custom>          - When used with --path, --url, or --package-id,
+                                    this resolves to a template from the specified 
+                                    package or location.
                 """))
         var initMode: String?
 
@@ -115,6 +120,10 @@ extension SwiftPackageCommand {
         /// Upper bound on the version range (exclusive).
         @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
+
+        /// Validation step to build package post generation and run if package is of type executable
+        @Flag(name: .customLong("validate-package"), help: "Run 'swift build' after package generation to validate the template.")
+        var validatePackage: Bool = false
 
         /// Predetermined arguments specified by the consumer.
         @Argument(
@@ -192,12 +201,23 @@ extension SwiftPackageCommand {
             packageName: String,
             cwd: Basics.AbsolutePath
         ) async throws {
-
-            let template = initMode
             guard let source = templateSource else {
                 throw ValidationError("No template source specified.")
             }
 
+            let manifest = cwd.appending(component: Manifest.filename)
+            guard swiftCommandState.fileSystem.exists(manifest) == false else {
+                throw InitError.manifestAlreadyExists
+            }
+
+
+            let contents = try swiftCommandState.fileSystem.getDirectoryContents(cwd)
+
+            guard contents.isEmpty else {
+                throw InitError.nonEmptyDirectory(contents)
+            }
+
+            let template = initMode
             let requirementResolver = DependencyRequirementResolver(
                 exact: exact,
                 revision: revision,
@@ -227,6 +247,17 @@ extension SwiftPackageCommand {
                 throw ValidationError("The specified template path does not exist: \(dir.pathString)")
             }
 
+            // Use a transitive staging directory
+            let tempDir = try swiftCommandState.fileSystem.tempDirectory.appending(component: UUID().uuidString)
+            let stagingPackagePath = tempDir.appending(component: "generated-package")
+            let buildDir = tempDir.appending(component: ".build")
+
+            try swiftCommandState.fileSystem.createDirectory(tempDir)
+            defer {
+                try? swiftCommandState.fileSystem.removeFileTree(tempDir)
+            }
+
+            // Determine the type by loading the resolved template
             let templateInitType = try await swiftCommandState
                 .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
                     try await self.checkConditions(swiftCommandState, template: template)
@@ -264,20 +295,29 @@ extension SwiftPackageCommand {
                 fileSystem: swiftCommandState.fileSystem,
                 packageType: templateInitType,
                 supportedTestingLibraries: supportedTemplateTestingLibraries,
-                destinationPath: cwd,
+                destinationPath: stagingPackagePath,
                 installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
             )
 
+            try swiftCommandState.fileSystem.createDirectory(stagingPackagePath, recursive: true)
+
             try initTemplatePackage.setupTemplateManifest()
 
+            // Build once inside the transitive folder
             try await TemplateBuildSupport.build(
                 swiftCommandState: swiftCommandState,
                 buildOptions: self.buildOptions,
                 globalOptions: self.globalOptions,
-                cwd: cwd
+                cwd: stagingPackagePath,
+                transitiveFolder: stagingPackagePath
             )
 
-            let packageGraph = try await swiftCommandState.loadPackageGraph()
+            let packageGraph = try await swiftCommandState
+                .withTemporaryWorkspace(switchingTo: stagingPackagePath) { _, _ in
+                    try await swiftCommandState.loadPackageGraph()
+                }
+
+            
             let matchingPlugins = PluginCommand.findPlugins(matching: template, in: packageGraph, limitedTo: nil)
 
             guard let commandPlugin = matchingPlugins.first else {
@@ -311,17 +351,33 @@ extension SwiftPackageCommand {
             let cliResponses = try initTemplatePackage.promptUser(command: toolInfo.command, arguments: args)
 
             for response in cliResponses {
-                print(response)
-                do {
-                    let _ = try await TemplatePluginRunner.run(
-                        plugin: matchingPlugins[0],
-                        package: packageGraph.rootPackages.first!,
-                        packageGraph: packageGraph,
-                        arguments: response,
-                        swiftCommandState: swiftCommandState
-                    )
-                }
-            }}
+                _ = try await TemplatePluginRunner.run(
+                    plugin: matchingPlugins[0],
+                    package: packageGraph.rootPackages.first!,
+                    packageGraph: packageGraph,
+                    arguments: response,
+                    swiftCommandState: swiftCommandState
+                )
+            }
+
+            // Move finalized package to target cwd
+            if swiftCommandState.fileSystem.exists(cwd) {
+                try swiftCommandState.fileSystem.removeFileTree(cwd)
+            }
+            try swiftCommandState.fileSystem.copy(from: stagingPackagePath, to: cwd)
+
+            // Restore cwd for build
+
+            if validatePackage {
+                try await TemplateBuildSupport.build(
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: self.buildOptions,
+                    globalOptions: self.globalOptions,
+                    cwd: cwd
+                )
+            }
+        }
+
 
 
         /// Validates the loaded manifest to determine package type.

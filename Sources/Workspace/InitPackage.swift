@@ -20,7 +20,8 @@ import protocol TSCBasic.OutputByteStream
 /// Create an initial template package.
 public final class InitPackage {
     /// The tool version to be used for new packages.
-    public static let newPackageToolsVersion = ToolsVersion.current
+    public static let newPackageToolsVersion = ToolsVersion.v6_1 //TODO: JOHN CHANGE ME BACK TO:
+    // -    public static let newPackageToolsVersion = ToolsVersion.current
 
     /// Options for the template package.
     public struct InitPackageOptions {
@@ -883,18 +884,21 @@ public final class InitPackage {
 
 // Private helpers
 
-private enum InitError: Swift.Error {
+public enum InitError: Swift.Error {
     case manifestAlreadyExists
     case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
+    case nonEmptyDirectory(_ content: [String])
 }
 
 extension InitError: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
         case let .unsupportedTestingLibraryForPackageType(library, packageType):
             return "\(library) cannot be used when initializing a \(packageType) package"
+        case let .nonEmptyDirectory(content):
+            return "directory is not empty: \(content.joined(separator: ", "))"
         }
     }
 }
