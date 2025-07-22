@@ -228,7 +228,12 @@ public final class UserToolchain: Toolchain {
     }
 
     private static func computeSwiftCompilerVersion(targetInfo: JSON) -> String? {
-        // Get the compiler version from the target info
+        // Use the new swiftCompilerTag if it's there
+        if let swiftCompilerTag: String = targetInfo.get("swiftCompilerTag") {
+            return swiftCompilerTag
+        }
+
+        // Default to the swift portion of the compilerVersion
         let compilerVersion: String
         do {
             compilerVersion = try targetInfo.get("compilerVersion")
