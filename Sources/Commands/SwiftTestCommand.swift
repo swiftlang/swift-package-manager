@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import ArgumentParserToolInfo
 
 @_spi(SwiftPMInternal)
 import Basics
@@ -261,7 +262,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         discussion: "SEE ALSO: swift build, swift run, swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
-            List.self, Last.self
+            List.self, Last.self, Template.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
@@ -709,6 +710,143 @@ extension SwiftTestCommand {
     }
 }
 
+final class ArgumentTreeNode {
+    let command: CommandInfoV0
+    var children: [ArgumentTreeNode] = []
+
+    var arguments: [String: InitTemplatePackage.ArgumentResponse] = [:]
+
+    init(command: CommandInfoV0) {
+        self.command = command
+    }
+
+    static func build(from command: CommandInfoV0) -> ArgumentTreeNode {
+        let node = ArgumentTreeNode(command: command)
+        if let subcommands = command.subcommands {
+            node.children = subcommands.map { build(from: $0) }
+        }
+        return node
+    }
+
+    func collectUniqueArguments() -> [String: ArgumentInfoV0] {
+        var dict: [String: ArgumentInfoV0] = [:]
+        if let args = command.arguments {
+            for arg in args {
+                let key = arg.preferredName?.name ?? arg.valueName ?? UUID().uuidString
+                dict[key] = arg
+            }
+        }
+        for child in children {
+            let childDict = child.collectUniqueArguments()
+            for (key, arg) in childDict {
+                dict[key] = arg
+            }
+        }
+        return dict
+    }
+
+
+    static func promptForUniqueArguments(
+        uniqueArguments: [String: ArgumentInfoV0]
+    ) -> [String: InitTemplatePackage.ArgumentResponse] {
+        var collected: [String: InitTemplatePackage.ArgumentResponse] = [:]
+        let argsToPrompt = Array(uniqueArguments.values)
+
+        // Prompt for all unique arguments at once
+        _ = InitTemplatePackage.UserPrompter.prompt(for: argsToPrompt, collected: &collected)
+
+        return collected
+    }
+
+    //Fill node arguments by assigning the prompted values for keys it requires
+    func fillArguments(with responses: [String: InitTemplatePackage.ArgumentResponse]) {
+        if let args = command.arguments {
+            for arg in args {
+                if let resp = responses[arg.valueName ?? ""] {
+                    arguments[arg.valueName ?? ""] = resp
+                }
+            }
+        }
+        // Recurse
+        for child in children {
+            child.fillArguments(with: responses)
+        }
+    }
+
+    func printTree(level: Int = 0) {
+        let indent = String(repeating: "  ", count: level)
+        print("\(indent)- Command: \(command.commandName)")
+        for (key, response) in arguments {
+            print("\(indent)  - \(key): \(response.values)")
+        }
+        for child in children {
+            child.printTree(level: level + 1)
+        }
+    }
+
+    func createCLITree(root: ArgumentTreeNode) -> [[ArgumentTreeNode]] {
+        // Base case: If it's a leaf node, return a path with only itself
+        if root.children.isEmpty {
+            return [[root]]
+        }
+
+        var result: [[ArgumentTreeNode]] = []
+
+        // Recurse into children and prepend the current root to each path
+        for child in root.children {
+            let childPaths = createCLITree(root: child)
+            for path in childPaths {
+                result.append([root] + path)
+            }
+        }
+
+        return result
+    }
+}
+
+extension ArgumentTreeNode {
+    /// Traverses all command paths and returns CLI paths along with their arguments
+    func collectCommandPaths(
+        currentPath: [String] = [],
+        currentArguments: [String: InitTemplatePackage.ArgumentResponse] = [:]
+    ) -> [([String], [String: InitTemplatePackage.ArgumentResponse])] {
+        var newPath = currentPath + [command.commandName]
+
+        var combinedArguments = currentArguments
+        for (key, value) in arguments {
+            combinedArguments[key] = value
+        }
+
+        if children.isEmpty {
+            return [(newPath, combinedArguments)]
+        }
+
+        var results: [([String], [String: InitTemplatePackage.ArgumentResponse])] = []
+        for child in children {
+            results += child.collectCommandPaths(
+                currentPath: newPath,
+                currentArguments: combinedArguments
+            )
+        }
+
+        return results
+    }
+}
+
+extension DispatchTimeInterval {
+    var seconds: TimeInterval {
+        switch self {
+        case .seconds(let s): return TimeInterval(s)
+        case .milliseconds(let ms): return TimeInterval(Double(ms) / 1000)
+        case .microseconds(let us): return TimeInterval(Double(us) / 1_000_000)
+        case .nanoseconds(let ns): return TimeInterval(Double(ns) / 1_000_000_000)
+        case .never: return 0
+        @unknown default: return 0
+        }
+    }
+}
+
+
 extension SwiftTestCommand {
     struct Last: SwiftCommand {
         @OptionGroup(visibility: .hidden)
@@ -721,6 +859,257 @@ extension SwiftTestCommand {
             )
         }
     }
+
+    struct Template: AsyncSwiftCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Test the various outputs of a template"
+        )
+
+        @OptionGroup(visibility: .hidden)
+        var globalOptions: GlobalOptions
+
+        @OptionGroup()
+        var sharedOptions: SharedOptions
+
+        @Option(help: "Specify name of the template")
+        var templateName: String?
+
+        @Option(
+            name: .customLong("output-path"),
+            help: "Specify the output path of the created templates.",
+            completion: .directory
+        )
+        public var outputDirectory: AbsolutePath
+
+        @OptionGroup(visibility: .hidden)
+        var buildOptions: BuildCommandOptions
+
+        /// Predetermined arguments specified by the consumer.
+        @Argument(
+            help: "Predetermined arguments to pass to the template."
+        )
+        var args: [String] = []
+
+        @Flag(help: "Dry-run to display argument tree")
+        var dryRun: Bool = false
+
+
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let manifest = outputDirectory.appending(component: Manifest.filename)
+            let fileSystem = swiftCommandState.fileSystem
+            let directoryExists = fileSystem.exists(outputDirectory)
+
+            if !directoryExists {
+                try FileManager.default.createDirectory(
+                    at: outputDirectory.asURL,
+                    withIntermediateDirectories: true
+                )
+            } else {
+                if fileSystem.exists(manifest) {
+                    throw ValidationError("Package.swift was found in \(outputDirectory).")
+                }
+            }
+
+            // Load Package Graph
+            let packageGraph = try await swiftCommandState.loadPackageGraph()
+
+            // Find matching plugin
+            let matchingPlugins = PluginCommand.findPlugins(matching: templateName, in: packageGraph, limitedTo: nil)
+            guard let commandPlugin = matchingPlugins.first else {
+                throw ValidationError("No templates were found that match the name \(templateName ?? "")")
+            }
+
+            guard matchingPlugins.count == 1 else {
+                let templateNames = matchingPlugins.compactMap { module in
+                    let plugin = module.underlying as! PluginModule
+                    guard case .command(let intent, _) = plugin.capability else { return String?.none }
+
+                    return intent.invocationVerb
+                }
+                throw ValidationError(
+                    "More than one template was found in the package. Please use `--type` along with one of the available templates: \(templateNames.joined(separator: ", "))"
+                )
+            }
+
+            let output = try await TemplatePluginRunner.run(
+                plugin: commandPlugin,
+                package: packageGraph.rootPackages.first!,
+                packageGraph: packageGraph,
+                arguments: ["--", "--experimental-dump-help"],
+                swiftCommandState: swiftCommandState
+            )
+
+            let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
+            let root = ArgumentTreeNode.build(from: toolInfo.command)
+
+            let uniqueArguments = root.collectUniqueArguments()
+            let responses = ArgumentTreeNode.promptForUniqueArguments(uniqueArguments: uniqueArguments)
+            root.fillArguments(with: responses)
+
+            if dryRun {
+                root.printTree()
+                return
+            }
+
+            let cliArgumentPaths = root.createCLITree(root: root) // [[ArgumentTreeNode]]
+            let commandPaths = root.collectCommandPaths()
+
+            func checkConditions(_ swiftCommandState: SwiftCommandState, template: String?) async throws -> InitPackage.PackageType {
+                let workspace = try swiftCommandState.getActiveWorkspace()
+                let root = try swiftCommandState.getWorkspaceRoot()
+
+                let rootManifests = try await workspace.loadRootManifests(
+                    packages: root.packages,
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+                guard let rootManifest = rootManifests.values.first else {
+                    throw InternalError("Invalid manifests at \(root.packages)")
+                }
+
+                let targets = rootManifest.targets
+                for target in targets {
+                    if template == nil || target.name == template,
+                       let options = target.templateInitializationOptions,
+                       case .packageInit(let templateType, _, _) = options {
+                        return try .init(from: templateType)
+                    }
+                }
+
+                throw ValidationError("Could not find \(template != nil ? "template \(template!)" : "any templates")")
+            }
+
+            let initialPackageType: InitPackage.PackageType = try await checkConditions(swiftCommandState, template: templateName)
+
+            var buildMatrix: [String: BuildInfo] = [:]
+
+            for path in cliArgumentPaths {
+                let commandNames = path.map { $0.command.commandName }
+                let folderName = commandNames.joined(separator: "-")
+                let destinationAbsolutePath = outputDirectory.appending(component: folderName)
+                let destinationURL = destinationAbsolutePath.asURL
+
+                print("\n Generating for: \(folderName)")
+                try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+
+                let initTemplatePackage = try InitTemplatePackage(
+                    name: folderName,
+                    initMode: .fileSystem(name: templateName, path: swiftCommandState.originalWorkingDirectory.pathString),
+                    templatePath: swiftCommandState.originalWorkingDirectory,
+                    fileSystem: swiftCommandState.fileSystem,
+                    packageType: initialPackageType,
+                    supportedTestingLibraries: [],
+                    destinationPath: destinationAbsolutePath,
+                    installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
+                )
+
+                try initTemplatePackage.setupTemplateManifest()
+
+
+                let generatedGraph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
+                    try await swiftCommandState.loadPackageGraph()
+                }
+
+                try await TemplateBuildSupport.buildForTesting(
+                            swiftCommandState: swiftCommandState,
+                            buildOptions: buildOptions,
+                            testingFolder: destinationAbsolutePath
+                )
+
+                for (index, node) in path.enumerated() {
+                    let currentPath = index == 0 ? [] : path[1...index].map { $0.command.commandName }
+                    let currentArgs = node.arguments.values.flatMap { $0.commandLineFragments }
+                    let fullCommand = currentPath + currentArgs
+                    let commandString = fullCommand.joined(separator: " ")
+
+                    print("Running: \(commandString)")
+
+                    do {
+                        try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath, perform: {_,_ in print(String(data: try await TemplatePluginRunner.run(
+                            plugin: commandPlugin,
+                            package: generatedGraph.rootPackages.first!,
+                            packageGraph: generatedGraph,
+                            arguments: fullCommand,
+                            swiftCommandState: swiftCommandState
+                            ), encoding: .utf8) ?? "")
+
+                        })
+
+                        print("Success: \(commandString)")
+                    } catch {
+                        print("Failed: \(commandString) — error: \(error)")
+                    }
+                }
+
+                //Test for building
+
+                let buildInfo = await buildGeneratedTemplate(swiftCommandState: swiftCommandState, buildOptions: buildOptions, testingFolder: destinationAbsolutePath)
+                buildMatrix[folderName] = buildInfo
+
+                
+            }
+
+            printBuildMatrix(buildMatrix)
+
+            func printBuildMatrix(_ matrix: [String: BuildInfo]) {
+                // Print header with manual padding
+                let header = [
+                    "Argument Branch".padding(toLength: 30, withPad: " ", startingAt: 0),
+                    "Success".padding(toLength: 10, withPad: " ", startingAt: 0),
+                    "Time(s)".padding(toLength: 10, withPad: " ", startingAt: 0),
+                    "Error"
+                ]
+                print(header.joined(separator: " "))
+
+                for (folder, info) in matrix {
+                    let duration = String(format: "%.2f", info.duration.seconds)
+                    let status = info.success ? "true" : "false"
+                    let errorText = info.error?.localizedDescription ?? "-"
+
+                    let row = [
+                        folder.padding(toLength: 30, withPad: " ", startingAt: 0),
+                        status.padding(toLength: 10, withPad: " ", startingAt: 0),
+                        duration.padding(toLength: 10, withPad: " ", startingAt: 0),
+                        errorText
+                    ]
+                    print(row.joined(separator: " "))
+                }
+            }
+        }
+        
+
+        struct BuildInfo {
+            var startTime: DispatchTime
+            var duration: DispatchTimeInterval
+            var success: Bool
+            var error: Error?
+        }
+
+        private func buildGeneratedTemplate(swiftCommandState: SwiftCommandState, buildOptions: BuildCommandOptions, testingFolder: AbsolutePath) async -> BuildInfo {
+            var buildInfo: BuildInfo
+
+            let start = DispatchTime.now()
+
+            do {
+                try await
+                TemplateBuildSupport.buildForTesting(
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: buildOptions,
+                    testingFolder: testingFolder
+                )
+
+                let duration = start.distance(to: .now())
+                buildInfo = BuildInfo(startTime: start, duration: duration, success: true, error: nil)
+            } catch {
+                let duration = start.distance(to: .now())
+
+                buildInfo = BuildInfo(startTime: start, duration: duration, success: false, error: error)
+            }
+
+            return buildInfo
+        }
+    }
+
+
 
     struct List: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(

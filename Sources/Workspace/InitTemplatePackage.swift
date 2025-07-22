@@ -224,7 +224,9 @@ public final class InitTemplatePackage {
         let (providedResponses, leftoverArgs) = try self.parseAndMatchArgumentsWithLeftovers(arguments, definedArgs: allArgs)
 
         let missingArgs = self.findMissingArguments(from: allArgs, excluding: providedResponses)
-        let promptedResponses = UserPrompter.prompt(for: missingArgs)
+
+        var collectedResponses: [String: ArgumentResponse] = [:]
+        let promptedResponses = UserPrompter.prompt(for: missingArgs, collected: &collectedResponses)
 
         // Combine all inherited + current-level responses
         let allCurrentResponses = inheritedResponses + providedResponses + promptedResponses
@@ -462,19 +464,29 @@ public final class InitTemplatePackage {
 
     /// A helper struct to prompt the user for input values for command arguments.
 
-    private enum UserPrompter {
+    public enum UserPrompter {
         /// Prompts the user for input for each argument, handling flags, options, and positional arguments.
         ///
         /// - Parameter arguments: The list of argument metadata to prompt for.
         /// - Returns: An array of `ArgumentResponse` representing the user's input.
 
-        static func prompt(for arguments: [ArgumentInfoV0]) -> [ArgumentResponse] {
-            arguments
-                .filter { $0.valueName != "help" && $0.shouldDisplay != false }
-                .map { arg in
+        public static func prompt(
+            for arguments: [ArgumentInfoV0],
+            collected: inout [String: ArgumentResponse]
+        ) -> [ArgumentResponse] {
+            return arguments
+                .filter { $0.valueName != "help" && $0.shouldDisplay }
+                .compactMap { arg in
+                    let key = arg.preferredName?.name ?? arg.valueName ?? UUID().uuidString
+
+                    if let existing = collected[key] {
+                        print("Using previous value for '\(key)': \(existing.values.joined(separator: ", "))")
+                        return existing
+                    }
+
                     let defaultText = arg.defaultValue.map { " (default: \($0))" } ?? ""
                     let allValuesText = (arg.allValues?.isEmpty == false) ?
-                        " [\(arg.allValues!.joined(separator: ", "))]" : ""
+                    " [\(arg.allValues!.joined(separator: ", "))]" : ""
                     let promptMessage = "\(arg.abstract ?? "")\(allValuesText)\(defaultText):"
 
                     var values: [String] = []
@@ -493,9 +505,7 @@ public final class InitTemplatePackage {
                         if arg.isRepeating {
                             while let input = readLine(), !input.isEmpty {
                                 if let allowed = arg.allValues, !allowed.contains(input) {
-                                    print(
-                                        "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
-                                    )
+                                    print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
                                     continue
                                 }
                                 values.append(input)
@@ -507,9 +517,7 @@ public final class InitTemplatePackage {
                             let input = readLine()
                             if let input, !input.isEmpty {
                                 if let allowed = arg.allValues, !allowed.contains(input) {
-                                    print(
-                                        "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
-                                    )
+                                    print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
                                     exit(1)
                                 }
                                 values = [input]
@@ -521,8 +529,11 @@ public final class InitTemplatePackage {
                         }
                     }
 
-                    return ArgumentResponse(argument: arg, values: values)
+                    let response = ArgumentResponse(argument: arg, values: values)
+                    collected[key] = response
+                    return response
                 }
+
         }
     }
 
@@ -563,10 +574,10 @@ public final class InitTemplatePackage {
         let argument: ArgumentInfoV0
 
         /// The values provided by the user.
-        let values: [String]
+        public let values: [String]
 
         /// Returns the command line fragments representing this argument and its values.
-        var commandLineFragments: [String] {
+        public var commandLineFragments: [String] {
             guard let name = argument.valueName else {
                 return self.values
             }
