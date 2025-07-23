@@ -850,6 +850,10 @@ private class DummyRepositoryProvider: RepositoryProvider {
             fatalError("not implemented")
         }
 
+        func checkout(branch: String) throws {
+            fatalError("not implemented")
+        }
+
         func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool {
             fatalError("not implemented")
         }
