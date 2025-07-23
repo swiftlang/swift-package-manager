@@ -23,6 +23,7 @@ import OrderedCollections
 
 import PackageGraph
 import PackageModel
+import enum PackageModelSyntax.ManifestEditError
 
 import SPMBuildCore
 import SwiftFixIt
@@ -156,8 +157,11 @@ extension SwiftPackageCommand {
 
             // Once the fix-its were applied, it's time to update the
             // manifest with newly adopted feature settings.
+            //
+            // Loop over a sorted array to produce deterministic results and
+            // order of diagnostics.
             print("> Updating manifest")
-            for target in targetsToMigrate {
+            for target in targetsToMigrate.sorted() {
                 swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
                     for: target,
@@ -169,8 +173,8 @@ extension SwiftPackageCommand {
 
         /// Resolves the requested feature names.
         ///
-        /// - Returns: An array of resolved features, or `nil` if an error was
-        ///   emitted.
+        /// - Returns: An array of resolved features sorted by name, or `nil`
+        ///   if an error was emitted.
         private func resolveRequestedFeatures(
             _ swiftCommandState: SwiftCommandState
         ) throws -> [SwiftCompilerFeature]? {
@@ -207,7 +211,9 @@ extension SwiftPackageCommand {
                 resolvedFeatures.append(feature)
             }
 
-            return resolvedFeatures
+            return resolvedFeatures.sorted { lhs, rhs in
+                lhs.name < rhs.name
+            }
         }
 
         private func createBuildSystem(
@@ -273,15 +279,37 @@ extension SwiftPackageCommand {
                     verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                try swiftCommandState.observabilityScope.emit(
-                    error: """
-                    Could not update manifest for '\(target)' (\(error)). \
-                    Please enable '\(
-                        features.map { try $0.swiftSettingDescription }
-                            .joined(separator: ", ")
-                    )' features manually
-                    """
-                )
+                var message =
+                    "Could not update manifest to enable requested features for target '\(target)' (\(error))"
+
+                // Do not suggest manual addition if something else is wrong or
+                // if the error implies that it cannot be done.
+                if let error = error as? ManifestEditError {
+                    switch error {
+                    case .cannotFindPackage,
+                         .cannotAddSettingsToPluginTarget,
+                         .existingDependency:
+                        break
+                    case .cannotFindArrayLiteralArgument,
+                         // This means the target could not be found
+                         // syntactically, not that it does not exist.
+                         .cannotFindTargets,
+                         .cannotFindTarget,
+                         // This means the swift-tools-version is lower than
+                         // the version where one of the setting was introduced.
+                         .oldManifest:
+                        let settings = try features.map {
+                            try $0.swiftSettingDescription
+                        }.joined(separator: ", ")
+
+                        message += """
+                        . Please enable them manually by adding the following Swift settings to the target: \
+                        '\(settings)'
+                        """
+                    }
+                }
+
+                swiftCommandState.observabilityScope.emit(error: message)
             }
         }
 
