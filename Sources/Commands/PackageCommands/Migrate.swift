@@ -64,31 +64,8 @@ extension SwiftPackageCommand {
         var options: MigrateOptions
 
         public func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let toolchain = try swiftCommandState.productsBuildParameters.toolchain
-
-            let supportedFeatures = try Dictionary(
-                uniqueKeysWithValues: toolchain.swiftCompilerSupportedFeatures
-                    .map { ($0.name, $0) }
-            )
-
-            // First, let's validate that all of the features are supported
-            // by the compiler and are migratable.
-
-            var features: [SwiftCompilerFeature] = []
-            for name in self.options.features {
-                guard let feature = supportedFeatures[name] else {
-                    let migratableFeatures = supportedFeatures.map(\.value).filter(\.migratable).map(\.name)
-                    throw ValidationError(
-                        "Unsupported feature: \(name). Available features: \(migratableFeatures.joined(separator: ", "))"
-                    )
-                }
-
-                guard feature.migratable else {
-                    throw ValidationError("Feature '\(name)' is not migratable")
-                }
-
-                features.append(feature)
-            }
+            // First, validate and resolve the requested feature names.
+            let features = try self.resolveRequestedFeatures(swiftCommandState)
 
             let targets = self.options.targets
 
@@ -186,6 +163,44 @@ extension SwiftPackageCommand {
                     using: swiftCommandState
                 )
             }
+        }
+
+        /// Resolves the requested feature names.
+        private func resolveRequestedFeatures(
+            _ swiftCommandState: SwiftCommandState
+        ) throws -> [SwiftCompilerFeature] {
+            let toolchain = try swiftCommandState.productsBuildParameters.toolchain
+
+            // Query the compiler for supported features.
+            let supportedFeatures = try toolchain.swiftCompilerSupportedFeatures
+
+            var resolvedFeatures: [SwiftCompilerFeature] = []
+
+            // Resolve the requested feature names, validating that they are
+            // supported by the compiler and migratable.
+            for name in self.options.features {
+                let feature = supportedFeatures.first { $0.name == name }
+
+                guard let feature else {
+                    let migratableCommaSeparatedFeatures = supportedFeatures
+                        .filter(\.migratable)
+                        .map(\.name)
+                        .sorted()
+                        .joined(separator: ", ")
+
+                    throw ValidationError(
+                        "Unsupported feature '\(name)'. Available features: \(migratableCommaSeparatedFeatures)"
+                    )
+                }
+
+                guard feature.migratable else {
+                    throw ValidationError("Feature '\(name)' is not migratable")
+                }
+
+                resolvedFeatures.append(feature)
+            }
+
+            return resolvedFeatures
         }
 
         private func createBuildSystem(
