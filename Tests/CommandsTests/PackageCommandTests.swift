@@ -2117,6 +2117,49 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertNoMatch(stdout, .contains("--package-path"))
     }
 
+    func testMigrateCommandNoFeatures() async throws {
+        try await XCTAssertThrowsCommandExecutionError(
+            await self.execute(["migrate"])
+        ) { error in
+            XCTAssertMatch(
+                error.stderr,
+                .contains("error: Missing expected argument '--to-feature <to-feature>'")
+            )
+        }
+    }
+
+    func testMigrateCommandUnknownFeature() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await XCTAssertThrowsCommandExecutionError(
+            await self.execute(["migrate", "--to-feature", "X"])
+        ) { error in
+            XCTAssertMatch(
+                error.stderr,
+                .contains("error: Unsupported feature 'X'. Available features:")
+            )
+        }
+    }
+
+    func testMigrateCommandNonMigratableFeature() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await XCTAssertThrowsCommandExecutionError(
+            await self.execute(["migrate", "--to-feature", "StrictConcurrency"])
+        ) { error in
+            XCTAssertMatch(
+                error.stderr,
+                .contains("error: Feature 'StrictConcurrency' is not migratable")
+            )
+        }
+    }
+
     func testMigrateCommand() async throws {
         try XCTSkipIf(
             !UserToolchain.default.supportesSupportedFeatures,
