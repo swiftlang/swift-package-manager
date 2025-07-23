@@ -303,7 +303,7 @@ public final class InitTemplatePackage {
 
     private func promptUserForSubcommand(for commands: [CommandInfoV0]) throws -> CommandInfoV0 {
 
-        print("Available subcommands:\n")
+        print("Choose from the following:\n")
 
         for command in commands {
             print("""
@@ -314,16 +314,16 @@ public final class InitTemplatePackage {
             """)
         }
 
-        print("Type the name of the subcommand you'd like to use:")
+        print("Type the name of the option:")
         while true {
             if let input = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines), !input.isEmpty {
                 if let match = commands.first(where: { $0.commandName == input }) {
                     return match
                 } else {
-                    print("No subcommand found with name '\(input)'. Please try again:")
+                    print("No option found with name '\(input)'. Please try again:")
                 }
             } else {
-                print("Please enter a valid subcommand name:")
+                print("Please enter a valid option name:")
             }
         }
     }
@@ -342,9 +342,7 @@ public final class InitTemplatePackage {
 
         let filteredSubcommands = subcommands.filter { $0.commandName.lowercased() != "help" }
 
-        for sub in filteredSubcommands {
-            print(sub.commandName)
-        }
+        guard !filteredSubcommands.isEmpty else { return nil }
 
         return filteredSubcommands
     }
