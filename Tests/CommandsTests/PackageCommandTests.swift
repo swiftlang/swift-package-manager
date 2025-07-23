@@ -2248,6 +2248,100 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    func testMigrateCommandUpdateManifestSingleTarget() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
+            _ = try await self.execute(
+                [
+                    "migrate",
+                    "--to-feature",
+                    "ExistentialAny,InferIsolatedConformances",
+                    "--target",
+                    "A",
+                ],
+                packagePath: fixturePath
+            )
+
+            let updatedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.swift")
+            )
+            let expectedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.updated.targets-A.swift")
+            )
+            XCTAssertEqual(updatedManifest, expectedManifest)
+        }
+
+    }
+
+    func testMigrateCommandUpdateManifest2Targets() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
+            _ = try await self.execute(
+                [
+                    "migrate",
+                    "--to-feature",
+                    "ExistentialAny,InferIsolatedConformances",
+                    "--target",
+                    "A,B",
+                ],
+                packagePath: fixturePath
+            )
+
+            let updatedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.swift")
+            )
+            let expectedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.updated.targets-A-B.swift")
+            )
+            XCTAssertEqual(updatedManifest, expectedManifest)
+        }
+    }
+
+    func testMigrateCommandUpdateManifestWithErrors() async throws {
+        try XCTSkipIf(
+            !UserToolchain.default.supportesSupportedFeatures,
+            "skipping because test environment compiler doesn't support `-print-supported-features`"
+        )
+
+        try await fixture(name: "SwiftMigrate/UpdateManifest") { fixturePath in
+            try await XCTAssertThrowsCommandExecutionError(
+                await self.execute(
+                    ["migrate", "--to-feature", "ExistentialAny,InferIsolatedConformances,StrictMemorySafety"],
+                    packagePath: fixturePath
+                )
+            ) { error in
+                // 'SwiftMemorySafety.strictMemorySafety' was introduced in 6.2.
+                XCTAssertMatch(
+                    error.stderr,
+                    .contains(
+                        """
+                        error: Could not update manifest to enable requested features for target 'A' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
+                        error: Could not update manifest to enable requested features for target 'B' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
+                        error: Could not update manifest to enable requested features for target 'CannotFindSettings' (unable to find array literal for 'swiftSettings' argument). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
+                        error: Could not update manifest to enable requested features for target 'CannotFindTarget' (unable to find target named 'CannotFindTarget' in package). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
+                        """
+                    )
+                )
+            }
+
+            let updatedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.swift")
+            )
+            let expectedManifest = try localFileSystem.readFileContents(
+                fixturePath.appending(components: "Package.updated.targets-all.swift")
+            )
+            XCTAssertEqual(updatedManifest, expectedManifest)
+        }
+    }
+
     func testBuildToolPlugin() async throws {
         try await testBuildToolPlugin(staticStdlib: false)
     }
@@ -4203,6 +4297,18 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     }
 
     override func testMigrateCommandWhenDependencyBuildsForHostAndTarget() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandUpdateManifestSingleTarget() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandUpdateManifest2Targets() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandUpdateManifestWithErrors() async throws {
         throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
     }
 
