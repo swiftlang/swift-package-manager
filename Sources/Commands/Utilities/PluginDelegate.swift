@@ -29,6 +29,7 @@ final class PluginDelegate: PluginInvocationDelegate {
     let plugin: PluginModule
     var lineBufferedOutput: Data
     let echoOutput: Bool
+    var diagnostics: [Basics.Diagnostic] = []
 
     init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule, echoOutput: Bool = true) {
         self.swiftCommandState = swiftCommandState
@@ -61,6 +62,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
         swiftCommandState.observabilityScope.emit(diagnostic)
+        if diagnostic.severity == .error {
+            diagnostics.append(diagnostic)
+        }
     }
 
     func pluginEmittedProgress(_ message: String) {

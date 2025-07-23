@@ -123,7 +123,7 @@ enum TemplatePluginRunner {
             ?? swiftCommandState.fileSystem.currentWorkingDirectory
             ?? { throw InternalError("Could not determine working directory") }()
 
-        let _ = try await pluginTarget.invoke(
+        let success = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildParams.buildEnvironment,
             scriptRunner: pluginScriptRunner,
@@ -142,7 +142,17 @@ enum TemplatePluginRunner {
             callbackQueue: DispatchQueue(label: "plugin-invocation"),
             delegate: delegate
         )
+        
+        guard success else {
+            let stringError = delegate.diagnostics
+                .map { $0.message }
+                .joined(separator: "\n")
 
+            throw DefaultPluginScriptRunnerError.invocationFailed(
+                error: StringError(stringError),
+                command: arguments
+            )
+        }
         return delegate.lineBufferedOutput
     }
 
