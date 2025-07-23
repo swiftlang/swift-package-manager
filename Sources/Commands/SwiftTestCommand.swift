@@ -914,9 +914,9 @@ extension SwiftTestCommand {
             let packageGraph = try await swiftCommandState.loadPackageGraph()
 
             // Find matching plugin
-            let matchingPlugins = PluginCommand.findPlugins(matching: templateName, in: packageGraph, limitedTo: nil)
+            let matchingPlugins = PluginCommand.findPlugins(matching: self.templateName, in: packageGraph, limitedTo: nil)
             guard let commandPlugin = matchingPlugins.first else {
-                throw ValidationError("No templates were found that match the name \(templateName ?? "")")
+                throw ValidationError("No templates were found that match the name \(self.templateName ?? "")")
             }
 
             guard matchingPlugins.count == 1 else {
@@ -951,7 +951,7 @@ extension SwiftTestCommand {
                 return
             }
 
-            let cliArgumentPaths = root.createCLITree(root: root) // [[ArgumentTreeNode]]
+            let cliArgumentPaths = root.createCLITree(root: root)
             let commandPaths = root.collectCommandPaths()
 
             func checkConditions(_ swiftCommandState: SwiftCommandState, template: String?) async throws -> InitPackage.PackageType {
@@ -988,11 +988,98 @@ extension SwiftTestCommand {
                 let destinationAbsolutePath = outputDirectory.appending(component: folderName)
                 let destinationURL = destinationAbsolutePath.asURL
 
-                print("\n Generating for: \(folderName)")
+                print("\nGenerating \(folderName)")
                 try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
 
+
+                let buildInfo = try await testTemplateIntialization(
+                    commandPlugin: commandPlugin,
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: buildOptions,
+                    destinationAbsolutePath: destinationAbsolutePath,
+                    testingFolderName: folderName,
+                    argumentPath: path,
+                    initialPackageType: initialPackageType
+                )
+
+                buildMatrix[folderName] = buildInfo
+
+
+            }
+
+            printBuildMatrix(buildMatrix)
+
+            func printBuildMatrix(_ matrix: [String: BuildInfo]) {
+                let header = [
+                    "Argument Branch".padding(toLength: 30, withPad: " ", startingAt: 0),
+                    "Gen Success".padding(toLength: 12, withPad: " ", startingAt: 0),
+                    "Gen Time(s)".padding(toLength: 12, withPad: " ", startingAt: 0),
+                    "Build Success".padding(toLength: 14, withPad: " ", startingAt: 0),
+                    "Build Time(s)".padding(toLength: 14, withPad: " ", startingAt: 0),
+                    "Log File"
+                ]
+                print(header.joined(separator: " "))
+
+                for (folder, info) in matrix {
+                    let row = [
+                        folder.padding(toLength: 30, withPad: " ", startingAt: 0),
+                        String(info.generationSuccess).padding(toLength: 12, withPad: " ", startingAt: 0),
+                        String(format: "%.2f", info.generationDuration.seconds).padding(toLength: 12, withPad: " ", startingAt: 0),
+                        String(info.buildSuccess).padding(toLength: 14, withPad: " ", startingAt: 0),
+                        String(format: "%.2f", info.buildDuration.seconds).padding(toLength: 14, withPad: " ", startingAt: 0),
+                        info.logFilePath ?? "-"
+                    ]
+                    print(row.joined(separator: " "))
+                }
+            }
+        }
+
+        struct BuildInfo {
+            var generationDuration: DispatchTimeInterval
+            var buildDuration: DispatchTimeInterval
+            var generationSuccess: Bool
+            var buildSuccess: Bool
+            var generationError: Error?
+            var buildError: Error?
+            var logFilePath: String?
+        }
+
+        private func testTemplateIntialization(
+            commandPlugin: ResolvedModule,
+            swiftCommandState: SwiftCommandState,
+            buildOptions: BuildCommandOptions,
+            destinationAbsolutePath: AbsolutePath,
+            testingFolderName: String,
+            argumentPath: [ArgumentTreeNode],
+            initialPackageType: InitPackage.PackageType
+        ) async throws -> BuildInfo {
+
+            let generationStart = DispatchTime.now()
+            var generationDuration: DispatchTimeInterval = .never
+            var buildDuration: DispatchTimeInterval = .never
+            var generationSuccess = false
+            var buildSuccess = false
+            var generationError: Error?
+            var buildError: Error?
+            var logFilePath: String? = nil
+
+
+            var pluginOutput: String = ""
+
+            do {
+
+                let logPath = destinationAbsolutePath.appending("generation-output.log").pathString
+
+                // Redirect stdout/stderr to file before starting generation
+                let (origOut, origErr) = try redirectStdoutAndStderr(to: logPath)
+
+                defer {
+                    restoreStdoutAndStderr(originalStdout: origOut, originalStderr: origErr)
+                }
+
+
                 let initTemplatePackage = try InitTemplatePackage(
-                    name: folderName,
+                    name: testingFolderName,
                     initMode: .fileSystem(name: templateName, path: swiftCommandState.originalWorkingDirectory.pathString),
                     templatePath: swiftCommandState.originalWorkingDirectory,
                     fileSystem: swiftCommandState.fileSystem,
@@ -1004,112 +1091,178 @@ extension SwiftTestCommand {
 
                 try initTemplatePackage.setupTemplateManifest()
 
-
                 let generatedGraph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
                     try await swiftCommandState.loadPackageGraph()
                 }
 
                 try await TemplateBuildSupport.buildForTesting(
-                            swiftCommandState: swiftCommandState,
-                            buildOptions: buildOptions,
-                            testingFolder: destinationAbsolutePath
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: buildOptions,
+                    testingFolder: destinationAbsolutePath
                 )
 
-                for (index, node) in path.enumerated() {
-                    let currentPath = index == 0 ? [] : path[1...index].map { $0.command.commandName }
+                for (index, node) in argumentPath.enumerated() {
+                    let currentPath = index == 0 ? [] : argumentPath[1...index].map { $0.command.commandName }
                     let currentArgs = node.arguments.values.flatMap { $0.commandLineFragments }
                     let fullCommand = currentPath + currentArgs
-                    let commandString = fullCommand.joined(separator: " ")
 
-                    print("Running: \(commandString)")
-
-                    do {
-                        try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath, perform: {_,_ in print(String(data: try await TemplatePluginRunner.run(
-                            plugin: commandPlugin,
-                            package: generatedGraph.rootPackages.first!,
-                            packageGraph: generatedGraph,
-                            arguments: fullCommand,
-                            swiftCommandState: swiftCommandState
-                            ), encoding: .utf8) ?? "")
-
-                        })
-
-                        print("Success: \(commandString)")
-                    } catch {
-                        print("Failed: \(commandString) — error: \(error)")
+                    try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
+                        do {
+                            let outputData = try await TemplatePluginRunner.run(
+                                plugin: commandPlugin,
+                                package: generatedGraph.rootPackages.first!,
+                                packageGraph: generatedGraph,
+                                arguments: fullCommand,
+                                swiftCommandState: swiftCommandState
+                            )
+                            pluginOutput = String(data: outputData, encoding: .utf8) ?? "[Invalid UTF-8 output]"
+                            print(pluginOutput)
+                        }
                     }
                 }
 
-                //Test for building
+                generationDuration = generationStart.distance(to: .now())
+                generationSuccess = true
 
-                let buildInfo = await buildGeneratedTemplate(swiftCommandState: swiftCommandState, buildOptions: buildOptions, testingFolder: destinationAbsolutePath)
-                buildMatrix[folderName] = buildInfo
+                if generationSuccess {
+                    try FileManager.default.removeItem(atPath: logPath)
+                }
 
-                
+            } catch {
+                generationDuration = generationStart.distance(to: .now())
+                generationError = error
+                generationSuccess = false
+
+
+                let logPath = destinationAbsolutePath.appending("generation-output.log")
+                let outputPath = logPath.pathString
+                let capturedOutput = (try? String(contentsOfFile: outputPath)) ?? ""
+
+                let unifiedLog = """
+                    Error:
+                    --------------------------------
+                    \(error.localizedDescription)
+                    
+                    Plugin Output (before failure):
+                    --------------------------------
+                    \(capturedOutput)
+                    """
+
+                try? unifiedLog.write(to: logPath.asURL, atomically: true, encoding: .utf8)
+                logFilePath = logPath.pathString
+
             }
+            // Only start the build step if generation was successful
+            if generationSuccess {
+                let buildStart = DispatchTime.now()
+                do {
 
-            printBuildMatrix(buildMatrix)
+                    let logPath = destinationAbsolutePath.appending("build-output.log").pathString
 
-            func printBuildMatrix(_ matrix: [String: BuildInfo]) {
-                // Print header with manual padding
-                let header = [
-                    "Argument Branch".padding(toLength: 30, withPad: " ", startingAt: 0),
-                    "Success".padding(toLength: 10, withPad: " ", startingAt: 0),
-                    "Time(s)".padding(toLength: 10, withPad: " ", startingAt: 0),
-                    "Error"
-                ]
-                print(header.joined(separator: " "))
+                    // Redirect stdout/stderr to file before starting build
+                    let (origOut, origErr) = try redirectStdoutAndStderr(to: logPath)
 
-                for (folder, info) in matrix {
-                    let duration = String(format: "%.2f", info.duration.seconds)
-                    let status = info.success ? "true" : "false"
-                    let errorText = info.error?.localizedDescription ?? "-"
+                    defer {
+                        restoreStdoutAndStderr(originalStdout: origOut, originalStderr: origErr)
+                    }
 
-                    let row = [
-                        folder.padding(toLength: 30, withPad: " ", startingAt: 0),
-                        status.padding(toLength: 10, withPad: " ", startingAt: 0),
-                        duration.padding(toLength: 10, withPad: " ", startingAt: 0),
-                        errorText
-                    ]
-                    print(row.joined(separator: " "))
+
+                    try await TemplateBuildSupport.buildForTesting(
+                        swiftCommandState: swiftCommandState,
+                        buildOptions: buildOptions,
+                        testingFolder: destinationAbsolutePath
+                    )
+
+                    buildDuration = buildStart.distance(to: .now())
+                    buildSuccess = true
+
+
+                    if buildSuccess {
+                        try FileManager.default.removeItem(atPath: logPath)
+                    }
+
+
+                } catch {
+                    buildDuration = buildStart.distance(to: .now())
+                    buildError = error
+                    buildSuccess = false
+
+                    let logPath = destinationAbsolutePath.appending("build-output.log")
+                    let outputPath = logPath.pathString
+                    let capturedOutput = (try? String(contentsOfFile: outputPath)) ?? ""
+
+                    let unifiedLog = """
+                    Error:
+                    --------------------------------
+                    \(error.localizedDescription)
+
+                    Build Output (before failure):
+                    --------------------------------
+                    \(capturedOutput)
+                    """
+
+                    try? unifiedLog.write(to: logPath.asURL, atomically: true, encoding: .utf8)
+                    logFilePath = logPath.pathString
+
                 }
             }
+
+
+            return BuildInfo(
+                generationDuration: generationDuration,
+                buildDuration: buildDuration,
+                generationSuccess: generationSuccess,
+                buildSuccess: buildSuccess,
+                generationError: generationError,
+                buildError: buildError,
+                logFilePath: logFilePath
+            )
         }
-        
 
-        struct BuildInfo {
-            var startTime: DispatchTime
-            var duration: DispatchTimeInterval
-            var success: Bool
-            var error: Error?
+        func writeLogToFile(_ content: String, to directory: AbsolutePath, named fileName: String) throws {
+            let fileURL = URL(fileURLWithPath: directory.pathString).appendingPathComponent(fileName)
+            try content.write(to: fileURL, atomically: true, encoding: .utf8)
         }
 
-        private func buildGeneratedTemplate(swiftCommandState: SwiftCommandState, buildOptions: BuildCommandOptions, testingFolder: AbsolutePath) async -> BuildInfo {
-            var buildInfo: BuildInfo
-
-            let start = DispatchTime.now()
-
-            do {
-                try await
-                TemplateBuildSupport.buildForTesting(
-                    swiftCommandState: swiftCommandState,
-                    buildOptions: buildOptions,
-                    testingFolder: testingFolder
-                )
-
-                let duration = start.distance(to: .now())
-                buildInfo = BuildInfo(startTime: start, duration: duration, success: true, error: nil)
-            } catch {
-                let duration = start.distance(to: .now())
-
-                buildInfo = BuildInfo(startTime: start, duration: duration, success: false, error: error)
+        func redirectStdoutAndStderr(to path: String) throws -> (originalStdout: Int32, originalStderr: Int32) {
+            // Open file for writing (create/truncate)
+            guard let file = fopen(path, "w") else {
+                throw NSError(domain: "RedirectError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot open file for writing"])
             }
 
-            return buildInfo
+            let originalStdout = dup(STDOUT_FILENO)
+            let originalStderr = dup(STDERR_FILENO)
+
+            dup2(fileno(file), STDOUT_FILENO)
+            dup2(fileno(file), STDERR_FILENO)
+
+            fclose(file)
+
+            return (originalStdout, originalStderr)
+        }
+
+        func restoreStdoutAndStderr(originalStdout: Int32, originalStderr: Int32) {
+            fflush(stdout)
+            fflush(stderr)
+
+            if dup2(originalStdout, STDOUT_FILENO) == -1 {
+                perror("dup2 stdout restore failed")
+            }
+            if dup2(originalStderr, STDERR_FILENO) == -1 {
+                perror("dup2 stderr restore failed")
+            }
+
+            fflush(stdout)
+            fflush(stderr)
+
+            if close(originalStdout) == -1 {
+                perror("close originalStdout failed")
+            }
+            if close(originalStderr) == -1 {
+                perror("close originalStderr failed")
+            }
         }
     }
-
-
 
     struct List: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
