@@ -88,7 +88,6 @@ public struct Package {
     public let publishedAt: Date?
     public let signingEntity: SigningEntity?
     public let latestVersion: Version?
-    public let templates: [Template]?
 
     fileprivate init(
         identity: PackageIdentity,
@@ -105,7 +104,6 @@ public struct Package {
         signingEntity: SigningEntity? = nil,
         latestVersion: Version? = nil,
         source: Source,
-        templates: [Template]? = nil
     ) {
         self.identity = identity
         self.location = location
@@ -121,7 +119,6 @@ public struct Package {
         self.signingEntity = signingEntity
         self.latestVersion = latestVersion
         self.source = source
-        self.templates = templates
     }
 }
 
@@ -181,7 +178,6 @@ public struct PackageSearchClient {
         public let description: String?
         public let publishedAt: Date?
         public let signingEntity: SigningEntity?
-        public let templates: [Package.Template]?
     }
 
     private func getVersionMetadata(
@@ -203,8 +199,7 @@ public struct PackageSearchClient {
             author: metadata.author.map { .init($0) },
             description: metadata.description,
             publishedAt: metadata.publishedAt,
-            signingEntity: metadata.sourceArchive?.signingEntity,
-            templates: metadata.templates?.map { .init($0) }
+            signingEntity: metadata.sourceArchive?.signingEntity
         )
     }
 
@@ -439,24 +434,6 @@ extension Package.Organization {
             email: organization.email,
             description: organization.description,
             url: organization.url
-        )
-    }
-}
-
-extension Package.Template {
-    fileprivate init(_ template: RegistryClient.PackageVersionMetadata.Template) {
-        self.init(
-            name: template.name, description: template.description, arguments: template.arguments?.map { .init($0) }
-        )
-    }
-}
-
-extension Package.TemplateArguments {
-    fileprivate init(_ argument: RegistryClient.PackageVersionMetadata.TemplateArguments) {
-        self.init(
-            name: argument.name,
-            description: argument.description,
-            isRequired: argument.isRequired
         )
     }
 }
