@@ -32,7 +32,7 @@ import var TSCBasic.stdoutStream
 struct MigrateOptions: ParsableArguments {
     @Option(
         name: .customLong("target"),
-        help: "The targets to migrate to specified set of features."
+        help: "A comma-separated list of targets to migrate. (default: all Swift targets)"
     )
     var _targets: String?
 
@@ -42,7 +42,7 @@ struct MigrateOptions: ParsableArguments {
 
     @Option(
         name: .customLong("to-feature"),
-        help: "The Swift language upcoming/experimental feature to migrate to."
+        help: "A comma-separated list of Swift language features to migrate to."
     )
     var _features: String
 
