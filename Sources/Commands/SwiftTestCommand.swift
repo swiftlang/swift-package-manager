@@ -810,7 +810,7 @@ extension ArgumentTreeNode {
         currentPath: [String] = [],
         currentArguments: [String: InitTemplatePackage.ArgumentResponse] = [:]
     ) -> [([String], [String: InitTemplatePackage.ArgumentResponse])] {
-        var newPath = currentPath + [command.commandName]
+        let newPath = currentPath + [command.commandName]
 
         var combinedArguments = currentArguments
         for (key, value) in arguments {
@@ -893,6 +893,11 @@ extension SwiftTestCommand {
         @Flag(help: "Dry-run to display argument tree")
         var dryRun: Bool = false
 
+        /// Output format for the templates result.
+        ///
+        /// Can be either `.matrix` (default) or `.json`.
+        @Option(help: "Set the output format.")
+        var format: ShowTestTemplateOutput = .matrix
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let manifest = outputDirectory.appending(component: Manifest.filename)
@@ -952,7 +957,6 @@ extension SwiftTestCommand {
             }
 
             let cliArgumentPaths = root.createCLITree(root: root)
-            let commandPaths = root.collectCommandPaths()
 
             func checkConditions(_ swiftCommandState: SwiftCommandState, template: String?) async throws -> InitPackage.PackageType {
                 let workspace = try swiftCommandState.getActiveWorkspace()
@@ -1007,7 +1011,21 @@ extension SwiftTestCommand {
 
             }
 
-            printBuildMatrix(buildMatrix)
+            switch self.format {
+            case .matrix:
+                printBuildMatrix(buildMatrix)
+            case .json:
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                do {
+                    let data = try encoder.encode(buildMatrix)
+                    if let output = String(data: data, encoding: .utf8) {
+                        print(output)
+                    }
+                } catch {
+                    print("Failed to encode JSON: \(error)")
+                }
+            }
 
             func printBuildMatrix(_ matrix: [String: BuildInfo]) {
                 let header = [
@@ -1034,14 +1052,85 @@ extension SwiftTestCommand {
             }
         }
 
-        struct BuildInfo {
+        /// Output format modes for the `ShowTemplates` command.
+        enum ShowTestTemplateOutput: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
+            /// Output as a matrix.
+            case matrix
+            /// Output as a JSON array of template along with fields.
+            case json
+
+            public init?(rawValue: String) {
+                switch rawValue.lowercased() {
+                case "matrix":
+                    self = .matrix
+                case "json":
+                    self = .json
+                default:
+                    return nil
+                }
+            }
+
+            public var description: String {
+                switch self {
+                case .matrix: "matrix"
+                case .json: "json"
+                }
+            }
+        }
+
+        struct BuildInfo: Encodable {
             var generationDuration: DispatchTimeInterval
             var buildDuration: DispatchTimeInterval
             var generationSuccess: Bool
             var buildSuccess: Bool
-            var generationError: Error?
-            var buildError: Error?
             var logFilePath: String?
+
+
+            public init(generationDuration: DispatchTimeInterval, buildDuration: DispatchTimeInterval, generationSuccess: Bool, buildSuccess: Bool, logFilePath: String? = nil) {
+                self.generationDuration = generationDuration
+                self.buildDuration = buildDuration
+                self.generationSuccess = generationSuccess
+                self.buildSuccess = buildSuccess
+                self.logFilePath = logFilePath
+            }
+            enum CodingKeys: String, CodingKey {
+                case generationDuration
+                case buildDuration
+                case generationSuccess
+                case buildSuccess
+                case logFilePath
+            }
+
+            // Encoding
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(Self.dispatchTimeIntervalToSeconds(generationDuration), forKey: .generationDuration)
+                try container.encode(Self.dispatchTimeIntervalToSeconds(buildDuration), forKey: .buildDuration)
+                try container.encode(generationSuccess, forKey: .generationSuccess)
+                try container.encode(buildSuccess, forKey: .buildSuccess)
+                if logFilePath == nil {
+                    try container.encodeNil(forKey: .logFilePath)
+                } else {
+                    try container.encodeIfPresent(logFilePath, forKey: .logFilePath)
+                }
+            }
+
+            // Helpers
+            private static func dispatchTimeIntervalToSeconds(_ interval: DispatchTimeInterval) -> Double {
+                switch interval {
+                case .seconds(let s): return Double(s)
+                case .milliseconds(let ms): return Double(ms) / 1000
+                case .microseconds(let us): return Double(us) / 1_000_000
+                case .nanoseconds(let ns): return Double(ns) / 1_000_000_000
+                case .never: return -1 // or some sentinel value
+                @unknown default: return -1
+                }
+            }
+
+            private static func secondsToDispatchTimeInterval(_ seconds: Double) -> DispatchTimeInterval {
+                return .milliseconds(Int(seconds * 1000))
+            }
+
         }
 
         private func testTemplateIntialization(
@@ -1059,8 +1148,6 @@ extension SwiftTestCommand {
             var buildDuration: DispatchTimeInterval = .never
             var generationSuccess = false
             var buildSuccess = false
-            var generationError: Error?
-            var buildError: Error?
             var logFilePath: String? = nil
 
 
@@ -1130,7 +1217,6 @@ extension SwiftTestCommand {
 
             } catch {
                 generationDuration = generationStart.distance(to: .now())
-                generationError = error
                 generationSuccess = false
 
 
@@ -1184,7 +1270,6 @@ extension SwiftTestCommand {
 
                 } catch {
                     buildDuration = buildStart.distance(to: .now())
-                    buildError = error
                     buildSuccess = false
 
                     let logPath = destinationAbsolutePath.appending("build-output.log")
@@ -1207,14 +1292,11 @@ extension SwiftTestCommand {
                 }
             }
 
-
             return BuildInfo(
                 generationDuration: generationDuration,
                 buildDuration: buildDuration,
                 generationSuccess: generationSuccess,
                 buildSuccess: buildSuccess,
-                generationError: generationError,
-                buildError: buildError,
                 logFilePath: logFilePath
             )
         }
