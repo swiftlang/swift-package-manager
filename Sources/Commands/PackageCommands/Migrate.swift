@@ -66,9 +66,7 @@ extension SwiftPackageCommand {
 
         public func run(_ swiftCommandState: SwiftCommandState) async throws {
             // First, validate and resolve the requested feature names.
-            guard let features = try self.resolveRequestedFeatures(swiftCommandState) else {
-                return
-            }
+            let features = try self.resolveRequestedFeatures(swiftCommandState)
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
@@ -173,11 +171,10 @@ extension SwiftPackageCommand {
 
         /// Resolves the requested feature names.
         ///
-        /// - Returns: An array of resolved features sorted by name, or `nil`
-        ///   if an error was emitted.
+        /// - Returns: An array of resolved features, sorted by name.
         private func resolveRequestedFeatures(
             _ swiftCommandState: SwiftCommandState
-        ) throws -> [SwiftCompilerFeature]? {
+        ) throws -> [SwiftCompilerFeature] {
             let toolchain = try swiftCommandState.productsBuildParameters.toolchain
 
             // Query the compiler for supported features.
@@ -197,15 +194,13 @@ extension SwiftPackageCommand {
                         .sorted()
                         .joined(separator: ", ")
 
-                    swiftCommandState.observabilityScope.emit(
-                        error: "Unsupported feature '\(name)'. Available features: \(migratableCommaSeparatedFeatures)"
+                    throw ValidationError(
+                        "Unsupported feature '\(name)'. Available features: \(migratableCommaSeparatedFeatures)"
                     )
-                    return nil
                 }
 
                 guard feature.migratable else {
-                    swiftCommandState.observabilityScope.emit(error: "Feature '\(name)' is not migratable")
-                    return nil
+                    throw ValidationError("Feature '\(name)' is not migratable")
                 }
 
                 resolvedFeatures.append(feature)
