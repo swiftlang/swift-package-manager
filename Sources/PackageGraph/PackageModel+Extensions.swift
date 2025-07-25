@@ -64,7 +64,7 @@ extension PackageContainerConstraint {
         case .specific:
             switch products {
             case .everything:
-                assertionFailure("Attempted to enumerate a root package’s product filter; root packages have no filter.")
+                assertionFailure("Attempted to enumerate a root package's product filter; root packages have no filter.")
                 return []
             case .specific(let set):
                 if set.isEmpty { // Pointing at the package without a particular product.

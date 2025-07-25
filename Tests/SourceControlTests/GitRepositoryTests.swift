@@ -449,7 +449,7 @@ class GitRepositoryTests: XCTestCase {
             // Try changing remote of non-existent remote.
             do {
                 try repo.setURL(remote: "fake", url: "../bar")
-                XCTFail("unexpected success (shouldn’t have been able to set URL of missing remote)")
+                XCTFail("unexpected success (shouldn't have been able to set URL of missing remote)")
             }
             catch let error as GitRepositoryError {
                 XCTAssertEqual(error.path, testRepoPath)

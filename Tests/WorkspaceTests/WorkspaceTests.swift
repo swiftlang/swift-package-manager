@@ -13606,7 +13606,7 @@ final class WorkspaceTests: XCTestCase {
             }) { error in
                 XCTAssertEqual(
                     (error as? PackageGraphError)?.description,
-                    "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct’; product names need to be unique across the package graph"
+                    "multiple packages (\'foo\' (from \'https://git/org/foo\'), \'org.foo\') declare products with a conflicting name: \'FooProduct'; product names need to be unique across the package graph"
                 )
             }
         }

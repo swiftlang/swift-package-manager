@@ -1477,7 +1477,7 @@ final class PluginInvocationTests: XCTestCase {
         let result = try await checkParseArtifactsPlatformCompatibility(artifactSupportedTriples: artifactSupportedTriples, hostTriple: hostTriple)
         if let pluginResult = result.first,
            let diag = pluginResult.value.first?.diagnostics,
-           diag.description == "[[error]: Tool ‘LocalBinaryTool’ is not supported on the target platform]" {
+           diag.description == "[[error]: Tool 'LocalBinaryTool' is not supported on the target platform]" {
             checked = true
         }
         XCTAssertTrue(checked)

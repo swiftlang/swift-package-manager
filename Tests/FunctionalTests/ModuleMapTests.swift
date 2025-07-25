@@ -44,7 +44,11 @@ final class ModuleMapsTestCase: XCTestCase {
     func testDirectDependency() async throws {
          try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
         try await fixtureXCTest(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
-            await XCTAssertBuilds(fixturePath.appending("App"), Xld: Xld)
+            await XCTAssertBuilds(
+                fixturePath.appending("App"),
+                Xld: Xld,
+                buildSystem: .native,
+            )
 
             let triple = try UserToolchain.default.targetTriple
             let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent)
@@ -62,7 +66,11 @@ final class ModuleMapsTestCase: XCTestCase {
     func testTransitiveDependency() async throws {
         try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
         try await fixtureXCTest(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
-            await XCTAssertBuilds(fixturePath.appending("packageA"), Xld: Xld)
+            await XCTAssertBuilds(
+                fixturePath.appending("packageA"),
+                Xld: Xld,
+                buildSystem: .native,
+            )
             
             func verify(_ conf: String) async throws {
                 let triple = try UserToolchain.default.targetTriple

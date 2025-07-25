@@ -104,7 +104,7 @@ public enum DependencyResolutionNode {
     ///
     /// This is the constraint that requires all products from a package resolve to the same version.
     internal func versionLock(version: Version) -> PackageContainerConstraint? {
-        // Don’t create a version lock for anything but a product.
+        // Don't create a version lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
             package: self.package,
@@ -118,7 +118,7 @@ public enum DependencyResolutionNode {
     ///
     /// This is the constraint that requires all products from a package resolve to the same revision.
     internal func revisionLock(revision: String) -> PackageContainerConstraint? {
-        // Don’t create a revision lock for anything but a product.
+        // Don't create a revision lock for anything but a product.
         guard specificProduct != nil else { return nil }
         return PackageContainerConstraint(
             package: self.package,

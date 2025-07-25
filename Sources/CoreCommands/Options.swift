@@ -454,15 +454,15 @@ public struct BuildOptions: ParsableArguments {
         )
     }
 
-    /// The compilation destination’s target triple.
+    /// The compilation destination's target triple.
     @Option(name: .customLong("triple"), transform: Triple.init)
     public var customCompileTriple: Triple?
 
-    /// Path to the compilation destination’s SDK.
+    /// Path to the compilation destination's SDK.
     @Option(name: .customLong("sdk"))
     public var customCompileSDK: AbsolutePath?
 
-    /// Path to the compilation destination’s toolchain.
+    /// Path to the compilation destination's toolchain.
     @Option(name: .customLong("toolchain"))
     public var customCompileToolchain: AbsolutePath?
 

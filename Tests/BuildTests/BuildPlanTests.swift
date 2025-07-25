@@ -113,7 +113,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging'; product names need to be unique across the package graph"
             )
         }
     }
@@ -543,7 +543,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )) { error in
             XCTAssertEqual(
                 (error as? PackageGraphError)?.description,
-                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging’; product names need to be unique across the package graph"
+                "multiple packages (\'barpkg\' (at '\(barPkg)'), \'foopkg\' (at '\(fooPkg)')) declare products with a conflicting name: \'Logging'; product names need to be unique across the package graph"
             )
         }
     }
@@ -632,7 +632,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
-                buildSystem: buildSystemProvider
+                buildSystem: buildSystemProvider,
             )
 
             let out = if buildSystemProvider == .swiftbuild {
@@ -670,7 +670,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
-                buildSystem: .xcode
+                buildSystem: .xcode,
             )
             XCTAssertMatch(stdout, .contains("-module-name Foo"))
             XCTAssertMatch(stdout, .contains("-module-name Zoo"))

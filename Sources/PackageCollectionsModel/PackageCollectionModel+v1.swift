@@ -186,7 +186,7 @@ extension PackageCollectionModel.V1.Collection.Package {
             /// An array of the package version's products.
             public let products: [PackageCollectionModel.V1.Product]
 
-            /// An array of the package version’s supported platforms specified in `Package.swift`.
+            /// An array of the package version's supported platforms specified in `Package.swift`.
             public let minimumPlatformVersions: [PackageCollectionModel.V1.PlatformVersion]?
 
             /// Creates a `Manifest`
@@ -239,7 +239,7 @@ extension PackageCollectionModel.V1 {
         /// The product type.
         public let type: ProductType
 
-        /// An array of the product’s targets.
+        /// An array of the product's targets.
         public let targets: [String]
 
         /// Creates a `Product`

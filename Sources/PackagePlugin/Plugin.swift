@@ -179,7 +179,7 @@ extension Plugin {
                 )
             }
             catch {
-                internalError("Couldn’t deserialize input from host: \(error).")
+                internalError("Couldn't deserialize input from host: \(error).")
             }
 
             // Instantiate the plugin. For now there are no parameters, but
@@ -274,7 +274,7 @@ extension Plugin {
                     toolSearchDirectories: toolSearchDirectories)
             }
             catch {
-                internalError("Couldn’t deserialize input from host: \(error).")
+                internalError("Couldn't deserialize input from host: \(error).")
             }
 
             try callEntryPoint(record, "call_XcodeProjectPlugin_build_command_creation_entry_point")
@@ -337,7 +337,7 @@ extension Plugin {
                     toolSearchDirectoryURLs: toolSearchDirectories)
             }
             catch {
-                internalError("Couldn’t deserialize input from host: \(error).")
+                internalError("Couldn't deserialize input from host: \(error).")
             }
 
             // Instantiate the plugin (for now without parameters, as described
@@ -389,7 +389,7 @@ extension Plugin {
                     arguments: arguments)
             }
             catch {
-                internalError("Couldn’t deserialize input from host: \(error).")
+                internalError("Couldn't deserialize input from host: \(error).")
             }
 
             try callEntryPoint(record, "call_XcodeProjectPlugin_custom_command_entry_point")

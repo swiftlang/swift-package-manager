@@ -157,11 +157,11 @@ struct PluginCommand: AsyncSwiftCommand {
             }
             for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
                 guard case .command(let intent, _) = plugin.capability else { continue }
-                var line = "‘\(intent.invocationVerb)’ (plugin ‘\(plugin.name)’"
+                var line = "'\(intent.invocationVerb)' (plugin '\(plugin.name)'"
                 if let package = packageGraph.packages
                     .first(where: { $0.modules.contains(where: { $0.name == plugin.name }) })
                 {
-                    line += " in package ‘\(package.manifest.displayName)’"
+                    line += " in package '\(package.manifest.displayName)'"
                 }
                 line += ")"
                 print(line)
@@ -186,14 +186,14 @@ struct PluginCommand: AsyncSwiftCommand {
         // Load the workspace and resolve the package graph.
         let packageGraph = try await swiftCommandState.loadPackageGraph()
 
-        swiftCommandState.observabilityScope.emit(info: "Finding plugin for command ‘\(command)’")
+        swiftCommandState.observabilityScope.emit(info: "Finding plugin for command '\(command)'")
         let matchingPlugins = PluginCommand.findPlugins(matching: command, in: packageGraph, limitedTo: options.packageIdentity)
 
         // Complain if we didn't find exactly one.
         if matchingPlugins.isEmpty {
-            throw ValidationError("Unknown subcommand or plugin name ‘\(command)’")
+            throw ValidationError("Unknown subcommand or plugin name '\(command)'")
         } else if matchingPlugins.count > 1 {
-            throw ValidationError("\(matchingPlugins.count) plugins found for ‘\(command)’")
+            throw ValidationError("\(matchingPlugins.count) plugins found for '\(command)'")
         }
 
         // handle plugin execution arguments that got passed after the plugin name
@@ -242,7 +242,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let pluginsDir = try swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory
             .appending(component: plugin.name)
 
-        // The `cache` directory is in the plugin’s directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
+        // The `cache` directory is in the plugin's directory and is where the plugin script runner caches compiled plugin binaries and any other derived information for this plugin.
         let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(
             customPluginsDir: pluginsDir
         )
@@ -291,7 +291,7 @@ struct PluginCommand: AsyncSwiftCommand {
                         "--allow-network-connections \(PluginCommand.PluginOptions.NetworkPermission(scope).remedyDescription)"
                 }
 
-                let problem = "Plugin ‘\(plugin.name)’ wants permission to \(permissionString)."
+                let problem = "Plugin '\(plugin.name)' wants permission to \(permissionString)."
                 let reason = "Stated reason: “\(reasonString)”."
                 if swiftCommandState.outputStream.isTTY {
                     // We can ask the user directly, so we do so.

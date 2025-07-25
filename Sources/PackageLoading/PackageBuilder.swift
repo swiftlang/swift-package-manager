@@ -111,7 +111,7 @@ extension ModuleError: CustomStringConvertible {
         switch self {
         case .duplicateModule(let target, let packages):
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
-            return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)’; target names need to be unique across the package graph"
+            return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)'; target names need to be unique across the package graph"
         case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
             let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
             var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]

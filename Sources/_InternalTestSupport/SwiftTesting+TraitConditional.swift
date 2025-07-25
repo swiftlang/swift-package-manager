@@ -11,6 +11,7 @@
 
 import class Foundation.FileManager
 import class Foundation.ProcessInfo
+import class PackageModel.UserToolchain
 import Basics
 import Testing
 
@@ -26,6 +27,13 @@ extension Trait where Self == Testing.ConditionTrait {
     public static func skipHostOS(_ os: OperatingSystem, _ comment: Comment? = nil) -> Self {
         disabled(comment ?? "This test cannot run on a \(os) host OS.") {
             ProcessInfo.hostOperatingSystem == os
+        }
+    }
+
+    /// Enabled only if toolchain support swift concurrency
+    public static var requiresSwiftConcurrencySupport: Self {
+        enabled("skipping because test environment doesn't support concurrency") {
+            (try? UserToolchain.default)!.supportsSwiftConcurrency()
         }
     }
 

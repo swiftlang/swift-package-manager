@@ -33,13 +33,13 @@ extension PluginContextError: CustomStringConvertible {
     public var description: String {
         switch self {
         case .toolNotFound(let name):
-            return "Plugin does not have access to a tool named ‘\(name)’"
+            return "Plugin does not have access to a tool named '\(name)'"
         case .toolNotSupportedOnTargetPlatform(let name):
-            return "Tool ‘\(name)’ is not supported on the target platform"
+            return "Tool '\(name)' is not supported on the target platform"
         case .targetNotFound(let name, let package):
-            return "Package ‘\(package.displayName)’ has no target named ‘\(name)’"
+            return "Package '\(package.displayName)' has no target named '\(name)'"
         case .productNotFound(let name, let package):
-            return "Package ‘\(package.displayName)’ has no product named ‘\(name)’"
+            return "Package '\(package.displayName)' has no product named '\(name)'"
         }
     }
 }
