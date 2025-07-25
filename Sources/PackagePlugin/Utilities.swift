@@ -13,8 +13,9 @@
 import Foundation
 
 extension Package {
-    /// The list of targets matching the given names. Throws an error if any of
-    /// the targets cannot be found.
+    /// The list of targets matching the given names.
+    ///
+    /// Throws an error if any of the targets cannot be found.
     public func targets(named targetNames: [String]) throws -> [Target] {
         return try targetNames.map { name in
             guard let target = self.targets.first(where: { $0.name == name }) else {
@@ -24,8 +25,9 @@ extension Package {
         }
     }
 
-    /// The list of products matching the given names. Throws an error if any of
-    /// the products cannot be found.
+    /// The list of products matching the given names.
+    ///
+    /// Throws an error if any of the products cannot be found.
     public func products(named productNames: [String]) throws -> [Product] {
         return try productNames.map { name in
             guard let product = self.products.first(where: { $0.name == name }) else {
@@ -49,9 +51,12 @@ extension Product {
 }
 
 extension Target {
-    /// The transitive closure of all the targets on which the receiver depends,
-    /// ordered such that every dependency appears before any other target that
-    /// depends on it (i.e. in "topological sort order").
+    /// The transitive closure of all the targets on which the receiver depends.
+    ///
+    /// Package manager orders the results such that every dependency appears before any other target that
+    /// depends on it.
+    ///
+    /// The dependencies are sorted in topological sort order.
     public var recursiveTargetDependencies: [Target] {
         // FIXME: We can rewrite this to use a stack instead of recursion.
         var visited = Set<Target.ID>()
@@ -70,7 +75,7 @@ extension Target {
         return self.dependencies.flatMap{ dependencyClosure(for: $0) }
     }
 
-    /// Convenience accessor which casts the receiver to`SourceModuleTarget` if possible.
+    /// Convenience accessor which casts the receiver to`SourceModuleTarget`, if possible.
     @available(_PackageDescription, introduced: 5.9)
     public var sourceModule: SourceModuleTarget? {
         return self as? SourceModuleTarget
