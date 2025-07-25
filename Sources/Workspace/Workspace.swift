@@ -1262,8 +1262,7 @@ extension Workspace {
                     prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
-                    // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
+                    enabledTraits: try manifest.enabledTraits(using: .default)
                 )
                 return try builder.construct()
             }
@@ -1330,8 +1329,7 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
-            // For now we enable all traits
-            enabledTraits: Set(manifest.traits.map(\.name))
+            enabledTraits: try manifest.enabledTraits(using: .default)
         )
         return try builder.construct()
     }
