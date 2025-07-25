@@ -2,13 +2,14 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import PackageLoading
@@ -19,88 +20,182 @@ import TSCUtility
 
 import _InternalTestSupport
 import PackageModel
-import XCTest
+import struct PackageGraph.ModulesGraph
+import Testing
 
 import struct TSCBasic.ByteString
 
-final class ModulesGraphTests: XCTestCase {
-    func testBasic() throws {
-        try XCTSkipOnWindows(because: "Possibly related to: https://github.com/swiftlang/swift-package-manager/issues/8511")
-        let fs = InMemoryFileSystem(
-            emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
-            "/Foo/Sources/Foo/source.swift",
-            "/Foo/Sources/FooDep/source.swift",
-            "/Foo/Tests/FooTests/source.swift",
-            "/Bar/source.swift",
-            "/Baz/Sources/Baz/source.swift",
-            "/Baz/Tests/BazTests/source.swift"
-        )
+@Suite
+struct ModulesGraphTests {
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let g = try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createFileSystemManifest(
-                    displayName: "Foo",
-                    path: "/Foo",
-                    products: [
-                        ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Foo", dependencies: ["FooDep"]),
-                        TargetDescription(name: "FooDep", dependencies: []),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "Bar",
-                    path: "/Bar",
-                    dependencies: [
-                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./"),
-                    ]
-                ),
-                Manifest.createRootManifest(
-                    displayName: "Baz",
-                    path: "/Baz",
-                    dependencies: [
-                        .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Baz", dependencies: ["Bar"]),
-                        TargetDescription(name: "BazTests", dependencies: ["Baz"], type: .test),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
+    @Suite(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    struct getReplProductName {
+        @Test(
+            "Empty root package throws an error",
         )
+        func emptyRootPackages() async throws {
+            let moduleGraph = try ModulesGraph(
+                rootPackages: [],
+                packages: IdentifiableSet([ResolvedPackage]()),
+                dependencies: [],
+                binaryArtifacts: [:],
+            )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        PackageGraphTester(g) { result in
-            result.check(packages: "Bar", "Foo", "Baz")
-            result.check(modules: "Bar", "Foo", "Baz", "FooDep")
-            result.check(testModules: "BazTests")
-            result.checkTarget("Foo") { result in result.check(dependencies: "FooDep") }
-            result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
-            result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
+            #expect(throws: StringError("Root package does not exist.")) { // Index out of range
+                let _ = try moduleGraph.getReplProductName()
+            }
         }
 
-        let fooPackage = try XCTUnwrap(g.package(for: .plain("Foo")))
-        let fooTarget = try XCTUnwrap(g.module(for: "Foo"))
-        let fooDepTarget = try XCTUnwrap(g.module(for: "FooDep"))
-        XCTAssertEqual(g.package(for: fooTarget)?.id, fooPackage.id)
-        XCTAssertEqual(g.package(for: fooDepTarget)?.id, fooPackage.id)
-        let barPackage = try XCTUnwrap(g.package(for: .plain("Bar")))
-        let barTarget = try XCTUnwrap(g.module(for: "Bar"))
-        XCTAssertEqual(g.package(for: barTarget)?.id, barPackage.id)
+        @Test(
+            "Non-empty root package results expected REPL product name",
+            arguments: 1...5,
+        )
+        func nonEmptyRootPackages(
+            num: Int,
+        ) async throws {
+            // GIVEN a module graph instance with X number of root packages, where the package names are `package_#`
+            let manifest = Manifest(
+                displayName: "manifestUT",
+                packageIdentity: PackageIdentity("manifest_id"),
+                path: AbsolutePath("/"),
+                packageKind: .fileSystem(AbsolutePath("/")),
+                packageLocation: "",
+                defaultLocalization: nil,
+                platforms: [],
+                version: nil,
+                revision: nil,
+                toolsVersion: .vNext,
+                pkgConfig: nil,
+                providers: nil,
+                cLanguageStandard: nil,
+                cxxLanguageStandard: nil,
+                swiftLanguageVersions: nil,
+                traits: Set([]),
+            )
+            let rootPackages = (0..<num).map {
+                ResolvedPackage(
+                    underlying: Package(
+                        identity: PackageIdentity("package_\($0)"),
+                        manifest: manifest,
+                        path: AbsolutePath("/"),
+                        targets: [],
+                        products: [],
+                        targetSearchPath: AbsolutePath("/"),
+                        testTargetSearchPath: AbsolutePath("/"),
+                    ),
+                    defaultLocalization: nil,
+                    supportedPlatforms: [],
+                    dependencies: [],
+                    enabledTraits: Set(),
+                    modules: IdentifiableSet([]),
+                    products: [],
+                    registryMetadata: nil,
+                    platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault),
+                )
+            }
+            let moduleGraph = try ModulesGraph(
+                rootPackages: rootPackages,
+                packages: IdentifiableSet([ResolvedPackage]()),
+                dependencies: [],
+                binaryArtifacts: [:],
+            )
+
+            // WHEN we get the REPL product name from the module grapen
+            let actual = try moduleGraph.getReplProductName()
+
+            // THEN we expect it to match the root package ID with a REPL suffix
+            #expect(actual == "package_0\(Product.replProductSuffix)")
+        }
     }
 
-    func testProductDependencies() throws {
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect),
+    )
+    func basic() throws {
+        try withKnownIssue {
+            let fs = InMemoryFileSystem(
+                emptyFiles:
+                "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/FooDep/source.swift",
+                "/Foo/Tests/FooTests/source.swift",
+                "/Bar/source.swift",
+                "/Baz/Sources/Baz/source.swift",
+                "/Baz/Tests/BazTests/source.swift"
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let g = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createFileSystemManifest(
+                        displayName: "Foo",
+                        path: "/Foo",
+                        products: [
+                            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Foo", dependencies: ["FooDep"]),
+                            TargetDescription(name: "FooDep", dependencies: []),
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "Bar",
+                        path: "/Bar",
+                        dependencies: [
+                            .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        products: [
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Bar", dependencies: ["Foo"], path: "./"),
+                        ]
+                    ),
+                    Manifest.createRootManifest(
+                        displayName: "Baz",
+                        path: "/Baz",
+                        dependencies: [
+                            .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Baz", dependencies: ["Bar"]),
+                            TargetDescription(name: "BazTests", dependencies: ["Baz"], type: .test),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+
+            expectNoDiagnostics(observability.diagnostics)
+            try PackageGraphTester(g) { result in
+                result.check(packages: "Bar", "Foo", "Baz")
+                result.check(modules: "Bar", "Foo", "Baz", "FooDep")
+                result.check(testModules: "BazTests")
+                try result.checkTarget("Foo") { result in result.check(dependencies: "FooDep") }
+                try result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
+                try result.checkTarget("Baz") { result in result.check(dependencies: "Bar") }
+            }
+
+            let fooPackage = try #require(g.package(for: .plain("Foo")))
+            let fooTarget = try #require(g.module(for: "Foo"))
+            let fooDepTarget = try #require(g.module(for: "FooDep"))
+            #expect(g.package(for: fooTarget)?.id == fooPackage.id)
+            #expect(g.package(for: fooDepTarget)?.id == fooPackage.id)
+            let barPackage = try #require(g.package(for: .plain("Bar")))
+            let barTarget = try #require(g.module(for: "Bar"))
+            #expect(g.package(for: barTarget)?.id == barPackage.id)
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test
+    func productDependencies() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Foo/Sources/Foo/source.swift",
@@ -138,19 +233,20 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        PackageGraphTester(g) { result in
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(modules: "Bar", "CBar", "Foo")
-            result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "CBar") }
-            result.checkTarget("Bar") { result in result.check(dependencies: "CBar") }
+            try result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "CBar") }
+            try result.checkTarget("Bar") { result in result.check(dependencies: "CBar") }
         }
     }
 
-    func testCycle() throws {
+    @Test
+    func cycle() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Bar/Sources/Bar/source.swift",
             "/Baz/Sources/Baz/source.swift"
         )
@@ -207,10 +303,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testLocalTargetCycle() throws {
+    @Test
+    func localTargetCycle() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Bar/source.swift"
         )
 
@@ -238,10 +335,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testDependencyCycleWithoutTargetCycleV5() throws {
+    @Test
+    func dependencyCycleWithoutTargetCycleV5() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Bar/Sources/Bar/source.swift",
             "/Bar/Sources/Baz/source.swift"
         )
@@ -291,10 +389,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testDependencyCycleWithoutTargetCycle() throws {
+    @Test
+    func dependencyCycleWithoutTargetCycle() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/A/Sources/A/source.swift",
+                "/A/Sources/A/source.swift",
             "/B/Sources/B/source.swift",
             "/C/Sources/C/source.swift"
         )
@@ -357,13 +456,14 @@ final class ModulesGraphTests: XCTestCase {
             )
         }
 
-        try XCTAssertNoDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v6_0))
+        try expectNoDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v6_0))
     }
 
-    func testDependencyCycleWithoutTargetCycleV6() throws {
+    @Test
+    func dependencyCycleWithoutTargetCycleV6() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Bar/Sources/Bar/source.swift",
             "/Bar/Sources/Baz/source.swift"
         )
@@ -405,17 +505,18 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
         PackageGraphTester(graph) { result in
             result.check(packages: "Foo", "Bar")
             result.check(modules: "Bar", "Baz", "Foo")
         }
     }
 
-    func testLibraryInvalidDependencyOnTestTarget() throws {
+    @Test
+    func libraryInvalidDependencyOnTestTarget() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/Foo.swift",
+                "/Foo/Sources/Foo/Foo.swift",
             "/Foo/Tests/FooTest/FooTest.swift"
         )
 
@@ -448,10 +549,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testExecutableInvalidDependencyOnTestTarget() throws {
+    @Test
+    func executableInvalidDependencyOnTestTarget() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/main.swift",
+                "/Foo/Sources/Foo/main.swift",
             "/Foo/Tests/FooTest/FooTest.swift"
         )
 
@@ -481,10 +583,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testPluginInvalidDependencyOnTestTarget() throws {
+    @Test
+    func pluginInvalidDependencyOnTestTarget() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Plugins/Foo/main.swift",
+                "/Foo/Plugins/Foo/main.swift",
             "/Foo/Tests/FooTest/FooTest.swift"
         )
 
@@ -518,11 +621,12 @@ final class ModulesGraphTests: XCTestCase {
             )
         }
     }
-    
-    func testMacroInvalidDependencyOnTestTarget() throws {
+
+    @Test
+    func macroInvalidDependencyOnTestTarget() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/main.swift",
+                "/Foo/Sources/Foo/main.swift",
             "/Foo/Tests/FooTest/FooTest.swift"
         )
 
@@ -557,10 +661,11 @@ final class ModulesGraphTests: XCTestCase {
     }
 
 
-    func testValidDependencyOnTestTarget() throws {
+    @Test
+    func validDependencyOnTestTarget() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Tests/Foo/Foo.swift",
+                "/Foo/Tests/Foo/Foo.swift",
             "/Foo/Tests/FooTest/FooTest.swift"
         )
 
@@ -584,15 +689,16 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
     // Make sure there is no error when we reference Test targets in a package and then
     // use it as a dependency to another package. SR-2353
-    func testTestTargetDeclInExternalPackage() throws {
+    @Test
+    func testTargetDeclInExternalPackage() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Foo/Tests/FooTests/source.swift",
             "/Bar/Sources/Bar/source.swift",
             "/Bar/Tests/BarTests/source.swift"
@@ -628,7 +734,7 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar", "Foo")
             result.check(modules: "Bar", "Foo")
@@ -636,10 +742,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTargetPackageAccessParam() throws {
+    @Test
+    func targetPackageAccessParam() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/libPkg/Sources/ExampleApp/main.swift",
+                "/libPkg/Sources/ExampleApp/main.swift",
             "/libPkg/Sources/MainLib/file.swift",
             "/libPkg/Sources/Core/file.swift",
             "/libPkg/Tests/MainLibTests/file.swift"
@@ -678,20 +785,21 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        PackageGraphTester(g) { result in
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(g) { result in
             result.check(modules: "ExampleApp", "MainLib", "Core")
             result.check(testModules: "MainLibTests")
-            result.checkTarget("MainLib") { result in result.check(dependencies: "Core") }
-            result.checkTarget("MainLibTests") { result in result.check(dependencies: "MainLib") }
-            result.checkTarget("ExampleApp") { result in result.check(dependencies: "MainLib") }
+            try result.checkTarget("MainLib") { result in result.check(dependencies: "Core") }
+            try result.checkTarget("MainLibTests") { result in result.check(dependencies: "MainLib") }
+            try result.checkTarget("ExampleApp") { result in result.check(dependencies: "MainLib") }
         }
     }
 
-    func testDuplicateModules() throws {
+    @Test
+    func duplicateModules() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Bar/source.swift",
             "/Bar/Sources/Bar/source.swift",
             "/Bar/Sources/Baz/source.swift"
@@ -732,10 +840,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testMultipleDuplicateModules() throws {
+    @Test
+    func multipleDuplicateModules() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Fourth/Sources/First/source.swift",
+                "/Fourth/Sources/First/source.swift",
             "/Third/Sources/First/source.swift",
             "/Second/Sources/First/source.swift",
             "/First/Sources/First/source.swift"
@@ -799,10 +908,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testSeveralDuplicateModules() throws {
+    @Test
+    func severalDuplicateModules() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Fourth/Sources/Fourth/source.swift",
+                "/Fourth/Sources/Fourth/source.swift",
             "/Fourth/Sources/Bar/source.swift",
             "/Third/Sources/Third/source.swift",
             "/Third/Sources/Bar/source.swift",
@@ -881,10 +991,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testNestedDuplicateModules() throws {
+    @Test
+    func nestedDuplicateModules() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Fourth/Sources/First/source.swift",
+                "/Fourth/Sources/First/source.swift",
             "/Fourth/Sources/Fourth/source.swift",
             "/Third/Sources/Third/source.swift",
             "/Second/Sources/Second/source.swift",
@@ -957,10 +1068,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testPotentiallyDuplicatePackages() throws {
+    @Test
+    func potentiallyDuplicatePackages() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/First/Sources/Foo/source.swift",
+                "/First/Sources/Foo/source.swift",
             "/First/Sources/Bar/source.swift",
             "/Second/Sources/Foo/source.swift",
             "/Second/Sources/Bar/source.swift"
@@ -1007,10 +1119,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testPotentiallyDuplicatePackagesManyTargets() throws {
+    @Test
+    func potentiallyDuplicatePackagesManyTargets() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/First/Sources/Foo/source.swift",
+                "/First/Sources/Foo/source.swift",
             "/First/Sources/Bar/source.swift",
             "/First/Sources/Baz/source.swift",
             "/First/Sources/Qux/source.swift",
@@ -1079,10 +1192,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testPotentiallyDuplicatePackagesRegistrySCM() throws {
+    @Test
+    func potentiallyDuplicatePackagesRegistrySCM() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/First/Sources/Foo/source.swift",
+                "/First/Sources/Foo/source.swift",
             "/First/Sources/Bar/source.swift",
             "/Second/Sources/Foo/source.swift",
             "/Second/Sources/Bar/source.swift"
@@ -1132,12 +1246,13 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testEmptyDependency() throws {
+    @Test
+    func emptyDependency() throws {
         let Bar: AbsolutePath = "/Bar"
 
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             Bar.appending(components: "Sources", "Bar", "source.txt").pathString
         )
 
@@ -1181,10 +1296,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTargetOnlyContainingHeaders() throws {
+    @Test
+    func targetOnlyContainingHeaders() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Bar/Sources/Bar/include/bar.h"
+                "/Bar/Sources/Bar/include/bar.h"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1205,17 +1321,18 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
         PackageGraphTester(g) { result in
             result.check(packages: "Bar")
             result.check(modules: "Bar")
         }
     }
 
-    func testProductDependencyNotFound() throws {
+    @Test
+    func productDependencyNotFound() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/FooTarget/foo.swift"
+                "/Foo/Sources/FooTarget/foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1241,10 +1358,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testByNameDependencyWithSimilarTargetName() throws {
+    @Test
+    func byNameDependencyWithSimilarTargetName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/railroad/Sources/Rail/Rail.swift",
+                "/railroad/Sources/Rail/Rail.swift",
             "/railroad/Sources/Spike/Spike.swift"
         )
 
@@ -1272,10 +1390,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testByNameDependencyWithSimilarProductName() throws {
+    @Test
+    func byNameDependencyWithSimilarProductName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/weather/Sources/Rain/Rain.swift",
+                "/weather/Sources/Rain/Rain.swift",
             "/forecast/Sources/Forecast/Forecast.swift"
         )
 
@@ -1313,10 +1432,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyWithSimilarNamesFromMultiplePackages() throws {
+    @Test
+    func productDependencyWithSimilarNamesFromMultiplePackages() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/flavors/Sources/Bitter/Bitter.swift",
+                "/flavors/Sources/Bitter/Bitter.swift",
             "/farm/Sources/Butter/Butter.swift",
             "/grocery/Sources/Grocery/Grocery.swift"
         )
@@ -1366,10 +1486,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyWithSimilarNamesFromProductTargetsNotProducts() throws {
+    @Test
+    func productDependencyWithSimilarNamesFromProductTargetsNotProducts() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/lunch/Sources/Lunch/Lunch.swift",
+                "/lunch/Sources/Lunch/Lunch.swift",
             "/sandwich/Sources/Sandwich/Sandwich.swift",
             "/sandwich/Sources/Bread/Bread.swift"
         )
@@ -1413,10 +1534,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyWithSimilarNamesFromLocalTargetsNotPackageProducts() throws {
+    @Test
+    func productDependencyWithSimilarNamesFromLocalTargetsNotPackageProducts() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/gauges/Sources/Chart/Chart.swift",
+                "/gauges/Sources/Chart/Chart.swift",
             "/gauges/Sources/Value/Value.swift",
             "/controls/Sources/Valve/Valve.swift"
         )
@@ -1458,10 +1580,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyWithNonSimilarName() throws {
+    @Test
+    func productDependencyWithNonSimilarName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -1495,10 +1618,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyDeclaredInSamePackage() throws {
+    @Test
+    func productDependencyDeclaredInSamePackage() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/FooTarget/src.swift",
+                "/Foo/Sources/FooTarget/src.swift",
             "/Foo/Tests/FooTests/source.swift"
         )
 
@@ -1529,10 +1653,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testExecutableTargetDependency() throws {
+    @Test
+    func executableTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/XYZ/Sources/XYZ/main.swift",
+                "/XYZ/Sources/XYZ/main.swift",
             "/XYZ/Tests/XYZTests/tests.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
@@ -1553,10 +1678,11 @@ final class ModulesGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { _ in }
     }
 
-    func testSameProductAndTargetNames() throws {
+    @Test
+    func sameProductAndTargetNames() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/src.swift",
+                "/Foo/Sources/Foo/src.swift",
             "/Foo/Tests/FooTests/source.swift"
         )
 
@@ -1581,10 +1707,11 @@ final class ModulesGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { _ in }
     }
 
-    func testProductDependencyNotFoundWithName() throws {
+    @Test
+    func productDependencyNotFoundWithName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/FooTarget/foo.swift"
+                "/Foo/Sources/FooTarget/foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1611,10 +1738,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyNotFoundWithNoName() throws {
+    @Test
+    func productDependencyNotFoundWithNoName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/FooTarget/foo.swift"
+                "/Foo/Sources/FooTarget/foo.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -1642,10 +1770,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testProductDependencyNotFoundImprovedDiagnostic() throws {
+    @Test
+    func productDependencyNotFoundImprovedDiagnostic() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/BarLib/bar.swift",
             "/BizPath/Sources/Biz/biz.swift",
             "/FizPath/Sources/FizLib/fiz.swift"
@@ -1726,10 +1855,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testPackageNameValidationInProductTargetDependency() throws {
+    @Test
+    func packageNameValidationInProductTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -1766,10 +1896,11 @@ final class ModulesGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { _ in }
     }
 
-    func testUnusedDependency() throws {
+    @Test
+    func unusedDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift",
             "/Baz/Sources/Baz/baz.swift",
             "/Biz/Sources/Biz/main.swift"
@@ -1826,19 +1957,22 @@ final class ModulesGraphTests: XCTestCase {
         )
 
         testDiagnostics(observability.diagnostics) { result in
-            let diagnostic = result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning)
-            XCTAssertEqual(diagnostic?.metadata?.packageIdentity, "foo")
-            XCTAssertEqual(diagnostic?.metadata?.packageKind?.isRoot, true)
-            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+            let diagnostic = try #require(result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning))
+            let metadata = try #require(diagnostic.metadata)
+            #expect(metadata.packageIdentity == "foo")
+            let packageKind = try #require(metadata.packageKind)
+            #expect(packageKind.isRoot)
+#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             result.check(diagnostic: "dependency 'biz' is not used by any target", severity: .warning)
-            #endif
+#endif
         }
     }
 
-    func testUnusedDependency2() throws {
+    @Test
+    func unusedDependency2() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/module.modulemap",
+                "/Foo/module.modulemap",
             "/Bar/Sources/Bar/main.swift"
         )
 
@@ -1868,10 +2002,11 @@ final class ModulesGraphTests: XCTestCase {
         testDiagnostics(observability.diagnostics) { _ in }
     }
 
-    func testUnusedDependency_WhenPruneDependenciesEnabled() throws {
+    @Test
+    func unusedDependency_WhenPruneDependenciesEnabled() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/main.swift"
         )
 
@@ -1886,7 +2021,7 @@ final class ModulesGraphTests: XCTestCase {
                         .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
                         // Baz is unused by all targets in this package, and thus should be omitted
                         // with `pruneDependencies` enabled.
-                        .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     targets: [
                         TargetDescription(
@@ -1937,13 +2072,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
-    func testDuplicateInterPackageTargetNames() throws {
+    @Test
+    func duplicateInterPackageTargetNames() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Start/Sources/Foo/foo.swift",
+                "/Start/Sources/Foo/foo.swift",
             "/Start/Sources/Bar/bar.swift",
             "/Dep1/Sources/Baz/baz.swift",
             "/Dep2/Sources/Foo/foo.swift",
@@ -2002,10 +2138,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testDuplicateProducts() throws {
+    @Test
+    func duplicateProducts() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift",
             "/Baz/Sources/Baz/baz.swift"
         )
@@ -2014,54 +2151,54 @@ final class ModulesGraphTests: XCTestCase {
         let bazPkg: AbsolutePath = "/Baz"
 
         let observability = ObservabilitySystem.makeForTesting()
-        XCTAssertThrowsError(try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "Foo",
-                    path: fooPkg,
-                    dependencies: [
-                        .localSourceControl(path: barPkg, requirement: .upToNextMajor(from: "1.0.0")),
-                        .localSourceControl(path: bazPkg, requirement: .upToNextMajor(from: "1.0.0")),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Foo", dependencies: ["Bar"]),
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "Bar",
-                    path: barPkg,
-                    products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Bar"),
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "Baz",
-                    path: bazPkg,
-                    products: [
-                        ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"]),
-                    ],
-                    targets: [
-                        TargetDescription(name: "Baz"),
-                    ]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )) { error in
-            XCTAssertEqual(
-                (error as? PackageGraphError)?.description,
-                "multiple packages (\'bar\' (at '\(barPkg)'), \'baz\' (at '\(bazPkg)')) declare products with a conflicting name: \'Bar’; product names need to be unique across the package graph"
+        #expect {
+            try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "Foo",
+                        path: fooPkg,
+                        dependencies: [
+                            .localSourceControl(path: barPkg, requirement: .upToNextMajor(from: "1.0.0")),
+                            .localSourceControl(path: bazPkg, requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Foo", dependencies: ["Bar"]),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "Bar",
+                        path: barPkg,
+                        products: [
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Bar"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Bar"),
+                        ]
+                    ),
+                    Manifest.createFileSystemManifest(
+                        displayName: "Baz",
+                        path: bazPkg,
+                        products: [
+                            ProductDescription(name: "Bar", type: .library(.automatic), targets: ["Baz"]),
+                        ],
+                        targets: [
+                            TargetDescription(name: "Baz"),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
             )
+        } throws: { error in
+            let error = try #require(error as? PackageGraphError)
+            return error.description == "multiple packages (\'bar\' (at '\(barPkg)'), \'baz\' (at '\(bazPkg)')) declare products with a conflicting name: \'Bar’; product names need to be unique across the package graph"
         }
     }
 
     func loadUnsafeModulesGraph(toolsVersion: ToolsVersion) throws -> TestingObservability {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo2/foo.swift",
             "/Bar/Sources/Bar/bar.swift",
             "/Bar/Sources/Bar2/bar.swift",
@@ -2132,42 +2269,51 @@ final class ModulesGraphTests: XCTestCase {
         return observability
     }
 
-    func testUnsafeFlagsDisabled() throws {
+    @Test
+    func unsafeFlagsDisabled() throws {
         let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_2)
 
         // We have turned off the unsafe flags check
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
     }
 
+
+    @Test
     func testUnsafeFlagsEnabled() throws {
         let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_1)
 
-        XCTAssertEqual(observability.diagnostics.count, 3)
-        testDiagnostics(observability.diagnostics) { result in
+        #expect(observability.diagnostics.count == 3)
+        try testDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
             expectedMetadata.moduleName = "Foo2"
-            let diagnostic1 = result.checkUnordered(
+            let diagnostic1 = try #require(result.checkUnordered(
                 diagnostic: .contains("the target 'Bar2' in product 'TransitiveBar' contains unsafe build flags"),
                 severity: .error
-            )
-            XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo2")
-            let diagnostic2 = result.checkUnordered(
+            ))
+            let diagnostic1_metadata = try #require(diagnostic1.metadata)
+            #expect(diagnostic1_metadata.moduleName == "Foo2")
+
+            let diagnostic2 = try #require(result.checkUnordered(
                 diagnostic: .contains("the target 'Bar' in product 'Bar' contains unsafe build flags"),
                 severity: .error
-            )
-            XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
-            let diagnostic3 = result.checkUnordered(
+            ))
+            let diagnostic2_metadata = try #require(diagnostic2.metadata)
+            #expect(diagnostic2_metadata.moduleName == "Foo")
+
+            let diagnostic3 = try #require(result.checkUnordered(
                 diagnostic: .contains("the target 'Bar2' in product 'Bar' contains unsafe build flags"),
                 severity: .error
-            )
-            XCTAssertEqual(diagnostic3?.metadata?.moduleName, "Foo")
+            ))
+            let diagnostic3_metadata = try #require(diagnostic3.metadata)
+            #expect(diagnostic3_metadata.moduleName == "Foo")
         }
     }
 
-    func testConditionalTargetDependency() throws {
+    @Test
+    func conditionalTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Foo/Sources/Bar/source.swift",
             "/Foo/Sources/Baz/source.swift",
             "/Biz/Sources/Biz/source.swift"
@@ -2217,22 +2363,22 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        PackageGraphTester(graph) { result in
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(graph) { result in
             result.check(modules: "Foo", "Bar", "Baz", "Biz")
-            result.checkTarget("Foo") { result in
+            try result.checkTarget("Foo") { result in
                 result.check(dependencies: "Bar", "Baz", "Biz")
-                result.checkDependency("Bar") { result in
+                try result.checkDependency("Bar") { result in
                     result.checkConditions(satisfy: .init(platform: .linux, configuration: .debug))
                     result.checkConditions(satisfy: .init(platform: .linux, configuration: .release))
                     result.checkConditions(dontSatisfy: .init(platform: .macOS, configuration: .release))
                 }
-                result.checkDependency("Baz") { result in
+                try result.checkDependency("Baz") { result in
                     result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .debug))
                     result.checkConditions(satisfy: .init(platform: .tvOS, configuration: .debug))
                     result.checkConditions(dontSatisfy: .init(platform: .tvOS, configuration: .release))
                 }
-                result.checkDependency("Biz") { result in
+                try result.checkDependency("Biz") { result in
                     result.checkConditions(satisfy: .init(platform: .watchOS, configuration: .release))
                     result.checkConditions(satisfy: .init(platform: .iOS, configuration: .release))
                     result.checkConditions(dontSatisfy: .init(platform: .iOS, configuration: .debug))
@@ -2242,15 +2388,13 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testUnreachableProductsSkipped() throws {
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-        #else
-        try XCTSkipIf(true)
-        #endif
-
+    @Test(
+        .requiresTargetBasedDependencyResolution,
+    )
+    func unreachableProductsSkipped() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Root/Sources/Root/Root.swift",
+                "/Root/Sources/Root/Root.swift",
             "/Immediate/Sources/ImmediateUsed/ImmediateUsed.swift",
             "/Immediate/Sources/ImmediateUnused/ImmediateUnused.swift",
             "/Transitive/Sources/TransitiveUsed/TransitiveUsed.swift",
@@ -2338,10 +2482,11 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
-    func testResolvedPackagesStoreIsResilientAgainstDupes() throws {
+    @Test
+    func resolvedPackagesStoreIsResilientAgainstDupes() throws {
         let json = """
               {
                 "version": 1,
@@ -2374,8 +2519,8 @@ final class ModulesGraphTests: XCTestCase {
         let packageResolvedFile = AbsolutePath("/Package.resolved")
         try fs.writeFileContents(packageResolvedFile, string: json)
 
-        XCTAssertThrows(
-            StringError(
+        #expect(
+            throws: StringError(
                 "\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: duplicated entry for package \"yams\""
             )
         ) {
@@ -2388,7 +2533,8 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testResolutionDeterminism() throws {
+    @Test
+    func resolutionDeterminism() throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles: [
                 "/A/Sources/A/A.swift",
@@ -2481,10 +2627,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTargetDependencies_Pre52() throws {
+    @Test
+    func targetDependencies_Pre52() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2518,13 +2665,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
-    func testTargetDependencies_Pre52_UnknownProduct() throws {
+    @Test
+    func targetDependencies_Pre52_UnknownProduct() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2568,10 +2716,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTargetDependencies_Post52_NamesAligned() throws {
+    @Test
+    func targetDependencies_Post52_NamesAligned() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2605,13 +2754,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
-    func testTargetDependencies_Post52_UnknownProduct() throws {
+    @Test
+    func targetDependencies_Post52_UnknownProduct() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2655,10 +2805,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTargetDependencies_Post52_ProductPackageNoMatch() throws {
+    @Test
+    func targetDependencies_Post52_ProductPackageNoMatch() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2716,15 +2867,16 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: fixedManifests,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
         }
     }
 
     // TODO: remove this when we remove explicit dependency name
-    func testTargetDependencies_Post52_ProductPackageNoMatch_DependencyExplicitName() throws {
+    @Test
+    func targetDependencies_Post52_ProductPackageNoMatch_DependencyExplicitName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Bar/Sources/Bar/bar.swift"
         )
 
@@ -2786,14 +2938,15 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: fixedManifests,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
         }
     }
 
-    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch() throws {
+    @Test
+    func targetDependencies_Post52_LocationAndManifestNameDontMatch() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Some-Bar/Sources/Bar/bar.swift"
         )
 
@@ -2851,14 +3004,15 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: fixedManifests,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
         }
     }
 
-    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch() throws {
+    @Test
+    func targetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Some-Bar/Sources/Bar/bar.swift"
         )
 
@@ -2897,7 +3051,7 @@ final class ModulesGraphTests: XCTestCase {
                     """,
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("foo"))
+                #expect(diagnostic?.metadata?.packageIdentity == .plain("foo"))
             }
         }
 
@@ -2917,16 +3071,17 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: fixedManifests,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
         }
     }
 
     // test backwards compatibility 5.2 < 5.4
     // TODO: remove this when we remove explicit dependency name
-    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_WithDependencyName() throws {
+    @Test
+    func targetDependencies_Post52_LocationAndManifestNameDontMatch_WithDependencyName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Some-Bar/Sources/Bar/bar.swift"
         )
 
@@ -2961,16 +3116,16 @@ final class ModulesGraphTests: XCTestCase {
 
         let observability = ObservabilitySystem.makeForTesting()
         _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
     }
 
     // test backwards compatibility 5.2 < 5.4
     // TODO: remove this when we remove explicit dependency name
-    func testTargetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch_WithDependencyName(
-    ) throws {
+    @Test
+    func targetDependencies_Post52_LocationAndManifestNameDontMatch_ProductPackageDontMatch_WithDependencyName() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Some-Bar/Sources/Bar/bar.swift"
         )
 
@@ -3013,7 +3168,7 @@ final class ModulesGraphTests: XCTestCase {
                     """,
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .plain("foo"))
+                #expect(diagnostic?.metadata?.packageIdentity == .plain("foo"))
             }
         }
 
@@ -3033,13 +3188,14 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: fixedManifests,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
         }
     }
 
     // test backwards compatibility 5.2 < 5.4
     // TODO: remove this when we remove explicit dependency name
-    func testTargetDependencies_Post52_AliasFindsIdentity() throws {
+    @Test
+    func targetDependencies_Post52_AliasFindsIdentity() throws {
         let manifest = try Manifest.createRootManifest(
             displayName: "Package",
             path: "/Package",
@@ -3068,21 +3224,21 @@ final class ModulesGraphTests: XCTestCase {
         // Make sure aliases are found properly and do not fall back to pre‐5.2 behavior, leaking across onto other
         // dependencies.
         let required = try manifest.dependenciesRequired(for: .everything)
-        let unrelated = try XCTUnwrap(
+        let unrelated = try #require(
             required
-                .first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" })
-        )
+                .first(where: { $0.nameForModuleDependencyResolutionOnly == "Unrelated" }))
         let requestedProducts = unrelated.productFilter
-        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
         // Unrelated should not have been asked for Product, because it should know Product comes from Identity.
-        XCTAssertFalse(requestedProducts.contains("Product"), "Product requests are leaking.")
-        #endif
+        #expect(!requestedProducts.contains("Product"), "Product requests are leaking.")
+#endif
     }
 
-    func testPlatforms() throws {
+    @Test
+    func platforms() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Sources/foo/module.modulemap",
+                "/Sources/foo/module.modulemap",
             "/Sources/bar/bar.swift",
             "/Sources/cbar/bar.c",
             "/Sources/cbar/include/bar.h",
@@ -3157,9 +3313,9 @@ final class ModulesGraphTests: XCTestCase {
                 customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
-            PackageGraphTester(graph) { result in
+            try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
                     "macos": "10.14",
                 ]
@@ -3170,25 +3326,25 @@ final class ModulesGraphTests: XCTestCase {
                     uniquingKeysWith: { _, rhs in rhs }
                 )
 
-                result.checkTarget("foo") { target in
+                try result.checkTarget("foo") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     target.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkTarget("bar") { target in
+                try result.checkTarget("bar") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     target.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkTarget("cbar") { target in
+                try result.checkTarget("cbar") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     target.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkTarget("test") { target in
+                try result.checkTarget("test") { target in
                     var expected = expectedDerivedPlatforms
                     for item in [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS] {
                         expected[item.name] = expectedPlatformsForTests[item]?.versionString
@@ -3197,25 +3353,25 @@ final class ModulesGraphTests: XCTestCase {
                     target.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     target.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkProduct("foo") { product in
+               try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkProduct("bar") { product in
+               try result.checkProduct("bar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkProduct("cbar") { product in
+               try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                     product.checkDerivedPlatformOptions(.macOS, options: ["option1"])
                     product.checkDerivedPlatformOptions(.iOS, options: [])
                 }
-                result.checkProduct("multi-target") { product in
+               try result.checkProduct("multi-target") { product in
                     var expected = expectedDerivedPlatforms
                     for item in [PackageModel.Platform.macOS, .iOS, .tvOS, .watchOS] {
                         expected[item.name] = expectedPlatformsForTests[item]?.versionString
@@ -3253,9 +3409,9 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: [manifest],
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
-            PackageGraphTester(graph) { result in
+            try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
                     "macos": "10.14",
                     "tvos": "12.0",
@@ -3267,27 +3423,27 @@ final class ModulesGraphTests: XCTestCase {
                     uniquingKeysWith: { _, rhs in rhs }
                 )
 
-                result.checkTarget("foo") { target in
+                try result.checkTarget("foo") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkTarget("bar") { target in
+                try result.checkTarget("bar") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkTarget("cbar") { target in
+                try result.checkTarget("cbar") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("foo") { product in
+               try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("bar") { product in
+               try result.checkProduct("bar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("cbar") { product in
+               try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3317,9 +3473,9 @@ final class ModulesGraphTests: XCTestCase {
                 customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
-            PackageGraphTester(graph) { result in
+            try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
                     "ios": "15.0",
                 ]
@@ -3338,15 +3494,15 @@ final class ModulesGraphTests: XCTestCase {
                 expectedDerivedPlatforms["maccatalyst"] = expectedDeclaredPlatforms["ios"]
                 expectedDerivedPlatformsForTests["maccatalyst"] = expectedDeclaredPlatforms["ios"]
 
-                result.checkTarget("test") { target in
+                try result.checkTarget("test") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatformsForTests)
                 }
-                result.checkTarget("cbar") { target in
+                try result.checkTarget("cbar") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("cbar") { product in
+               try result.checkProduct("cbar") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3354,10 +3510,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testCustomPlatforms() throws {
+    @Test
+    func customPlatforms() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Sources/foo/module.modulemap"
+                "/Sources/foo/module.modulemap"
         )
 
         let defaultDerivedPlatforms = [
@@ -3396,9 +3553,9 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: [manifest],
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
-            PackageGraphTester(graph) { result in
+            try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
                     "customos": "1.0",
                 ]
@@ -3409,11 +3566,11 @@ final class ModulesGraphTests: XCTestCase {
                     uniquingKeysWith: { _, rhs in rhs }
                 )
 
-                result.checkTarget("foo") { target in
+                try result.checkTarget("foo") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("foo") { product in
+               try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3442,9 +3599,9 @@ final class ModulesGraphTests: XCTestCase {
                 manifests: [manifest],
                 observabilityScope: observability.topScope
             )
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            expectNoDiagnostics(observability.diagnostics)
 
-            PackageGraphTester(graph) { result in
+            try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
                     "customos": "1.0",
                     "anothercustomos": "2.3",
@@ -3456,11 +3613,11 @@ final class ModulesGraphTests: XCTestCase {
                     uniquingKeysWith: { _, rhs in rhs }
                 )
 
-                result.checkTarget("foo") { target in
+                try result.checkTarget("foo") { target in
                     target.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     target.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
-                result.checkProduct("foo") { product in
+               try result.checkProduct("foo") { product in
                     product.checkDeclaredPlatforms(expectedDeclaredPlatforms)
                     product.checkDerivedPlatforms(expectedDerivedPlatforms)
                 }
@@ -3468,10 +3625,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testDependencyOnUpcomingFeatures() throws {
+    @Test
+    func dependencyOnUpcomingFeatures() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/foo.swift",
+                "/Foo/Sources/Foo/foo.swift",
             "/Foo/Sources/Foo2/foo.swift",
             "/Bar/Sources/Bar/bar.swift",
             "/Bar/Sources/Bar2/bar.swift",
@@ -3536,17 +3694,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(
-            observability.diagnostics.count,
-            0,
-            "unexpected diagnostics: \(observability.diagnostics.map(\.description))"
-        )
+        #expect(observability.diagnostics.count == 0)
     }
 
-    func testCustomNameInPackageDependency() throws {
+    @Test
+    func customNameInPackageDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift",
+                "/Foo/Sources/Foo/source.swift",
             "/Bar2/Sources/Bar/source.swift"
         )
 
@@ -3580,17 +3735,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(
-            observability.diagnostics.count,
-            0,
-            "unexpected diagnostics: \(observability.diagnostics.map(\.description))"
-        )
+        #expect(observability.diagnostics.count == 0)
     }
 
-    func testDependencyResolutionWithErrorMessages() throws {
+    @Test
+    func dependencyResolutionWithErrorMessages() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/aaa/Sources/aaa/main.swift",
+                "/aaa/Sources/aaa/main.swift",
             "/zzz/Sources/zzz/source.swift"
         )
 
@@ -3641,10 +3793,11 @@ final class ModulesGraphTests: XCTestCase {
         }
     }
 
-    func testTraits_whenSingleManifest_andDefaultTrait() throws {
+    @Test
+    func traits_whenSingleManifest_andDefaultTrait() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift"
+                "/Foo/Sources/Foo/source.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -3669,19 +3822,20 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Foo") { package in
-                XCTAssertEqual(package.enabledTraits, ["Trait1"])
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Foo") { package in
+                #expect(package.enabledTraits == ["Trait1"])
             }
         }
     }
 
-    func testTraits_whenTraitEnablesOtherTraits() throws {
+    @Test
+    func traits_whenTraitEnablesOtherTraits() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Foo/Sources/Foo/source.swift"
+                "/Foo/Sources/Foo/source.swift"
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -3710,19 +3864,20 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Foo") { package in
-                XCTAssertEqual(package.enabledTraits, ["Trait1", "Trait2", "Trait3", "Trait4", "Trait5"])
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Foo") { package in
+                #expect(package.enabledTraits == ["Trait1", "Trait2", "Trait3", "Trait4", "Trait5"])
             }
         }
     }
 
-    func testTraits_whenDependencyTraitEnabled() throws {
+    @Test
+    func traits_whenDependencyTraitEnabled() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Package1/Sources/Package1Target1/source.swift",
+                "/Package1/Sources/Package1Target1/source.swift",
             "/Package2/Sources/Package2Target1/source.swift"
         )
         let observability = ObservabilitySystem.makeForTesting()
@@ -3777,23 +3932,24 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Package1") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package1Trait1"])
-                XCTAssertEqual(package.dependencies.count, 1)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Package1") { package in
+                #expect(package.enabledTraits == ["Package1Trait1"])
+                #expect(package.dependencies.count == 1)
             }
-            result.checkPackage("Package2") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            try result.checkPackage("Package2") { package in
+                #expect(package.enabledTraits == ["Package2Trait1"])
             }
         }
     }
 
-    func testTraits_whenTraitEnablesDependencyTrait() throws {
+    @Test
+    func traits_whenTraitEnablesDependencyTrait() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Package1/Sources/Package1Target1/source.swift",
+                "/Package1/Sources/Package1Target1/source.swift",
             "/Package2/Sources/Package2Target1/source.swift"
         )
 
@@ -3850,20 +4006,21 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Package1") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package1Trait1"])
-                XCTAssertEqual(package.dependencies.count, 1)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Package1") { package in
+                #expect(package.enabledTraits == ["Package1Trait1"])
+                #expect(package.dependencies.count == 1)
             }
-            result.checkPackage("Package2") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            try result.checkPackage("Package2") { package in
+                #expect(package.enabledTraits == ["Package2Trait1"])
             }
         }
     }
 
-    func testTraits_whenComplex() throws {
+    @Test
+    func traits_whenComplex() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Package1/Sources/Package1Target1/source.swift",
@@ -4027,14 +4184,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Package1") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package1Trait1", "Package1Trait2"])
-                XCTAssertEqual(package.dependencies.count, 3)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Package1") { package in
+                #expect(package.enabledTraits == ["Package1Trait1", "Package1Trait2"])
+                #expect(package.dependencies.count == 3)
             }
-            result.checkTarget("Package1Target1") { target in
+            try result.checkTarget("Package1Target1") { target in
                 target.check(dependencies: "Package2Target1", "Package4Target1", "Package5Target1")
                 target.checkBuildSetting(
                     declaration: .SWIFT_ACTIVE_COMPILATION_CONDITIONS,
@@ -4045,22 +4202,23 @@ final class ModulesGraphTests: XCTestCase {
                     ]
                 )
             }
-            result.checkPackage("Package2") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package2Trait1"])
+            try result.checkPackage("Package2") { package in
+                #expect(package.enabledTraits == ["Package2Trait1"])
             }
-            result.checkPackage("Package3") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package3Trait1"])
+            try result.checkPackage("Package3") { package in
+                #expect(package.enabledTraits == ["Package3Trait1"])
             }
-            result.checkPackage("Package4") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package4Trait1", "Package4Trait2"])
+            try result.checkPackage("Package4") { package in
+                #expect(package.enabledTraits == ["Package4Trait1", "Package4Trait2"])
             }
         }
     }
 
-    func testTraits_whenPruneDependenciesEnabled() throws {
+    @Test
+    func traits_whenPruneDependenciesEnabled() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Package1/Sources/Package1Target1/source.swift",
+                "/Package1/Sources/Package1Target1/source.swift",
             "/Package2/Sources/Package2Target1/source.swift",
             "/Package3/Sources/Package3Target1/source.swift",
             "/Package4/Sources/Package4Target1/source.swift",
@@ -4232,14 +4390,14 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
+        #expect(observability.diagnostics.count == 0)
 
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Package1") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package1Trait3"])
-                XCTAssertEqual(package.dependencies.count, 2)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Package1") { package in
+                #expect(package.enabledTraits == ["Package1Trait3"])
+                #expect(package.dependencies.count == 2)
             }
-            result.checkTarget("Package1Target1") { target in
+            try result.checkTarget("Package1Target1") { target in
                 target.check(dependencies: "Package2Target1", "Package4Target1")
                 target.checkBuildSetting(
                     declaration: .SWIFT_ACTIVE_COMPILATION_CONDITIONS,
@@ -4249,22 +4407,23 @@ final class ModulesGraphTests: XCTestCase {
                     ]
                 )
             }
-            result.checkPackage("Package2") { package in
-                XCTAssertEqual(package.enabledTraits, [])
+            try result.checkPackage("Package2") { package in
+                #expect(package.enabledTraits == [])
             }
-            result.checkPackage("Package3") { package in
-                XCTAssertEqual(package.enabledTraits, [])
+            try result.checkPackage("Package3") { package in
+                #expect(package.enabledTraits == [])
             }
-            result.checkPackage("Package4") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package4Trait2"])
+            try result.checkPackage("Package4") { package in
+                #expect(package.enabledTraits == ["Package4Trait2"])
             }
         }
     }
 
-    func testTraits_whenPruneDependenciesEnabledForSomeManifests() throws {
+    @Test
+    func traits_whenPruneDependenciesEnabledForSomeManifests() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Package1/Sources/Package1Target1/source.swift",
+                "/Package1/Sources/Package1Target1/source.swift",
             "/Package2/Sources/Package2Target1/source.swift",
             "/Package3/Sources/Package3Target1/source.swift",
             "/Package4/Sources/Package4Target1/source.swift",
@@ -4436,13 +4595,13 @@ final class ModulesGraphTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        XCTAssertEqual(observability.diagnostics.count, 0)
-        PackageGraphTester(graph) { result in
-            result.checkPackage("Package1") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package1Trait3"])
-                XCTAssertEqual(package.dependencies.count, 2)
+        #expect(observability.diagnostics.count == 0)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Package1") { package in
+                #expect(package.enabledTraits == ["Package1Trait3"])
+                #expect(package.dependencies.count == 2)
             }
-            result.checkTarget("Package1Target1") { target in
+            try result.checkTarget("Package1Target1") { target in
                 target.check(dependencies: "Package2Target1", "Package4Target1")
                 target.checkBuildSetting(
                     declaration: .SWIFT_ACTIVE_COMPILATION_CONDITIONS,
@@ -4452,14 +4611,14 @@ final class ModulesGraphTests: XCTestCase {
                     ]
                 )
             }
-            result.checkPackage("Package2") { package in
-                XCTAssertEqual(package.enabledTraits, [])
+            try result.checkPackage("Package2") { package in
+                #expect(package.enabledTraits == [])
             }
-            result.checkPackage("Package3") { package in
-                XCTAssertEqual(package.enabledTraits, [])
+            try result.checkPackage("Package3") { package in
+                #expect(package.enabledTraits == [])
             }
-            result.checkPackage("Package4") { package in
-                XCTAssertEqual(package.enabledTraits, ["Package4Trait2"])
+            try result.checkPackage("Package4") { package in
+                #expect(package.enabledTraits == ["Package4Trait2"])
             }
         }
     }

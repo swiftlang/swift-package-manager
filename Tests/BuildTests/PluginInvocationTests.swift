@@ -86,7 +86,7 @@ final class PluginInvocationTests: XCTestCase {
 
         // Check the basic integrity before running plugins.
         XCTAssertNoDiagnostics(observability.diagnostics)
-        PackageGraphTester(graph) { graph in
+        PackageGraphTesterXCTest(graph) { graph in
             graph.check(packages: "Foo")
             graph.check(modules: "Foo", "FooPlugin", "FooTool", "FooToolLib")
             graph.checkTarget("Foo") { target in

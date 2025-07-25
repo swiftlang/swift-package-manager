@@ -23,7 +23,7 @@ import XCTest
 final class CrossCompilationPackageGraphTests: XCTestCase {
     func testTrivialPackage() throws {
         let graph = try trivialPackageGraph().graph
-        PackageGraphTester(graph) { result in
+        PackageGraphTesterXCTest(graph) { result in
             result.check(packages: "Pkg")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
             result.check(modules: "app", "lib")
@@ -42,7 +42,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
 
     func testMacros() throws {
         let graph = try macrosPackageGraph().graph
-        PackageGraphTester(graph) { result in
+        PackageGraphTesterXCTest(graph) { result in
             result.check(packages: "swift-firmware", "swift-mmio", "swift-syntax")
             result.check(
                 modules: "Core",
@@ -78,7 +78,7 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
 
     func testMacrosTests() throws {
         let graph = try macrosTestsPackageGraph().graph
-        PackageGraphTester(graph) { result in
+        PackageGraphTesterXCTest(graph) { result in
             result.check(packages: "swift-mmio", "swift-syntax")
             // "SwiftSyntax" is included for both host and target triples and is not pruned on this level
             result.check(

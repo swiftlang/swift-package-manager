@@ -47,6 +47,7 @@ public enum BuildOutput {
     // "-emit-extension-block-symbols"
     // "-emit-synthesized-members"
     case buildPlan
+    case replArguments
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -91,15 +92,28 @@ public struct SymbolGraphResult {
     public let outputLocationForTarget: (String, BuildParameters) -> [String]
 }
 
+public typealias CLIArguments = [String]
+
 public struct BuildResult {
-    package init(serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>, symbolGraph: SymbolGraphResult? = nil, buildPlan: BuildPlan? = nil) {
+    package init(
+        serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>,
+        packageGraph: ModulesGraph,
+        symbolGraph: SymbolGraphResult? = nil,
+        buildPlan: BuildPlan? = nil,
+        replArguments: CLIArguments?
+    ) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+        self.packageGraph = packageGraph
         self.symbolGraph = symbolGraph
         self.buildPlan = buildPlan
+        self.replArguments = replArguments
     }
     
-    public var symbolGraph: SymbolGraphResult?
-    public var buildPlan: BuildPlan?
+    public let replArguments: CLIArguments?
+    public let packageGraph: ModulesGraph
+    public let symbolGraph: SymbolGraphResult?
+    public let buildPlan: BuildPlan?
+
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
 }
 

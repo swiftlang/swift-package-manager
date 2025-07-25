@@ -134,23 +134,24 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try await swiftCommandState.createBuildSystem(
-                explicitBuildSystem: .native,
                 cacheBuildManifest: false,
                 packageGraphLoader: asyncUnsafeGraphLoader
             )
 
             // Perform build.
-            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
-            guard let buildPlan = buildResult.buildPlan else {
+            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.replArguments])
+            guard let arguments = buildResult.replArguments else {
+                swiftCommandState.observabilityScope.emit(error: "\(globalOptions.build.buildSystem) build system does not support this command")
                 throw ExitCode.failure
             }
 
             // Execute the REPL.
-            let arguments = try buildPlan.createREPLArguments()
-            print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
+            let interpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
+            swiftCommandState.outputStream.send("Launching Swift (interpreter at \(interpreterPath)) REPL with arguments: \(arguments.joined(separator: " "))\n")
+            swiftCommandState.outputStream.flush()
             try self.run(
                 fileSystem: swiftCommandState.fileSystem,
-                executablePath: swiftCommandState.getTargetToolchain().swiftInterpreterPath,
+                executablePath: interpreterPath,
                 originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
                 arguments: arguments
             )
@@ -197,7 +198,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, try isValidSwiftFilePath(fileSystem: swiftCommandState.fileSystem, path: executable) {
-                swiftCommandState.observabilityScope.emit(.runFileDeprecation)
+                swiftCommandState.observabilityScope.emit(.runFileDeprecation(filePath: executable))
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
@@ -364,8 +365,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 }
 
 private extension Basics.Diagnostic {
-    static var runFileDeprecation: Self {
-        .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
+    static func runFileDeprecation(filePath: String) -> Self {
+        .warning("'swift run \(filePath)' command to interpret swift files is deprecated; use 'swift \(filePath)' instead")
     }
 }
 
