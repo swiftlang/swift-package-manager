@@ -49,10 +49,6 @@ struct PlayCommandOptions: ParsableArguments {
     @Argument(help: "The playground name to run", completion: .shellCommand("swift package completion-tool list-playgrounds"))
     var playgroundName: String = ""
 
-    /// Specifies the traits to build the product with.
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
-
     /// List found playgrounds instead of running them
     @Flag(name: .customLong("list"), help: "List all Playgrounds")
     var list: Bool = false
@@ -147,7 +143,6 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     ) async throws -> Result<String, Error> {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: nil,
-            traitConfiguration: .init(traitOptions: self.options.traits),
             productsBuildParameters: productsBuildParameters
         )
 
@@ -167,7 +162,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
         // Build the playground runner executable product
         do {
-            try await buildSystem.build(subset: .product(playgroundExecutableProduct.name))
+            try await buildSystem.build(subset: .product(playgroundExecutableProduct.name), buildOutputs: [])
             return Result.success(playgroundExecutableProduct.name)
         } catch {
             return Result.failure(error)
