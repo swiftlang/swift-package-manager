@@ -30,7 +30,7 @@ import var TSCBasic.stderrStream
 
 final class SwiftCommandStateTests: CommandsTestCase {
     func testSeverityEnum() async throws {
-        try fixture(name: "Miscellaneous/Simple") { _ in
+        try fixtureXCTest(name: "Miscellaneous/Simple") { _ in
 
             do {
                 let info = Diagnostic(severity: .info, message: "info-string", metadata: nil)
@@ -59,7 +59,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testVerbosityLogLevel() async throws {
-        try fixture(name: "Miscellaneous/Simple") { fixturePath in
+        try fixtureXCTest(name: "Miscellaneous/Simple") { fixturePath in
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
@@ -196,7 +196,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testAuthorizationProviders() async throws {
-        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
+        try fixtureXCTest(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
             // custom .netrc file
@@ -231,7 +231,7 @@ final class SwiftCommandStateTests: CommandsTestCase {
     }
 
     func testRegistryAuthorizationProviders() async throws {
-        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
+        try fixtureXCTest(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
             // custom .netrc file
