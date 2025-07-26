@@ -134,23 +134,24 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try await swiftCommandState.createBuildSystem(
-                explicitBuildSystem: .native,
                 cacheBuildManifest: false,
                 packageGraphLoader: asyncUnsafeGraphLoader
             )
 
             // Perform build.
-            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
-            guard let buildPlan = buildResult.buildPlan else {
+            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.replArguments])
+            guard let arguments = buildResult.replArguments else {
+                swiftCommandState.observabilityScope.emit(error: "\(globalOptions.build.buildSystem) build system does not support this command")
                 throw ExitCode.failure
             }
 
             // Execute the REPL.
-            let arguments = try buildPlan.createREPLArguments()
-            print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
+            let interpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
+            swiftCommandState.outputStream.send("Launching Swift (interpreter at \(interpreterPath)) REPL with arguments: \(arguments.joined(separator: " "))\n")
+            swiftCommandState.outputStream.flush()
             try self.run(
                 fileSystem: swiftCommandState.fileSystem,
-                executablePath: swiftCommandState.getTargetToolchain().swiftInterpreterPath,
+                executablePath: interpreterPath,
                 originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
                 arguments: arguments
             )

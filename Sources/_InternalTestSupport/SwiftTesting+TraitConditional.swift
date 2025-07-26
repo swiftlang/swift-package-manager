@@ -48,6 +48,17 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    /// Test required setting ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION define
+    public static var requiresTargetBasedDependencyResolution: Self {
+        enabled("enabled as target based dependency resolution is defined") {
+            #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+                true
+            #else
+                false
+            #endif
+        }
+    }
+
     /// Skip test if built by XCode.
     public static func skipIfXcodeBuilt() -> Self {
         disabled("Tests built by Xcode") {

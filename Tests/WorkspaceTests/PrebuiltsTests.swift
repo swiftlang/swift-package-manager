@@ -34,7 +34,7 @@ final class PrebuiltsTests: XCTestCase {
         swiftSyntaxURL: String? = nil,
         run: (Workspace.SignedPrebuiltsManifest, AbsolutePath, MockPackage, MockPackage) async throws -> ()
     ) async throws {
-        try await fixture(name: "Signing") { fixturePath in
+        try await fixtureXCTest(name: "Signing") { fixturePath in
             let swiftSyntaxURL = swiftSyntaxURL ?? "https://github.com/swiftlang/swift-syntax"
 
             let manifest = Workspace.PrebuiltsManifest(libraries: [
