@@ -985,6 +985,7 @@ public enum PIF {
             case iOS = "ios"
             case tvOS = "tvos"
             case watchOS = "watchos"
+            case visionOS = "visionos"
             case driverKit = "driverkit"
             case linux
 
@@ -995,6 +996,7 @@ public enum PIF {
                 case .iOS: return .iOS
                 case .tvOS: return .tvOS
                 case .watchOS: return .watchOS
+                case .visionOS: return .visionOS
                 case .driverKit: return .driverKit
                 case .linux: return .linux
                 }
