@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
+import Basics
 
 @_spi(SwiftPMInternal)
-@testable import PackageModel
+import PackageModel
 
-@testable import SPMBuildCore
+import SPMBuildCore
 import XCTest
 
 private let bundleRootPath = try! AbsolutePath(validating: "/tmp/cross-toolchain")

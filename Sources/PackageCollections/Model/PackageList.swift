@@ -24,5 +24,17 @@ extension PackageCollectionsModel {
         
         /// Total number of packages
         public let total: Int
+
+        package init(
+            items: [PackageCollectionsModel.Package],
+            offset: Int,
+            limit: Int,
+            total: Int
+        ) {
+            self.items = items
+            self.offset = offset
+            self.limit = limit
+            self.total = total
+        }
     }
 }

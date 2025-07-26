@@ -50,7 +50,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// The dynamic libraries this product needs to link with.
     // Computed during build planning.
-    var dylibs: [ProductBuildDescription] = []
+    package var dylibs: [ProductBuildDescription] = []
 
     /// Any additional flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
@@ -65,7 +65,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     var libraryBinaryPaths: Set<AbsolutePath> = []
 
     /// Paths to tools shipped in binary dependencies
-    var availableTools: [String: AbsolutePath] = [:]
+    package var availableTools: [String: AbsolutePath] = [:]
 
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
@@ -85,7 +85,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     private let observabilityScope: ObservabilityScope
 
     /// Create a build description for a product.
-    init(
+    package init(
         package: ResolvedPackage,
         product: ResolvedProduct,
         toolsVersion: ToolsVersion,
@@ -422,6 +422,11 @@ extension ProductBuildDescription: Identifiable {
     public struct ID: Hashable {
         let productID: ResolvedProduct.ID
         let destination: BuildParameters.Destination
+
+        package init(productID: ResolvedProduct.ID, destination: BuildParameters.Destination) {
+            self.productID = productID
+            self.destination = destination
+        }
     }
 
     public var id: ID {

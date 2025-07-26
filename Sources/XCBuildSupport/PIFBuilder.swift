@@ -24,7 +24,7 @@ import func TSCBasic.memoize
 import func TSCBasic.topologicalSort
 
 /// The parameters required by `PIFBuilder`.
-struct PIFBuilderParameters {
+package struct PIFBuilderParameters {
     let triple: Basics.Triple
 
     /// Whether the toolchain supports `-package-name` option.
@@ -47,6 +47,26 @@ struct PIFBuilderParameters {
 
     /// The Swift language versions supported by the XCBuild being used for the buid.
     let supportedSwiftVersions: [SwiftLanguageVersion]
+
+    package init(
+        triple: Basics.Triple,
+        isPackageAccessModifierSupported: Bool,
+        enableTestability: Bool,
+        shouldCreateDylibForDynamicProducts: Bool,
+        toolchainLibDir: AbsolutePath,
+        pkgConfigDirectories: [AbsolutePath],
+        sdkRootPath: AbsolutePath?,
+        supportedSwiftVersions: [SwiftLanguageVersion]
+    ) {
+        self.triple = triple
+        self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
+        self.enableTestability = enableTestability
+        self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.toolchainLibDir = toolchainLibDir
+        self.pkgConfigDirectories = pkgConfigDirectories
+        self.sdkRootPath = sdkRootPath
+        self.supportedSwiftVersions = supportedSwiftVersions
+    }
 }
 
 /// PIF object builder for a package graph.
@@ -77,7 +97,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    init(
+    package init(
         graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,

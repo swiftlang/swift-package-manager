@@ -13,22 +13,22 @@
 import PackageModel
 import SourceControl
 
-struct MultipleErrors: Error, CustomStringConvertible {
-    let errors: [Error]
+package struct MultipleErrors: Error, CustomStringConvertible {
+    package let errors: [Error]
     
     init(_ errors: [Error]) {
         self.errors = errors
     }
 
-    var description: String {
+    package var description: String {
         "\(self.errors)"
     }
 }
 
-struct NotFoundError: Error {
+package struct NotFoundError: Error {
     let item: String
 
-    init(_ item: String) {
+    package init(_ item: String) {
         self.item = item
     }
 }

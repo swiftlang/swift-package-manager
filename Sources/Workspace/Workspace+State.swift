@@ -36,7 +36,7 @@ public actor WorkspaceState {
     /// storage
     private let storage: WorkspaceStateStorage
 
-    init(
+    package init(
         fileSystem: FileSystem,
         storageDirectory: Basics.AbsolutePath,
         initializationWarningHandler: (String) -> Void

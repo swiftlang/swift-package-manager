@@ -26,7 +26,7 @@ import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
-internal final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
+package final class SourceControlPackageContainer: PackageContainer, CustomStringConvertible {
     public typealias Constraint = PackageContainerConstraint
 
     // A wrapper for getDependencies() errors. This adds additional information
@@ -75,7 +75,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
+    package var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
 
     init(
         package: PackageReference,

@@ -289,6 +289,11 @@ extension ResolvedModule: Identifiable {
 
         public let moduleName: String
         let packageIdentity: PackageIdentity
+
+        package init(moduleName: String, packageIdentity: PackageIdentity) {
+            self.moduleName = moduleName
+            self.packageIdentity = packageIdentity
+        }
     }
 
     public var id: ID {

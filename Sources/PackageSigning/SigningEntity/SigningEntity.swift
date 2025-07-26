@@ -24,7 +24,7 @@ public enum SigningEntity: Hashable, Codable, CustomStringConvertible, Sendable 
     case recognized(type: SigningEntityType, name: String, organizationalUnit: String, organization: String)
     case unrecognized(name: String?, organizationalUnit: String?, organization: String?)
 
-    static func from(certificate: Certificate) -> SigningEntity {
+    package static func from(certificate: Certificate) -> SigningEntity {
         let name = certificate.subject.commonName
         let organizationalUnit = certificate.subject.organizationalUnitName
         let organization = certificate.subject.organizationName
