@@ -130,7 +130,7 @@ if shoudUseSwiftBuildFramework {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
         .iOS(.v17),
         .macCatalyst(.v17),
     ],
