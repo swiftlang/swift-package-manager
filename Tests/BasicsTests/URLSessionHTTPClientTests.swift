@@ -805,7 +805,7 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
-    func testAsyncDownloadAuthenticateWithRedirectdSuccess() async throws {
+    func testAsyncDownloadAuthenticateWithRedirectedSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
         // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
@@ -835,10 +835,23 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 fileSystem: localFileSystem,
                 destination: destination
             )
+            let redirectRequest = HTTPClient.Request.download(
+                url: redirectURL,
+                options: options,
+                fileSystem: localFileSystem,
+                destination: destination
+            )
 
             MockURLProtocol.onRequest(request) { request in
                 XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
                 MockURLProtocol.sendResponse(statusCode: 302, headers: ["Location": redirectURL.absoluteString], for: request)
+                MockURLProtocol.sendRedirect(for: request, to: URLRequest(url: redirectURL))
+            }
+            MockURLProtocol.onRequest(redirectRequest) { request in
+                XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], nil)
+                MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
+                MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
+                MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
@@ -856,13 +869,11 @@ final class URLSessionHTTPClientTest: XCTestCase {
                 }
             )
 
-            XCTAssertEqual(response.statusCode, 302)
-            //XCTAssertEqual(response.headers.get("Location"), redirectURL.absoluteString)
-
+            XCTAssertEqual(response.statusCode, 200)
             XCTAssertFileExists(destination)
 
-            //let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
-            //XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
+            let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
+            XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
         }
     }
 
@@ -1114,6 +1125,19 @@ private class MockURLProtocol: URLProtocol {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocol(request, didFailWithError: error)
+    }
+
+    static func sendRedirect(for request: URLRequest, to newRequest: URLRequest) {
+        let key = Key(request.httpMethod!, request.url!)
+        self.sendRedirect(newRequest: newRequest, for: key)
+    }
+
+    private static func sendRedirect(newRequest: URLRequest, for key: Key) {
+        guard let request = self.requests[key] else {
+            return XCTFail("url did not start loading")
+        }
+        let response = HTTPURLResponse(url: key.url, statusCode: 302, httpVersion: "1.1", headerFields: nil)!
+        request.client?.urlProtocol(request, wasRedirectedTo: newRequest, redirectResponse: response)
     }
 
     private struct Key: Hashable {
