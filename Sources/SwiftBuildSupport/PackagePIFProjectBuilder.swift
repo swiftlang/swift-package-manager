@@ -128,9 +128,9 @@ struct PackagePIFProjectBuilder {
             .iOS: moduleDeploymentTargets?[.iOS],
             .tvOS: moduleDeploymentTargets?[.tvOS],
             .watchOS: moduleDeploymentTargets?[.watchOS],
+            .visionOS: moduleDeploymentTargets?[.visionOS],
             .driverKit: moduleDeploymentTargets?[.driverKit],
         ]
-        deploymentTargets[.visionOS] = moduleDeploymentTargets?[.visionOS]
         let declaredPlatforms = firstModule?.declaredPlatforms
 
         // Compute the names of all explicitly dynamic library products, we need to avoid

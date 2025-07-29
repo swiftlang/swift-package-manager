@@ -97,6 +97,8 @@ public struct BuildParameters: Encodable {
     var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             switch self.triple.darwinPlatform {
+            case .driverKit:
+                return .driverKit
             case .iOS(.catalyst):
                 return .macCatalyst
             case .iOS(.device), .iOS(.simulator):
@@ -105,6 +107,8 @@ public struct BuildParameters: Encodable {
                 return .tvOS
             case .watchOS:
                 return .watchOS
+            case .visionOS:
+                return .visionOS
             case .macOS, nil:
                 return .macOS
             }
@@ -118,8 +122,10 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
-        } else {
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
