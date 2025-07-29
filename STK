@@ -1,0 +1,66 @@
+import UIKit
+import ScanbotBarcodeScannerSDK
+
+class ViewController: UIViewController {
+    
+    var expectedStickers = [
+        "STICKER-A": 3,
+        "STICKER-B": 2
+    ]
+    
+    var scannedStickers = [String: Int]()
+    
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        
+        let scanButton = UIButton(type: .system)
+        scanButton.setTitle("เริ่มสแกนสติ๊กเกอร์", for: .normal)
+        scanButton.frame = CGRect(x: 50, y: 200, width: 300, height: 50)
+        scanButton.addTarget(self, action: #selector(startScanning), for: .touchUpInside)
+        view.addSubview(scanButton)
+    }
+
+    @objc func startScanning() {
+        let config = SBSDKUIBarcodeScannerConfiguration()
+        config.engineMode = .nextGen
+        config.acceptedBarcodeTypes = [.code128, .qrCode, .ean13, .dataMatrix] // เลือกเฉพาะที่ต้องการ
+        config.cameraConfiguration.flashEnabled = true
+
+        let scannerVC = SBSDKUIBarcodeScannerViewController.createNew(with: config) { [weak self] result in
+            scannerVC.dismiss(animated: true)
+
+            guard let self = self else { return }
+
+            if result.status == .ok {
+                for barcode in result.barcodes {
+                    let code = barcode.rawTextString
+                    self.scannedStickers[code, default: 0] += 1
+                }
+                self.showResult()
+            } else {
+                print("ยกเลิกการสแกน หรือเกิดข้อผิดพลาด")
+            }
+        }
+
+        present(scannerVC, animated: true, completion: nil)
+    }
+    
+    func showResult() {
+        var message = ""
+        for (code, expectedCount) in expectedStickers {
+            let scannedCount = scannedStickers[code] ?? 0
+            
+            if scannedCount < expectedCount {
+                message += "❌ ขาด \(code): \(expectedCount - scannedCount)\n"
+            } else if scannedCount > expectedCount {
+                message += "⚠️ เกิน \(code): \(scannedCount - expectedCount)\n"
+            } else {
+                message += "✅ ครบ \(code)\n"
+            }
+        }
+
+        let alert = UIAlertController(title: "ผลการตรวจสอบ", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "ตกลง", style: .default))
+        present(alert, animated: true)
+    }
+}
