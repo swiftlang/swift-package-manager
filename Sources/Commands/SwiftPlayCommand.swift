@@ -206,7 +206,13 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         // Hand off playground execution to dynamically built playground runner executable
         var runnerProcess: AsyncProcess? = nil
         defer {
-            runnerProcess?.signal(SIGKILL)
+            let signal: Int32
+            #if os(Windows)
+            signal = 9
+            #else
+            signal = SIGKILL
+            #endif
+            runnerProcess?.signal(signal)
         }
 
         if case let .success(productName) = buildResult {
@@ -293,7 +299,13 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
                 group.cancelAll()
 
                 // Kill runner process, so that its task ends
-                runnerProcess?.signal(SIGKILL)
+                let signal: Int32
+                #if os(Windows)
+                signal = 9
+                #else
+                signal = SIGKILL
+                #endif
+                runnerProcess?.signal(signal)
 
                 guard let result = firstResult else {
                     // taskGroup returned no value so default to processExited
