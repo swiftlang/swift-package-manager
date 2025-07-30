@@ -399,7 +399,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
         var result = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
-            packageGraph: try await self.getPackageGraph(),
             replArguments: nil,
         )
 
@@ -464,7 +463,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         result = BuildResult(
             serializedDiagnosticPathsByTargetName: result.serializedDiagnosticPathsByTargetName,
-            packageGraph: result.packageGraph,
             symbolGraph: result.symbolGraph,
             buildPlan: buildResultBuildPlan,
             replArguments: buildResultReplArgs,

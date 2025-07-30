@@ -163,7 +163,6 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
         let buildResult = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("XCBuild does not support reporting serialized diagnostics.")),
-            packageGraph: try await self.getPackageGraph(),
             replArguments: nil,
         )
 
