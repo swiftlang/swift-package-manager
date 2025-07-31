@@ -27,9 +27,11 @@ extension Tag.Feature {
     public enum PackageType {}
 
     @Tag public static var CodeCoverage: Tag
+    @Tag public static var Mirror: Tag
     @Tag public static var Resource: Tag
     @Tag public static var SpecialCharacters: Tag
     @Tag public static var Traits: Tag
+
 }
 
 extension Tag.Feature.Command {
@@ -40,12 +42,15 @@ extension Tag.Feature.Command {
 }
 
 extension Tag.Feature.Command.Package {
+    @Tag public static var Config: Tag
     @Tag public static var Init: Tag
     @Tag public static var DumpPackage: Tag
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Plugin: Tag
     @Tag public static var Reset: Tag
+    @Tag public static var ShowDependencies: Tag
     @Tag public static var ToolsVersion: Tag
+    @Tag public static var Update: Tag
 }
 
 extension Tag.Feature.PackageType {
