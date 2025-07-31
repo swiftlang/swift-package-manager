@@ -269,7 +269,7 @@ struct RunCommandTests {
                 let cwd = try #require(localFileSystem.currentWorkingDirectory, "Current working directory should not be nil")
                 let (stdout, stderr) = try await execute([filePath, "1", "2"], packagePath: fixturePath, buildSystem: buildSystem)
                 #expect(stdout.contains(#""\#(cwd)" "1" "2""#))
-                #expect(stderr.contains("warning: 'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead"))
+                #expect(stderr.contains("warning: 'swift run \(filePath)' command to interpret swift files is deprecated; use 'swift \(filePath)' instead"))
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows

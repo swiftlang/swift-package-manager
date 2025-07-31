@@ -3453,7 +3453,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         #endif
 
-        let graphResult = PackageGraphResult(graph)
+        let graphResult = PackageGraphResultXCTest(graph)
         graphResult.check(reachableProducts: "aexec", "BLibrary")
         graphResult.check(reachableTargets: "ATarget", "BTarget1")
         #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
@@ -3554,7 +3554,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         XCTAssertNoDiagnostics(observability.diagnostics)
-        let graphResult = PackageGraphResult(graph)
+        let graphResult = PackageGraphResultXCTest(graph)
 
         do {
             let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
