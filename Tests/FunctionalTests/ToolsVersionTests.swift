@@ -2,24 +2,42 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import Commands
 import PackageModel
 import SourceControl
-import _InternalTestSupport
 import Workspace
-import XCTest
+import struct SPMBuildCore.BuildSystemProvider
 
-final class ToolsVersionTests: XCTestCase {
-    func testToolsVersion() async throws {
+import _InternalTestSupport
+import Testing
+
+struct ToolsVersionTests {
+
+    @Test(
+        .serialized,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8416", relationship: .defect),
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Build,
+            .Feature.Command.Package.ToolsVersion,
+        ),
+        // arguments: [BuildSystemProvider.Kind.swiftbuild], [BuildConfiguration.release],
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func toolsVersion(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem
 
@@ -57,8 +75,9 @@ final class ToolsVersionTests: XCTestCase {
             // v1.0.1
             _ = try await executeSwiftPackage(
                 depPath,
+                configuration: configuration,
                 extraArgs: ["tools-version", "--set", "10000.1"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             try fs.writeFileContents(
                 depPath.appending("foo.swift"),
@@ -92,33 +111,42 @@ final class ToolsVersionTests: XCTestCase {
             )
             _ = try await executeSwiftPackage(
                 primaryPath,
+                configuration: configuration,
                 extraArgs: ["tools-version", "--set", "4.2"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             ).stdout.spm_chomp()
 
             // Build the primary package.
             _ = try await executeSwiftBuild(
                 primaryPath,
-                buildSystem: .native,
+                configuration: configuration,
+                buildSystem: buildSystem,
             )
-            let exe = primaryPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Primary").pathString
+            let exe = primaryPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + buildSystem.binPathSuffixes(for: configuration) + ["Primary"]).pathString
             // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
-            try await XCTAssertAsyncEqual(try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp(), "foo@1.0")
+            try await withKnownIssue {
+                let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
+                #expect(executableActualOutput == "foo@1.0")
+            } when: {
+                ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
+            }
 
             // Set the tools version to something high.
             _ = try await executeSwiftPackage(
                 primaryPath,
+                configuration: configuration,
                 extraArgs: ["tools-version", "--set", "10000.1"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
 
-            await XCTAssertThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     primaryPath,
-                    buildSystem: .native,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             ) { error in
-                XCTAssert(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.current)"), error.stderr)
+                #expect(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.current)"), "stderr: '\(error.stderr)'")
             }
 
             // Write the manifest with incompatible sources.
@@ -135,17 +163,19 @@ final class ToolsVersionTests: XCTestCase {
             )
             _ = try await executeSwiftPackage(
                 primaryPath,
+                configuration: configuration,
                 extraArgs: ["tools-version", "--set", "4.2"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             ).stdout.spm_chomp()
 
-            await XCTAssertThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     primaryPath,
-                    buildSystem: .native,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
             ) { error in
-                XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
+                #expect(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), "stderr: '\(error.stderr)'")
             }
 
             try fs.writeFileContents(
@@ -161,12 +191,14 @@ final class ToolsVersionTests: XCTestCase {
              )
              _ = try await executeSwiftPackage(
                 primaryPath,
+                configuration: configuration,
                 extraArgs: ["tools-version", "--set", "4.2"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             ).stdout.spm_chomp()
              _ = try await executeSwiftBuild(
                 primaryPath,
-                buildSystem: .native,
+                configuration: configuration,
+                buildSystem: buildSystem,
             )
         }
     }

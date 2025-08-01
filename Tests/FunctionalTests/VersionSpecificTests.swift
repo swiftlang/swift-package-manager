@@ -2,22 +2,40 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import SourceControl
 import _InternalTestSupport
-import XCTest
+import Testing
+import struct SPMBuildCore.BuildSystemProvider
+import enum PackageModel.BuildConfiguration
 
-final class VersionSpecificTests: XCTestCase {
+@Suite(
+    .tags(
+        .TestSize.large,
+    ),
+)
+struct VersionSpecificTests {
     /// Functional tests of end-to-end support for version specific dependency resolution.
-    func testEndToEndResolution() async throws {
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+            .Feature.Command.Package.Reset,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func endToEndResolution(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem
 
@@ -90,10 +108,13 @@ final class VersionSpecificTests: XCTestCase {
                     """
             )
             // This build should fail, because of the invalid package.
-            await XCTAssertBuildFails(
-                primaryPath,
-                buildSystem: .native,
-            )
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftBuild(
+                    primaryPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
 
             // Create a file which requires a version 1.1.0 resolution.
             try fs.writeFileContents(
@@ -128,12 +149,14 @@ final class VersionSpecificTests: XCTestCase {
             // The build should work now.
             _ = try await executeSwiftPackage(
                 primaryPath,
+                configuration: configuration,
                 extraArgs: ["reset"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
-            await XCTAssertBuilds(
+            try await executeSwiftBuild(
                 primaryPath,
-                buildSystem: .native,
+                configuration: configuration,
+                buildSystem: buildSystem,
             )
         }
     }
