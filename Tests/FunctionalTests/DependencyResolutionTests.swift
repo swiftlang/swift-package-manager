@@ -23,7 +23,7 @@ import enum TSCUtility.Git
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() async throws {
         try await fixtureXCTest(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
 
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString).withSwiftLineEnding
             XCTAssertEqual(output, "Foo\nBar\n")
@@ -32,13 +32,13 @@ class DependencyResolutionTests: XCTestCase {
 
     func testInternalExecAsDep() async throws {
         try await fixtureXCTest(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
-            await XCTAssertBuildFails(fixturePath)
+            await XCTAssertBuildFails(fixturePath, buildSystem: .native)
         }
     }
 
     func testInternalComplex() async throws {
         try await fixtureXCTest(name: "DependencyResolution/Internal/Complex") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
 
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString).withSwiftLineEnding
             XCTAssertEqual(output, "meiow Baz\n")
@@ -55,7 +55,7 @@ class DependencyResolutionTests: XCTestCase {
             }
 
             let packageRoot = fixturePath.appending("Bar")
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, buildSystem: .native)
             XCTAssertFileExists(fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", executableName("Bar")))
             let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
             XCTAssert(try GitRepository(path: path).getTags().contains("1.2.3"))
@@ -64,7 +64,7 @@ class DependencyResolutionTests: XCTestCase {
 
     func testExternalComplex() async throws {
         try await fixtureXCTest(name: "DependencyResolution/External/Complex") { fixturePath in
-            await XCTAssertBuilds(fixturePath.appending("app"))
+            await XCTAssertBuilds(fixturePath.appending("app"), buildSystem: .native)
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: "app", ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString).withSwiftLineEnding
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
         }
@@ -74,7 +74,10 @@ class DependencyResolutionTests: XCTestCase {
         try await fixtureXCTest(name: "DependencyResolution/External/Branch") { fixturePath in
             // Tests the convenience init .package(url: , branch: )
             let app = fixturePath.appending("Bar")
-            try await SwiftPM.Build.execute(packagePath: app)
+            try await executeSwiftBuild(
+                app,
+                buildSystem: .native,
+            )
         }
     }
 
@@ -93,7 +96,11 @@ class DependencyResolutionTests: XCTestCase {
 
             // run with no mirror
             do {
-                let output = try await executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
+                let output = try await executeSwiftPackage(
+                    appPath,
+                    extraArgs: ["show-dependencies"],
+                    buildSystem: .native,
+                )
                 // logs are in stderr
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Foo").pathString)\n"))
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Bar").pathString)\n"))
@@ -105,7 +112,7 @@ class DependencyResolutionTests: XCTestCase {
                 XCTAssertMatch(resolvedPackages, .contains(prefix.appending("Foo").escapedPathString))
                 XCTAssertMatch(resolvedPackages, .contains(prefix.appending("Bar").escapedPathString))
 
-                await XCTAssertBuilds(appPath)
+                await XCTAssertBuilds(appPath, buildSystem: .native)
             }
 
             // clean
@@ -113,13 +120,26 @@ class DependencyResolutionTests: XCTestCase {
             try localFileSystem.removeFileTree(packageResolvedPath)
 
             // set mirror
-            _ = try await executeSwiftPackage(appPath, extraArgs: ["config", "set-mirror",
-                                                              "--original-url", prefix.appending("Bar").pathString,
-                                                              "--mirror-url", prefix.appending("BarMirror").pathString])
+            _ = try await executeSwiftPackage(
+                appPath,
+                extraArgs: [
+                    "config",
+                    "set-mirror",
+                    "--original-url",
+                    prefix.appending("Bar").pathString,
+                    "--mirror-url",
+                    prefix.appending("BarMirror").pathString,
+                ],
+                buildSystem: .native,
+            )
 
             // run with mirror
             do {
-                let output = try await executeSwiftPackage(appPath, extraArgs: ["show-dependencies"])
+                let output = try await executeSwiftPackage(
+                    appPath,
+                    extraArgs: ["show-dependencies"],
+                    buildSystem: .native,
+                )
                 // logs are in stderr
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("Foo").pathString)\n"))
                 XCTAssertMatch(output.stderr, .contains("Fetching \(prefix.appending("BarMirror").pathString)\n"))
@@ -135,14 +155,18 @@ class DependencyResolutionTests: XCTestCase {
                 XCTAssertMatch(resolvedPackages, .contains(prefix.appending("Bar").escapedPathString))
                 XCTAssertNoMatch(resolvedPackages, .contains(prefix.appending("BarMirror").escapedPathString))
 
-                await XCTAssertBuilds(appPath)
+                await XCTAssertBuilds(appPath, buildSystem: .native)
             }
         }
     }
 
     func testPackageLookupCaseInsensitive() async throws {
         try await fixtureXCTest(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { fixturePath in
-            try await SwiftPM.Package.execute(["update"], packagePath: fixturePath.appending("pkg"))
+            try await executeSwiftPackage(
+                fixturePath.appending("pkg"),
+                extraArgs: ["update"],
+                buildSystem: .native,
+            )
         }
     }
 }
