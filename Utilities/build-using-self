@@ -51,6 +51,11 @@ logging.basicConfig(
 REPO_ROOT_PATH = pathlib.Path(__file__).parent.parent.resolve()
 
 
+class UnsupportedArchitecture(Exception):
+
+    pass
+
+
 def get_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -128,7 +133,7 @@ def get_swiftpm_bin_dir(config: Configuration) -> pathlib.Path:
 
 
 def is_on_darwin() -> bool:
-    return platform.uname().system == "Darwin"
+    return platform.system() == "Darwin"
 
 
 def set_environment(
@@ -148,6 +153,15 @@ def set_environment(
 def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
     logging.info("Current working directory is %s", pathlib.Path.cwd())
     logging.info("Bootstrapping with the XCBuild codepath...")
+    cross_compile_arch: str
+    arch = platform.machine()
+    if arch == "arm64":
+        cross_compile_arch = "x86_64"
+    elif arch == "x86_64":
+        cross_compile_arch = "arm64"
+    else:
+        raise UnsupportedArchitecture(f"Architecture {arch} is not supported.")
+
     call(
         [
             REPO_ROOT_PATH / "Utilities" / "bootstrap",
@@ -155,7 +169,7 @@ def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
             "--release",
             "--verbose",
             "--cross-compile-hosts",
-            "macosx-arm64",
+            f"macosx-{cross_compile_arch}",
             "--skip-cmake-bootstrap",
             "--swift-build-path",
             (swiftpm_bin_dir / "swift-build").resolve(),
