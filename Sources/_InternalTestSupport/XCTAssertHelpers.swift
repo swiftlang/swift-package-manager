@@ -61,20 +61,13 @@ public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #
     }
 }
 
-public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
+public func XCTSkipOnWindows(because reason: String, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
     #if os(Windows)
-    let failureCause: String
-    if let reason {
-        failureCause = " because \(reason.description)"
-    } else {
-        failureCause = ""
-    }
+    let failureCause = "Skipping because \(reason.description)"
     if (skipPlatformCi) {
-        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
-    }
-
-    if (skipSelfHostedCI) {
-        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
+        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI. \(failureCause)", file: file, line: line)
+    } else if skipSelfHostedCI {
+        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI. \(failureCause)", file: file, line: line)
     }
 
     if (!skipPlatformCi && !skipSelfHostedCI) {
@@ -154,7 +147,7 @@ public func XCTAssertBuilds(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
     for conf in configurations {
         await XCTAssertAsyncNoThrow(
@@ -184,7 +177,7 @@ public func XCTAssertSwiftTest(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
     await XCTAssertAsyncNoThrow(
         try await executeSwiftTest(
@@ -211,7 +204,7 @@ public func XCTAssertBuildFails(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async -> CommandExecutionError? {
     var failure: CommandExecutionError? = nil
     await XCTAssertThrowsCommandExecutionError(
@@ -337,6 +330,6 @@ public func XCTExhibitsGitHubIssue(_ number: Int) throws {
 
     try XCTSkipIf(
         ProcessInfo.processInfo.environment[envVar] != nil,
-        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar) environment variable is set"
     )
 }

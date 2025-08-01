@@ -24,7 +24,11 @@ private struct SwiftPMTests {
             try await binaryTargetsFixture { fixturePath in
                 do {
                     await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let runOutput = try await executeSwiftRun(fixturePath, "exe", buildSystem: .native)
+                        let runOutput = try await executeSwiftRun(
+                            fixturePath,
+                            "exe",
+                            buildSystem: .native,
+                        )
                         #expect(!runOutput.stderr.contains("error:"))
                         #expect(
                             runOutput.stdout == """
@@ -50,7 +54,8 @@ private struct SwiftPMTests {
                     await #expect {
                         try await executeSwiftPackage(
                             fixturePath,
-                            extraArgs: ["compute-checksum", invalidPath.pathString]
+                            extraArgs: ["compute-checksum", invalidPath.pathString],
+                            buildSystem: .native,
                         )
                     } throws: { error in
                         // The order of supported extensions is not ordered, and changes.
@@ -63,7 +68,9 @@ private struct SwiftPMTests {
 
                     let validPath = fixturePath.appending(component: "SwiftFramework.zip")
                     let packageOutput = try await executeSwiftPackage(
-                        fixturePath, extraArgs:  ["compute-checksum", validPath.pathString]
+                        fixturePath,
+                        extraArgs: ["compute-checksum", validPath.pathString],
+                        buildSystem: .native,
                     )
                     #expect(
                         packageOutput.stdout.spm_chomp()
@@ -93,8 +100,15 @@ private struct SwiftPMTests {
         try withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "executable"])
-            try await executeSwiftBuild(packagePath, buildSystem: buildSystemProvider)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable"],
+                buildSystem: buildSystemProvider,
+            )
+            try await executeSwiftBuild(
+                packagePath,
+                buildSystem: buildSystemProvider,
+            )
 
             try await withKnownIssue(
                 "Error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory"
@@ -131,7 +145,11 @@ private struct SwiftPMTests {
         try await withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "library"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: buildSystemProvider,
+            )
             try await withKnownIssue(
                 """
                 Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
@@ -140,8 +158,14 @@ private struct SwiftPMTests {
                 """,
                 isIntermittent: true
             ) {
-                try await executeSwiftBuild(packagePath, buildSystem: buildSystemProvider)
-                let testOutput = try await executeSwiftTest(packagePath, buildSystem: buildSystemProvider)
+                try await executeSwiftBuild(
+                    packagePath,
+                    buildSystem: buildSystemProvider,
+                )
+                let testOutput = try await executeSwiftTest(
+                    packagePath,
+                    buildSystem: buildSystemProvider,
+                )
                 // #expect(testOutput.returnCode == .terminated(code: 0))
                 #expect(!testOutput.stderr.contains("error:"))
 
@@ -156,7 +180,11 @@ private struct SwiftPMTests {
         try await  withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "executable"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable"],
+                buildSystem: .native,
+            )
             // delete any files generated
             for entry in try localFileSystem.getDirectoryContents(
                 packagePath.appending(components: "Sources")
@@ -173,7 +201,11 @@ private struct SwiftPMTests {
             let archs = ["x86_64", "arm64"]
 
             for arch in archs {
-                try await executeSwiftBuild(packagePath, extraArgs: ["--arch", arch])
+                try await executeSwiftBuild(
+                    packagePath,
+                    extraArgs: ["--arch", arch],
+                    buildSystem: .native,
+                )
                 let fooPath = try AbsolutePath(
                     validating: ".build/\(arch)-apple-macosx/debug/foo",
                     relativeTo: packagePath
@@ -184,7 +216,11 @@ private struct SwiftPMTests {
             // let args =
             //     [swiftBuild.pathString, "--package-path", packagePath.pathString]
             //         + archs.flatMap { ["--arch", $0] }
-            try await executeSwiftBuild(packagePath, extraArgs: archs.flatMap { ["--arch", $0] })
+            try await executeSwiftBuild(
+                packagePath,
+                extraArgs: archs.flatMap { ["--arch", $0] },
+                buildSystem: .native,
+            )
 
             let fooPath = try AbsolutePath(
                 validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
@@ -207,8 +243,16 @@ private struct SwiftPMTests {
         try await withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "empty"])
-            try await executeSwiftPackage(packagePath, extraArgs: ["add-target", "--type", "test", "ReproTests"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "empty"],
+                buildSystem: .native,
+            )
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["add-target", "--type", "test", "ReproTests"],
+                buildSystem: .native,
+            )
             try localFileSystem.writeFileContents(
                 AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
                 string: """
@@ -233,8 +277,16 @@ private struct SwiftPMTests {
                 }
                 """
             )
-            let expectedCoveragePath = try await executeSwiftTest(packagePath, extraArgs: ["--show-coverage-path"]).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            try await executeSwiftTest(packagePath, extraArgs: ["--enable-code-coverage", "--disable-xctest"])
+            let expectedCoveragePath = try await executeSwiftTest(
+                packagePath,
+                extraArgs: ["--show-coverage-path"],
+                buildSystem: .native,
+            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+            try await executeSwiftTest(
+                packagePath,
+                extraArgs: ["--enable-code-coverage", "--disable-xctest"],
+                buildSystem: .native,
+            )
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.

@@ -414,7 +414,7 @@ struct APIDiffTests {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
-                #expect(error.stderr.contains("error: Couldn’t get revision"))
+                #expect(error.stderr.contains("error: Couldn't get revision"))
             }
         }
     }

@@ -487,7 +487,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "set-url",
                 remote,
                 url,
-                failureMessage: "Couldn’t set the URL of the remote ‘\(remote)’ to ‘\(url)’"
+                failureMessage: "Couldn't set the URL of the remote '\(remote)' to '\(url)'"
             )
         }
     }
@@ -500,7 +500,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             // Get the remote names.
             let remoteNamesOutput = try callGit(
                 "remote",
-                failureMessage: "Couldn’t get the list of remotes"
+                failureMessage: "Couldn't get the list of remotes"
             )
             let remoteNames = remoteNamesOutput.split(whereSeparator: { $0.isNewline }).map(String.init)
             return try remoteNames.map { name in
@@ -509,7 +509,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "config",
                     "--get",
                     "remote.\(name).url",
-                    failureMessage: "Couldn’t get the URL of the remote ‘\(name)’"
+                    failureMessage: "Couldn't get the URL of the remote '\(name)'"
                 )
                 return (name, url)
             }
@@ -519,13 +519,13 @@ public final class GitRepository: Repository, WorkingCheckout {
     // MARK: Helpers for package search functionality
 
     public func getDefaultBranch() throws -> String {
-        try callGit("rev-parse", "--abbrev-ref", "HEAD", failureMessage: "Couldn’t get the default branch")
+        try callGit("rev-parse", "--abbrev-ref", "HEAD", failureMessage: "Couldn't get the default branch")
     }
 
     public func getBranches() throws -> [String] {
         try self.cachedBranches.memoize {
             try self.lock.withLock {
-                let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
+                let branches = try callGit("branch", "-l", failureMessage: "Couldn't get the list of branches")
                 return branches.split(whereSeparator: { $0.isNewline }).map { $0.dropFirst(2) }.map(String.init)
             }
         }
@@ -541,7 +541,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let tagList = try callGit(
                     "tag",
                     "-l",
-                    failureMessage: "Couldn’t get the list of tags"
+                    failureMessage: "Couldn't get the list of tags"
                 )
                 return tagList.split(whereSeparator: { $0.isNewline }).map(String.init)
             }
@@ -568,7 +568,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "-v",
                 "update",
                 "-p",
-                failureMessage: "Couldn’t fetch updates from remote repositories",
+                failureMessage: "Couldn't fetch updates from remote repositories",
                 progress: progress
             )
             self.cachedTags.clear()
@@ -603,7 +603,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "--branches",
                 "--not",
                 "--remotes",
-                failureMessage: "Couldn’t check for unpushed commits"
+                failureMessage: "Couldn't check for unpushed commits"
             ).isEmpty
             return !hasOutput
         }
@@ -615,7 +615,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "rev-parse",
                 "--verify",
                 "HEAD",
-                failureMessage: "Couldn’t get current revision"
+                failureMessage: "Couldn't get current revision"
             ))
         }
     }
@@ -626,7 +626,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "describe",
                 "--exact-match",
                 "--tags",
-                failureMessage: "Couldn’t get current tag"
+                failureMessage: "Couldn't get current tag"
             )
         }
     }
@@ -640,7 +640,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "reset",
                 "--hard",
                 tag,
-                failureMessage: "Couldn’t check out tag ‘\(tag)’"
+                failureMessage: "Couldn't check out tag '\(tag)'"
             )
             try self.updateSubmoduleAndCleanIfNecessary()
         }
@@ -655,7 +655,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "checkout",
                 "-f",
                 revision.identifier,
-                failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
+                failureMessage: "Couldn't check out revision '\(revision.identifier)'"
             )
             try self.updateSubmoduleAndCleanIfNecessary()
         }
@@ -666,7 +666,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             let output = try callGit(
                 "rev-parse",
                 "--is-bare-repository",
-                failureMessage: "Couldn’t test for bare repository"
+                failureMessage: "Couldn't test for bare repository"
             )
 
             return output == "true"
@@ -691,12 +691,12 @@ public final class GitRepository: Repository, WorkingCheckout {
             "update",
             "--init",
             "--recursive",
-            failureMessage: "Couldn’t update repository submodules"
+            failureMessage: "Couldn't update repository submodules"
         )
         try self.callGit(
             "clean",
             "-ffdx",
-            failureMessage: "Couldn’t clean repository submodules"
+            failureMessage: "Couldn't clean repository submodules"
         )
     }
 
@@ -716,7 +716,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "checkout",
                 "-b",
                 newBranch,
-                failureMessage: "Couldn’t check out new branch ‘\(newBranch)’"
+                failureMessage: "Couldn't check out new branch '\(newBranch)'"
             )
         }
     }
@@ -736,7 +736,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "--output",
                 path.pathString,
                 "HEAD",
-                failureMessage: "Couldn’t create an archive"
+                failureMessage: "Couldn't create an archive"
             )
         }
     }
@@ -806,7 +806,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "rev-parse",
                     "--verify",
                     specifier,
-                    failureMessage: "Couldn’t get revision ‘\(specifier)’"
+                    failureMessage: "Couldn't get revision '\(specifier)'"
                 )
                 guard let hash = Hash(output) else {
                     throw GitInterfaceError.malformedResponse("expected an object hash in \(output)")
@@ -842,7 +842,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let output = try callGit(
                     "ls-tree",
                     hashString,
-                    failureMessage: "Couldn’t read '\(hashString)'"
+                    failureMessage: "Couldn't read '\(hashString)'"
                 )
                 let entries = try self.parseTree(output)
                 return Tree(location: .hash(hash), contents: entries)
@@ -856,7 +856,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 let output = try callGit(
                     "ls-tree",
                     tag,
-                    failureMessage: "Couldn’t read '\(tag)'"
+                    failureMessage: "Couldn't read '\(tag)'"
                 )
                 let entries = try self.parseTree(output)
                 return Tree(location: .tag(tag), contents: entries)
@@ -921,7 +921,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "cat-file",
                     "-p",
                     hash.bytes.description,
-                    failureMessage: "Couldn’t read ‘\(hash.bytes.description)’"
+                    failureMessage: "Couldn't read '\(hash.bytes.description)'"
                 )
                 return ByteString(encodingAsUTF8: output)
             }

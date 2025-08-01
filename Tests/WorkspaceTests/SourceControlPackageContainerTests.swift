@@ -567,7 +567,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
-                XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
+                XCTAssertMatch(error.description, .and(.prefix("could not find a branch named 'master'"), .suffix("(did you mean 'main'?)")))
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
                 XCTAssertMatch(error.reference, "master")
             }

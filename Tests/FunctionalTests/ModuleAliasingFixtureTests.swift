@@ -22,11 +22,18 @@ final class ModuleAliasingFixtureTests: XCTestCase {
         try await fixtureXCTest(name: "ModuleAliasing/DirectDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            await XCTAssertBuilds(
+                pkgPath,
+                extraArgs: ["--vv"],
+                buildSystem: .native,
+            )
             XCTAssertFileExists(buildPath.appending(components: executableName("App")))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "GameUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "Utils.swiftmodule"))
-            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+            _ = try await executeSwiftBuild(
+                pkgPath,
+                buildSystem: .native,
+            )
         }
     }
 
@@ -34,11 +41,18 @@ final class ModuleAliasingFixtureTests: XCTestCase {
         try await fixtureXCTest(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            await XCTAssertBuilds(
+                pkgPath,
+                extraArgs: ["--vv"],
+                buildSystem: .native,
+            )
             XCTAssertFileExists(buildPath.appending(components: executableName("App")))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "AUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "BUtils.swiftmodule"))
-            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+            _ = try await executeSwiftBuild(
+                pkgPath,
+                buildSystem: .native,
+            )
         }
     }
 
@@ -46,7 +60,11 @@ final class ModuleAliasingFixtureTests: XCTestCase {
         try await fixtureXCTest(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            await XCTAssertBuilds(
+                pkgPath,
+                extraArgs: ["--vv"],
+                buildSystem: .native,
+            )
             XCTAssertFileExists(buildPath.appending(components: executableName("App")))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "A.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "AFooUtils.swiftmodule"))
@@ -54,7 +72,10 @@ final class ModuleAliasingFixtureTests: XCTestCase {
             XCTAssertFileExists(buildPath.appending(components: "Modules", "X.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "XFooUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "XUtils.swiftmodule"))
-            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+            _ = try await executeSwiftBuild(
+                pkgPath,
+                buildSystem: .native,
+            )
         }
     }
 
@@ -62,13 +83,20 @@ final class ModuleAliasingFixtureTests: XCTestCase {
         try await fixtureXCTest(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = pkgPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
-            await XCTAssertBuilds(pkgPath, extraArgs: ["--vv"])
+            await XCTAssertBuilds(
+                pkgPath,
+                extraArgs: ["--vv"],
+                buildSystem: .native,
+            )
             XCTAssertFileExists(buildPath.appending(components: executableName("App")))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "A.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "BUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "CUtils.swiftmodule"))
             XCTAssertFileExists(buildPath.appending(components: "Modules", "XUtils.swiftmodule"))
-            _ = try await SwiftPM.Build.execute(packagePath: pkgPath)
+            _ = try await executeSwiftBuild(
+                pkgPath,
+                buildSystem: .native,
+            )
         }
     }
 }

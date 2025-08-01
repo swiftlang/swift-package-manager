@@ -519,7 +519,7 @@ public final class Manifest: Sendable {
                     registry: &registry.known,
                     availablePackages: availablePackages
                 ) {
-                    // If it doesn’t match a package, it should be a target, not a product.
+                    // If it doesn't match a package, it should be a target, not a product.
                     if self.targets.contains(where: { $0.name == product }) {
                         break
                     } else {

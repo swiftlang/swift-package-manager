@@ -123,8 +123,8 @@ enum CertificatePolicyError: Error, Equatable {
 /// Default policy for validating certificates used to sign package collections.
 ///
 /// Certificates must satisfy these conditions:
-///   - The timestamp at which signing/verification is done must fall within the signing certificate’s validity period.
-///   - The certificate’s “Extended Key Usage” extension must include “Code Signing”.
+///   - The timestamp at which signing/verification is done must fall within the signing certificate's validity period.
+///   - The certificate's “Extended Key Usage” extension must include “Code Signing”.
 ///   - The certificate must use either 256-bit EC (recommended) or 2048-bit RSA key.
 ///   - The certificate must not be revoked. The certificate authority must support OCSP.
 ///   - The certificate chain is valid and root certificate must be trusted.

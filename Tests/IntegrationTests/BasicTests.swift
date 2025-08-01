@@ -34,7 +34,10 @@ private struct BasicTests {
                 // marking as withKnownIssue(intermittent: trye) as git operation can fail.
                 try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
             }
-            let build1Output = try await executeSwiftBuild(packagePath).stdout
+            let build1Output = try await executeSwiftBuild(
+                packagePath,
+                buildSystem: .native,
+            ).stdout
 
             // Check the build log.
             #expect(build1Output.contains("Build complete"))
@@ -51,7 +54,10 @@ private struct BasicTests {
             #expect(gitOutput.contains("nothing to commit, working tree clean"))
 
             // Verify that another 'swift build' does nothing.
-            let build2Output = try await executeSwiftBuild(packagePath).stdout
+            let build2Output = try await executeSwiftBuild(
+                packagePath,
+                buildSystem: .native,
+            ).stdout
             #expect(build2Output.contains("Build complete"))
             #expect(build2Output.contains("Compiling") == false)
         }
@@ -88,7 +94,11 @@ private struct BasicTests {
             )
 
             // Check the build.
-            let buildOutput = try await executeSwiftBuild(packagePath, extraArgs: ["-v"]).stdout
+            let buildOutput = try await executeSwiftBuild(
+                packagePath,
+                extraArgs: ["-v"],
+                buildSystem: .native,
+            ).stdout
             #expect(try #/swiftc.* -module-name tool/#.firstMatch(in: buildOutput) != nil)
 
             // Verify that the tool exists and works.
@@ -110,8 +120,15 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "executable"])
-            let packageOutput = try await executeSwiftBuild(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+            extraArgs: ["init", "--type", "executable"],
+                buildSystem: .native,
+            )
+            let packageOutput = try await executeSwiftBuild(
+                packagePath,
+                buildSystem: .native,
+            )
 
             // Check the build log.
             let compilingRegex = try Regex("Compiling .*Project.*")
@@ -144,8 +161,16 @@ private struct BasicTests {
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
             await withKnownIssue("error: no tests found; create a target in the 'Tests' directory") {
-                try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "executable"])
-                let packageOutput = try await executeSwiftTest(packagePath, extraArgs: ["--vv"])
+                try await executeSwiftPackage(
+                    packagePath,
+                    extraArgs: ["init", "--type", "executable"],
+                    buildSystem: .native,
+                )
+                let packageOutput = try await executeSwiftTest(
+                    packagePath,
+                    extraArgs: ["--vv"],
+                    buildSystem: .native,
+                )
 
                 // Check the test log.
                 let compilingRegex = try Regex("Compiling .*ProjectTests.*")
@@ -171,8 +196,15 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "library"])
-            let buildOutput = try await executeSwiftBuild(packagePath).stdout
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: .native,
+            )
+            let buildOutput = try await executeSwiftBuild(
+                packagePath,
+                buildSystem: .native,
+            ).stdout
 
             // Check the build log.
             #expect(try #/Compiling .*Project.*/#.firstMatch(in: buildOutput) != nil)
@@ -197,8 +229,15 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "library"])
-            let output = try await executeSwiftTest(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: .native,
+            )
+            let output = try await executeSwiftTest(
+                packagePath,
+                buildSystem: .native,
+            )
 
             // Check there were no compile errors or warnings.
             #expect(output.stdout.contains("error") == false)
@@ -242,7 +281,11 @@ private struct BasicTests {
             )
 
             // Check the build.
-            let buildOutput = try await executeSwiftBuild(packagePath, extraArgs: ["-v"]).stdout
+            let buildOutput = try await executeSwiftBuild(
+                packagePath,
+                extraArgs: ["-v"],
+                buildSystem: .native,
+            ).stdout
             let expression = ProcessInfo
                 .hostOperatingSystem != .windows ?
                 #/swiftc.* -module-name special_tool .* '@.*/more spaces/special tool/.build/[^/]+/debug/special_tool.build/sources'/# :
@@ -270,7 +313,11 @@ private struct BasicTests {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "secho")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "executable"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable"],
+                buildSystem: .native,
+            )
             // delete any files generated
             for entry in try localFileSystem.getDirectoryContents(
                 packagePath.appending(components: "Sources")
@@ -316,7 +363,11 @@ private struct BasicTests {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftTest")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "library"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: .native,
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(components: "Tests", "swiftTestTests", "MyTests.swift"),
                 bytes: ByteString(
@@ -343,7 +394,8 @@ private struct BasicTests {
                     "--skip",
                     "testBaz",
                     "--vv",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             // Check the test log.
@@ -363,7 +415,9 @@ private struct BasicTests {
         try await fixture(name: "Miscellaneous/PackageWithResource/") { packagePath in
 
             let result = try await executeSwiftTest(
-                packagePath, extraArgs: ["--filter", "MyTests.*", "--vv"]
+                packagePath,
+                extraArgs: ["--filter", "MyTests.*", "--vv"],
+                buildSystem: .native,
             )
 
             // Check the test log.

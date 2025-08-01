@@ -13,7 +13,7 @@ let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
 // 🇮🇱 U+1F1EE U+1F1F1: Second consecutive regional indicator. (Complicated grapheme breaking.)
 // x̱̱̱̱̱̄̄̄̄̄ U+0078 (U+0331 U+0304) × 5: Extremely long combining sequence. (Also reordrant under normalization.)
 
-// The following verifies that sources haven’t been normalized, which would reduce the test’s effectiveness.
+// The following verifies that sources haven't been normalized, which would reduce the test's effectiveness.
 var verify = "\u{03C0}\u{0FB2C}\u{00B5}\u{1D11E}\u{1F1FA}\u{1F1F3}\u{1F1EE}\u{1F1F1}\u{0078}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}\u{0331}\u{0304}"
 assert(
     complicatedString.unicodeScalars.elementsEqual(verify.unicodeScalars),
