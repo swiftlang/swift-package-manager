@@ -24,11 +24,11 @@
 //    @discardableResult
 //    func execute(args: [String] = [], packagePath: AbsolutePath) async throws -> (stdout: String, stderr: String) {
 //        // FIXME: We should pass the SWIFT_EXEC at lower level.
-//        try await SwiftPM.Build.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString])
+//        try await executeSwiftBuild(packagePath, extraArgs: args + [], env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString], buildSystem: .native)
 //    }
 //
 //    func clean(packagePath: AbsolutePath) async throws {
-//        _ = try await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+//        _ = try await executeSwiftPackage(packagePath, extraArgs: ["clean"], buildSystem: .native)
 //    }
 //
 //    func testTrivialPackageFullBuild() throws {

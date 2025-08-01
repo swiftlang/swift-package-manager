@@ -90,7 +90,10 @@ final class VersionSpecificTests: XCTestCase {
                     """
             )
             // This build should fail, because of the invalid package.
-            await XCTAssertBuildFails(primaryPath)
+            await XCTAssertBuildFails(
+                primaryPath,
+                buildSystem: .native,
+            )
 
             // Create a file which requires a version 1.1.0 resolution.
             try fs.writeFileContents(
@@ -123,8 +126,15 @@ final class VersionSpecificTests: XCTestCase {
             try repo.tag(name: "1.1.0@swift-\(SwiftVersion.current.major)")
 
             // The build should work now.
-            _ = try await SwiftPM.Package.execute(["reset"], packagePath: primaryPath)
-            await XCTAssertBuilds(primaryPath)
+            _ = try await executeSwiftPackage(
+                primaryPath,
+                extraArgs: ["reset"],
+                buildSystem: .native,
+            )
+            await XCTAssertBuilds(
+                primaryPath,
+                buildSystem: .native,
+            )
         }
     }
 }
