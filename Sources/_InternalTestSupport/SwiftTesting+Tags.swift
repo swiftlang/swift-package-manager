@@ -44,6 +44,8 @@ extension Tag.Feature.Command.Package {
     @Tag public static var DumpPackage: Tag
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Plugin: Tag
+    @Tag public static var Reset: Tag
+    @Tag public static var ToolsVersion: Tag
 }
 
 extension Tag.Feature.PackageType {
