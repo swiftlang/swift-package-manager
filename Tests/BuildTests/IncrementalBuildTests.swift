@@ -42,7 +42,7 @@ final class IncrementalBuildTests: XCTestCase {
         try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
         try await fixtureXCTest(name: "CFamilyTargets/CLibrarySources") { fixturePath in
             // Build it once and capture the log (this will be a full build).
-            let (fullLog, _) = try await executeSwiftBuild(fixturePath)
+            let (fullLog, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
 
             // Check various things that we expect to see in the full build log.
             // FIXME:  This is specific to the format of the log output, which
@@ -64,7 +64,7 @@ final class IncrementalBuildTests: XCTestCase {
             let llbuildContents1: String = try localFileSystem.readFileContents(llbuildManifest)
 
             // Now build again.  This should be an incremental build.
-            let (log2, _) = try await executeSwiftBuild(fixturePath)
+            let (log2, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             XCTAssertMatch(log2, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the second llbuild manifest.
@@ -72,7 +72,7 @@ final class IncrementalBuildTests: XCTestCase {
 
             // Now build again without changing anything.  This should be a null
             // build.
-            let (log3, _) = try await executeSwiftBuild(fixturePath)
+            let (log3, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             XCTAssertNoMatch(log3, .contains("Compiling CLibrarySources Foo.c"))
 
             // Read the third llbuild manifest.
@@ -91,7 +91,7 @@ final class IncrementalBuildTests: XCTestCase {
             )
 
             // Now build again.  This should be an incremental build.
-            let (log4, _) = try await executeSwiftBuild(fixturePath)
+            let (log4, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             XCTAssertMatch(log4, .contains("Compiling CLibrarySources Foo.c"))
         }
     }
@@ -101,7 +101,7 @@ final class IncrementalBuildTests: XCTestCase {
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
-                return try await executeSwiftBuild(fixturePath).stdout
+                return try await executeSwiftBuild(fixturePath, buildSystem: .native).stdout
             }
 
             // Perform a full build.
@@ -135,7 +135,11 @@ final class IncrementalBuildTests: XCTestCase {
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
-                return try await executeSwiftBuild(fixturePath, extraArgs: ["--disable-build-manifest-caching"]).stdout
+                return try await executeSwiftBuild(
+                    fixturePath,
+                    extraArgs: ["--disable-build-manifest-caching"],
+                    buildSystem: .native,
+                ).stdout
             }
 
             // Perform a full build.
@@ -166,7 +170,11 @@ final class IncrementalBuildTests: XCTestCase {
 
             let newSdkPathStr = "/tmp/../\(sdkPathStr)"
             // Perform a full build again because SDK changed.
-            let log1 = try await executeSwiftBuild(fixturePath, env: ["SDKROOT": newSdkPathStr]).stdout
+            let log1 = try await executeSwiftBuild(
+                fixturePath,
+                env: ["SDKROOT": newSdkPathStr],
+                buildSystem: .native,
+            ).stdout
             XCTAssertMatch(log1, .contains("Compiling Library"))
         }
 #endif

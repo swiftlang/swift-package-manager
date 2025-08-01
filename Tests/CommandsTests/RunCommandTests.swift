@@ -399,7 +399,9 @@ struct RunCommandTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
         arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
     )
     func swiftRunQuietLogLevel(
@@ -423,9 +425,12 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            ProcessInfo.hostOperatingSystem == .linux &&
-            buildSystem == .swiftbuild &&
-            CiEnvironment.runningInSelfHostedPipeline
+            (
+                ProcessInfo.hostOperatingSystem == .linux &&
+                buildSystem == .swiftbuild &&
+                CiEnvironment.runningInSelfHostedPipeline
+            )
+            || (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 

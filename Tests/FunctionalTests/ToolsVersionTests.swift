@@ -55,8 +55,11 @@ final class ToolsVersionTests: XCTestCase {
             try repo.tag(name: "1.0.0")
 
             // v1.0.1
-            _ = try await SwiftPM.Package.execute(
-                ["tools-version", "--set", "10000.1"], packagePath: depPath)
+            _ = try await executeSwiftPackage(
+                depPath,
+                extraArgs: ["tools-version", "--set", "10000.1"],
+                buildSystem: .native,
+            )
             try fs.writeFileContents(
                 depPath.appending("foo.swift"),
                 string: #"public func foo() { print("foo@1.0.1") }"#
@@ -87,20 +90,34 @@ final class ToolsVersionTests: XCTestCase {
                     Dep.foo()
                     """
             )
-            _ = try await SwiftPM.Package.execute(
-                ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
+            _ = try await executeSwiftPackage(
+                primaryPath,
+                extraArgs: ["tools-version", "--set", "4.2"],
+                buildSystem: .native,
+            ).stdout.spm_chomp()
 
             // Build the primary package.
-            _ = try await SwiftPM.Build.execute(packagePath: primaryPath)
+            _ = try await executeSwiftBuild(
+                primaryPath,
+                buildSystem: .native,
+            )
             let exe = primaryPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Primary").pathString
             // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
             try await XCTAssertAsyncEqual(try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp(), "foo@1.0")
 
             // Set the tools version to something high.
-            _ = try await SwiftPM.Package.execute(
-                ["tools-version", "--set", "10000.1"], packagePath: primaryPath)
+            _ = try await executeSwiftPackage(
+                primaryPath,
+                extraArgs: ["tools-version", "--set", "10000.1"],
+                buildSystem: .native,
+            )
 
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Build.execute(packagePath: primaryPath)) { error in
+            await XCTAssertThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    primaryPath,
+                    buildSystem: .native,
+                )
+            ) { error in
                 XCTAssert(error.stderr.contains("is using Swift tools version 10000.1.0 but the installed version is \(ToolsVersion.current)"), error.stderr)
             }
 
@@ -116,10 +133,18 @@ final class ToolsVersionTests: XCTestCase {
                         swiftLanguageVersions: [.version("1000")])
                     """
             )
-            _ = try await SwiftPM.Package.execute(
-                ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
+            _ = try await executeSwiftPackage(
+                primaryPath,
+                extraArgs: ["tools-version", "--set", "4.2"],
+                buildSystem: .native,
+            ).stdout.spm_chomp()
 
-            await XCTAssertThrowsCommandExecutionError(try await SwiftPM.Build.execute(packagePath: primaryPath)) { error in
+            await XCTAssertThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    primaryPath,
+                    buildSystem: .native,
+                )
+            ) { error in
                 XCTAssertTrue(error.stderr.contains("package 'primary' requires minimum Swift language version 1000 which is not supported by the current tools version (\(ToolsVersion.current))"), error.stderr)
             }
 
@@ -134,9 +159,15 @@ final class ToolsVersionTests: XCTestCase {
                         swiftLanguageVersions: [.version("\(ToolsVersion.current.major)"), .version("1000")])
                     """
              )
-             _ = try await SwiftPM.Package.execute(
-                 ["tools-version", "--set", "4.2"], packagePath: primaryPath).stdout.spm_chomp()
-             _ = try await SwiftPM.Build.execute(packagePath: primaryPath)
+             _ = try await executeSwiftPackage(
+                primaryPath,
+                extraArgs: ["tools-version", "--set", "4.2"],
+                buildSystem: .native,
+            ).stdout.spm_chomp()
+             _ = try await executeSwiftBuild(
+                primaryPath,
+                buildSystem: .native,
+            )
         }
     }
 }
