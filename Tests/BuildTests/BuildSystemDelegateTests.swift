@@ -24,7 +24,7 @@ final class BuildSystemDelegateTests: XCTestCase {
             // These linker diagnostics are only produced on macOS.
             try XCTSkipIf(true, "test is only supported on macOS")
             #endif
-            let (fullLog, _) = try await executeSwiftBuild(fixturePath)
+            let (fullLog, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             XCTAssertTrue(fullLog.contains("ld: warning: search path 'foobar' not found"), "log didn't contain expected linker diagnostics")
         }
     }
@@ -40,11 +40,11 @@ final class BuildSystemDelegateTests: XCTestCase {
         let executableExt = ""
         #endif
         try await fixtureXCTest(name: "Miscellaneous/TestableExe") { fixturePath in
-            _ = try await executeSwiftBuild(fixturePath)
+            _ = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             let execPath = fixturePath.appending(components: ".build", "debug", "TestableExe1\(executableExt)")
             XCTAssertTrue(localFileSystem.exists(execPath), "executable not found at '\(execPath)'")
             try localFileSystem.removeFileTree(execPath)
-            let (fullLog, _) = try await executeSwiftBuild(fixturePath)
+            let (fullLog, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
             XCTAssertFalse(fullLog.contains("replacing existing signature"), "log contained non-fatal codesigning messages")
         }
     }

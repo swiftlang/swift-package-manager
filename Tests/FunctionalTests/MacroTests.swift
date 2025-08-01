@@ -26,7 +26,11 @@ class MacroTests: XCTestCase {
         try XCTSkipIf(!localFileSystem.exists(libSwiftSyntaxMacrosPath), "test need `libSwiftSyntaxMacros` to exist in the host toolchain")
 
         try fixtureXCTest(name: "Macros") { fixturePath in
-            let (stdout, _) = try executeSwiftBuild(fixturePath.appending("MacroPackage"), configuration: .debug)
+            let (stdout, _) = try executeSwiftBuild(
+                fixturePath.appending("MacroPackage"),
+                configuration: .debug,
+                buildSystem: .native,
+            )
             XCTAssert(stdout.contains("@__swiftmacro_11MacroClient11fontLiteralfMf_.swift as Font"), "stdout:\n\(stdout)")
             XCTAssert(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
