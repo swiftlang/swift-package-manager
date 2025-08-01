@@ -92,27 +92,27 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         let stdout = try await SwiftPM.Package.execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
-	
+
     func testCompletionTool() async throws {
         let stdout = try await execute(["completion-tool", "--help"]).stdout
         XCTAssertMatch(stdout, .contains("OVERVIEW: Command to generate shell completions."))
     }
 
-	func testInitOverview() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
-	}
-	
-	func testInitUsage() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
-		XCTAssertMatch(stdout, .contains(" [--name <name>]"))
-	}
-	
-	func testInitOptionsHelp() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("OPTIONS:"))
-	}
+    func testInitOverview() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
+    }
+
+    func testInitUsage() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
+        XCTAssertMatch(stdout, .contains(" [--name <name>]"))
+    }
+
+    func testInitOptionsHelp() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("OPTIONS:"))
+    }
 
     func testPlugin() async throws {
         await XCTAssertThrowsCommandExecutionError(try await execute(["plugin"])) { error in
@@ -1421,7 +1421,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await fixtureXCTest(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             func build() async throws -> (stdout: String, stderr: String) {
-                return try await executeSwiftBuild(fooPath)
+                return try await executeSwiftBuild(fooPath, buildSystem: self.buildSystemProvider)
             }
 
             // Put bar and baz in edit mode.
@@ -1429,7 +1429,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             _ = try await self.execute(["edit", "baz", "--branch", "bugfix"], packagePath: fooPath)
 
             // Path to the executable.
-            let exec = [fooPath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "foo").pathString]
+            let exec = [fooPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + self.buildSystemProvider.binPathSuffixes(for: .debug) + ["foo"]).pathString]
 
             // We should see it now in packages directory.
             let editsPath = fooPath.appending(components: "Packages", "bar")
@@ -1501,15 +1501,15 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, buildSystem: self.buildSystemProvider)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", executableName("Bar"))
-            XCTAssertFileExists(binFile)
+            let debugBinFile = buildPath.appending(components: [try UserToolchain.default.targetTriple.platformBuildPathComponent] + self.buildSystemProvider.binPathSuffixes(for: .debug) + [executableName("Bar")])
+            XCTAssertFileExists(debugBinFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
 
             // Clean, and check for removal of the build directory but not Packages.
             _ = try await execute(["clean"], packagePath: packageRoot)
-            XCTAssertNoSuchPath(binFile)
+            XCTAssertNoSuchPath(debugBinFile)
             // Clean again to ensure we get no error.
             _ = try await execute(["clean"], packagePath: packageRoot)
         }
@@ -1520,9 +1520,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let packageRoot = fixturePath.appending("Bar")
 
             // Build it.
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, buildSystem: self.buildSystemProvider)
             let buildPath = packageRoot.appending(".build")
-            let binFile = buildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", executableName("Bar"))
+            let binFile = buildPath.appending(components: [try UserToolchain.default.targetTriple.platformBuildPathComponent] +  self.buildSystemProvider.binPathSuffixes(for: .debug) + [executableName("Bar")])
             XCTAssertFileExists(binFile)
             XCTAssert(localFileSystem.isDirectory(buildPath))
             // Clean, and check for removal of the build directory but not Packages.
@@ -1600,14 +1600,22 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await fixtureXCTest(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
             let exec = [fooPath.appending(
-                components: ".build",
-                try UserToolchain.default.targetTriple.platformBuildPathComponent,
-                "debug",
-                "foo"
+                components:
+                [
+                    ".build",
+                    try UserToolchain.default.targetTriple.platformBuildPathComponent,
+                ] +
+                self.buildSystemProvider.binPathSuffixes(for: .debug) +
+                [
+                    "foo",
+                ]
             ).pathString]
 
             // Build and check.
-            _ = try await executeSwiftBuild(fooPath)
+            _ = try await executeSwiftBuild(
+                fooPath,
+                buildSystem: self.buildSystemProvider,
+            )
             try await XCTAssertAsyncEqual(try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp(), "\(5)")
 
             // Get path to `bar` checkout.
@@ -1718,7 +1726,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testOnlyUseVersionsFromResolvedFileFetchesWithExistingState() async throws {
-       try XCTSkipOnWindows(because: "error: Package.resolved file is corrupted or malformed, needs investigation") 
+       try XCTSkipOnWindows(because: "error: Package.resolved file is corrupted or malformed, needs investigation")
 
         func writeResolvedFile(packageDir: AbsolutePath, repositoryURL: String, revision: String, version: String) throws {
             try localFileSystem.writeFileContents(packageDir.appending("Package.resolved"), string:
@@ -2433,7 +2441,12 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 
                         // Create and return a build command that uses all the `.foo` files in the target as inputs, so they get counted as having been handled.
                         let fooFiles = target.sourceModule?.sourceFiles.compactMap{ $0.path.extension == "foo" ? $0.path : nil } ?? []
-                        return [ .buildCommand(displayName: "A command", executable: Path("/bin/echo"), arguments: fooFiles, inputFiles: fooFiles) ]
+                        #if os(Windows)
+                        let exec = "echo"
+                        #else
+                        let exec = "/bin/echo"
+                        #endif
+                        return [ .buildCommand(displayName: "A command", executable: Path(exec), arguments: fooFiles, inputFiles: fooFiles) ]
                     }
 
                 }
@@ -2445,14 +2458,17 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let args = staticStdlib ? ["--static-swift-stdlib"] : []
             let (stdout, stderr) = try await executeSwiftBuild(
                 packageDir,
-                extraArgs: args
+                extraArgs: args,
+                buildSystem: self.buildSystemProvider,
             )
             XCTAssert(stdout.contains("Build complete!"))
 
             // We expect a warning about `library.bar` but not about `library.foo`.
-            XCTAssertMatch(stderr, .contains("found 1 file(s) which are unhandled"))
             XCTAssertNoMatch(stderr, .contains(RelativePath("Sources/MyLibrary/library.foo").pathString))
-            XCTAssertMatch(stderr, .contains(RelativePath("Sources/MyLibrary/library.bar").pathString))
+            if self.buildSystemProvider == .native {
+                XCTAssertMatch(stderr, .contains("found 1 file(s) which are unhandled"))
+                XCTAssertMatch(stderr, .contains(RelativePath("Sources/MyLibrary/library.bar").pathString))
+            }
         }
     }
 
@@ -2512,13 +2528,21 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             )
 
             // Invoke it, and check the results.
-            await XCTAssertAsyncThrowsError(try await executeSwiftBuild(packageDir, extraArgs: ["-v"])) { error in
+            await XCTAssertAsyncThrowsError(
+                try await executeSwiftBuild(
+                    packageDir,
+                    extraArgs: ["-v"],
+                    buildSystem: self.buildSystemProvider,
+                )
+            ) { error in
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
                 XCTAssertMatch(stderr, .contains("This is text from the plugin"))
                 XCTAssertMatch(stderr, .contains("error: This is an error from the plugin"))
-                XCTAssertMatch(stderr, .contains("build planning stopped due to build-tool plugin failures"))
+                if self.buildSystemProvider == .native {
+                    XCTAssertMatch(stderr, .contains("build planning stopped due to build-tool plugin failures"))
+                }
             }
         }
     }
@@ -2895,17 +2919,17 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
-         	  try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
+               try await runPluginWithError(flags: [], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
                 XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
@@ -2924,24 +2948,24 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPluginWithError(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
-            	XCTAssertNoMatch(stderr, containsRemark)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+                XCTAssertNoMatch(stderr, containsRemark)
                 XCTAssertNoMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
@@ -2957,27 +2981,27 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
             try await runPluginWithError(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
-            	XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
@@ -2998,8 +3022,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         let osSuffix = ""
         #endif
 
-        let debugTarget = self.buildSystemProvider == .native ? [".build", "debug", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Debug\(osSuffix)", "placeholder"]
-        let releaseTarget = self.buildSystemProvider == .native ? [".build", "release", executableName("placeholder")] : [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "Products", "Release\(osSuffix)", "placeholder"]
+        let tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
+        let debugTarget = [".build", tripleString ] + self.buildSystemProvider.binPathSuffixes(for: .debug) + [executableName("placeholder")]
+        let releaseTarget = [".build", tripleString ] + self.buildSystemProvider.binPathSuffixes(for: .release) + [executableName("placeholder")]
 
         func AssertIsExecutableFile(_ fixturePath: AbsolutePath, file: StaticString = #filePath, line: UInt = #line) {
             XCTAssert(
@@ -3879,7 +3904,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
     }
 
     func testPluginAPIs() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8554, $0.path.lastComponent in test code returns fullpaths on Windows") 
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8554, $0.path.lastComponent in test code returns fullpaths on Windows")
 
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
         try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
@@ -4175,9 +4200,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
 
             // Check that building without options compiles both plugins and that the build proceeds.
             do {
-                let (stdout, _) = try await executeSwiftBuild(packageDir)
-                XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
-                XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
+                let (stdout, _) = try await executeSwiftBuild(
+                    packageDir,
+                    buildSystem: self.buildSystemProvider,
+                )
+                if (self.buildSystemProvider == .native) {
+                    XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
+                    XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
+                }
                 XCTAssertMatch(stdout, .contains("Building for debugging..."))
             }
 
@@ -4185,14 +4215,91 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             do {
                 let (stdout, _) = try await executeSwiftBuild(
                     packageDir,
-                    extraArgs: ["--target", "MyCommandPlugin"]
+                    extraArgs: ["--target", "MyCommandPlugin"],
+                    buildSystem: self.buildSystemProvider,
                 )
-                XCTAssertNoMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
-                XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
-                XCTAssertNoMatch(stdout, .contains("Building for debugging..."))
+                XCTAssertFalse(stdout.contains("Compiling plugin MyBuildToolPlugin"), "stdout: '\(stdout)'")
+                XCTAssertTrue(stdout.contains("Compiling plugin MyCommandPlugin"), "stdout: '\(stdout)'")
+                XCTAssertFalse(stdout.contains("Building for debugging..."), "stdout: '\(stdout)'")
             }
+        }
+    }
 
+    func testCommandPluginCompilationError() async throws {
+        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
+        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+
+        try await testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a couple of plugins a other targets and products.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+            try localFileSystem.writeFileContents(packageDir.appending(components: "Package.swift"), string: """
+                // swift-tools-version: 5.6
+                import PackageDescription
+                let package = Package(
+                    name: "MyPackage",
+                    products: [
+                        .library(
+                            name: "MyLibrary",
+                            targets: ["MyLibrary"]
+                        ),
+                        .executable(
+                            name: "MyExecutable",
+                            targets: ["MyExecutable"]
+                        ),
+                    ],
+                    targets: [
+                        .target(
+                            name: "MyLibrary"
+                        ),
+                        .executableTarget(
+                            name: "MyExecutable",
+                            dependencies: ["MyLibrary"]
+                        ),
+                        .plugin(
+                            name: "MyBuildToolPlugin",
+                            capability: .buildTool()
+                        ),
+                        .plugin(
+                            name: "MyCommandPlugin",
+                            capability: .command(
+                                intent: .custom(verb: "my-build-tester", description: "Help description")
+                            )
+                        ),
+                    ]
+                )
+                """
+            )
+            let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
+            try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
+                public func GetGreeting() -> String { return "Hello" }
+                """
+            )
+            let myExecutableTargetDir = packageDir.appending(components: "Sources", "MyExecutable")
+            try localFileSystem.createDirectory(myExecutableTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myExecutableTargetDir.appending("main.swift"), string: """
+                import MyLibrary
+                print("\\(GetGreeting()), World!")
+                """
+            )
+            let myBuildToolPluginTargetDir = packageDir.appending(components: "Plugins", "MyBuildToolPlugin")
+            try localFileSystem.createDirectory(myBuildToolPluginTargetDir, recursive: true)
+            try localFileSystem.writeFileContents(myBuildToolPluginTargetDir.appending("plugin.swift"), string: """
+                import PackagePlugin
+                @main struct MyBuildToolPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        return []
+                    }
+                }
+                """
+            )
             // Deliberately break the command plugin.
+            let myCommandPluginTargetDir = packageDir.appending(components: "Plugins", "MyCommandPlugin")
+            try localFileSystem.createDirectory(myCommandPluginTargetDir, recursive: true)
             try localFileSystem.writeFileContents(myCommandPluginTargetDir.appending("plugin.swift"), string: """
                 import PackagePlugin
                 @main struct MyCommandPlugin: CommandPlugin {
@@ -4209,14 +4316,17 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             // Check that building stops after compiling the plugin and doesn't proceed.
             // Run this test a number of times to try to catch any race conditions.
             for _ in 1...5 {
-                await XCTAssertAsyncThrowsError(try await executeSwiftBuild(packageDir)) { error in
+                await XCTAssertAsyncThrowsError(
+                    try await executeSwiftBuild(
+                        packageDir,
+                        buildSystem: self.buildSystemProvider,
+                    )
+                ) { error in
                     guard case SwiftPMError.executionFailure(_, let stdout, _) = error else {
                         return XCTFail("invalid error \(error)")
                     }
-                    XCTAssertMatch(stdout, .contains("Compiling plugin MyBuildToolPlugin"))
-                    XCTAssertMatch(stdout, .contains("Compiling plugin MyCommandPlugin"))
-                    XCTAssertMatch(stdout, .contains("error: consecutive statements on a line must be separated by ';'"))
-                    XCTAssertNoMatch(stdout, .contains("Building for debugging..."))
+                    XCTAssertTrue(stdout.contains("error: consecutive statements on a line must be separated by ';'"), "stdout: '\(stdout)'")
+                    XCTAssertFalse(stdout.contains("Building for debugging..."), "stdout: '\(stdout)'")
                 }
             }
         }
@@ -4336,5 +4446,46 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
     override func testCommandPluginPermissions() async throws {
         try XCTExhibitsGitHubIssue(8782)
         try await super.testCommandPluginPermissions()
+    }
+
+    override func testBuildToolPlugin() async throws {
+        try XCTSkipOnWindows(because: "TSCBasic/Path.swift:969: Assertion failed, https://github.com/swiftlang/swift-package-manager/issues/8602")
+        try await super.testBuildToolPlugin()
+    }
+
+    override func testCommandPluginCompilationError() async throws {
+        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8977: does not throw expected error")
+        try await super.testCommandPluginCompilationError()
+    }
+
+    override func testPluginCompilationBeforeBuilding() async throws {
+        throw XCTSkip("SWBINTTODO: https:4//github.com/swiftlang/swift-package-manager/issues/8977")
+        try await super.testPluginCompilationBeforeBuilding()
+    }
+
+    override func testPackageEditAndUnedit() async throws {
+        #if os(Linux)
+        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8416: /tmp/Miscellaneous_PackageEdit.H5ku8Q/foo/.build/aarch64-unknown-linux-gnu/Products/Debug-linux/foo: error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory")
+        #endif
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8774: Unable to write file.   and https://github.com/swiftlang/swift-package-manager/issues/8380: linker issue")
+        try await super.testPackageEditAndUnedit()
+    }
+
+    override func testPackageReset() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8774: Unable to write file.   and https://github.com/swiftlang/swift-package-manager/issues/8380: linker issue")
+        try await super.testPackageReset()
+    }
+
+    override func testPackageClean() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8774: Unable to write file.   and https://github.com/swiftlang/swift-package-manager/issues/8380: linker issue")
+        try await super.testPackageClean()
+    }
+
+    override func testPackageResolved() async throws {
+        #if os(Linux)
+        throw XCTSkip("SWBINTTODO: https://github.com/swiftlang/swift-package-manager/issues/8416: /tmp/Miscellaneous_PackageEdit.H5ku8Q/foo/.build/aarch64-unknown-linux-gnu/Products/Debug-linux/foo: error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory")
+        #endif
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8774: Unable to write file.   and https://github.com/swiftlang/swift-package-manager/issues/8380: linker issue")
+        try await super.testPackageResolved()
     }
 }

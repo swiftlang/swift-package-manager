@@ -17,6 +17,7 @@ import PackageLoading
 import PackageModel
 import PackageRegistry
 @testable import PackageRegistryCommand
+import struct SPMBuildCore.BuildSystemProvider
 import PackageSigning
 import _InternalTestSupport
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
@@ -34,15 +35,17 @@ final class PackageRegistryCommandTests: CommandsTestCase {
     private func execute(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil
+        env: Environment? = nil,
+        buildSystem: BuildSystemProvider.Kind,
     ) async throws -> (stdout: String, stderr: String) {
         var environment = env ?? [:]
         // don't ignore local packages when caching
         environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
-        return try await SwiftPM.Registry.execute(
-            args,
-            packagePath: packagePath,
-            env: environment
+        return try await executeSwiftPackageRegistry(
+            packagePath,
+            extraArgs: args,
+            env: environment,
+            buildSystem: buildSystem,
         )
     }
 
@@ -54,7 +57,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             "skipping because test environment doesn't support concurrency"
         )
 
-        let stdout = try await execute(["-help"]).stdout
+        let stdout = try await SwiftPM.Registry.execute(["-help"]).stdout
         XCTAssert(stdout.contains("USAGE: swift package-registry"), "got stdout:\n" + stdout)
     }
 
@@ -66,12 +69,12 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             "skipping because test environment doesn't support concurrency"
         )
 
-        let stdout = try await execute(["--help"]).stdout
+        let stdout = try await SwiftPM.Registry.execute(["--help"]).stdout
         XCTAssert(stdout.contains("SEE ALSO: swift package"), "got stdout:\n" + stdout)
     }
 
     func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        let (stdout, stderr) = try await execute(["--help"])
+        let (stdout, stderr) = try await SwiftPM.Registry.execute(["--help"])
         XCTAssertNoMatch(stdout, duplicateSymbolRegex)
         XCTAssertNoMatch(stderr, duplicateSymbolRegex)
     }
@@ -84,7 +87,7 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             "skipping because test environment doesn't support concurrency"
         )
 
-        let stdout = try await execute(["--version"]).stdout
+        let stdout = try await SwiftPM.Registry.execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
 
@@ -100,7 +103,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Set default registry
             do {
-                try await execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
+                try await execute(
+                    ["set", "\(defaultRegistryBaseURL)"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -113,7 +120,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Set new default registry
             do {
-                try await execute(["set", "\(customRegistryBaseURL)"], packagePath: packageRoot)
+                try await execute(
+                    ["set", "\(customRegistryBaseURL)"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -126,7 +137,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Set default registry with allow-insecure-http option
             do {
-                try await execute(["set", "\(customRegistryBaseURL)", "--allow-insecure-http"], packagePath: packageRoot)
+                try await execute(
+                    ["set", "\(customRegistryBaseURL)", "--allow-insecure-http"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -139,7 +154,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Unset default registry
             do {
-                try await execute(["unset"], packagePath: packageRoot)
+                try await execute(
+                    ["unset"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 0)
@@ -150,7 +169,8 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             do {
                 try await execute(
                     ["set", "\(customRegistryBaseURL)", "--scope", "foo"],
-                    packagePath: packageRoot
+                    packagePath: packageRoot,
+                    buildSystem: .native,
                 )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
@@ -166,7 +186,8 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             do {
                 try await execute(
                     ["set", "\(customRegistryBaseURL)", "--scope", "bar"],
-                    packagePath: packageRoot
+                    packagePath: packageRoot,
+                    buildSystem: .native,
                 )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
@@ -184,7 +205,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Unset registry for "foo" scope
             do {
-                try await execute(["unset", "--scope", "foo"], packagePath: packageRoot)
+                try await execute(
+                    ["unset", "--scope", "foo"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -212,7 +237,13 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            await XCTAssertAsyncThrowsError(try await execute(["set", "--scope", "foo"], packagePath: packageRoot))
+            await XCTAssertAsyncThrowsError(
+                try await execute(
+                    ["set", "--scope", "foo"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
         }
@@ -229,7 +260,13 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            await XCTAssertAsyncThrowsError(try await execute(["set", "invalid"], packagePath: packageRoot))
+            await XCTAssertAsyncThrowsError(
+                try await execute(
+                    ["set", "invalid"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
         }
@@ -246,7 +283,13 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            await XCTAssertAsyncThrowsError(try await execute(["set", "http://package.example.com"], packagePath: packageRoot))
+            await XCTAssertAsyncThrowsError(
+                try await execute(
+                    ["set", "http://package.example.com"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
+            )
 
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
         }
@@ -263,7 +306,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             XCTAssertFalse(localFileSystem.exists(configurationFilePath))
 
             // Set default registry
-            try await execute(["set", "http://package.example.com", "--allow-insecure-http"], packagePath: packageRoot)
+            try await execute(
+                ["set", "http://package.example.com", "--allow-insecure-http"],
+                packagePath: packageRoot,
+                buildSystem: .native,
+            )
 
             XCTAssertTrue(localFileSystem.exists(configurationFilePath))
         }
@@ -283,7 +330,8 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             do {
                 await XCTAssertAsyncThrowsError(try await execute(
                     ["set", "--scope", "_invalid_", "\(defaultRegistryBaseURL)"],
-                    packagePath: packageRoot
+                    packagePath: packageRoot,
+                    buildSystem: .native,
                 ))
             }
 
@@ -303,7 +351,11 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Set default registry
             do {
-                try await execute(["set", "\(defaultRegistryBaseURL)"], packagePath: packageRoot)
+                try await execute(
+                    ["set", "\(defaultRegistryBaseURL)"],
+                    packagePath: packageRoot,
+                    buildSystem: .native,
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -316,7 +368,13 @@ final class PackageRegistryCommandTests: CommandsTestCase {
 
             // Unset registry for missing "baz" scope
             do {
-                await XCTAssertAsyncThrowsError(try await execute(["unset", "--scope", "baz"], packagePath: packageRoot))
+                await XCTAssertAsyncThrowsError(
+                    try await execute(
+                        ["unset", "--scope", "baz"],
+                        packagePath: packageRoot,
+                        buildSystem: .native,
+                    )
+                )
 
                 let json = try JSON(data: localFileSystem.readFileContents(configurationFilePath))
                 XCTAssertEqual(json["registries"]?.dictionary?.count, 1)
@@ -484,16 +542,17 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
 
-            await XCTAssertAsyncThrowsError(try await SwiftPM.Registry.execute(
-                [
+            await XCTAssertAsyncThrowsError(try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             ))
         }
     }
@@ -527,17 +586,18 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--allow-insecure-http",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
         }
 
@@ -568,17 +628,18 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             try configuration.add(authentication: .init(type: .basic), for: URL(registryURL))
             try localFileSystem.writeFileContents(configurationFilePath, data: JSONEncoder().encode(configuration))
 
-            await XCTAssertAsyncThrowsError(try await SwiftPM.Registry.execute(
-                [
+            await XCTAssertAsyncThrowsError(try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--allow-insecure-http",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             ))
         }
     }
@@ -615,17 +676,18 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let metadataPath = temporaryDirectory.appending("metadata.json")
             try localFileSystem.writeFileContents(metadataPath, string: "{}")
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
                     "--metadata-path=\(metadataPath.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -659,16 +721,17 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let metadataPath = packageDirectory.appending(PackageRegistryCommand.Publish.metadataFilename)
             try localFileSystem.writeFileContents(metadataPath, string: "{}")
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -699,16 +762,17 @@ final class PackageRegistryCommandTests: CommandsTestCase {
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(workingDirectory)
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             let archivePath = workingDirectory.appending("\(packageIdentity)-\(version).zip")
@@ -807,20 +871,21 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 )
             }
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
                     "--metadata-path=\(metadataPath.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--private-key-path=\(privateKeyPath.pathString)",
                     "--cert-chain-paths=\(certificatePath.pathString)",
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             // Validate signatures
@@ -918,19 +983,20 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 )
             }
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--private-key-path=\(privateKeyPath.pathString)",
                     "--cert-chain-paths=\(certificatePath.pathString)",
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             // Validate signatures
@@ -1025,19 +1091,20 @@ final class PackageRegistryCommandTests: CommandsTestCase {
                 )
             }
 
-            try await SwiftPM.Registry.execute(
-                [
+            try await executeSwiftPackageRegistry(
+                packageDirectory,
+                extraArgs: [
                     "publish",
                     packageIdentity,
                     version,
                     "--url=\(registryURL)",
                     "--scratch-directory=\(workingDirectory.pathString)",
-                    "--package-path=\(packageDirectory.pathString)",
                     "--private-key-path=\(privateKeyPath.pathString)",
                     "--cert-chain-paths=\(certificatePath.pathString)",
                     "\(intermediateCertificatePath.pathString)",
                     "--dry-run",
-                ]
+                ],
+                buildSystem: .native,
             )
 
             // Validate signatures
