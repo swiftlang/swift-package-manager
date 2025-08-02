@@ -29,6 +29,7 @@ public enum SwiftPM {
     case Run
     case experimentalSDK
     case sdk
+    case fixit
 }
 
 extension SwiftPM {
@@ -49,6 +50,8 @@ extension SwiftPM {
             return "swift-experimental-sdk"
         case .sdk:
             return "swift-sdk"
+        case .fixit:
+            return "swift-fixit"
         }
     }
 

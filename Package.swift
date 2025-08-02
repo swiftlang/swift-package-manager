@@ -788,6 +788,12 @@ let package = Package(
                 "Workspace",
             ]
         ),
+        .executableTarget(
+            /** Deserializes diagnostics and applies fix-its */
+            name: "swift-fixit",
+            dependencies: ["Commands"],
+            exclude: ["CMakeLists.txt"]
+        ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
