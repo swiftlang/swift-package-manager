@@ -395,7 +395,7 @@ public func executeSwiftBuild(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native,
+    buildSystem: BuildSystemProvider.Kind,
     throwIfCommandFails: Bool = true,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
@@ -419,7 +419,7 @@ public func executeSwiftRun(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(
         configuration: configuration,
@@ -444,7 +444,7 @@ public func executeSwiftPackage(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -466,7 +466,7 @@ public func executeSwiftPackageRegistry(
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -489,7 +489,7 @@ public func executeSwiftTest(
     Xswiftc: [String] = [],
     env: Environment? = nil,
     throwIfCommandFails: Bool = false,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,

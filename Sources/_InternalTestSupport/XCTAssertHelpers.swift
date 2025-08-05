@@ -154,7 +154,7 @@ public func XCTAssertBuilds(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
     for conf in configurations {
         await XCTAssertAsyncNoThrow(
@@ -184,7 +184,7 @@ public func XCTAssertSwiftTest(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
     await XCTAssertAsyncNoThrow(
         try await executeSwiftTest(
@@ -211,7 +211,7 @@ public func XCTAssertBuildFails(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async -> CommandExecutionError? {
     var failure: CommandExecutionError? = nil
     await XCTAssertThrowsCommandExecutionError(
@@ -337,6 +337,6 @@ public func XCTExhibitsGitHubIssue(_ number: Int) throws {
 
     try XCTSkipIf(
         ProcessInfo.processInfo.environment[envVar] != nil,
-        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar)environment variable is set"
+        "https://github.com/swiftlang/swift-package-manager/issues/\(number): \(envVar) environment variable is set"
     )
 }

@@ -37,7 +37,7 @@ private func XCTAssertDirectoryContainsFile(dir: AbsolutePath, filename: String,
 final class CFamilyTargetTestCase: XCTestCase {
     func testCLibraryWithSpaces() async throws {
         try await fixtureXCTest(name: "CFamilyTargets/CLibraryWithSpaces") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
             let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Bar.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
@@ -47,7 +47,7 @@ final class CFamilyTargetTestCase: XCTestCase {
     func testCUsingCAndSwiftDep() async throws {
         try await fixtureXCTest(name: "DependencyResolution/External/CUsingCDep") { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(packageRoot, buildSystem: .native)
             let debugPath = fixturePath.appending(components: "Bar", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Sea.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
@@ -58,7 +58,7 @@ final class CFamilyTargetTestCase: XCTestCase {
 
     func testModuleMapGenerationCases() async throws {
         try await fixtureXCTest(name: "CFamilyTargets/ModuleMapGenerationCases") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
             let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Jaz.c.o")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "main.swift.o")
@@ -69,7 +69,13 @@ final class CFamilyTargetTestCase: XCTestCase {
     
     func testNoIncludeDirCheck() async throws {
         try await fixtureXCTest(name: "CFamilyTargets/CLibraryNoIncludeDir") { fixturePath in
-            await XCTAssertAsyncThrowsError(try await executeSwiftBuild(fixturePath), "This build should throw an error") { err in
+            await XCTAssertAsyncThrowsError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: .native,
+                ),
+                "This build should throw an error",
+            ) { err in
                 // The err.localizedDescription doesn't capture the detailed error string so interpolate
                 let errStr = "\(err)"
                 let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
@@ -81,7 +87,7 @@ final class CFamilyTargetTestCase: XCTestCase {
     func testCanForwardExtraFlagsToClang() async throws {
         // Try building a fixture which needs extra flags to be able to build.
         try await fixtureXCTest(name: "CFamilyTargets/CDynamicLookup") { fixturePath in
-            await XCTAssertBuilds(fixturePath, Xld: ["-undefined", "dynamic_lookup"])
+            await XCTAssertBuilds(fixturePath, Xld: ["-undefined", "dynamic_lookup"], buildSystem: .native)
             let debugPath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
             XCTAssertDirectoryContainsFile(dir: debugPath, filename: "Foo.c.o")
         }
@@ -93,16 +99,16 @@ final class CFamilyTargetTestCase: XCTestCase {
         #endif
         try await fixtureXCTest(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
             // Build the package.
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
             XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HelloWorldExample.m.o")
             // Run swift-test on package.
-            await XCTAssertSwiftTest(fixturePath)
+            await XCTAssertSwiftTest(fixturePath, buildSystem: .native)
         }
     }
     
     func testCanBuildRelativeHeaderSearchPaths() async throws {
         try await fixtureXCTest(name: "CFamilyTargets/CLibraryParentSearchPath") { fixturePath in
-            await XCTAssertBuilds(fixturePath)
+            await XCTAssertBuilds(fixturePath, buildSystem: .native)
             XCTAssertDirectoryContainsFile(dir: fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug"), filename: "HeaderInclude.swiftmodule")
         }
     }

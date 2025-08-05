@@ -34,7 +34,11 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             for execName in executables {
-                let (output, _) = try await executeSwiftRun(fixturePath, execName, buildSystem: .native)
+                let (output, _) = try await executeSwiftRun(
+                    fixturePath,
+                    execName,
+                    buildSystem: .native,
+                )
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }
@@ -42,7 +46,10 @@ final class ResourcesTests: XCTestCase {
 
     func testLocalizedResources() async throws {
         try await fixtureXCTest(name: "Resources/Localized") { fixturePath in
-            try await executeSwiftBuild(fixturePath)
+            try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .native,
+            )
 
             let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
@@ -63,7 +70,11 @@ final class ResourcesTests: XCTestCase {
         #endif
 
         try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
-            await XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
+            await XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedClangResource"],
+                buildSystem: .native,
+            )
         }
     }
 
@@ -77,12 +88,22 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             let binPath = try AbsolutePath(validating:
-                await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--show-bin-path"]).stdout
+                await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .release,
+                    extraArgs: ["--show-bin-path"],
+                    buildSystem: .native,
+                ).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
-                _ = try await executeSwiftBuild(fixturePath, configuration: .release, extraArgs: ["--product", execName])
+                _ = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .release,
+                    extraArgs: ["--product", execName],
+                    buildSystem: .native,
+                )
 
                 try await withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {
@@ -112,7 +133,8 @@ final class ResourcesTests: XCTestCase {
         try await fixtureXCTest(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             await XCTAssertBuilds(
                 fixturePath,
-                Xswiftc: ["-warnings-as-errors"]
+                Xswiftc: ["-warnings-as-errors"],
+                buildSystem: .native,
             )
         }
     }
@@ -124,14 +146,21 @@ final class ResourcesTests: XCTestCase {
         #endif
 
         try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
-            await XCTAssertSwiftTest(fixturePath, extraArgs: ["--filter", "ClangResourceTests"])
+            await XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "ClangResourceTests"],
+                buildSystem: .native,
+            )
         }
     }
 
     func testResourcesEmbeddedInCode() async throws {
         try await fixtureXCTest(name: "Resources/EmbedInCodeSimple") { fixturePath in
             let execPath = fixturePath.appending(components: ".build", "debug", "EmbedInCodeSimple")
-            try await executeSwiftBuild(fixturePath)
+            try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .native,
+            )
             let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
             XCTAssertMatch(result, .contains("hello world"))
             let resourcePath = fixturePath.appending(
@@ -139,13 +168,16 @@ final class ResourcesTests: XCTestCase {
 
             // Check incremental builds
             for i in 0..<2 {
-              let content = "Hi there \(i)!"
-              // Update the resource file.
-              try localFileSystem.writeFileContents(resourcePath, string: content)
-              try await executeSwiftBuild(fixturePath)
-              // Run the executable again.
-              let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
-              XCTAssertMatch(result2, .contains("\(content)"))
+                let content = "Hi there \(i)!"
+                // Update the resource file.
+                try localFileSystem.writeFileContents(resourcePath, string: content)
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: .native,
+                )
+                 // Run the executable again.
+                let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+                XCTAssertMatch(result2, .contains("\(content)"))
             }
         }
     }
@@ -181,7 +213,11 @@ final class ResourcesTests: XCTestCase {
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(resource, string: "best")
 
-            let (_, stderr) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (_, stderr) = try await executeSwiftBuild(
+                packageDir,
+                env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                buildSystem: .native,
+            )
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
                                                                      .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
