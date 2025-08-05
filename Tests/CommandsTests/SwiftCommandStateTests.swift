@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Basics
-@testable import Build
-@testable import Commands
-@testable import CoreCommands
+import Basics
+import Build
+import Commands
+import CoreCommands
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
 import _InternalTestSupport
-@testable import PackageModel
+import PackageModel
 import XCTest
 
 import ArgumentParser

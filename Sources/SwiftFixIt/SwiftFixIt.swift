@@ -43,7 +43,7 @@ private enum Error: Swift.Error {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnySourceLocation {
+package protocol AnySourceLocation {
     var filename: String { get }
     var line: UInt64 { get }
     var column: UInt64 { get }
@@ -51,7 +51,7 @@ protocol AnySourceLocation {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnyFixIt {
+package protocol AnyFixIt {
     associatedtype SourceLocation: AnySourceLocation
 
     var start: SourceLocation { get }
@@ -60,7 +60,7 @@ protocol AnyFixIt {
 }
 
 // FIXME: An abstraction for tests to work around missing memberwise initializers in `TSCUtility.SerializedDiagnostics`.
-protocol AnyDiagnostic {
+package protocol AnyDiagnostic {
     associatedtype SourceLocation: AnySourceLocation
     associatedtype FixIt: AnyFixIt where FixIt.SourceLocation == SourceLocation
 
@@ -230,7 +230,7 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
         )
     }
 
-    init<Diagnostic: AnyDiagnostic>(
+    package init<Diagnostic: AnyDiagnostic>(
         diagnostics: some Collection<Diagnostic>,
         categories: Set<String>,
         excludedSourceDirectories: Set<AbsolutePath>,

@@ -109,7 +109,7 @@ extension BinaryModule {
 }
 
 extension Triple {
-    func withoutVersion() throws -> Triple {
+    package func withoutVersion() throws -> Triple {
         if isDarwin() {
             let stringWithoutVersion = tripleString(forPlatformVersion: "")
             return try Triple(stringWithoutVersion)

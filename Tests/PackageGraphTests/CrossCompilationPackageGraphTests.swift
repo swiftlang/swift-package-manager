@@ -10,11 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable
 @_spi(SwiftPMInternal)
 import _InternalTestSupport
 
-@testable
 import PackageGraph
 
 import PackageModel

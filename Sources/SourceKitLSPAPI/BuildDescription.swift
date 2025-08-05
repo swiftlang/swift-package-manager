@@ -252,7 +252,7 @@ public struct BuildDescription {
         return (BuildDescription(buildPlan: plan), bufferedOutput.bytes.description)
     }
 
-    func getBuildTarget(
+    package func getBuildTarget(
         for module: ResolvedModule,
         destination: BuildParameters.Destination
     ) -> BuildTarget? {

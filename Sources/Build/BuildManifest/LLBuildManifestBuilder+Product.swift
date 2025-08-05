@@ -20,7 +20,7 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
-    func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
+    package func createProductCommand(_ buildProduct: ProductBuildDescription) throws {
         let cmdName = try buildProduct.commandName
 
         // Add dependency on Info.plist generation on Darwin platforms.

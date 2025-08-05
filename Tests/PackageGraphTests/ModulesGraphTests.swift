@@ -16,7 +16,7 @@ import PackageLoading
 import TSCUtility
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import _InternalTestSupport
 import PackageModel

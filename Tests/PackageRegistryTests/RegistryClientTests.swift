@@ -16,7 +16,7 @@ import Foundation
 import PackageFingerprint
 import PackageLoading
 import PackageModel
-@testable import PackageRegistry
+import PackageRegistry
 import PackageSigning
 import _InternalTestSupport
 import Testing
