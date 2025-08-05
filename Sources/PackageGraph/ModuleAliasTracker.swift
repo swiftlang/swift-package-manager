@@ -16,22 +16,39 @@ import Basics
 // This is a helper class that tracks module aliases in a package dependency graph
 // and handles overriding upstream aliases where aliases themselves conflict.
 struct ModuleAliasTracker {
+    /// Map product identifier to a list of aliases that are associated through product dependencies on it.
     fileprivate var aliasMap = [String: [ModuleAliasModel]]()
+
+    /// Map a package and its product identifier to a list of aliases that are associated through product dependencies on it.
     fileprivate var idToAliasMap = [PackageIdentity: [String: [ModuleAliasModel]]]()
+
+    /// Map from a package + product identifier to the modules that are included in a product + ones that are one level dependency away
     var idToProductToAllModules = [PackageIdentity: [String: [Module]]]()
+
+    /// Map from a product identifier to the modules that are directly included in the product declaration.
     var productToDirectModules = [String: [Module]]()
+
+    /// Map from a product identifier to the modules that are included in a product + ones that are one level dependency way
     var productToAllModules = [String: [Module]]()
+
+    /// Map parent product identifier to any product identifier that it depends on transitively.
     var parentToChildProducts = [String: [String]]()
+
+    // Parent/child relationship DAG through product dependencies
     var parentToChildIDs = [PackageIdentity: [PackageIdentity]]()
     var childToParentID = [PackageIdentity: PackageIdentity]()
+
     var appliedAliases = Set<String>()
 
     init() {}
+
+    /// * Analyze the dependencies of the modules from origin package and build a DAG of packages.
+    /// * Record the module aliases
     mutating func addModuleAliases(modules: [Module], package: PackageIdentity) throws {
         let moduleDependencies = modules.flatMap(\.dependencies)
         for dep in moduleDependencies {
-            if case let .product(productRef, _) = dep,
-               let productPkg = productRef.package {
+            if case let .product(productRef, _) = dep {
+               if let productPkg = productRef.package {
                 let productPkgID = PackageIdentity.plain(productPkg)
                 // Track dependency package ID chain
                 addPackageIDChain(parent: package, child: productPkgID)
@@ -43,6 +60,7 @@ struct ModuleAliasTracker {
                                    originPackage: productPkgID,
                                    consumingPackage: package)
                 }
+               }
             }
         }
     }
@@ -93,25 +111,13 @@ struct ModuleAliasTracker {
             }
         }
 
+        // FIXME this isn't all modules in a product. This is just the dependencies that are one level away from the modules that compose the product and the composing modules themselves.
         var allModulesInProduct = moduleDeps.compactMap(\.module)
         allModulesInProduct.append(contentsOf: product.modules)
         idToProductToAllModules[package, default: [:]][product.identity] = allModulesInProduct
+
         productToDirectModules[product.identity] = product.modules
         productToAllModules[product.identity] = allModulesInProduct
-    }
-
-    func validateAndApplyAliases(product: Product,
-                                 package: PackageIdentity,
-                                 observabilityScope: ObservabilityScope) throws {
-        guard let modules = idToProductToAllModules[package]?[product.identity] else { return }
-        let modulesWithAliases = modules.filter{ $0.moduleAliases != nil }
-        for moduleWithAlias in modulesWithAliases {
-            if moduleWithAlias.sources.containsNonSwiftFiles {
-                let aliasesMsg = moduleWithAlias.moduleAliases?.map{"'\($0.key)' as '\($0.value)'"}.joined(separator: ", ") ?? ""
-                observabilityScope.emit(warning: "target '\(moduleWithAlias.name)' for product '\(product.name)' from package '\(package.description)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
-            }
-            moduleWithAlias.applyAlias()
-        }
     }
 
     mutating func propagateAliases(observabilityScope: ObservabilityScope) {
@@ -128,13 +134,14 @@ struct ModuleAliasTracker {
         if let productToAllModules = idToProductToAllModules[rootPkg] {
             // First, propagate aliases upstream
             for productID in productToAllModules.keys {
+                // Alias buffer tracks the most downstream alias for each original module name
                 var aliasBuffer = [String: ModuleAliasModel]()
                 propagate(productID: productID, observabilityScope: observabilityScope, aliasBuffer: &aliasBuffer)
             }
 
             // Then, merge or override upstream aliases downwards
             for productID in productToAllModules.keys {
-                merge(productID: productID, observabilityScope: observabilityScope)
+                merge(productID: productID, observabilityScope: observabilityScope, root: true)
             }
         }
         // Finally, fill in aliases for modules in products that are in the
@@ -198,14 +205,15 @@ struct ModuleAliasTracker {
         }
     }
 
-    // Merge all the upstream aliases and override them if necessary
-    mutating func merge(productID: String, observabilityScope: ObservabilityScope) {
+    // Merge all the upstream aliases and override them if necessary (depth-first).
+    mutating func merge(productID: String, observabilityScope: ObservabilityScope, root: Bool) {
         guard let children = parentToChildProducts[productID] else {
             return
         }
         for childID in children {
             merge(productID: childID,
-                  observabilityScope: observabilityScope)
+                  observabilityScope: observabilityScope,
+                  root: false)
         }
 
         if let curDirectModules = productToDirectModules[productID] {
@@ -232,10 +240,10 @@ struct ModuleAliasTracker {
                 let depProdModuleAliases = depProdModule.moduleAliases ?? [:]
                 for (key, val) in depProdModuleAliases {
                     var shouldAddAliases = false
-                    if depProdModule.name == key {
-                        shouldAddAliases = true
-                    } else if !depProductModules.map({$0.name}).contains(key) {
-                        shouldAddAliases = true
+                    if depProdModule.name == key && !root {
+                            shouldAddAliases = true
+                    } else if !depProductModules.map({$0.name}).contains(key) && !root {
+                            shouldAddAliases = true
                     }
                     if shouldAddAliases {
                         if depProductAliases[key]?.contains(val) ?? false {
@@ -246,6 +254,7 @@ struct ModuleAliasTracker {
                     }
                 }
             }
+
             chainModuleAliases(modules: curDirectModules,
                                checkedModules: relevantModules,
                                moduleAliases: moduleAliases,
@@ -263,14 +272,11 @@ struct ModuleAliasTracker {
     mutating func fillInRest(package: PackageIdentity) {
         if let productToModules = idToProductToAllModules[package] {
             for (_, productModules) in productToModules {
-                let unAliased = productModules.contains { $0.moduleAliases == nil }
-                if unAliased {
-                    for module in productModules {
-                        let depAliases = module.recursiveDependentModules.compactMap{$0.moduleAliases}.flatMap{$0}
-                        for (key, alias) in depAliases {
-                            appliedAliases.insert(key)
-                            module.addModuleAlias(for: key, as: alias)
-                        }
+                for module in productModules {
+                    let depAliases = module.recursiveDependentModules.compactMap{$0.moduleAliases}.flatMap{$0}
+                    for (key, alias) in depAliases {
+                        appliedAliases.insert(key)
+                        module.addModuleAlias(for: key, as: alias)
                     }
                 }
             }
@@ -278,6 +284,20 @@ struct ModuleAliasTracker {
         guard let children = parentToChildIDs[package] else { return }
         for child in children {
             fillInRest(package: child)
+        }
+    }
+
+    func validateAndApplyAliases(product: Product,
+                                 package: PackageIdentity,
+                                 observabilityScope: ObservabilityScope) throws {
+        guard let modules = idToProductToAllModules[package]?[product.identity] else { return }
+        let modulesWithAliases = modules.filter{ $0.moduleAliases != nil }
+        for moduleWithAlias in modulesWithAliases {
+            if moduleWithAlias.sources.containsNonSwiftFiles {
+                let aliasesMsg = moduleWithAlias.moduleAliases?.map{"'\($0.key)' as '\($0.value)'"}.joined(separator: ", ") ?? ""
+                observabilityScope.emit(warning: "target '\(moduleWithAlias.name)' for product '\(product.name)' from package '\(package.description)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
+            }
+            moduleWithAlias.applyAlias()
         }
     }
 
@@ -301,6 +321,7 @@ struct ModuleAliasTracker {
         observabilityScope: ObservabilityScope
     ) {
         guard !modules.isEmpty else { return }
+
         var aliasDict = [String: String]()
         var prechainAliasDict = [String: [String]]()
         var directRefAliasDict = [String: [String]]()
