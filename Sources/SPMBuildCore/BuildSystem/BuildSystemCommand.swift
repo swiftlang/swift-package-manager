@@ -10,14 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 public struct BuildSystemCommand: Hashable {
     public let name: String
+    public let targetName: String?
     public let description: String
     public let verboseDescription: String?
+    public let serializedDiagnosticPaths: [AbsolutePath]
 
-    public init(name: String, description: String, verboseDescription: String? = nil) {
+    public init(name: String, targetName: String? = nil, description: String, verboseDescription: String? = nil, serializedDiagnosticPaths: [AbsolutePath] = []) {
         self.name = name
+        self.targetName = targetName
         self.description = description
         self.verboseDescription = verboseDescription
+        self.serializedDiagnosticPaths = serializedDiagnosticPaths
     }
 }

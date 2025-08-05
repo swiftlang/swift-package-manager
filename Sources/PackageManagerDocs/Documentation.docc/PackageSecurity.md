@@ -47,7 +47,7 @@ This is applicable to `signing-identity` as well. That is, you can use `signing-
 
 If the root of the signing certificate is not in the package manager's default trust store, the package author is responsible for telling package users to include the root certificate in their local [trust roots](<doc:PackageSecurity#Trusted-vs.-untrusted-certificate>) directory, otherwise [signature validation](<doc:Validating-signed-packages>) may fail upon download because the signing certificate is not trusted.
 
-For more information on signed registry packages, see <doc:UsingSwiftPackageRegistry#Publisher-TOFU>.
+For more information on signed registry packages, see <doc:UsingSwiftPackageRegistry#Publishing-to-Registry>.
 
 ##### Validating signed packages
 
@@ -76,7 +76,7 @@ An invalid signing certificate would result in the package manager rejecting the
 
 #### Signed package collections
 
-Package collection publishers may [sign a collection to protect its contents](<doc:PackageCollections#Signing-and-protecting-package-collections>) from tampering. 
+Package collection publishers may [sign a collection to protect its contents](<doc:PackageCollections#Protecting-package-collections>) from tampering. 
 If a collection is signed, the package manager checks that the signature is valid before importing it; or returns an error if any of these fails:
 - The file's contents, signature excluded, must match what was used to generate the signature. 
 In other words, this checks to see if the collection was altered after it was signed.

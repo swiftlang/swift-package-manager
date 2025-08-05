@@ -22,7 +22,7 @@ import enum TSCUtility.Git
 
 class DependencyResolutionTests: XCTestCase {
     func testInternalSimple() async throws {
-        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/Internal/Simple") { fixturePath in
             await XCTAssertBuilds(fixturePath)
 
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString).withSwiftLineEnding
@@ -31,13 +31,13 @@ class DependencyResolutionTests: XCTestCase {
     }
 
     func testInternalExecAsDep() async throws {
-        try await fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
             await XCTAssertBuildFails(fixturePath)
         }
     }
 
     func testInternalComplex() async throws {
-        try await fixture(name: "DependencyResolution/Internal/Complex") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/Internal/Complex") { fixturePath in
             await XCTAssertBuilds(fixturePath)
 
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString).withSwiftLineEnding
@@ -47,7 +47,7 @@ class DependencyResolutionTests: XCTestCase {
 
     /// Check resolution of a trivial package with one dependency.
     func testExternalSimple() async throws {
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple") { fixturePath in
             // Add several other tags to check version selection.
             let repo = GitRepository(path: fixturePath.appending(components: "Foo"))
             for tag in ["1.1.0", "1.2.0"] {
@@ -63,7 +63,7 @@ class DependencyResolutionTests: XCTestCase {
     }
 
     func testExternalComplex() async throws {
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Complex") { fixturePath in
             await XCTAssertBuilds(fixturePath.appending("app"))
             let output = try await AsyncProcess.checkNonZeroExit(args: fixturePath.appending(components: "app", ".build", UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString).withSwiftLineEnding
             XCTAssertEqual(output, "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
@@ -71,7 +71,7 @@ class DependencyResolutionTests: XCTestCase {
     }
     
     func testConvenienceBranchInit() async throws {
-        try await fixture(name: "DependencyResolution/External/Branch") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Branch") { fixturePath in
             // Tests the convenience init .package(url: , branch: )
             let app = fixturePath.appending("Bar")
             try await SwiftPM.Build.execute(packagePath: app)
@@ -79,7 +79,7 @@ class DependencyResolutionTests: XCTestCase {
     }
 
     func testMirrors() async throws {
-        try await fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/Mirror") { fixturePath in
             let prefix = try resolveSymlinks(fixturePath)
             let appPath = prefix.appending("App")
             let packageResolvedPath = appPath.appending("Package.resolved")
@@ -141,7 +141,7 @@ class DependencyResolutionTests: XCTestCase {
     }
 
     func testPackageLookupCaseInsensitive() async throws {
-        try await fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { fixturePath in
+        try await fixtureXCTest(name: "DependencyResolution/External/PackageLookupCaseInsensitive") { fixturePath in
             try await SwiftPM.Package.execute(["update"], packagePath: fixturePath.appending("pkg"))
         }
     }

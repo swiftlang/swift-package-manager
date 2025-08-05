@@ -103,6 +103,7 @@ public final class MockWorkspace {
         .SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
+    public var enabledTraitsMap: EnabledTraitsMap
     public let pruneDependencies: Bool
 
     public init(
@@ -125,7 +126,8 @@ public final class MockWorkspace {
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
-        pruneDependencies: Bool = false
+        pruneDependencies: Bool = false,
+        enabledTraitsMap: EnabledTraitsMap = .init()
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -164,6 +166,7 @@ public final class MockWorkspace {
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
+        self.enabledTraitsMap = enabledTraitsMap
         try await self.create()
     }
 
@@ -323,7 +326,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
-                    packageIdentity: .plain(package.name),
+                    packageIdentity: .plain(package.name.lowercased()),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
@@ -688,7 +691,8 @@ public final class MockWorkspace {
         let root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
 
         let dependencyManifests = try await workspace.loadDependencyManifests(
@@ -955,7 +959,8 @@ public final class MockWorkspace {
         let graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
         let manifests = try await workspace.loadDependencyManifests(
             root: graphRoot,

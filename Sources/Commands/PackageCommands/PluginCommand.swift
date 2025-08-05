@@ -338,7 +338,6 @@ struct PluginCommand: AsyncSwiftCommand {
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystemKind,
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParameters,
@@ -351,11 +350,10 @@ struct PluginCommand: AsyncSwiftCommand {
             for: try pluginScriptRunner.hostTriple
         ) { name, path in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try await buildSystem.build(subset: .product(name, for: .host))
+            let buildResult = try await buildSystem.build(subset: .product(name, for: .host), buildOutputs: [.buildPlan])
 
-            // TODO determine if there is a common way to calculate the build tool binary path that doesn't depend on the build system.
-            if buildSystemKind == .native {
-                if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
+            if let buildPlan = buildResult.buildPlan {
+                if let builtTool = buildPlan.buildProducts.first(where: {
                     $0.product.name == name && $0.buildParameters.destination == .host
                 }) {
                     return try builtTool.binaryPath

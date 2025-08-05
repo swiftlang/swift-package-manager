@@ -12,33 +12,35 @@
 
 import Foundation
 
-/// A command to run during the build, including executable, command lines,
-/// environment variables, initial working directory, etc. All paths should be
-/// based on the ones passed to the plugin in the target build context.
+/// A command to run during the build.
+///
+/// A command includes the executable, command lines, environment variables, initial working directory, and so on.
+/// All paths should be based on the ones that SwiftPM passes to the plugin in the target build context.
 public enum Command {
     /// Returns a command that runs when any of its output files are needed by
-    /// the build, but out-of-date.
+    /// the build and are out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
     /// have changed since the command was last run.
     ///
     /// - Note: the paths in the list of output files may depend on the list of
     ///   input file paths, but **must not** depend on reading the contents of
-    ///   any input files. Such cases must be handled using a `prebuildCommand`.
+    ///   any input files. Use a `prebuildCommand`if the functionality of your plugin
+    ///   requires you to read the contents of an input file.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the
     ///     executable.
-    ///   - inputFiles: Files on which the contents of output files may depend.
+    ///   - inputFiles: A list of files on which the contents of output files may depend.
     ///     Any paths passed as `arguments` should typically be passed here as
     ///     well.
-    ///   - outputFiles: Files to be generated or updated by the executable.
+    ///   - outputFiles: A list of files to be generated or updated by the executable.
     ///     Any files recognizable by their extension as source files
-    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///     (for example, `.swift`) are compiled into the target for which this command
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
@@ -61,17 +63,18 @@ public enum Command {
     /// determine this list without first running the command, so
     /// instead of encoding that list, the caller supplies an
     /// `outputFilesDirectory` parameter, and all files in that
-    /// directory after the command runs are treated as output files.
+    /// directory after the command runs are treated as the output files
+    /// of the plugin.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the executable.
     ///   - outputFilesDirectory: A directory into which the command writes its
-    ///     output files.  Any files there recognizable by their extension as
-    ///     source files (e.g. `.swift`) are compiled into the target for which
+    ///     output files.  The package manager compiles any files there recognizable by
+    ///     their extension as source files (for example, `.swift`) into the target for which
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
@@ -87,7 +90,7 @@ public enum Command {
 
 extension Command {
     /// Returns a command that runs when any of its output files are needed by
-    /// the build, but out-of-date.
+    /// the build and are out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input files
     /// have changed since the command was last run.
@@ -99,19 +102,23 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: Command-line arguments for the executable.
     ///   - environment: Environment variable assignments visible to the
     ///     executable.
     ///   - inputFiles: Files on which the contents of output files may depend.
     ///     Any paths passed as `arguments` should typically be passed here as
     ///     well.
-    ///   - outputFiles: Files to be generated or updated by the executable.
-    ///     Any files recognizable by their extension as source files
-    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///   - outputFiles: The files that the plugin generates or updates using the executable.
+    ///     The package manager compiles any files recognizable by their extension as source files
+    ///     (e.g. `.swift`) into the target for which this command
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
+    ///
+    /// @DeprecationSummary {
+    ///    Use ``buildCommand(displayName:executable:arguments:environment:inputFiles:outputFiles:)-swift.enum.case`` instead.
+    /// }
     @available(_PackageDescription, deprecated: 6.0, message: "Use `URL` type instead of `Path`.")
     public static func buildCommand(
         displayName: String?,
@@ -132,32 +139,33 @@ extension Command {
     }
 
     /// Returns a command that runs when any of its output files are needed
-    /// by the build, but out-of-date.
+    /// by the build and are out-of-date.
     ///
     /// An output file is out-of-date if it doesn't exist, or if any input
     /// files have changed since the command was last run.
     ///
     /// - Note: the paths in the list of output files may depend on the list
     ///   of input file paths, but **must not** depend on reading the contents
-    ///   of any input files. Such cases must be handled using a `prebuildCommand`.
+    ///   of any input files. Use a `prebuildCommand`if the functionality of your plugin
+    ///   requires you to read the contents of an input file.
     ///
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the executable.
     ///   - workingDirectory: Optional initial working directory when the executable
     ///     runs.
-    ///   - inputFiles: Files on which the contents of output files may depend.
+    ///   - inputFiles: A list of files on which the contents of output files may depend.
     ///     Any paths passed as `arguments` should typically be passed here as well.
-    ///   - outputFiles: Files to be generated or updated by the executable.
+    ///   - outputFiles: A list of files to be generated or updated by the executable.
     ///     Any files recognizable by their extension as source files
-    ///     (e.g. `.swift`) are compiled into the target for which this command
+    ///     (for example, `.swift`) are compiled into the target for which this command
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
+    @available(*, unavailable, message: "specifying the initial working directory for a command is not supported")
     public static func buildCommand(
         displayName: String?,
         executable: Path,
@@ -191,17 +199,18 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the executable.
-    ///   - workingDirectory: Optional initial working directory when the executable
-    ///     runs.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the executable.
     ///   - outputFilesDirectory: A directory into which the command writes its
     ///     output files.  Any files there recognizable by their extension as
-    ///     source files (e.g. `.swift`) are compiled into the target for which
+    ///     source files (for example, `.swift`) are compiled into the target for which
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
+    /// @DeprecationSummary {
+    ///   Use ``prebuildCommand(displayName:executable:arguments:environment:outputFilesDirectory:)-swift.enum.case`` instead.
+    /// }
     @available(_PackageDescription, deprecated: 6.0, message: "Use `URL` type instead of `Path`.")
     public static func prebuildCommand(
         displayName: String?,
@@ -233,18 +242,18 @@ extension Command {
     /// - parameters:
     ///   - displayName: An optional string to show in build logs and other
     ///     status areas.
-    ///   - executable: The absolute path to the executable to be invoked.
-    ///   - arguments: Command-line arguments to be passed to the executable.
-    ///   - environment: Environment variable assignments visible to the executable.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the executable.
     ///   - workingDirectory: Optional initial working directory when the executable
     ///     runs.
     ///   - outputFilesDirectory: A directory into which the command writes its
     ///     output files.  Any files there recognizable by their extension as
-    ///     source files (e.g. `.swift`) are compiled into the target for which
+    ///     source files (for example, `.swift`) are compiled into the target for which
     ///     this command was generated as if in its source directory; other
     ///     files are treated as resources as if explicitly listed in
     ///     `Package.swift` using `.process(...)`.
-    @available(*, unavailable, message: "specifying the initial working directory for a command is not yet supported")
+    @available(*, unavailable, message: "specifying the initial working directory for a command is not supported")
     public static func prebuildCommand(
         displayName: String?,
         executable: Path,

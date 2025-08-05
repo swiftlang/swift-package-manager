@@ -94,7 +94,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Quix")
                 result.check(modules: "Bar", "Baz", "Foo", "Quix")
@@ -380,7 +380,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Bar", "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
@@ -446,7 +446,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "bar", "Foo", "bazzz")
                 result.check(packages: "bar", "bazzz", "foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
@@ -555,7 +555,7 @@ final class WorkspaceTests: XCTestCase {
                 ),
             ]
         ) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "foo-package", "bar-package")
                 result.check(packages: "foo-package", "bar-package")
                 result.checkTarget("FooTarget") { result in result.check(dependencies: "BarProduct") }
@@ -610,7 +610,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "BazA", "BazB", "Foo")
@@ -671,7 +671,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load only Foo right now so Baz is loaded from remote.
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Baz", "Foo")
@@ -691,7 +691,7 @@ final class WorkspaceTests: XCTestCase {
         // Now load with Baz as a root package.
         workspace.delegate.clear()
         try await workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "BazA", "BazB", "Foo")
@@ -762,7 +762,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(dependencies: dependencies) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(modules: "Bar", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
@@ -829,7 +829,7 @@ final class WorkspaceTests: XCTestCase {
                 .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(packages: "A", "AA")
                     result.check(modules: "A", "AA")
                     result.checkTarget("A") { result in result.check(dependencies: "AA") }
@@ -852,7 +852,7 @@ final class WorkspaceTests: XCTestCase {
                 .sourceControl(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"])),
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
@@ -1515,7 +1515,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["A", "B", "C"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "A", "B", "C")
                 result.check(modules: "A", "B", "C")
             }
@@ -1586,7 +1586,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -1602,7 +1602,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1675,7 +1675,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1708,7 +1708,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(expectedChange, change)
         }
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1951,7 +1951,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph with one root.
         try await workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Foo", "Root1")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -1968,7 +1968,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph with both roots.
         try await workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root1", "Root2")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2102,7 +2102,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -2149,7 +2149,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load initial version.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2213,7 +2213,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2223,7 +2223,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2400,7 +2400,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: .plain("Root"))
                 result.check(packages: .plain("bar"), .plain("foo"), .plain("Root"))
             }
@@ -2508,7 +2508,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: .plain("Root"))
                 result.check(packages: .plain("root"), .plain("Foo"))
             }
@@ -2617,7 +2617,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph and edit foo.
         try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2711,7 +2711,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -2841,7 +2841,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2855,7 +2855,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Bar", "Root")
             }
@@ -2905,7 +2905,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Initial resolution.
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
             }
@@ -2927,8 +2927,7 @@ final class WorkspaceTests: XCTestCase {
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                 location: settings.location,
                 requirement: .exact("1.5.0"),
-                productFilter: settings.productFilter,
-                traits: []
+                productFilter: settings.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest.createManifest(
@@ -3000,7 +2999,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3130,7 +3129,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root")
             }
         }
@@ -3155,7 +3154,7 @@ final class WorkspaceTests: XCTestCase {
 
         // reload graph after "external" change
         try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, _ in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root")
             }
         }
@@ -3269,7 +3268,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -3347,7 +3346,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo")
                 result.check(modules: "Foo")
@@ -3395,7 +3394,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
             }
@@ -3449,7 +3448,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo")
                 result.check(modules: "Foo")
@@ -3503,7 +3502,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3572,7 +3571,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3652,7 +3651,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3721,7 +3720,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3800,7 +3799,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -4267,7 +4266,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4297,7 +4296,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4323,7 +4322,7 @@ final class WorkspaceTests: XCTestCase {
 
             // run resolution again, but change requirements
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4348,7 +4347,7 @@ final class WorkspaceTests: XCTestCase {
             try fs.writeFileContents(rootManifestPath, string: manifestContent)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4373,7 +4372,7 @@ final class WorkspaceTests: XCTestCase {
             ]
             // run resolution again, but change requirements
             try await workspace.checkPackageGraph(roots: ["Root"], dependencies: changedDeps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Baz", "Foo", "Root")
                 }
@@ -4396,7 +4395,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, but change requirements back to original
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4419,7 +4418,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4440,7 +4439,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: true)
             // run resolution again
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4543,7 +4542,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
@@ -4647,7 +4646,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "BarMirror", "Foo", "Dep")
                 result.check(modules: "Bar", "Foo", "Dep")
@@ -4735,7 +4734,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "baz-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
@@ -4841,7 +4840,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Foo", "Dep")
@@ -4912,7 +4911,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "org.bar-mirror", "baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -4982,7 +4981,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "org.baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -5099,7 +5098,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -5129,7 +5128,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -5702,7 +5701,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
@@ -5746,7 +5745,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Foo",
@@ -5769,7 +5768,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Baz",
@@ -5786,13 +5785,15 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"]
+                    versions: ["1.0.0", "1.5.0"],
+                    toolsVersion: .minimumRequired
                 ),
             ]
         )
 
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
+            // We have disabled the check so there shouldn't be any errors.
             testDiagnostics(diagnostics) { result in
                 let diagnostic1 = result.checkUnordered(
                     diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
@@ -5800,12 +5801,10 @@ final class WorkspaceTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic1?.metadata?.packageIdentity, .plain("foo"))
                 XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo")
-                let diagnostic2 = result.checkUnordered(
-                    diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
-                    severity: .error
-                )
-                XCTAssertEqual(diagnostic2?.metadata?.packageIdentity, .plain("foo"))
-                XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
+
+                // since Bar is using the current tools version and we've disabled the check since 6.2,
+                // the result should now be empty.
+                result.checkIsEmpty()
             }
         }
     }
@@ -9231,6 +9230,11 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2.zip.zip",
                             checksum: "a3"
                         ),
+                        MockTarget(
+                            name: "A4",
+                            type: .binary,
+                            path: "a4.zip"
+                        ),
                     ],
                     products: []
                 ),
@@ -11836,7 +11840,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root", "qux")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -11978,7 +11982,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12121,7 +12125,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12143,7 +12147,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12238,7 +12242,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -12263,7 +12267,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12392,7 +12396,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -12423,7 +12427,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12621,7 +12625,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "bar", "foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -12830,7 +12834,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "Bar", "Foo", "MyPackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
@@ -12963,7 +12967,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
@@ -13080,7 +13084,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "org.bar", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
@@ -13213,7 +13217,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "org.bar", "org.baz", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
@@ -13329,7 +13333,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "org.bar", "org.foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13417,7 +13421,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13440,7 +13444,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13463,7 +13467,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13525,7 +13529,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "org.foo", "Root")
                 result.check(modules: "FooTarget", "RootTarget")
@@ -13742,7 +13746,7 @@ final class WorkspaceTests: XCTestCase {
                     )
                 }
 
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13766,7 +13770,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
 
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13789,7 +13793,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13905,7 +13909,7 @@ final class WorkspaceTests: XCTestCase {
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13928,7 +13932,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14177,7 +14181,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14200,7 +14204,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14465,7 +14469,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
@@ -14493,7 +14497,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
@@ -14753,7 +14757,7 @@ final class WorkspaceTests: XCTestCase {
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14783,7 +14787,7 @@ final class WorkspaceTests: XCTestCase {
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14876,7 +14880,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -15419,7 +15423,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 guard let foo = result.find(package: "org.foo") else {
                     return XCTFail("missing package")
                 }
@@ -15491,7 +15495,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 XCTAssertNotNil(result.find(package: "org.foo"), "missing package")
             }
         }
@@ -15705,7 +15709,7 @@ final class WorkspaceTests: XCTestCase {
             PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
         ]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 XCTAssertNotNil(result.find(package: "ecorp.bar"), "missing package")
                 XCTAssertNil(result.find(package: "org.bar"), "unexpectedly present package")
             }
@@ -15822,7 +15826,7 @@ final class WorkspaceTests: XCTestCase {
                                 .product(
                                     name: "Boo",
                                     package: "Boo",
-                                    // Trait2 disabled; should generate unused dependency warning
+                                    // Trait2 disabled; should remove this dependency from graph
                                     condition: .init(traits: ["Trait2"])
                                 ),
                             ]
@@ -15871,16 +15875,14 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "Baz", "Foo", "Boo")
-                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
-            testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
@@ -15960,7 +15962,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Boo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -16039,7 +16041,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -16120,7 +16122,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Boo", "Foo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -16187,7 +16189,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' is not declared by package 'Baz'. The available traits declared by this package are: TraitFound."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' (Foo) is not declared by package 'baz' (Baz). The available traits declared by this package are: TraitFound."), severity: .error)
             }
         }
         await workspace.checkManagedDependencies { result in
@@ -16250,7 +16252,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'Foo'. The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
             }
         }
     }

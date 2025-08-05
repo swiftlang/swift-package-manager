@@ -8,7 +8,21 @@
 Manages configuration options for installed Swift SDKs.
 
 ```
-sdk configure [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--sdk-root-path=<sdk-root-path>] [--swift-resources-path=<swift-resources-path>] [--swift-static-resources-path=<swift-static-resources-path>] [--include-search-path=<include-search-path>...] [--library-search-path=<library-search-path>...] [--toolset-path=<toolset-path>...] [--reset] [--show-configuration] <sdk-id> <target-triple> [--version] [--help]
+sdk configure [--package-path=<package-path>]
+  [--cache-path=<cache-path>] [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...]
+  [--sdk-root-path=<sdk-root-path>]
+  [--swift-resources-path=<swift-resources-path>]
+  [--swift-static-resources-path=<swift-static-resources-path>]
+  [--include-search-path=<include-search-path>...]
+  [--library-search-path=<library-search-path>...]
+  [--toolset-path=<toolset-path>...] [--reset]
+  [--show-configuration] <sdk-id> [target-triple...] [--version]
+  [--help]
 ```
 
 - term **--package-path=\<package-path\>**:

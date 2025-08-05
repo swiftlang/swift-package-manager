@@ -133,6 +133,9 @@ fileprivate func macOSSandboxProfile(
     // This is needed to use the UniformTypeIdentifiers API.
     contents += "(allow mach-lookup (global-name \"com.apple.lsd.mapdb\"))\n"
 
+    // For downloadable Metal toolchain lookups.
+    contents += "(allow mach-lookup (global-name \"com.apple.mobileassetd.v2\"))\n"
+
     if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
         // this is used by the system for caching purposes and will lead to log spew if not allowed
         contents += "(allow file-write* (regex \"/Users/*/Library/Caches/*/Cache.db*\"))"

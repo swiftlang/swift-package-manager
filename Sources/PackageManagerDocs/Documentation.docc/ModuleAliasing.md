@@ -33,16 +33,16 @@ Module aliases are defined as a dictionary parameter in a target's dependencies 
                 .product(
                     name: "Utils",
                     package: "MyPackage",
-                    moduleAliases: ["Utils": "MyUtils"]
+                    moduleAliases: ["Utils": "MyPackageUtils"]
                 )
             ]
         )
     ]
 ```
 
-This will rename the `Utils` module in the `MyPackage` package to the new user-defined unique name, in this case `MyUtils`; the name of the binary will be `MyUtils.swiftmodule`. No source or manifest changes are required by the dependency package.
+This will rename the `Utils` module in the `MyPackage` package to the new user-defined unique name, in this case `MyPackageUtils`; the name of the binary will be `MyPackageUtils.swiftmodule`. No source or manifest changes are required by the dependency package.
 
-To use the aliased module, your root package needs to reference the the new name, i.e. `import MyUtils`.
+To use the aliased module your root package can use the new unique name, i.e. `import MyPackageUtils`, and make it clear that it is importing the utilities module from `MyPackage`.
 
 Consider the following example to go over how module aliasing can be used in more detail.
 
@@ -107,17 +107,17 @@ Package manifest `App`
                          package: "swift-draw"),
                 .product(name: "Utils",
                          package: "swift-game",
-                         moduleAliases: ["Utils": "GameUtils"]),
+                         moduleAliases: ["Utils": "SwiftGameUtils"]),
             ])
     ]
 ```
 
-This will rename the `Utils` module in package `swift-game` as `GameUtils`; the name of the binary will be `GameUtils.swiftmodule`.
+This will rename the `Utils` module in package `swift-game` as `SwiftGameUtils`; the name of the binary will be `SwiftGameUtils.swiftmodule`.
 
-To use the aliased module, `App` needs to reference the the new name, i.e. `import GameUtils`. Its existing `import Utils` statement will continue to reference the `Utils` module from package `swift-draw`, as expected.
+To use the aliased module, `App` can reference the new package-qualified name, i.e. `import SwiftGameUtils`. Its existing `import Utils` statement will continue to reference the `Utils` module from package `swift-draw`, as expected.
 
 Note that the dependency product names are duplicate, i.e. both have the same name `Utils`, which is by default not allowed.
-However, this is allowed when module aliasing is used as long as no multiple files with the same product name are created.
+However, this is allowed when module aliasing is used as long as no files with the same product name are created.
 This means they must all be automatic library types, or at most one of them can be a static library, dylib, an executable, or any other type that creates a file or a directory with the product name.
 
 ###### Transitive Logging modules
@@ -138,25 +138,25 @@ Package manifest `App`
                          package: "swift-draw"),
                 .product(name: "Utils",
                          package: "swift-game",
-                         moduleAliases: ["Utils": "GameUtils"]),
+                         moduleAliases: ["Utils": "SwiftGameUtils"]),
                 // Logging module aliasing:
                 .product(name: "Logging",
                          package: "swift-draw"),
                 .product(name: "Game",
                          package: "swift-game",
-                         moduleAliases: ["Logging": "GameLogging"]),
+                         moduleAliases: ["Logging": "SwiftGameLogging"]),
             ])
     ]
 ```
 
-The `Logging` module from `swift-game` is renamed as `GameLogging`, and all the references to `Logging` in source files of `Game` are compiled as `GameLogging`. Similar to before, no source or manifest changes are required by the `swift-game` package. 
+The `Logging` module from `swift-game` is renamed as `SwiftGameLogging`, and all the references to `Logging` in source files of `Game` are compiled as `SwiftGameLogging`. Similar to before, no source or manifest changes are required by the `swift-game` package.
 
 If more aliases need to be defined, they can be added with a comma delimiter, per below. 
 
 ```
-    moduleAliases: ["Utils": "GameUtils", "Logging": "GameLogging"]),
+    moduleAliases: ["Utils": "SwiftGameUtils", "Logging": "SwiftGameLogging"]),
 ```
 
 ### Override Module Aliases
 
-If module alias values defined upstream are conflicting downstream, they can be overridden by chaining; add an entry to the `moduleAliases` parameter downstream using the conflicting alias value as a key and provide a unique value. 
+If module alias values defined upstream are conflicting downstream, they can be overridden by chaining; add an entry to the `moduleAliases` parameter downstream using the conflicting alias value as a key and provide a unique value. Since the package identifier is unique to the package, using it as the prefix for the new module alias as a convention should help to prevent more collisions since it can be a generally agreed unique name for the module.

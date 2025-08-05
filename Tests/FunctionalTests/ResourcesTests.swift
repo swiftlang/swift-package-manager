@@ -24,7 +24,7 @@ final class ResourcesTests: XCTestCase {
             skipPlatformCi: true,
         )
 
-        try await fixture(name: "Resources/Simple") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -41,7 +41,7 @@ final class ResourcesTests: XCTestCase {
     }
 
     func testLocalizedResources() async throws {
-        try await fixture(name: "Resources/Localized") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Localized") { fixturePath in
             try await executeSwiftBuild(fixturePath)
 
             let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
@@ -62,13 +62,13 @@ final class ResourcesTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
-        try await fixture(name: "Resources/Simple") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
             await XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
         }
     }
 
     func testMovedBinaryResources() async throws {
-        try await fixture(name: "Resources/Moved") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Moved") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -109,7 +109,7 @@ final class ResourcesTests: XCTestCase {
 
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() async throws {
         try XCTSkipOnWindows(because: "fails to build, need investigation")
-        try await fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
+        try await fixtureXCTest(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             await XCTAssertBuilds(
                 fixturePath,
                 Xswiftc: ["-warnings-as-errors"]
@@ -123,13 +123,13 @@ final class ResourcesTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
-        try await fixture(name: "Resources/Simple") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
             await XCTAssertSwiftTest(fixturePath, extraArgs: ["--filter", "ClangResourceTests"])
         }
     }
 
     func testResourcesEmbeddedInCode() async throws {
-        try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
+        try await fixtureXCTest(name: "Resources/EmbedInCodeSimple") { fixturePath in
             let execPath = fixturePath.appending(components: ".build", "debug", "EmbedInCodeSimple")
             try await executeSwiftBuild(fixturePath)
             let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)

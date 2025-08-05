@@ -910,15 +910,20 @@ public final class SwiftModuleBuildDescription {
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
     }
 
+    /// Directory for the the compatibility header and module map generated for this target.
+    /// The whole directory should be usable as a header search path.
+    private var compatibilityHeaderDirectory: AbsolutePath {
+        tempsPath.appending("include")
+    }
+
     /// Generates the module map for the Swift target and returns its path.
     private func generateModuleMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending(component: moduleMapFilename)
+        let path = self.compatibilityHeaderDirectory.appending(component: moduleMapFilename)
 
         let bytes = ByteString(
             #"""
             module \#(self.target.c99name) {
                 header "\#(self.objCompatibilityHeaderPath.pathString)"
-                requires objc
             }
 
             """#.utf8
@@ -937,7 +942,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns the path to the ObjC compatibility header for this Swift target.
     var objCompatibilityHeaderPath: AbsolutePath {
-        self.tempsPath.appending("\(self.target.name)-Swift.h")
+        self.compatibilityHeaderDirectory.appending("\(self.target.name)-Swift.h")
     }
 
     /// Returns the build flags from the declared build settings.

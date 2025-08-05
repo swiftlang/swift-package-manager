@@ -111,15 +111,18 @@ struct TestEventStreamOptions: ParsableArguments {
             help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
 
-    /// Legacy equivalent of ``eventStreamVersion``.
+    /// The experimental version number of Swift Testing's event stream to use.
+    ///
+    /// Unlike ``eventStreamVersion``, this permits specifying a version which
+    /// is experimental.
     @Option(name: .customLong("experimental-event-stream-version"),
             help: .private)
-    var experimentalEventStreamVersion: Int?
+    var experimentalEventStreamVersion: String?
 
-    /// The schema version of swift-testing's JSON input/output.
+    /// The version number of Swift Testing's event stream to use.
     @Option(name: .customLong("event-stream-version"),
             help: .hidden)
-    var eventStreamVersion: Int?
+    var eventStreamVersion: String?
 
     /// Experimental path for writing attachments (Swift Testing only.)
     @Option(name: .customLong("experimental-attachments-path"),
@@ -220,9 +223,6 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
-
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -659,7 +659,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            traitConfiguration: .init(traitOptions: self.options.traits)
+            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
         )
     }
 
@@ -740,9 +740,6 @@ extension SwiftTestCommand {
         /// Options for Swift Testing's event stream.
         @OptionGroup()
         var testEventStreamOptions: TestEventStreamOptions
-
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
@@ -850,7 +847,7 @@ extension SwiftTestCommand {
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
-                traitConfiguration: .init(traitOptions: self.traits)
+                traitConfiguration: .init(traitOptions: self.globalOptions.traits)
             )
         }
     }
@@ -1561,7 +1558,6 @@ private func buildTestsIfNeeded(
     traitConfiguration: TraitConfiguration
 ) async throws -> [BuiltTestProduct] {
     let buildSystem = try await swiftCommandState.createBuildSystem(
-        traitConfiguration: traitConfiguration,
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )
@@ -1572,7 +1568,7 @@ private func buildTestsIfNeeded(
         .allIncludingTests
     }
 
-    try await buildSystem.build(subset: subset)
+    try await buildSystem.build(subset: subset, buildOutputs: [])
 
     // Find the test product.
     let testProducts = await buildSystem.builtTestProducts

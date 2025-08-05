@@ -737,19 +737,19 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             fooLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "FooLogging.build", "FooLogging-Swift.h"))",
+             "\(buildPath.appending(components: "FooLogging.build", "include", "FooLogging-Swift.h"))",
              .anySequence]
         )
         XCTAssertMatch(
             barLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "BarLogging.build", "BarLogging-Swift.h"))",
+             "\(buildPath.appending(components: "BarLogging.build", "include", "BarLogging-Swift.h"))",
              .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "Logging.build", "Logging-Swift.h"))",
+             "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
              .anySequence]
         )
     }
@@ -843,13 +843,13 @@ final class ModuleAliasingBuildTests: XCTestCase {
         XCTAssertMatch(
             otherLoggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "OtherLogging.build", "OtherLogging-Swift.h"))",
+             "\(buildPath.appending(components: "OtherLogging.build", "include", "OtherLogging-Swift.h"))",
              .anySequence]
         )
         XCTAssertMatch(
             loggingArgs,
             [.anySequence, "-emit-objc-header", "-emit-objc-header-path",
-             "\(buildPath.appending(components: "Logging.build", "Logging-Swift.h"))",
+             "\(buildPath.appending(components: "Logging.build", "include", "Logging-Swift.h"))",
              .anySequence]
         )
     }

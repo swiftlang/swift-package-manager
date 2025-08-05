@@ -130,7 +130,7 @@ if shoudUseSwiftBuildFramework {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v13),
+        .macOS(.v14),
         .iOS(.v17),
         .macCatalyst(.v17),
     ],
@@ -840,8 +840,7 @@ let package = Package(
             name: "_IntegrationTestSupport",
             dependencies: [
                 "_InternalTestSupport",
-                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
-            ],
+            ] + swiftTSCTestSupportDeps,
         ),
 
         .target(
@@ -1052,9 +1051,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "_IntegrationTestSupport",
                 "_InternalTestSupport",
-                .product(name: "TSCTestSupport", package: "swift-tools-support-core"),
-                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
-            ],
+            ] + swiftTSCTestSupportDeps + swiftToolsCoreSupportAutoDeps,
         ),
         .testTarget(
             name: "CommandsTests",

@@ -23,6 +23,7 @@ import OrderedCollections
 
 import PackageGraph
 import PackageModel
+import enum PackageModelSyntax.ManifestEditError
 
 import SPMBuildCore
 import SwiftFixIt
@@ -32,7 +33,7 @@ import var TSCBasic.stdoutStream
 struct MigrateOptions: ParsableArguments {
     @Option(
         name: .customLong("target"),
-        help: "The targets to migrate to specified set of features."
+        help: "A comma-separated list of targets to migrate. (default: all Swift targets)"
     )
     var _targets: String?
 
@@ -42,7 +43,7 @@ struct MigrateOptions: ParsableArguments {
 
     @Option(
         name: .customLong("to-feature"),
-        help: "The Swift language upcoming/experimental feature to migrate to."
+        help: "A comma-separated list of Swift language features to migrate to."
     )
     var _features: String
 
@@ -57,96 +58,76 @@ extension SwiftPackageCommand {
             abstract: "Migrate a package or its individual targets to use the given set of features."
         )
 
-        @OptionGroup()
+        @OptionGroup(visibility: .hidden)
         public var globalOptions: GlobalOptions
 
         @OptionGroup()
         var options: MigrateOptions
 
         public func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let toolchain = try swiftCommandState.productsBuildParameters.toolchain
-
-            let supportedFeatures = try Dictionary(
-                uniqueKeysWithValues: toolchain.swiftCompilerSupportedFeatures
-                    .map { ($0.name, $0) }
-            )
-
-            // First, let's validate that all of the features are supported
-            // by the compiler and are migratable.
-
-            var features: [SwiftCompilerFeature] = []
-            for name in self.options.features {
-                guard let feature = supportedFeatures[name] else {
-                    let migratableFeatures = supportedFeatures.map(\.value).filter(\.migratable).map(\.name)
-                    throw ValidationError(
-                        "Unsupported feature: \(name). Available features: \(migratableFeatures.joined(separator: ", "))"
-                    )
-                }
-
-                guard feature.migratable else {
-                    throw ValidationError("Feature '\(name)' is not migratable")
-                }
-
-                features.append(feature)
-            }
-
-            let targets = self.options.targets
+            // First, validate and resolve the requested feature names.
+            let features = try self.resolveRequestedFeatures(swiftCommandState)
 
             let buildSystem = try await createBuildSystem(
                 swiftCommandState,
-                targets: targets,
+                targets: self.options.targets,
                 features: features
             )
 
-            // Next, let's build all of the individual targets or the
-            // whole project to get diagnostic files.
-
-            print("> Starting the build")
-            if !targets.isEmpty {
-                for target in targets {
-                    try await buildSystem.build(subset: .target(target))
-                }
-            } else {
-                try await buildSystem.build(subset: .allIncludingTests)
-            }
-
-            // Determine all of the targets we need up update.
-            let buildPlan = try buildSystem.buildPlan
-
-            var modules: [any ModuleBuildDescription] = []
-            if !targets.isEmpty {
-                for buildDescription in buildPlan.buildModules
-                    where targets.contains(buildDescription.module.name) {
-                    modules.append(buildDescription)
-                }
-            } else {
+            // Compute the set of targets to migrate.
+            let targetsToMigrate: Set<String>
+            if self.options.targets.isEmpty {
                 let graph = try await buildSystem.getPackageGraph()
-                for buildDescription in buildPlan.buildModules
-                    where graph.isRootPackage(buildDescription.package)
-                {
-                    let module = buildDescription.module
-                    guard module.type != .plugin, !module.implicit else {
-                        continue
-                    }
-                    modules.append(buildDescription)
-                }
+                targetsToMigrate = Set(
+                    graph.rootPackages.lazy.map { package in
+                        package.manifest.targets.lazy.filter { target in
+                            // FIXME: Plugin target init does not have Swift settings.
+                            // Exclude them from migration.
+                            target.type != .plugin
+                        }.map(\.name)
+                    }.joined()
+                )
+            } else {
+                targetsToMigrate = Set(self.options.targets.elements)
             }
 
-            // If the build suceeded, let's extract all of the diagnostic
-            // files from build plan and feed them to the fix-it tool.
+            // Next, let's build the requested targets or, if none were given,
+            // the whole project to get diagnostic files.
+            print("> Starting the build")
+            var diagnosticFiles: [[AbsolutePath]] = []
+            if self.options.targets.isEmpty {
+                // No targets were requested. Build everything.
+                let buildResult = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                for (target, files) in try buildResult.serializedDiagnosticPathsByTargetName.get() {
+                    if targetsToMigrate.contains(target) {
+                        diagnosticFiles.append(files)
+                    }
+                }
+            } else {
+                // Build only requested targets.
+                for target in self.options.targets.elements {
+                    // TODO: It would be nice if BuildSubset had a case for an
+                    // array of targets so that we can move the build out of
+                    // this enclosing if/else and avoid repetition.
+                    let buildResult = try await buildSystem.build(subset: .target(target), buildOutputs: [])
+                    for (target, files) in try buildResult.serializedDiagnosticPathsByTargetName.get() {
+                        if targetsToMigrate.contains(target) {
+                            diagnosticFiles.append(files)
+                        }
+                    }
+                }
+            }
 
             print("> Applying fix-its")
-
             var summary = SwiftFixIt.Summary(numberOfFixItsApplied: 0, numberOfFilesChanged: 0)
             let fixItDuration = try ContinuousClock().measure {
-                for module in modules {
-                    let fixit = try SwiftFixIt(
-                        diagnosticFiles: module.diagnosticFiles,
-                        categories: Set(features.flatMap(\.categories)),
-                        fileSystem: swiftCommandState.fileSystem
-                    )
-                    summary += try fixit.applyFixIts()
-                }
+                let applier = try SwiftFixIt(
+                    diagnosticFiles: diagnosticFiles.joined(),
+                    categories: Set(features.flatMap(\.categories)),
+                    excludedSourceDirectories: [swiftCommandState.scratchDirectory],
+                    fileSystem: swiftCommandState.fileSystem
+                )
+                summary = try applier.applyFixIts()
             }
 
             // Report the changes.
@@ -174,15 +155,59 @@ extension SwiftPackageCommand {
 
             // Once the fix-its were applied, it's time to update the
             // manifest with newly adopted feature settings.
-
+            //
+            // Loop over a sorted array to produce deterministic results and
+            // order of diagnostics.
             print("> Updating manifest")
-            for module in modules.map(\.module) {
-                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(module.name)'")
+            for target in targetsToMigrate.sorted() {
+                swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
                 try self.updateManifest(
-                    for: module.name,
+                    for: target,
                     add: features,
                     using: swiftCommandState
                 )
+            }
+        }
+
+        /// Resolves the requested feature names.
+        ///
+        /// - Returns: An array of resolved features, sorted by name.
+        private func resolveRequestedFeatures(
+            _ swiftCommandState: SwiftCommandState
+        ) throws -> [SwiftCompilerFeature] {
+            let toolchain = try swiftCommandState.productsBuildParameters.toolchain
+
+            // Query the compiler for supported features.
+            let supportedFeatures = try toolchain.swiftCompilerSupportedFeatures
+
+            var resolvedFeatures: [SwiftCompilerFeature] = []
+
+            // Resolve the requested feature names, validating that they are
+            // supported by the compiler and migratable.
+            for name in self.options.features {
+                let feature = supportedFeatures.first { $0.name == name }
+
+                guard let feature else {
+                    let migratableCommaSeparatedFeatures = supportedFeatures
+                        .filter(\.migratable)
+                        .map(\.name)
+                        .sorted()
+                        .joined(separator: ", ")
+
+                    throw ValidationError(
+                        "Unsupported feature '\(name)'. Available features: \(migratableCommaSeparatedFeatures)"
+                    )
+                }
+
+                guard feature.migratable else {
+                    throw ValidationError("Feature '\(name)' is not migratable")
+                }
+
+                resolvedFeatures.append(feature)
+            }
+
+            return resolvedFeatures.sorted { lhs, rhs in
+                lhs.name < rhs.name
             }
         }
 
@@ -215,7 +240,6 @@ extension SwiftPackageCommand {
             }
 
             return try await swiftCommandState.createBuildSystem(
-                traitConfiguration: .init(),
                 // Don't attempt to cache manifests with temporary
                 // feature flags added just for migration purposes.
                 cacheBuildManifest: false,
@@ -250,15 +274,37 @@ extension SwiftPackageCommand {
                     verbose: !self.globalOptions.logging.quiet
                 )
             } catch {
-                try swiftCommandState.observabilityScope.emit(
-                    error: """
-                    Could not update manifest for '\(target)' (\(error)). \
-                    Please enable '\(
-                        features.map { try $0.swiftSettingDescription }
-                            .joined(separator: ", ")
-                    )' features manually
-                    """
-                )
+                var message =
+                    "Could not update manifest to enable requested features for target '\(target)' (\(error))"
+
+                // Do not suggest manual addition if something else is wrong or
+                // if the error implies that it cannot be done.
+                if let error = error as? ManifestEditError {
+                    switch error {
+                    case .cannotFindPackage,
+                         .cannotAddSettingsToPluginTarget,
+                         .existingDependency:
+                        break
+                    case .cannotFindArrayLiteralArgument,
+                         // This means the target could not be found
+                         // syntactically, not that it does not exist.
+                         .cannotFindTargets,
+                         .cannotFindTarget,
+                         // This means the swift-tools-version is lower than
+                         // the version where one of the setting was introduced.
+                         .oldManifest:
+                        let settings = try features.map {
+                            try $0.swiftSettingDescription
+                        }.joined(separator: ", ")
+
+                        message += """
+                        . Please enable them manually by adding the following Swift settings to the target: \
+                        '\(settings)'
+                        """
+                    }
+                }
+
+                swiftCommandState.observabilityScope.emit(error: message)
             }
         }
 

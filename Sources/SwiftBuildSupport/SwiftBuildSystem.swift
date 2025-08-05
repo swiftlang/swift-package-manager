@@ -41,20 +41,22 @@ struct SessionFailedError: Error {
     var diagnostics: [SwiftBuild.SwiftBuildMessage.DiagnosticInfo]
 }
 
-func withService(
+func withService<T>(
     connectionMode: SWBBuildServiceConnectionMode = .default,
     variant: SWBBuildServiceVariant = .default,
     serviceBundleURL: URL? = nil,
-    body: @escaping (_ service: SWBBuildService) async throws -> Void
-) async throws {
+    body: @escaping (_ service: SWBBuildService) async throws -> T
+) async throws -> T {
     let service = try await SWBBuildService(connectionMode: connectionMode, variant: variant, serviceBundleURL: serviceBundleURL)
+    let result: T
     do {
-        try await body(service)
+        result = try await body(service)
     } catch {
         await service.close()
         throw error
     }
     await service.close()
+    return result
 }
 
 public func createSession(
@@ -248,6 +250,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
+    public var hasIntegratedAPIDigesterSupport: Bool { true }
+
     public init(
         buildParameters: BuildParameters,
         packageGraphLoader: @escaping () async throws -> ModulesGraph,
@@ -257,7 +261,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        pluginConfiguration: PluginConfiguration
+        pluginConfiguration: PluginConfiguration,
+        delegate: BuildSystemDelegate?
     ) throws {
         self.buildParameters = buildParameters
         self.packageGraphLoader = packageGraphLoader
@@ -268,6 +273,67 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
+        self.delegate = delegate
+    }
+
+    private func createREPLArguments(
+        session: SWBBuildServiceSession,
+        request: SWBBuildRequest
+    ) async throws -> CLIArguments {
+        self.outputStream.send("Gathering repl arguments...")
+        self.outputStream.flush()
+
+        func getUniqueBuildSettingsIncludingDependencies(of targetGuid: [SWBConfiguredTarget], buildSettings: [String]) async throws -> Set<String> {
+            let dependencyGraph = try await session.computeDependencyGraph(
+                targetGUIDs: request.configuredTargets.map { SWBTargetGUID(rawValue: $0.guid)},
+                buildParameters: request.parameters,
+                includeImplicitDependencies: true,
+            )
+            var uniquePaths = Set<String>()
+            for setting in buildSettings {
+                self.outputStream.send(".")
+                self.outputStream.flush()
+                for (target, targetDependencies) in dependencyGraph {
+                    for t in [target] + targetDependencies {
+                        try await session.evaluateMacroAsStringList(
+                            setting,
+                            level: .target(t.rawValue),
+                            buildParameters: request.parameters,
+                            overrides: nil,
+                        ).forEach({
+                            uniquePaths.insert($0)
+                        })
+                    }
+                }
+
+            }
+            return uniquePaths
+        }
+
+        // TODO: Need to determine how to get the inlude path of package system library dependencies
+        let includePaths = try await getUniqueBuildSettingsIncludingDependencies(
+            of: request.configuredTargets,
+            buildSettings: [
+                "BUILT_PRODUCTS_DIR",
+                "HEADER_SEARCH_PATHS",
+                "USER_HEADER_SEARCH_PATHS",
+                "FRAMEWORK_SEARCH_PATHS",
+            ]
+        )
+
+        let graph = try await self.getPackageGraph()
+        // Link the special REPL product that contains all of the library targets.
+        let replProductName: String = try graph.getReplProductName()
+
+        // The graph should have the REPL product.
+        assert(graph.product(for: replProductName) != nil)
+
+        let arguments = ["repl", "-l\(replProductName)"] + includePaths.map {
+            "-I\($0)"
+        }
+
+        self.outputStream.send("Done.\n")
+        return arguments
     }
 
     private func supportedSwiftVersions() throws -> [SwiftLanguageVersion] {
@@ -275,20 +341,31 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         SwiftLanguageVersion.supportedSwiftLanguageVersions
     }
 
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
         guard !buildParameters.shouldSkipBuilding else {
-            return
+            return BuildResult(
+                serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
+                replArguments: nil,
+            )
         }
 
         try await writePIF(buildParameters: buildParameters)
 
-        try await startSWBuildOperation(pifTargetName: subset.pifTargetName)
+        return try await startSWBuildOperation(
+            pifTargetName: subset.pifTargetName,
+            genSymbolGraph: buildOutputs.contains(.symbolGraph),
+            generateReplArguments: buildOutputs.contains(.replArguments),
+        )
     }
 
-    private func startSWBuildOperation(pifTargetName: String) async throws {
+    private func startSWBuildOperation(
+        pifTargetName: String,
+        genSymbolGraph: Bool,
+        generateReplArguments: Bool
+    ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
-
-        try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+        var replArguments: CLIArguments?
+        return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
             let progressAnimation = ProgressAnimation.percent(
@@ -298,6 +375,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 isColorized: self.buildParameters.outputParameters.isColorized
             )
 
+            var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
@@ -335,9 +413,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath)
+                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
 
                     struct BuildState {
+                        private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
                         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
 
                         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
@@ -353,12 +432,35 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                             return task
                         }
+
+                        mutating func started(target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws {
+                            if targetsByID[target.targetID] != nil {
+                                throw Diagnostics.fatalError
+                            }
+                            targetsByID[target.targetID] = target
+                        }
+
+                        mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
+                            guard let id = task.targetID else {
+                                return nil
+                            }
+                            guard let target = targetsByID[id] else {
+                                throw Diagnostics.fatalError
+                            }
+                            return target
+                        }
                     }
 
                     func emitEvent(_ message: SwiftBuild.SwiftBuildMessage, buildState: inout BuildState) throws {
+                        guard !self.logLevel.isQuiet else { return }
                         switch message {
                         case .buildCompleted(let info):
                             progressAnimation.complete(success: info.result == .ok)
+                            if info.result == .cancelled {
+                                self.delegate?.buildSystemDidCancel(self)
+                            } else {
+                                self.delegate?.buildSystem(self, didFinishWithResult: info.result == .ok)
+                            }
                         case .didUpdateProgress(let progressInfo):
                             var step = Int(progressInfo.percentComplete)
                             if step < 0 { step = 0 }
@@ -368,6 +470,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 "\(progressInfo.message)"
                             }
                             progressAnimation.update(step: step, total: 100, text: message)
+                            self.delegate?.buildSystem(self, didUpdateTaskProgress: message)
                         case .diagnostic(let info):
                             func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
                                 let fixItsDescription = if info.fixIts.hasContent {
@@ -386,7 +489,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 case .note: .info
                                 case .remark: .debug
                                 }
-                                self.observabilityScope.emit(severity: severity, message: message)
+                                self.observabilityScope.emit(severity: severity, message: "\(message)\n")
 
                                 for childDiagnostic in info.childDiagnostics {
                                     emitInfoAsDiagnostic(info: childDiagnostic)
@@ -412,12 +515,24 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                     self.outputStream.send("\(info.executionDescription)")
                                 }
                             }
+                            let targetInfo = try buildState.target(for: info)
+                            self.delegate?.buildSystem(self, willStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
+                            self.delegate?.buildSystem(self, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
                                 self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
                             }
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetStarted, .targetComplete, .taskUpToDate:
+                            let targetInfo = try buildState.target(for: startedInfo)
+                            self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
+                            if let targetName = targetInfo?.targetName {
+                                serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: startedInfo.serializedDiagnosticsPaths.compactMap {
+                                    try? Basics.AbsolutePath(validating: $0.pathString)
+                                })
+                            }
+                        case .targetStarted(let info):
+                            try buildState.started(target: info)
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
@@ -442,6 +557,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     switch operation.state {
                     case .succeeded:
+                        guard !self.logLevel.isQuiet else { return }
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
@@ -457,6 +573,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         self.observabilityScope.emit(error: "Unexpected build state")
                         throw Diagnostics.fatalError
                     }
+
+                    replArguments = generateReplArguments ? try await self.createREPLArguments(session: session, request: request) : nil
                 }
             } catch let sessError as SessionFailedError {
                 for diagnostic in sessError.diagnostics {
@@ -466,6 +584,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             } catch {
                 throw error
             }
+
+            return BuildResult(
+                serializedDiagnosticPathsByTargetName: .success(serializedDiagnosticPathsByTargetName),
+                symbolGraph: SymbolGraphResult(
+                    outputLocationForTarget: { target, buildParameters in
+                        return ["\(buildParameters.triple.archName)", "\(target).symbolgraphs"]
+                    }
+                ),
+                replArguments: replArguments,
+            )
         }
     }
 
@@ -502,7 +630,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters() throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(genSymbolGraph: Bool) throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -520,6 +648,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+        if genSymbolGraph {
+            settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
+            // TODO set additional symbol graph options from the build output here, such as "include-spi-symbols"
+        }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
         if let deploymentTargetSettingName = normalizedTriple.deploymentTargetSettingName {
@@ -569,6 +701,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructDriverSettingsOverrides(from: buildParameters.driverParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructLinkerSettingsOverrides(from: buildParameters.linkingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
 
         // Generate the build parameters.
         var params = SwiftBuild.SWBBuildParameters()
@@ -583,9 +716,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath) throws -> SWBBuildRequest {
+    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try makeBuildParameters()
+        request.parameters = try makeBuildParameters(genSymbolGraph: genSymbolGraph)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -697,6 +830,33 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
+    private static func constructAPIDigesterSettingsOverrides(from digesterMode: BuildParameters.APIDigesterMode?) -> [String: String] {
+        var settings: [String: String] = [:]
+        switch digesterMode {
+        case .generateBaselines(let baselinesDirectory, let modulesRequestingBaselines):
+            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            for module in modulesRequestingBaselines {
+                settings["RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_\(module)"] = "YES"
+            }
+            settings["RUN_SWIFT_ABI_GENERATION_TOOL"] = "$(RUN_SWIFT_ABI_GENERATION_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
+            settings["SWIFT_ABI_GENERATION_TOOL_OUTPUT_DIR"] = baselinesDirectory.appending(components: ["$(PRODUCT_MODULE_NAME)", "ABI"]).pathString
+        case .compareToBaselines(let baselinesDirectory, let modulesToCompare, let breakageAllowListPath):
+            settings["SWIFT_API_DIGESTER_MODE"] = "api"
+            settings["SWIFT_ABI_CHECKER_DOWNGRADE_ERRORS"] = "YES"
+            for module in modulesToCompare {
+                settings["RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_\(module)"] = "YES"
+            }
+            settings["RUN_SWIFT_ABI_CHECKER_TOOL"] = "$(RUN_SWIFT_ABI_CHECKER_TOOL_MODULE_$(PRODUCT_MODULE_NAME))"
+            settings["SWIFT_ABI_CHECKER_BASELINE_DIR"] = baselinesDirectory.appending(component: "$(PRODUCT_MODULE_NAME)").pathString
+            if let breakageAllowListPath {
+                settings["SWIFT_ABI_CHECKER_EXCEPTIONS_FILE"] = breakageAllowListPath.pathString
+            }
+        case nil:
+            break
+        }
+        return settings
+    }
+
     private func getPIFBuilder() async throws -> PIFBuilder {
         try await pifBuilder.memoize {
             let graph = try await getPackageGraph()
@@ -753,12 +913,6 @@ extension String {
     }
 }
 
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        self <= .info
-    }
-}
-
 fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
     var userDescription: String? {
         switch self {
@@ -783,6 +937,19 @@ fileprivate extension SwiftBuild.SwiftBuildMessage.DiagnosticInfo.Location {
         case .unknown:
             return nil
         }
+    }
+}
+
+fileprivate extension BuildSystemCommand {
+    init(_ taskStartedInfo: SwiftBuildMessage.TaskStartedInfo, targetInfo: SwiftBuildMessage.TargetStartedInfo?) {
+        self = .init(
+            name: taskStartedInfo.executionDescription,
+            targetName: targetInfo?.targetName,
+            description: taskStartedInfo.commandLineDisplayString ?? "",
+            serializedDiagnosticPaths: taskStartedInfo.serializedDiagnosticsPaths.compactMap {
+                try? Basics.AbsolutePath(validating: $0.pathString)
+            }
+        )
     }
 }
 

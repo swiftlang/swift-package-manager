@@ -49,7 +49,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
             let releasesURL = URL("https://api.github.com/repos/octocat/Hello-World/releases?per_page=20")
 
-            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
                     switch (request.method, request.url) {
                     case (.get, apiURL):
@@ -152,7 +152,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let repoURL = SourceControlURL("https://github.com/octocat/Hello-World.git")
             let apiURL = URL("https://api.github.com/repos/octocat/Hello-World")
 
-            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -246,7 +246,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
             let total = 5
             var remaining = total
 
-            try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+            try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
                 let path = fixturePath.appending(components: "GitHub", "metadata.json")
                 let data = try Data(localFileSystem.readFileContents(path).contents)
                 let handler: LegacyHTTPClient.Handler = { request, _, completion in
@@ -291,7 +291,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL() async throws {
         try await testWithTemporaryDirectory { tmpPath in
-            try await fixture(name: "Collections", createGitRepo: false) { _ in
+            try await fixtureXCTest(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)
@@ -308,7 +308,7 @@ class GitHubPackageMetadataProviderTests: XCTestCase {
 
     func testInvalidURL2() async throws {
         try await testWithTemporaryDirectory { tmpPath in
-            try await fixture(name: "Collections", createGitRepo: false) { _ in
+            try await fixtureXCTest(name: "Collections", createGitRepo: false) { _ in
                 var configuration = GitHubPackageMetadataProvider.Configuration()
                 configuration.cacheDir = tmpPath
                 let provider = GitHubPackageMetadataProvider(configuration: configuration)

@@ -450,7 +450,7 @@ extension PackagePIFProjectBuilder {
                 }
 
                 // We have to give each target a unique name.
-                settings[.TARGET_NAME] = sourceModule.name + targetSuffix.description(forName: sourceModule.name)
+                settings[.TARGET_NAME] = sourceModule.name + targetSuffix.uniqueDescription(forName: sourceModule.name)
 
                 // Redirect the built executable into a separate directory so it won't conflict with the real one.
                 settings[.TARGET_BUILD_DIR] = "$(TARGET_BUILD_DIR)/ExecutableModules"
@@ -729,6 +729,8 @@ extension PackagePIFProjectBuilder {
 
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
+
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
 
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.

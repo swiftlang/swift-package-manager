@@ -8,7 +8,14 @@
 Print a list of IDs of available Swift SDKs available on the filesystem.
 
 ```
-sdk list [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   [--version] [--help]
+sdk list [--package-path=<package-path>]
+  [--cache-path=<cache-path>] [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...] [--version]
+  [--help]
 ```
 
 - term **--package-path=\<package-path\>**:

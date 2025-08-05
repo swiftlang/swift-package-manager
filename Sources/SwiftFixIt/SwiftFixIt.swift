@@ -124,9 +124,11 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
     private var uniquePrimaryDiagnostics: Set<DiagnosticID> = []
 
     let categories: Set<String>
+    let excludedSourceDirectories: Set<AbsolutePath>
 
-    init(categories: Set<String>) {
+    init(categories: Set<String>, excludedSourceDirectories: Set<AbsolutePath>) {
         self.categories = categories
+        self.excludedSourceDirectories = excludedSourceDirectories
     }
 
     /// Returns a Boolean value indicating whether to skip the given primary
@@ -141,7 +143,7 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
         }
 
         // Skip if no location.
-        if diagnostic.hasNoLocation {
+        guard let location = diagnostic.location else {
             return true
         }
 
@@ -149,6 +151,16 @@ private struct PrimaryDiagnosticFilter<Diagnostic: AnyDiagnostic>: ~Copyable {
         // belong to any of them.
         if !self.categories.isEmpty {
             guard let category = diagnostic.category, self.categories.contains(category) else {
+                return true
+            }
+        }
+
+        // Skip if excluded directories were given and the source file the
+        // diagnostic appears in is in any of them.
+        if !self.excludedSourceDirectories.isEmpty {
+            if let sourceFilePath = try? AbsolutePath(validating: location.filename),
+               self.excludedSourceDirectories.contains(where: sourceFilePath.isDescendant(of:))
+            {
                 return true
             }
         }
@@ -199,8 +211,9 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
     private let diagnosticsPerFile: DiagnosticsPerFile
 
     package init(
-        diagnosticFiles: [AbsolutePath],
+        diagnosticFiles: some Collection<AbsolutePath>,
         categories: Set<String> = [],
+        excludedSourceDirectories: Set<AbsolutePath> = [],
         fileSystem: any FileSystem
     ) throws {
         // Deserialize the diagnostics.
@@ -212,6 +225,7 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
         self = try SwiftFixIt(
             diagnostics: diagnostics,
             categories: categories,
+            excludedSourceDirectories: excludedSourceDirectories,
             fileSystem: fileSystem
         )
     }
@@ -219,11 +233,12 @@ package struct SwiftFixIt /*: ~Copyable */ { // TODO: Crashes with ~Copyable
     init<Diagnostic: AnyDiagnostic>(
         diagnostics: some Collection<Diagnostic>,
         categories: Set<String>,
+        excludedSourceDirectories: Set<AbsolutePath>,
         fileSystem: any FileSystem
     ) throws {
         self.fileSystem = fileSystem
 
-        var filter = PrimaryDiagnosticFilter<Diagnostic>(categories: categories)
+        var filter = PrimaryDiagnosticFilter<Diagnostic>(categories: categories, excludedSourceDirectories: excludedSourceDirectories)
         _ = consume categories
 
         // Build a map from source files to `SwiftDiagnostics` diagnostics.
@@ -301,7 +316,11 @@ extension SwiftFixIt {
                 }
             }
 
-            let result = SwiftIDEUtils.FixItApplier.apply(edits: consume edits, to: sourceFile.syntax)
+            let result = SwiftIDEUtils.FixItApplier.apply(
+                edits: consume edits,
+                to: sourceFile.syntax,
+                allowDuplicateInsertions: false
+            )
 
             try self.fileSystem.writeFileContents(sourceFile.path, string: consume result)
         }

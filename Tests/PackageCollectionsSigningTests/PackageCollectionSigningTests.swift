@@ -22,7 +22,7 @@ import XCTest
 class PackageCollectionSigningTests: XCTestCase {
     func test_RSA_signAndValidate_happyCase() async throws {
         try await withTemporaryDirectory { tmp in
-            let collection = try await self.readTestPackageCollection()
+            let collection: PackageCollectionModel.V1.Collection = try await self.readTestPackageCollection()
             let (certPaths, privateKeyPath) = try await self.copyTestCertChainAndKey(
                 certPaths: { fixturePath in
                     [
@@ -707,7 +707,7 @@ class PackageCollectionSigningTests: XCTestCase {
     private func readTestPackageCollection() async throws -> PackageCollectionModel.V1.Collection {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
                     let jsonDecoder = JSONDecoder.makeWithDefaults()
                     let collectionPath = fixturePath.appending(components: "JSON", "good.json")
                     let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
@@ -730,7 +730,7 @@ class PackageCollectionSigningTests: XCTestCase {
     ) async throws -> ([AbsolutePath], AbsolutePath) {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                     let certSourcePaths = certPaths(fixturePath)
 
                     let certDirectoryPath = tmpDirectoryPath.appending("Certificates")

@@ -79,8 +79,9 @@ import Android
 
 extension Plugin {
     
-    /// Main entry point of the plugin — sets up a communication channel with
-    /// the plugin host and runs the main message loop.
+    /// The main entry point of the plugin.
+    ///
+    /// This sets up a communication channel with the plugin host and runs the main message loop.
     public static func main() async throws {
         // Duplicate the `stdin` file descriptor, which we will then use for
         // receiving messages from the plugin host.

@@ -8,7 +8,14 @@
 Removes a previously installed Swift SDK bundle from the filesystem.
 
 ```
-sdk remove [--package-path=<package-path>] [--cache-path=<cache-path>] [--config-path=<config-path>] [--security-path=<security-path>] [--scratch-path=<scratch-path>]     [--swift-sdks-path=<swift-sdks-path>] [--toolset=<toolset>...] [--pkg-config-path=<pkg-config-path>...]   <sdk-id-or-bundle-name> [--version] [--help]
+sdk remove [--package-path=<package-path>]
+  [--cache-path=<cache-path>] [--config-path=<config-path>]
+  [--security-path=<security-path>]
+  [--scratch-path=<scratch-path>]
+  [--swift-sdks-path=<swift-sdks-path>]
+  [--toolset=<toolset>...]
+  [--pkg-config-path=<pkg-config-path>...]
+  <sdk-id-or-bundle-name> [--version] [--help]
 ```
 
 - term **--package-path=\<package-path\>**:

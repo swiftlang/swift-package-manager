@@ -20,7 +20,7 @@ final class PluginsBuildPlanTests: XCTestCase {
     func testBuildToolsDatabasePath() async throws {
         try XCTSkipOnWindows(because: "Fails to build the project to due to incorrect Path handling.  Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
-        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(fixturePath)
             XCTAssertMatch(stdout, .contains("Build complete!"))
             // FIXME: This is temporary until build of plugin tools is extracted into its own command.
@@ -48,7 +48,7 @@ final class PluginsBuildPlanTests: XCTestCase {
         let targetTriple = hostToolchain.targetTriple.arch == .aarch64 ? x86Triple : armTriple
 
         // By default, plugin dependencies are built for the host platform
-        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await executeSwiftPackage(fixturePath, extraArgs: ["-v", "build-plugin-dependency"])
             XCTAssertMatch(stdout, .contains("Hello from dependencies-stub"))
             XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
@@ -65,7 +65,7 @@ final class PluginsBuildPlanTests: XCTestCase {
         }
 
         // When cross compiling the final product, plugin dependencies should still be built for the host
-        try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
             let (stdout, stderr) = try await executeSwiftPackage(fixturePath, extraArgs: ["--triple", targetTriple, "-v", "build-plugin-dependency"])
             XCTAssertMatch(stdout, .contains("Hello from dependencies-stub"))
             XCTAssertMatch(stderr, .contains("Build of product 'plugintool' complete!"))
