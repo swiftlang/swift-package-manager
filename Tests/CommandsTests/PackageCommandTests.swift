@@ -1263,6 +1263,65 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             XCTAssertMatch(contents, .contains(#""OtherLib""#))
         }
     }
+    
+    func testPackageAddRemoteBinaryTarget() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client"
+                )
+                """
+            )
+
+            _ = try await execute(["add-target", "client", "--url", "https://example.com/client.xcframework.zip", "--checksum", "abcdef1234567890", "--type", "binary"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#".binaryTarget"#))
+            XCTAssertMatch(contents, .contains(#"name: "client""#))
+            XCTAssertMatch(contents, .contains(#"url: "https://example.com/client.xcframework.zip""#))
+            XCTAssertMatch(contents, .contains(#"checksum: "abcdef1234567890""#))
+        }
+    }
+    
+    func testPackageAddLocalBinaryTarget() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(path.appending("Package.swift"), string:
+                """
+                // swift-tools-version: 5.9
+                import PackageDescription
+                let package = Package(
+                    name: "client"
+                )
+                """
+            )
+
+            _ = try await execute(["add-target", "client", "--path", "Artifacts/client.xcframework", "--type", "binary"], packagePath: path)
+
+            let manifest = path.appending("Package.swift")
+            XCTAssertFileExists(manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            XCTAssertMatch(contents, .contains(#"targets:"#))
+            XCTAssertMatch(contents, .contains(#".binaryTarget"#))
+            XCTAssertMatch(contents, .contains(#"name: "client""#))
+            XCTAssertMatch(contents, .contains(#"path: "Artifacts/client.xcframework""#))
+        }
+    }
 
     func testPackageAddTargetWithoutModuleSourcesFolder() async throws {
         try await testWithTemporaryDirectory { tmpPath in
