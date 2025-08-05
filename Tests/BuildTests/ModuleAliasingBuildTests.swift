@@ -14,7 +14,7 @@ import Basics
 @testable import Build
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+import PackageGraph
 
 import PackageLoading
 @testable import PackageModel
