@@ -43,7 +43,10 @@ public final class UserToolchain: Toolchain {
     public let librarySearchPaths: [AbsolutePath]
 
     /// An array of paths to use with binaries produced by this toolchain at run time.
-    public let runtimeLibraryPaths: [AbsolutePath]
+    public lazy var runtimeLibraryPaths: [AbsolutePath] = {
+        guard let targetInfo else { return [] }
+        return (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
+    }()
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
@@ -78,8 +81,17 @@ public final class UserToolchain: Toolchain {
 
     public let targetTriple: Basics.Triple
 
+    private let _targetInfo: JSON?
+    private lazy var targetInfo: JSON? = {
+        // Only call out to the swift compiler to fetch the target info when necessary
+        try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
+    }()
+
     // A version string that can be used to identify the swift compiler version
-    public let swiftCompilerVersion: String?
+    public lazy var swiftCompilerVersion: String? = {
+        guard let targetInfo else { return nil }
+        return Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+    }()
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
@@ -721,17 +733,16 @@ public final class UserToolchain: Toolchain {
                 default: InstalledSwiftPMConfiguration.default)
         }
 
-        // targetInfo from the compiler
-        let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
-
-        // Get compiler version information from target info
-        self.swiftCompilerVersion = Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
-
-        // Get the list of runtime libraries from the target info
-        self.runtimeLibraryPaths = try Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)
-
-        // Use the triple from Swift SDK or compute the host triple from the target info
-        var triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo)
+        var triple: Basics.Triple
+        if let targetTriple = swiftSDK.targetTriple {
+            self._targetInfo = nil
+            triple = targetTriple
+        } else {
+            // targetInfo from the compiler
+            let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+            self._targetInfo = targetInfo
+            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo)
+        }
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.

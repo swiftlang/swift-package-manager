@@ -578,8 +578,7 @@ public class Workspace {
 
         var prebuiltsManager: PrebuiltsManager?
         if configuration.usePrebuilts,
-           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform,
-           let swiftCompilerVersion = hostToolchain.swiftCompilerVersion
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
         {
             let rootCertPath: AbsolutePath?
             if let path = configuration.prebuiltsRootCertPath {
@@ -591,10 +590,10 @@ public class Workspace {
             let prebuiltsManagerObj = PrebuiltsManager(
                 fileSystem: fileSystem,
                 hostPlatform: hostPlatform,
-                swiftCompilerVersion: customPrebuiltsManager?.swiftVersion ?? swiftCompilerVersion,
                 authorizationProvider: authorizationProvider,
                 scratchPath: location.prebuiltsDirectory,
                 cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customSwiftCompilerVersion: customPrebuiltsManager?.swiftVersion,
                 customHTTPClient: customPrebuiltsManager?.httpClient,
                 customArchiver: customPrebuiltsManager?.archiver,
                 delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
