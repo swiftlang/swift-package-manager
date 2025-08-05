@@ -63,10 +63,9 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         XCTAssertMatch(stdout, .contains("USAGE: swift package"))
     }
 
-    func testUsage() async throws {
-        throw XCTSkip("rdar://131126477")
+    func testInvalidUsage() async throws {
         do {
-            _ = try await execute(["-halp"])
+            _ = try await execute(["--xxx"])
             XCTFail("expecting `execute` to fail")
         } catch SwiftPMError.executionFailure(_, _, let stderr) {
             XCTAssertMatch(stderr, .contains("Usage: swift package"))
@@ -92,27 +91,27 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         let stdout = try await SwiftPM.Package.execute(["--version"]).stdout
         XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
     }
-	
+
     func testCompletionTool() async throws {
         let stdout = try await execute(["completion-tool", "--help"]).stdout
         XCTAssertMatch(stdout, .contains("OVERVIEW: Command to generate shell completions."))
     }
 
-	func testInitOverview() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
-	}
-	
-	func testInitUsage() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
-		XCTAssertMatch(stdout, .contains(" [--name <name>]"))
-	}
-	
-	func testInitOptionsHelp() async throws {
-		let stdout = try await execute(["init", "--help"]).stdout
-		XCTAssertMatch(stdout, .contains("OPTIONS:"))
-	}
+    func testInitOverview() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("OVERVIEW: Initialize a new package"))
+    }
+
+    func testInitUsage() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("USAGE: swift package init [--type <type>] "))
+        XCTAssertMatch(stdout, .contains(" [--name <name>]"))
+    }
+
+    func testInitOptionsHelp() async throws {
+        let stdout = try await execute(["init", "--help"]).stdout
+        XCTAssertMatch(stdout, .contains("OPTIONS:"))
+    }
 
     func testPlugin() async throws {
         await XCTAssertThrowsCommandExecutionError(try await execute(["plugin"])) { error in
@@ -2895,13 +2894,13 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: [], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
@@ -2924,24 +2923,24 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stdout, isOnlyPrint)
                 XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPluginWithError(flags: ["-q"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
-            	XCTAssertNoMatch(stderr, containsRemark)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+                XCTAssertNoMatch(stderr, containsRemark)
                 XCTAssertNoMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
@@ -2957,27 +2956,27 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
             }
 
             try await runPlugin(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
                 XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
             }
 
             try await runPluginWithError(flags: ["-v"], diagnostics: ["print", "progress", "remark", "warning", "error"]) { stdout, stderr in
-            	XCTAssertMatch(stdout, isOnlyPrint)
-            	XCTAssertMatch(stderr, containsProgress)
-            	XCTAssertMatch(stderr, containsRemark)
+                XCTAssertMatch(stdout, isOnlyPrint)
+                XCTAssertMatch(stderr, containsProgress)
+                XCTAssertMatch(stderr, containsRemark)
                 XCTAssertMatch(stderr, containsWarning)
                 XCTAssertMatch(stderr, containsError)
             }
