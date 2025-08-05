@@ -34,6 +34,7 @@ extension Tag.Feature {
 
 extension Tag.Feature.Command {
     public enum Package {}
+    public enum PackageRegistry {}
     @Tag public static var Build: Tag
     @Tag public static var Test: Tag
     @Tag public static var Run: Tag
@@ -46,6 +47,15 @@ extension Tag.Feature.Command.Package {
     @Tag public static var Plugin: Tag
     @Tag public static var Reset: Tag
     @Tag public static var ToolsVersion: Tag
+}
+
+extension Tag.Feature.Command.PackageRegistry {
+    @Tag public static var General: Tag
+    @Tag public static var Login: Tag
+    @Tag public static var Logout: Tag
+    @Tag public static var Publish: Tag
+    @Tag public static var Set: Tag
+    @Tag public static var Unset: Tag
 }
 
 extension Tag.Feature.PackageType {

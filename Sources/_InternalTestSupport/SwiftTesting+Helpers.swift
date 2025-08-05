@@ -44,13 +44,13 @@ public func expectThrowsCommandExecutionError<T>(
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
 public func expectAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
-    _ message: @autoclosure () -> Comment = "",
+    _ message: @autoclosure () -> Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
     _ errorHandler: (_ error: any Error) -> Void = { _ in }
 ) async {
     do {
         _ = try await expression()
-        Issue.record(message(), sourceLocation: sourceLocation)
+        Issue.record(message() ?? "Expected an error, which did not not.", sourceLocation: sourceLocation)
     } catch {
         errorHandler(error)
     }
