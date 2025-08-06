@@ -561,7 +561,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         progressAnimation.update(step: 100, total: 100, text: "")
                         progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
-                        self.outputStream.send("Build complete! (\(duration))\n")
+                        let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
+                        self.outputStream.send("Build complete! (\(formattedDuration))\n")
                         self.outputStream.flush()
                     case .failed:
                         self.observabilityScope.emit(error: "Build failed")
