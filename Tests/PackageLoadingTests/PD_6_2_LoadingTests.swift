@@ -86,7 +86,7 @@ struct PackageDescription6_2LoadingTests {
                 results.checkIsEmpty()
             }
         } when: {
-            isWindows
+            isWindows && !CiEnvironment.runningInSmokeTestPipeline
         }
     }
 }
