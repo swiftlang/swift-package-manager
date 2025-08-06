@@ -359,11 +359,17 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
 
     private func verboseLog(_ message: String) {
         if globalOptions.logging.veryVerbose {
-            print("[swift play: \(message)]")
+            _verbosePlayLog(message)
         }
     }
 
     public init() {}
+}
+
+// MARK: - Verbose Logging -
+
+fileprivate func _verbosePlayLog(_ message: String) {
+    print("[swift play: \(message)]")
 }
 
 // MARK: - File Monitoring -
@@ -443,6 +449,12 @@ final private class FileMonitor {
     ///         monitoring to avoid watching temporary files, version control directories, and
     ///         system directories that typically don't contain user source code.
     private func initializeMonitoring(forFilesAtURL url: URL) throws {
+        // Monitor the current directory
+        try fileWatcher.register(urlToWatch: url)
+
+        // No need to register directories recursively on Windows
+        // as ReadDirectoryChangesW() handles recursive subdir monitoring.
+#if !os(Windows)
         let directoryContents = try FileManager.default.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
         let subdirs = directoryContents
             .filter { $0.lastPathComponent.hasPrefix(".") == false }
@@ -454,31 +466,36 @@ final private class FileMonitor {
                 return false
             }
 
-        // Monitor the current directory
-        try fileWatcher.register(urlToWatch: url)
-
         for subdirURL in subdirs {
-            try fileWatcher.register(urlToWatch: subdirURL)
             try initializeMonitoring(forFilesAtURL: subdirURL)
         }
+#endif
     }
 
     /// Asynchronously wait for file changes
     func waitForChanges() async {
-        if verboseLogging { print("[FileMonitor.waitForChanges() starting]") }
+        verboseLog("Waiting for changes")
         for await _ in changeStream {
-            if verboseLogging { print("[FileMonitor detected change]") }
+            verboseLog("Detected change")
             // Return immediately when a change is detected
             return
         }
         // If the stream ends without yielding any values, we should still return
         // This can happen if the monitor is cancelled before any changes occur
-        if verboseLogging { print("[FileMonitor stream ended without changes]") }
+        verboseLog("Stream ended without changes")
+    }
+
+    func verboseLog(_ message: String) {
+        if verboseLogging {
+            _verbosePlayLog("\(type(of: self)): \(message)")
+        }
     }
 }
 
 fileprivate protocol FileWatcher {
     init(verboseLogging: Bool) throws
+
+    var verboseLogging: Bool { get }
 
     func register(urlToWatch url: URL) throws
 
@@ -489,11 +506,21 @@ fileprivate protocol FileWatcher {
     func stopWatching()
 }
 
+extension FileWatcher {
+    func verboseLog(_ message: String) {
+        if verboseLogging {
+            _verbosePlayLog("\(type(of: self)): \(message)")
+        }
+    }
+}
+
 fileprivate func makeFileWatcher(verboseLogging: Bool) throws -> (any FileWatcher)? {
 #if os(macOS)
     return try MacFileWatcher(verboseLogging: verboseLogging)
 #elseif os(Linux)
     return try LinuxFileWatcher(verboseLogging: verboseLogging)
+#elseif os(Windows)
+    return try WindowsFileWatcher(verboseLogging: verboseLogging)
 #else
     return nil
 #endif
@@ -533,8 +560,6 @@ fileprivate final class MacFileWatcher: FileWatcher {
 
         sources.append(source)
         fileHandles.append(fileHandle)
-
-        if verboseLogging { print("[Monitoring files at \(url.path())]") }
     }
 
     func startWatching(withChangeHandler changeHandler: @escaping ChangeHandler) {
@@ -548,10 +573,11 @@ fileprivate final class MacFileWatcher: FileWatcher {
             }
         }
         self.fileHandles = []
+        verboseLog("stopped")
     }
 
     private func process(event: DispatchSource.FileSystemEvent) {
-        if verboseLogging { print("[FileMonitor event \(event)]") }
+        verboseLog("FileMonitor event \(event)")
         self.changeHandler?()
     }
 }
@@ -582,7 +608,7 @@ fileprivate final class LinuxFileWatcher: FileWatcher {
                 let bytesRead = read(inotifyFileDescriptor, &buffer, buffer.count)
 
                 if bytesRead > 0 {
-                    if verboseLogging { print("[FileMonitor detected change via inotify]") }
+                    verboseLog("File watcher detected change via inotify")
                     changeHandler()
                 } else if bytesRead == -1 {
                     if errno == EINTR || errno == EAGAIN {
@@ -590,7 +616,7 @@ fileprivate final class LinuxFileWatcher: FileWatcher {
                         continue
                     } else {
                         // Error occurred
-                        if verboseLogging { print("[FileMonitor read error: \(String(cString: strerror(errno)))]") }
+                        verboseLog("File watcher read error: \(String(cString: strerror(errno)))")
                         break
                     }
                 }
@@ -610,8 +636,6 @@ fileprivate final class LinuxFileWatcher: FileWatcher {
         }
 
         watchDescriptors.append(watchDescriptor)
-
-        if verboseLogging { print("[Monitoring files at \(url.path())]") }
     }
 
     func stopWatching() {
@@ -625,7 +649,250 @@ fileprivate final class LinuxFileWatcher: FileWatcher {
 
         // Close inotify file descriptor
         close(inotifyFileDescriptor)
+        verboseLog("stopped")
     }
+}
+
+#endif
+
+#if os(Windows)
+
+import WinSDK
+
+fileprivate final class WindowsFileWatcher: FileWatcher {
+    let verboseLogging: Bool
+
+    private var changeHandler: ChangeHandler?
+    private var monitoringTask: Task<Void, Never>?
+
+    private typealias DirectoryWithHandle = (path: String, handle: HANDLE)
+    private var registeredDirectories: [DirectoryWithHandle] = []
+    
+    init(verboseLogging: Bool = false) throws {
+        self.verboseLogging = verboseLogging
+    }
+    
+    func register(urlToWatch url: URL) throws {
+        let directoryPath = url.path
+        
+        // Convert Swift string to wide character string for Windows API
+        let widePath = directoryPath.withCString(encodedAs: UTF16.self) { $0 }
+        
+        // Open directory handle with FILE_LIST_DIRECTORY access
+        let directoryHandle = CreateFileW(
+            widePath,
+            DWORD(FILE_LIST_DIRECTORY),
+            DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
+            nil,
+            DWORD(OPEN_EXISTING),
+            DWORD(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED),
+            nil
+        )
+        
+        guard let directoryHandle, directoryHandle != INVALID_HANDLE_VALUE else {
+            let error = GetLastError()
+            print("[WindowsFileWatcher] Failed to open directory '\(directoryPath)' with error: \(error)")
+            throw WindowsFileWatcherError.cannotOpenDirectory(path: directoryPath, errorCode: error)
+        }
+        
+        registeredDirectories.append((path: directoryPath, handle: directoryHandle))
+    }
+    
+    func startWatching(withChangeHandler changeHandler: @escaping ChangeHandler) {
+        self.changeHandler = changeHandler
+        
+        monitoringTask = Task {
+            await withTaskGroup(of: Void.self) { group in
+                // Start monitoring each registered directory
+                for registeredDirectory in registeredDirectories {
+                    group.addTask {
+                        await self.monitorDirectory(at: registeredDirectory)
+                    }
+                }
+            }
+        }
+    }
+    
+    func stopWatching() {
+        monitoringTask?.cancel()
+        monitoringTask = nil
+        
+        // Close all directory handles
+        for registeredDirectory in registeredDirectories {
+            CloseHandle(registeredDirectory.handle)
+        }
+        registeredDirectories.removeAll()
+        verboseLog("stopped")
+    }
+    
+    private func monitorDirectory(at directory: DirectoryWithHandle) async {
+        let bufferSize = 4096
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        var bytesReturned: DWORD = 0
+        var overlapped = OVERLAPPED()
+        
+        // Create event for overlapped I/O
+        overlapped.hEvent = CreateEventW(nil, true, false, nil)
+        defer {
+            if overlapped.hEvent != nil {
+                CloseHandle(overlapped.hEvent)
+            }
+        }
+        
+        while !Task.isCancelled {
+            // Start asynchronous directory change monitoring
+            let success = ReadDirectoryChangesW(
+                directory.handle,
+                &buffer,
+                DWORD(bufferSize),
+                true, // bWatchSubtree - monitor subdirectories
+                DWORD(FILE_NOTIFY_CHANGE_FILE_NAME | 
+                      FILE_NOTIFY_CHANGE_DIR_NAME | 
+                      FILE_NOTIFY_CHANGE_SIZE | 
+                      FILE_NOTIFY_CHANGE_LAST_WRITE),
+                &bytesReturned,
+                &overlapped,
+                nil
+            )
+            
+            if !success {
+                let error = GetLastError()
+                if error != ERROR_IO_PENDING {
+                    print("[WindowsFileWatcher] ReadDirectoryChangesW failed with error: \(error)")
+                    break
+                }
+            }
+            
+            verboseLog("ReadDirectoryChangesW() successfully monitoring...")
+
+            // Wait for the operation to complete, or timeout to check for cancellation
+            let waitResult = WaitForSingleObject(overlapped.hEvent, 1000) // 1 second timeout
+            
+            switch waitResult {
+            case DWORD(WAIT_OBJECT_0):
+                // Event was signaled - changes detected
+                var finalBytesReturned: DWORD = 0
+                let getResult = GetOverlappedResult(directory.handle, &overlapped, &finalBytesReturned, false)
+                
+                if getResult && finalBytesReturned > 0 {
+
+                    // Parse the buffer to extract file change information
+                    let changedFiles = parseFileChangeBuffer(buffer: buffer, bytesReturned: Int(finalBytesReturned))
+                    verboseLog("Detected change(s): \(changedFiles.map {(action, filename) in actionDescription(for: action) + " - " + filename}.joined(separator: ","))")
+
+                    // Filter out changes that weren't not interested in
+                    let interestedChanges = changedFiles.filter { (action, filename) in
+                        // Ignore any ".build" directories
+                        if filename.starts(with: ".build") {
+                            return false
+                        }
+                        return true
+                    }
+
+                    if interestedChanges.count > 0 {
+                        changeHandler?()
+                    }
+                }
+                else {
+                    verboseLog("GetOverlappedResult() returned \(getResult), finalBytesReturned=\(finalBytesReturned) - ignoring event")
+                }
+                
+                // Reset the event for next iteration
+                ResetEvent(overlapped.hEvent)
+                
+            case DWORD(WAIT_TIMEOUT):
+                // Timeout occurred, continue monitoring
+                verboseLog("Timeout, continue monitoring")
+                continue
+                
+            default:
+                // Error or other result
+                verboseLog("[WindowsFileWatcher] WaitForSingleObject returned unexpected value: \(waitResult)")
+                break
+            }
+        }
+    }
+
+    /// Parses the buffer returned by ReadDirectoryChangesW to extract file change information.
+    /// 
+    /// The buffer contains one or more FILE_NOTIFY_INFORMATION structures:
+    /// - NextEntryOffset: DWORD (offset to next record, 0 for last record)
+    /// - Action: DWORD (type of change that occurred)
+    /// - FileNameLength: DWORD (length of filename in bytes)
+    /// - FileName: WCHAR[] (wide character filename, not null-terminated)
+    ///
+    /// - Parameters:
+    ///   - buffer: The buffer filled by ReadDirectoryChangesW
+    ///   - bytesReturned: The number of valid bytes in the buffer
+    /// - Returns: Array of tuples containing (action, fileName)
+    private func parseFileChangeBuffer(buffer: [UInt8], bytesReturned: Int) -> [(DWORD, String)] {
+        var results: [(DWORD, String)] = []
+        var offset = 0
+        
+        while offset < bytesReturned {
+            // Ensure we have enough bytes for the fixed part of FILE_NOTIFY_INFORMATION
+            guard offset + 12 <= bytesReturned else { break }
+            
+            // Read the FILE_NOTIFY_INFORMATION structure
+            let nextEntryOffset = buffer.withUnsafeBufferPointer { bufferPtr in
+                bufferPtr.baseAddress!.advanced(by: offset).withMemoryRebound(to: DWORD.self, capacity: 1) { $0.pointee }
+            }
+            
+            let action = buffer.withUnsafeBufferPointer { bufferPtr in
+                bufferPtr.baseAddress!.advanced(by: offset + 4).withMemoryRebound(to: DWORD.self, capacity: 1) { $0.pointee }
+            }
+            
+            let fileNameLength = buffer.withUnsafeBufferPointer { bufferPtr in
+                bufferPtr.baseAddress!.advanced(by: offset + 8).withMemoryRebound(to: DWORD.self, capacity: 1) { $0.pointee }
+            }
+            
+            // Ensure we have enough bytes for the filename
+            let fileNameStart = offset + 12
+            let fileNameEnd = fileNameStart + Int(fileNameLength)
+            guard fileNameEnd <= bytesReturned else { break }
+            
+            // Extract the wide character filename and convert to String
+            let fileName = buffer.withUnsafeBufferPointer { bufferPtr in
+                let wideCharPtr = bufferPtr.baseAddress!.advanced(by: fileNameStart).withMemoryRebound(to: UInt16.self, capacity: Int(fileNameLength / 2)) { $0 }
+                let wideCharCount = Int(fileNameLength / 2)
+                
+                // Create a String from the UTF-16 encoded wide characters
+                return String(utf16CodeUnits: wideCharPtr, count: wideCharCount)
+            }
+            
+            results.append((action, fileName))
+            
+            // Move to the next record
+            if nextEntryOffset == 0 {
+                break // This was the last record
+            }
+            offset += Int(nextEntryOffset)
+        }
+        
+        return results
+    }
+    
+    /// Converts a Windows file notification action code to a human-readable description.
+    private func actionDescription(for action: DWORD) -> String {
+        switch action {
+        case DWORD(FILE_ACTION_ADDED):
+            return "File added"
+        case DWORD(FILE_ACTION_REMOVED):
+            return "File removed"
+        case DWORD(FILE_ACTION_MODIFIED):
+            return "File modified"
+        case DWORD(FILE_ACTION_RENAMED_OLD_NAME):
+            return "File renamed (old name)"
+        case DWORD(FILE_ACTION_RENAMED_NEW_NAME):
+            return "File renamed (new name)"
+        default:
+            return "Unknown action (\(action))"
+        }
+    }
+}
+
+enum WindowsFileWatcherError: Error {
+    case cannotOpenDirectory(path: String, errorCode: DWORD)
 }
 
 #endif
