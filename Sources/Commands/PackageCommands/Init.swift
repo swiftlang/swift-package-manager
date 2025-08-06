@@ -38,8 +38,6 @@ extension SwiftPackageCommand {
         @Option(
             name: .customLong("type"),
             help: ArgumentHelp("Specifies the package type or template.", discussion: """
-                Valid values include:
-
                 library           - A package with a library.
                 executable        - A package with an executable.
                 tool              - A package with an executable that uses
@@ -49,7 +47,7 @@ extension SwiftPackageCommand {
                 command-plugin    - A package that vends a command plugin.
                 macro             - A package that vends a macro.
                 empty             - An empty package with a Package.swift manifest.
-                <custom>          - When used with --path, --url, or --package-id,
+                custom            - When used with --path, --url, or --package-id,
                                     this resolves to a template from the specified 
                                     package or location.
                 """))
@@ -247,10 +245,12 @@ extension SwiftPackageCommand {
                 throw ValidationError("The specified template path does not exist: \(dir.pathString)")
             }
 
-            // Use a transitive staging directory
+            // Use a transitive staging directory for building
             let tempDir = try swiftCommandState.fileSystem.tempDirectory.appending(component: UUID().uuidString)
             let stagingPackagePath = tempDir.appending(component: "generated-package")
-            let buildDir = tempDir.appending(component: ".build")
+
+            // Use a directory for cleaning dependencies post build
+            let cleanUpPath = tempDir.appending(component: "clean-up")
 
             try swiftCommandState.fileSystem.createDirectory(tempDir)
             defer {
@@ -364,10 +364,17 @@ extension SwiftPackageCommand {
             if swiftCommandState.fileSystem.exists(cwd) {
                 try swiftCommandState.fileSystem.removeFileTree(cwd)
             }
-            try swiftCommandState.fileSystem.copy(from: stagingPackagePath, to: cwd)
+
+            try swiftCommandState.fileSystem.copy(from: stagingPackagePath, to: cleanUpPath)
+
+            let _ = try await swiftCommandState
+                .withTemporaryWorkspace(switchingTo: cleanUpPath) { _, _ in
+                    try swiftCommandState.getActiveWorkspace().clean(observabilityScope: swiftCommandState.observabilityScope)
+            }
+
+            try swiftCommandState.fileSystem.copy(from: cleanUpPath, to: cwd)
 
             // Restore cwd for build
-
             if validatePackage {
                 try await TemplateBuildSupport.build(
                     swiftCommandState: swiftCommandState,

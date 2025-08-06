@@ -307,10 +307,8 @@ public final class InitTemplatePackage {
 
         for command in commands {
             print("""
-            • \(command.commandName)
               Name: \(command.commandName)
               About: \(command.abstract ?? "")
-
             """)
         }
 
