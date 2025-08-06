@@ -19,11 +19,11 @@ import Testing
 import TSCTestSupport
 import SPMBuildCore
 
-public func expectMatch(_ value: String, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
-    #expect(pattern ~= value, "Expected match for '\(value)' with pattern '\(pattern)'")
+public func expectMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
+    #expect(pattern ~= value, "Expected match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
 }
-public func expectNoMatch(_ value: String, _ pattern: StringPattern, file: StaticString = #file, line: UInt = #line) {
-    #expect(!(pattern ~= value), "Expected no match for '\(value)' with pattern '\(pattern)'")
+public func expectNoMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
+    #expect(!(pattern ~= value), "Expected no match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
 }
 
 // Should be replaced by https://github.com/swiftlang/swift-package-manager/pull/8993/files#diff-150cbfd25c6baadfd6b02914bfa68513168ae042a0b01c89bf326b2429ba242a
@@ -39,20 +39,41 @@ public func expectFileExists(
     )
 }
 
+public func expectNoSuchPath(
+    _ path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    #expect(
+        !localFileSystem.exists(path),
+        "Expected no such path '\(path)'",
+        sourceLocation: sourceLocation
+    )
+}
+
+public func expectDirectoryExists(
+    _ path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    #expect(
+        localFileSystem.isDirectory(path),
+        "Expected directory at '\(path)'",
+        sourceLocation: sourceLocation
+    )
+}
+
 public func expectBuilds(
     _ path: AbsolutePath,
+    buildSystem: BuildSystemProvider.Kind,
     configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    file: StaticString = #file,
-    line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    sourceLocation: SourceLocation = #_sourceLocation,
 ) async {
     for conf in configurations {
-        await #expect(throws: Never.self) {
+        await #expect(throws: Never.self, sourceLocation: sourceLocation) {
             try await executeSwiftBuild(
                 path,
                 configuration: conf,
@@ -68,6 +89,14 @@ public func expectBuilds(
 }
 
 struct InitTests {
+
+    static let targetTriple: Triple = {
+        do {
+            return try UserToolchain.default.targetTriple
+        } catch {
+            fatalError("Failed to determine target triple: \(error)")
+        }
+    }()
 
     // MARK: TSCBasic package creation for each package type.
 
@@ -105,7 +134,8 @@ struct InitTests {
         }
     }
 
-    @Test func initPackageExecutable() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild]) 
+    func initPackageExecutable(buildSystem: BuildSystemProvider.Kind) async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -137,19 +167,25 @@ struct InitTests {
             expectMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             #expect(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")) == ["Foo.swift"])
-            await expectBuilds(path, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
-#if os(Windows)
-            expectFileExists(at: binPath.appending("Foo.exe"))
-#else
-            expectFileExists(at: binPath.appending("Foo"))
-#endif
-            expectFileExists(at: binPath.appending(components: "Modules", "Foo.swiftmodule"))
+
+            await expectBuilds(path, buildSystem: buildSystem)
+
+            // Assert that the expected build products exist
+            let expectedPath = path
+                .appending(components: ".build", Self.targetTriple.platformBuildPathComponent)
+                .appending(components: buildSystem.binPathSuffixes(for: BuildConfiguration.debug))
+
+            expectFileExists(at: expectedPath.appending(executableName("Foo")))
+            if buildSystem == .native {
+                expectFileExists(at: expectedPath.appending("Modules", "Foo.swiftmodule"))
+            } else {
+                expectFileExists(at: expectedPath.appending("Foo.swiftmodule"))
+            }
         }
     }
 
-    @Test func initPackageExecutableCalledMain() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackageExecutableCalledMain(buildSystem: BuildSystemProvider.Kind) async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("main")
@@ -166,12 +202,12 @@ struct InitTests {
             try initPackage.writePackageStructure()
 
             #expect(try fs.getDirectoryContents(path.appending("Sources").appending("main")) == ["MainEntrypoint.swift"])
-            await expectBuilds(path, buildSystem: .native)
+            await expectBuilds(path, buildSystem: buildSystem)
         }
     }
 
-    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool])
-    func initPackageLibraryWithXCTestOnly(packageType: InitPackage.PackageType) async throws {
+    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackageLibraryWithXCTestOnly(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -217,14 +253,29 @@ struct InitTests {
             expectMatch(testFileContents, .contains("func testExample() throws"))
 
             // Try building it
-            await expectBuilds(path, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            expectFileExists(at: path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            await expectBuilds(path, buildSystem: buildSystem)
+
+            // Assert that the expected build products exist
+            let expectedPath = path
+                .appending(components: ".build", Self.targetTriple.platformBuildPathComponent)
+                .appending(components: buildSystem.binPathSuffixes(for: BuildConfiguration.debug))
+
+            switch packageType {
+                case .library:
+                    if buildSystem == .native {
+                        expectFileExists(at: expectedPath.appending("Modules", "Foo.swiftmodule"))
+                    } else {
+                        expectFileExists(at: expectedPath.appending("Foo.swiftmodule"))
+                    }
+                case .executable, .tool:
+                    expectFileExists(at: expectedPath.appending(executableName("Foo")))
+                default: Issue.record("Unsupported package type for this test: \(packageType)")
+            }
         }
     }
 
-    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool])
-    func initPackagesWithSwiftTestingOnly(packageType: InitPackage.PackageType) async throws {
+    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackagesWithSwiftTestingOnly(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -254,15 +305,14 @@ struct InitTests {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await expectBuilds(path, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            expectFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            await expectBuilds(path, buildSystem: buildSystem)
+            expectFileExists(path.appending(components: ".build", Self.targetTriple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
     }
 
-    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool])
-    func initPackageWithBothSwiftTestingAndXCTest(packageType: InitPackage.PackageType) async throws {
+    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackageWithBothSwiftTestingAndXCTest(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -292,15 +342,14 @@ struct InitTests {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await expectBuilds(path, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            expectFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            await expectBuilds(path, buildSystem: buildSystem)
+            expectFileExists(path.appending(components: ".build", Self.targetTriple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
     }
 
-    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool])
-    func initPackageWithNoTests(packageType: InitPackage.PackageType) async throws {
+    @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackageWithNoTests(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -323,13 +372,12 @@ struct InitTests {
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             expectNoMatch(manifestContents, .contains(#".testTarget"#))
 
-            XCTAssertNoSuchPath(path.appending("Tests"))
+            expectNoSuchPath(path.appending("Tests"))
 
 #if canImport(TestingDisabled)
             // Try building it
-            await expectBuilds(path, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            expectFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            await expectBuilds(path, buildSystem: buildSystem)
+            expectFileExists(path.appending(components: ".build", Self.targetTriple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
     }
@@ -405,15 +453,16 @@ struct InitTests {
 
     // MARK: Special case testing
 
-    @Test func initPackageNonc99Directory() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func initPackageNonc99Directory(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertDirectoryExists(tempDirPath)
+            expectDirectoryExists(tempDirPath)
 
             // Create a directory with non c99name.
             let packageRoot = tempDirPath.appending("some-package")
             let packageName = packageRoot.basename
             try localFileSystem.createDirectory(packageRoot)
-            XCTAssertDirectoryExists(packageRoot)
+            expectDirectoryExists(packageRoot)
 
             // Create the package
             let initPackage = try InitPackage(
@@ -426,19 +475,28 @@ struct InitTests {
             try initPackage.writePackageStructure()
 
             // Try building it.
-            await expectBuilds(packageRoot, buildSystem: .native)
-            let triple = try UserToolchain.default.targetTriple
-            expectFileExists(at: packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
+            await expectBuilds(packageRoot, buildSystem: buildSystem)
+
+            // Assert that the expected build products exist
+            let expectedPath = packageRoot
+                .appending(components: ".build", Self.targetTriple.platformBuildPathComponent)
+                .appending(components: buildSystem.binPathSuffixes(for: BuildConfiguration.debug))
+            if buildSystem == .native {
+                expectFileExists(at: expectedPath.appending("Modules", "some_package.swiftmodule"))
+            } else {
+                expectFileExists(at: expectedPath.appending("some_package.swiftmodule"))
+            }
         }
     }
 
-    @Test func nonC99NameExecutablePackage() async throws {
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func nonC99NameExecutablePackage(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-            XCTAssertDirectoryExists(tempDirPath)
+            expectDirectoryExists(tempDirPath)
 
             let packageRoot = tempDirPath.appending("Foo")
             try localFileSystem.createDirectory(packageRoot)
-            XCTAssertDirectoryExists(packageRoot)
+            expectDirectoryExists(packageRoot)
 
             // Create package with non c99name.
             let initPackage = try InitPackage(
@@ -449,7 +507,7 @@ struct InitTests {
             )
             try initPackage.writePackageStructure()
 
-            await expectBuilds(packageRoot, buildSystem: .native)
+            await expectBuilds(packageRoot, buildSystem: buildSystem)
         }
     }
 
