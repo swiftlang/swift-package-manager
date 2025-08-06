@@ -542,8 +542,13 @@ public struct BuildOptions: ParsableArguments {
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
-        // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+        switch self._buildSystem {
+        case .swiftbuild, .xcode:
+            return self._buildSystem
+        case .native:
+            // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
+            return self.architectures.count > 1 ? .xcode : .native
+        }
     }
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
