@@ -345,12 +345,15 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         // FIXME: This should really happen at the command-level and is just a stopgap measure.
         let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
             .result != .failed
+
+        let commandName = command.name
+
         self.queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
+            if let buffer = self.nonSwiftMessageBuffers[commandName], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
-                self.nonSwiftMessageBuffers[command.name] = nil
+                self.nonSwiftMessageBuffers[commandName] = nil
             }
         }
 
@@ -362,13 +365,13 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the
             // target to provide advice about.
             self.queue.async {
-                guard let target = self.swiftParsers[command.name]?.targetName else { return }
+                guard let target = self.swiftParsers[commandName]?.targetName else { return }
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
                 for errorMessage in errorMessages {
                     // Emit any advice that's provided for each error message.
                     if let adviceMessage = self.buildExecutionContext.buildErrorAdviceProvider?.provideBuildErrorAdvice(
                         for: target,
-                        command: command.name,
+                        command: commandName,
                         message: errorMessage
                     ) {
                         self.outputStream.send("note: \(adviceMessage)\n")
