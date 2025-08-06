@@ -51,33 +51,29 @@ enum TemplateBuildSupport {
     ) async throws {
 
 
-        let buildSystem = try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+        let buildSystem = try await swiftCommandState.withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
 
-                try await swiftCommandState.createBuildSystem(
-                    explicitProduct: buildOptions.product,
-                    traitConfiguration: .init(traitOptions: buildOptions.traits),
-                    shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
-                    productsBuildParameters: swiftCommandState.productsBuildParameters,
-                    toolsBuildParameters: swiftCommandState.toolsBuildParameters,
-                    outputStream: TSCBasic.stdoutStream
-                )
-            }
+            try await swiftCommandState.createBuildSystem(
+                explicitProduct: buildOptions.product,
+                traitConfiguration: .init(traitOptions: buildOptions.traits),
+                shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
+                productsBuildParameters: swiftCommandState.productsBuildParameters,
+                toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+                outputStream: TSCBasic.stdoutStream
+            )
+        }
 
         guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
 
-
-
-        try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
-                do {
-                    try await buildSystem.build(subset: subset)
-                } catch _ as Diagnostics {
-                    throw ExitCode.failure
-                }
+        try await swiftCommandState.withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+            do {
+                try await buildSystem.build(subset: subset)
+            } catch _ as Diagnostics {
+                throw ExitCode.failure
             }
+        }
     }
 
     static func buildForTesting(
