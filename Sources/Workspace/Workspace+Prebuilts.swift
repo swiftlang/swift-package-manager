@@ -165,7 +165,6 @@ extension Workspace {
         public typealias Delegate = PrebuiltsManagerDelegate
 
         private let fileSystem: FileSystem
-        private let swiftVersion: String
         private let authorizationProvider: AuthorizationProvider?
         private let httpClient: HTTPClient
         private let archiver: Archiver
@@ -175,15 +174,16 @@ extension Workspace {
         private let hashAlgorithm: HashAlgorithm = SHA256()
         private let prebuiltsDownloadURL: URL
         private let rootCertPath: AbsolutePath?
+        private let customSwiftCompilerVersion: String?
         let hostPlatform: PrebuiltsManifest.Platform
 
         init(
             fileSystem: FileSystem,
             hostPlatform: PrebuiltsManifest.Platform,
-            swiftCompilerVersion: String,
             authorizationProvider: AuthorizationProvider?,
             scratchPath: AbsolutePath,
             cachePath: AbsolutePath?,
+            customSwiftCompilerVersion: String?,
             customHTTPClient: HTTPClient?,
             customArchiver: Archiver?,
             delegate: Delegate?,
@@ -192,9 +192,9 @@ extension Workspace {
         ) {
             self.fileSystem = fileSystem
             self.hostPlatform = hostPlatform
-            self.swiftVersion = swiftCompilerVersion
             self.authorizationProvider = authorizationProvider
             self.httpClient = customHTTPClient ?? HTTPClient()
+            self.customSwiftCompilerVersion = customSwiftCompilerVersion
 
 #if os(Linux)
             self.archiver = customArchiver ?? TarArchiver(fileSystem: fileSystem)
@@ -276,10 +276,15 @@ extension Workspace {
         }
 
         func downloadManifest(
+            workspace: Workspace,
             package: PrebuiltPackage,
             version: Version,
             observabilityScope: ObservabilityScope
         ) async throws -> PrebuiltsManifest? {
+            guard let swiftVersion = customSwiftCompilerVersion ?? workspace.hostToolchain.swiftCompilerVersion else {
+                return nil
+            }
+
             let manifestFile = swiftVersion + "-manifest.json"
             let manifestPath = try RelativePath(validating: "\(package.identity)/\(version)/\(manifestFile)")
             let destination = scratchPath.appending(manifestPath)
@@ -418,12 +423,17 @@ extension Workspace {
         }
 
         func downloadPrebuilt(
+            workspace: Workspace,
             package: PrebuiltPackage,
             version: Version,
             library: PrebuiltsManifest.Library,
             artifact: PrebuiltsManifest.Library.Artifact,
             observabilityScope: ObservabilityScope
         ) async throws -> AbsolutePath? {
+            guard let swiftVersion = customSwiftCompilerVersion ?? workspace.hostToolchain.swiftCompilerVersion else {
+                return nil
+            }
+
             let artifactName = "\(swiftVersion)-\(library.name)-\(artifact.platform.rawValue)"
             let scratchDir = scratchPath.appending(components: package.identity.description, version.description)
 
@@ -597,6 +607,7 @@ extension Workspace {
                 let packageVersion = manifest.manifest.version,
                 let prebuiltManifest = try await prebuiltsManager
                     .downloadManifest(
+                        workspace: self,
                         package: prebuilt,
                         version: packageVersion,
                         observabilityScope: observabilityScope
@@ -611,6 +622,7 @@ extension Workspace {
                 for artifact in library.artifacts ?? [] where artifact.platform == hostPlatform {
                     if let path = try await prebuiltsManager
                         .downloadPrebuilt(
+                            workspace: self,
                             package: prebuilt,
                             version: packageVersion,
                             library: library,
