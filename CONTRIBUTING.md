@@ -96,6 +96,40 @@ swift build
 swift test
 ```
 
+## Developing in the Linux devcontainer
+
+SwiftPM includes a devcontainer configuration that allows you to develop in a containerized environment with VS Code. This approach provides a consistent development environment with all necessary dependencies pre-installed, regardless of your host operating system.
+
+### Prerequisites
+
+1. Install [Visual Studio Code](https://code.visualstudio.com/)
+2. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VS Code
+3. Install [Docker](https://www.docker.com/products/docker-desktop/) on your system
+
+### Opening the Project in a Container
+
+1. Clone the SwiftPM repository (if you haven't already)
+2. Open the SwiftPM folder in VS Code
+3. VS Code will detect the devcontainer configuration and prompt you to "Reopen in Container". Click this button to start building and opening the container
+   - Alternatively, you can press `F1`, type "Dev Containers: Reopen in Container", and press Enter
+4. Wait for the container to build and initialize (this may take a few minutes the first time)
+
+### What's Included in the Dev Container
+
+The SwiftPM devcontainer is based on the `swiftlang/swift:nightly-main` Docker image and includes:
+
+- Swift nightly build from the main branch
+- Git
+- Common development utilities
+- VS Code Swift extension for syntax highlighting and language support
+- Debugging support with LLDB
+
+### Building and Testing in the Container
+
+Once you've opened the project in VS Code, choose `> Dev Containers: Build and Reopen in Container` from the command pallete. Once the container finishes building it will open and you can develop as if you are on Linux using VS Code.
+
+All the commands described in the "Local Development" section below will work in the container environment.
+
 ## Local Development
 
 With a Swift toolchain installed and the SwiftPM code cloned, you are ready to make changes and test them locally.
