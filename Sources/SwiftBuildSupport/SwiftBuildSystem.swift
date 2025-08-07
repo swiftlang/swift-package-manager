@@ -109,7 +109,9 @@ func withSession(
     }
 }
 
-private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sendable {
+package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
+    package init() {}
+    
     public func provisioningTaskInputs(
         targetGUID: String,
         provisioningSourceData: SWBProvisioningTaskInputsSourceData
@@ -194,7 +196,7 @@ public struct PluginConfiguration {
 }
 
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
-    private let buildParameters: BuildParameters
+    package let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
     private let packageManagerResourcesDirectory: Basics.AbsolutePath?
     private let logLevel: Basics.Diagnostic.Severity
@@ -349,7 +351,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             )
         }
 
-        try await writePIF(buildParameters: buildParameters)
+        try await writePIF()
 
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
@@ -545,7 +547,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate()
+                        delegate: SwiftBuildSystemPlanningOperationDelegate()
                     )
 
                     var buildState = BuildState()
@@ -631,7 +633,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, genSymbolGraph: Bool) async throws -> SwiftBuild.SWBBuildParameters {
+    package func makeBuildParameters(session: SWBBuildServiceSession, genSymbolGraph: Bool) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -767,8 +769,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             buildProductsPath: ddPathPrefix + "/Products",
             buildIntermediatesPath: ddPathPrefix + "/Intermediates.noindex",
             pchPath: ddPathPrefix + "/PCH",
-            indexRegularBuildProductsPath: nil,
-            indexRegularBuildIntermediatesPath: nil,
+            indexRegularBuildProductsPath: ddPathPrefix + "/Index/Products",
+            indexRegularBuildIntermediatesPath: ddPathPrefix + "/Index/Intermediates.noindex",
             indexPCHPath: ddPathPrefix,
             indexDataStoreFolderPath: ddPathPrefix,
             indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
@@ -902,7 +904,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    public func writePIF(buildParameters: BuildParameters) async throws {
+    public func writePIF() async throws {
+        pifBuilder = .init()
+        packageGraph = .init()
         let pifBuilder = try await getPIFBuilder()
         let pif = try await pifBuilder.generatePIF(
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
@@ -910,6 +914,27 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
 
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
+    }
+
+    package struct LongLivedBuildServiceSession {
+        package var session: SWBBuildServiceSession
+        package var diagnostics: [SwiftBuildMessage.DiagnosticInfo]
+        package var teardownHandler: () async throws -> Void
+    }
+
+    package func createLongLivedSession(name: String) async throws -> LongLivedBuildServiceSession {
+        let service = try await SWBBuildService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint))
+        do {
+            let (session, diagnostics) = try await createSession(service: service, name: name, toolchainPath: buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: packageManagerResourcesDirectory)
+            let teardownHandler = {
+                try await session.close()
+                await service.close()
+            }
+            return LongLivedBuildServiceSession(session: session, diagnostics: diagnostics, teardownHandler: teardownHandler)
+        } catch {
+            await service.close()
+            throw error
+        }
     }
 
     public func cancel(deadline: DispatchTime) throws {}

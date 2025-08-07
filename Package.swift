@@ -575,6 +575,23 @@ let package = Package(
             ]
         ),
 
+        // MARK: BSP
+        .target(
+            name: "SwiftPMBuildServer",
+            dependencies: [
+                "Basics",
+                "Build",
+                "PackageGraph",
+                "PackageLoading",
+                "PackageModel",
+                "SPMBuildCore",
+                "SourceControl",
+                "SourceKitLSPAPI",
+                "SwiftBuildSupport",
+                .product(name: "SWBBuildServerProtocol", package: "swift-build"),
+            ] + swiftTSCBasicsDeps
+        ),
+
         // MARK: Commands
 
         .target(
@@ -613,6 +630,7 @@ let package = Package(
                 "XCBuildSupport",
                 "SwiftBuildSupport",
                 "SwiftFixIt",
+                "SwiftPMBuildServer",
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -1051,6 +1069,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
                 "Workspace",
                 "dummy-swiftc",
+            ]
+        ),
+        .testTarget(
+            name: "SwiftPMBuildServerTests",
+            dependencies: [
+                "SwiftPMBuildServer",
+                "_InternalTestSupport",
+                .product(name: "SWBBuildServerProtocol", package: "swift-build"),
             ]
         ),
     ])
