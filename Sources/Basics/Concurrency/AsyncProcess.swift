@@ -524,8 +524,15 @@ package final class AsyncProcess {
         process.executableURL = executablePath.asURL
         process.environment = .init(self.environment)
 
-        let stdinPipe = Pipe()
-        process.standardInput = stdinPipe
+        let stdinPipe: Pipe?
+        if self.inputRedirection.redirectsInput {
+            stdinPipe = Pipe()
+            process.standardInput = stdinPipe
+        } else {
+            // On Windows, explicitly inherit the current process's stdin
+            process.standardInput = FileHandle.standardInput
+            stdinPipe = nil
+        }
 
         let group = DispatchGroup()
 
@@ -588,7 +595,12 @@ package final class AsyncProcess {
         }
 
         try process.run()
-        return stdinPipe.fileHandleForWriting
+        if let stdinPipe {
+            return stdinPipe.fileHandleForWriting
+        } else {
+            // For .none input redirection, return a null stream that discards all writes
+            return NullWritableByteStream()
+        }
         #elseif(!canImport(Darwin) || os(macOS))
         // Initialize the spawn attributes.
         #if os(Android)
@@ -1394,6 +1406,23 @@ extension FileHandle: WritableByteStream {
 
     package func flush() {
         synchronizeFile()
+    }
+}
+
+/// A WritableByteStream that discards all data written to it (like /dev/null on Unix)
+private final class NullWritableByteStream: WritableByteStream {
+    var position: Int = 0
+    
+    func write(_ byte: UInt8) {
+        position += 1
+    }
+    
+    func write(_ bytes: some Collection<UInt8>) {
+        position += bytes.count
+    }
+    
+    func flush() {
+        // Nothing to flush for a null stream
     }
 }
 #endif
