@@ -15,51 +15,7 @@ import _InternalTestSupport
 import PackageModel
 import Workspace
 import Testing
-
-import TSCTestSupport
 import SPMBuildCore
-
-public func expectMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
-    #expect(pattern ~= value, "Expected match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
-}
-public func expectNoMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
-    #expect(!(pattern ~= value), "Expected no match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
-}
-
-// Should be replaced by https://github.com/swiftlang/swift-package-manager/pull/8993/files#diff-150cbfd25c6baadfd6b02914bfa68513168ae042a0b01c89bf326b2429ba242a
-// when it is merged.
-public func expectFileExists(
-    at path: AbsolutePath,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
-    #expect(
-        localFileSystem.exists(path),
-        "Files '\(path)' does not exist.",
-        sourceLocation: sourceLocation,
-    )
-}
-
-public func expectNoSuchPath(
-    _ path: AbsolutePath,
-    sourceLocation: SourceLocation = #_sourceLocation
-) {
-    #expect(
-        !localFileSystem.exists(path),
-        "Expected no such path '\(path)'",
-        sourceLocation: sourceLocation
-    )
-}
-
-public func expectDirectoryExists(
-    _ path: AbsolutePath,
-    sourceLocation: SourceLocation = #_sourceLocation
-) {
-    #expect(
-        localFileSystem.isDirectory(path),
-        "Expected directory at '\(path)'",
-        sourceLocation: sourceLocation
-    )
-}
 
 public func expectBuilds(
     _ path: AbsolutePath,

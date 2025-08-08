@@ -10,12 +10,19 @@
 
 import Basics
 import Testing
+import TSCTestSupport
 
+// MARK: File Helpers
+
+/// Verifies that a file exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for file existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-
     #expect(
         localFileSystem.exists(path),
         "Files '\(path)' does not exist.",
@@ -23,7 +30,47 @@ public func expectFileExists(
     )
 }
 
+/// Verifies that no file or directory exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for non-existence.
+///   - sourceLocation: The source location where the expectation is made.
+public func expectNoSuchPath(
+    _ path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    #expect(
+        !localFileSystem.exists(path),
+        "Expected no such path '\(path)'",
+        sourceLocation: sourceLocation
+    )
+}
 
+/// Verifies that a directory exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for directory existence.
+///   - sourceLocation: The source location where the expectation is made.
+public func expectDirectoryExists(
+    _ path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    #expect(
+        localFileSystem.isDirectory(path),
+        "Expected directory at '\(path)'",
+        sourceLocation: sourceLocation
+    )
+}
+
+// MARK: Error Helpers
+
+/// Verifies that an expression throws a `CommandExecutionError`.
+///
+/// - Parameters:
+///   - expression: The expression to evaluate.
+///   - message: An optional description of the failure.
+///   - sourceLocation: The source location where the expectation is made.
+///   - errorHandler: A closure that's called with the error if the expression throws.
 public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment = "",
@@ -42,6 +89,12 @@ public func expectThrowsCommandExecutionError<T>(
 }
 
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
+///
+/// - Parameters:
+///   - expression: The expression to evaluate.
+///   - message: An optional description of the failure.
+///   - sourceLocation: The source location where the expectation is made.
+///   - errorHandler: A closure that's called with the error if the expression throws.
 public func expectAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment? = nil,
@@ -55,3 +108,26 @@ public func expectAsyncThrowsError<T>(
         errorHandler(error)
     }
 }
+
+// MARK: String Pattern Matching Helpers
+
+/// Verifies that a string matches a pattern.
+///
+/// - Parameters:
+///   - value: The string to test.
+///   - pattern: The pattern to match against.
+///   - sourceLocation: The source location where the expectation is made.
+public func expectMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
+    #expect(pattern ~= value, "Expected match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
+}
+
+/// Verifies that a string does not match a pattern.
+///
+/// - Parameters:
+///   - value: The string to test.
+///   - pattern: The pattern to match against.
+///   - sourceLocation: The source location where the expectation is made.
+public func expectNoMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
+    #expect(!(pattern ~= value), "Expected no match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
+}
+
