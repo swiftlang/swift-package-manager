@@ -29,6 +29,7 @@ import PackageGraph
 
 extension SwiftPackageCommand {
     struct Init: AsyncSwiftCommand {
+
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package.")
 
@@ -67,19 +68,6 @@ extension SwiftPackageCommand {
 
         @OptionGroup(visibility: .hidden)
         var buildOptions: BuildCommandOptions
-
-        /// The type of template to use: `registry`, `git`, or `local`.
-        var templateSource: InitTemplatePackage.TemplateSource? {
-            if templateDirectory != nil {
-                .local
-            } else if templateURL != nil {
-                .git
-            } else if templatePackageID != nil {
-                .registry
-            } else {
-                nil
-            }
-        }
 
         /// Path to a local template.
         @Option(name: .customLong("path"), help: "Path to the local template.", completion: .directory)
@@ -133,290 +121,68 @@ extension SwiftPackageCommand {
         var createPackagePath = true
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directory")
-            }
-
-            let packageName = self.packageName ?? cwd.basename
-
-            // Check for template init path
-            if let _ = templateSource {
-                // When a template source is provided:
-                // - If the user gives a known type, it's probably a misuse
-                // - If the user gives an unknown value for --type, treat it as the name of the template
-                // - If --type is missing entirely, assume the package has a single template
-                try await initTemplate(swiftCommandState)
-                return
-            } else {
-                guard let initModeString = self.initMode else {
-                    throw ValidationError("Specify a package type using the --type option.")
-                }
-                guard let knownType = InitPackage.PackageType(rawValue: initModeString) else {
-                    throw ValidationError("Package type \(initModeString) not supported")
-                }
-                // Configure testing libraries
-                var supportedTestingLibraries = Set<TestingLibrary>()
-                if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
-                    (knownType == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
-                    supportedTestingLibraries.insert(.xctest)
-                }
-                if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-                    (knownType != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
-                    supportedTestingLibraries.insert(.swiftTesting)
-                }
-
-                let initPackage = try InitPackage(
-                    name: packageName,
-                    packageType: knownType,
-                    supportedTestingLibraries: supportedTestingLibraries,
-                    destinationPath: cwd,
-                    installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
-                    fileSystem: swiftCommandState.fileSystem
-                )
-                initPackage.progressReporter = { message in print(message) }
-                try initPackage.writePackageStructure()
-
-
-            }
-
-        }
-
-
-        public func initTemplate(_ swiftCommandState: SwiftCommandState) async throws {
-            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directory")
-            }
-
-            let packageName = self.packageName ?? cwd.basename
-
-            try await self.runTemplateInit(swiftCommandState: swiftCommandState, packageName: packageName, cwd: cwd)
-
-        }
-
-        /// Runs the package initialization using an author-defined template.
-        private func runTemplateInit(
-            swiftCommandState: SwiftCommandState,
-            packageName: String,
-            cwd: Basics.AbsolutePath
-        ) async throws {
-            guard let source = templateSource else {
-                throw ValidationError("No template source specified.")
-            }
-
-            let manifest = cwd.appending(component: Manifest.filename)
-            guard swiftCommandState.fileSystem.exists(manifest) == false else {
-                throw InitError.manifestAlreadyExists
-            }
-
-
-            let contents = try swiftCommandState.fileSystem.getDirectoryContents(cwd)
-
-            guard contents.isEmpty else {
-                throw InitError.nonEmptyDirectory(contents)
-            }
-
-            let template = initMode
-            let requirementResolver = DependencyRequirementResolver(
-                exact: exact,
-                revision: revision,
-                branch: branch,
-                from: from,
-                upToNextMinorFrom: upToNextMinorFrom,
-                to: to
-            )
-
-            let registryRequirement: PackageDependency.Registry.Requirement? =
-            try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
-
-            let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
-            try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
-
-            let resolvedTemplatePath = try await TemplatePathResolver(
-                source: templateSource,
-                templateDirectory: templateDirectory,
-                templateURL: templateURL,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                packageIdentity: templatePackageID,
-                swiftCommandState: swiftCommandState
-            ).resolve()
-
-            if let dir = templateDirectory, !swiftCommandState.fileSystem.exists(dir) {
-                throw ValidationError("The specified template path does not exist: \(dir.pathString)")
-            }
-
-            // Use a transitive staging directory for building
-            let tempDir = try swiftCommandState.fileSystem.tempDirectory.appending(component: UUID().uuidString)
-            let stagingPackagePath = tempDir.appending(component: "generated-package")
-
-            // Use a directory for cleaning dependencies post build
-            let cleanUpPath = tempDir.appending(component: "clean-up")
-
-            try swiftCommandState.fileSystem.createDirectory(tempDir)
-            defer {
-                try? swiftCommandState.fileSystem.removeFileTree(tempDir)
-            }
-
-            // Determine the type by loading the resolved template
-            let templateInitType = try await swiftCommandState
-                .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
-                    try await self.checkConditions(swiftCommandState, template: template)
-                }
-
-            // Clean up downloaded package after execution.
-            defer {
-                if templateSource == .git {
-                    try? FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
-                } else if templateSource == .registry {
-                    let parentDirectoryURL = resolvedTemplatePath.parentDirectory.asURL
-                    try? FileManager.default.removeItem(at: parentDirectoryURL)
-                }
-            }
-
-            let supportedTemplateTestingLibraries: Set<TestingLibrary> = .init()
-
-            let builder = DefaultPackageDependencyBuilder(
-                templateSource: source,
-                packageName: packageName,
-                templateURL: self.templateURL,
-                templatePackageID: self.templatePackageID
-            )
-
-            let dependencyKind = try builder.makePackageDependency(
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                resolvedTemplatePath: resolvedTemplatePath
-            )
-
-            let initTemplatePackage = try InitTemplatePackage(
-                name: packageName,
-                initMode: dependencyKind,
-                templatePath: resolvedTemplatePath,
-                fileSystem: swiftCommandState.fileSystem,
-                packageType: templateInitType,
-                supportedTestingLibraries: supportedTemplateTestingLibraries,
-                destinationPath: stagingPackagePath,
-                installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
-            )
-
-            try swiftCommandState.fileSystem.createDirectory(stagingPackagePath, recursive: true)
-
-            try initTemplatePackage.setupTemplateManifest()
-
-            // Build once inside the transitive folder
-            try await TemplateBuildSupport.build(
-                swiftCommandState: swiftCommandState,
-                buildOptions: self.buildOptions,
-                globalOptions: self.globalOptions,
-                cwd: stagingPackagePath,
-                transitiveFolder: stagingPackagePath
-            )
-
-            let packageGraph = try await swiftCommandState
-                .withTemporaryWorkspace(switchingTo: stagingPackagePath) { _, _ in
-                    try await swiftCommandState.loadPackageGraph()
-                }
-
             
-            let matchingPlugins = PluginCommand.findPlugins(matching: template, in: packageGraph, limitedTo: nil)
+            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
+                throw InternalError("Could not find the current working directory")
+            } //Should this be refactored?
+            
+            let name = packageName ?? cwd.basename
+            
 
-            guard let commandPlugin = matchingPlugins.first else {
-                guard let template = template
-                else { throw ValidationError("No templates were found in \(packageName)") }
+            var templateSourceResolver: TemplateSourceResolver = DefaultTemplateSourceResolver()
 
-                throw ValidationError("No templates were found that match the name \(template)")
-            }
-
-            guard matchingPlugins.count == 1 else {
-                let templateNames = matchingPlugins.compactMap { module in
-                    let plugin = module.underlying as! PluginModule
-                    guard case .command(let intent, _) = plugin.capability else { return String?.none }
-
-                    return intent.invocationVerb
-                }
-                throw ValidationError(
-                    "More than one template was found in the package. Please use `--type` along with one of the available templates: \(templateNames.joined(separator: ", "))"
-                )
-            }
-
-            let output = try await TemplatePluginRunner.run(
-                plugin: commandPlugin,
-                package: packageGraph.rootPackages.first!,
-                packageGraph: packageGraph,
-                arguments: ["--", "--experimental-dump-help"],
-                swiftCommandState: swiftCommandState
+            let templateSource = templateSourceResolver.resolveSource(
+                directory: templateDirectory,
+                url: templateURL,
+                packageID: templatePackageID
             )
 
-            let toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-            let cliResponses = try initTemplatePackage.promptUser(command: toolInfo.command, arguments: args)
+            if templateSource == nil, let initMode {
+                guard let _ = InitPackage.PackageType(rawValue: initMode) else {
+                    throw ValidationError("Unknown package type: '\(initMode)'")
+                }
+            }
 
-            for response in cliResponses {
-                _ = try await TemplatePluginRunner.run(
-                    plugin: matchingPlugins[0],
-                    package: packageGraph.rootPackages.first!,
-                    packageGraph: packageGraph,
-                    arguments: response,
+            if let source = templateSource {
+                let versionResolver = DependencyRequirementResolver(
+                    exact: exact,
+                    revision: revision,
+                    branch: branch,
+                    from: from,
+                    upToNextMinorFrom: upToNextMinorFrom,
+                    to: to
+                )
+
+                let initializer = TemplatePackageInitializer(
+                    packageName: name,
+                    cwd: cwd,
+                    templateSource: source,
+                    templateName: initMode,
+                    templateDirectory: templateDirectory,
+                    templateURL: templateURL,
+                    templatePackageID: templatePackageID,
+                    versionResolver: versionResolver,
+                    buildOptions: buildOptions,
+                    globalOptions: globalOptions,
+                    validatePackage: validatePackage,
+                    args: args,
                     swiftCommandState: swiftCommandState
                 )
-            }
-
-            // Move finalized package to target cwd
-            if swiftCommandState.fileSystem.exists(cwd) {
-                try swiftCommandState.fileSystem.removeFileTree(cwd)
-            }
-
-            try swiftCommandState.fileSystem.copy(from: stagingPackagePath, to: cleanUpPath)
-
-            let _ = try await swiftCommandState
-                .withTemporaryWorkspace(switchingTo: cleanUpPath) { _, _ in
-                    try swiftCommandState.getActiveWorkspace().clean(observabilityScope: swiftCommandState.observabilityScope)
-            }
-
-            try swiftCommandState.fileSystem.copy(from: cleanUpPath, to: cwd)
-
-            // Restore cwd for build
-            if validatePackage {
-                try await TemplateBuildSupport.build(
-                    swiftCommandState: swiftCommandState,
-                    buildOptions: self.buildOptions,
-                    globalOptions: self.globalOptions,
-                    cwd: cwd
+                try await initializer.run()
+            } else {
+                let initializer = StandardPackageInitializer(
+                    packageName: name,
+                    initMode: initMode,
+                    testLibraryOptions: testLibraryOptions,
+                    cwd: cwd,
+                    swiftCommandState: swiftCommandState
                 )
+                try await initializer.run()
             }
         }
-
-
-
-        /// Validates the loaded manifest to determine package type.
-        private func checkConditions(_ swiftCommandState: SwiftCommandState, template: String?) async throws -> InitPackage.PackageType {
-            let workspace = try swiftCommandState.getActiveWorkspace()
-            let root = try swiftCommandState.getWorkspaceRoot()
-
-            let rootManifests = try await workspace.loadRootManifests(
-                packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope
-            )
-            guard let rootManifest = rootManifests.values.first else {
-                throw InternalError("invalid manifests at \(root.packages)")
-            }
-
-            let products = rootManifest.products
-            let targets = rootManifest.targets
-
-            for _ in products {
-                if let target: TargetDescription = targets.first(where: { template == nil || $0.name == template }) {
-                    if let options = target.templateInitializationOptions {
-                        if case .packageInit(let templateType, _, _) = options {
-                            return try .init(from: templateType)
-                        }
-                    }
-                }
-            }
-            throw ValidationError(
-                "Could not find \(template != nil ? "template \(template!)" : "any templates in the package")"
-            )
+        
+        init() {
         }
-        public init() {}
 
     }
 }
@@ -439,6 +205,27 @@ extension InitPackage.PackageType {
         case .empty:
             self = .empty
         }
+    }
+}
+
+protocol TemplateSourceResolver {
+    func resolveSource(
+        directory: Basics.AbsolutePath?,
+        url: String?,
+        packageID: String?
+    ) -> InitTemplatePackage.TemplateSource?
+}
+
+struct DefaultTemplateSourceResolver: TemplateSourceResolver {
+    func resolveSource(
+        directory: Basics.AbsolutePath?,
+        url: String?,
+        packageID: String?
+    ) -> InitTemplatePackage.TemplateSource? {
+        if directory != nil { return .local }
+        if url != nil { return .git }
+        if packageID != nil { return .registry }
+        return nil
     }
 }
 

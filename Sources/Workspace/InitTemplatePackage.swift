@@ -85,7 +85,7 @@ public final class InitTemplatePackage {
     }
 
     /// The type of template source.
-    public enum TemplateSource: String, CustomStringConvertible, Decodable {
+    public enum TemplateSource: String, CustomStringConvertible {
         case local
         case git
         case registry
