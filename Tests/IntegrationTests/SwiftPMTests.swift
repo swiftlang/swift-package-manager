@@ -82,10 +82,7 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .bug(
-            "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            "[Linux] swift run using --build-system swiftbuild fails to run executable"
-        ),
+        .IssueSwiftBuildLinuxRunnable,
         .bug(
             "https://github.com/swiftlang/swift-package-manager/issues/8514",
             "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"

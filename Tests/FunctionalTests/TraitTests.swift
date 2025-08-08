@@ -29,8 +29,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -73,8 +73,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -126,8 +126,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -139,7 +139,7 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -177,8 +177,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -190,7 +190,7 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -232,8 +232,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -244,7 +244,7 @@ struct TraitTests {
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue("""
-        Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
         """,
         isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
         try await fixture(name: "Traits") { fixturePath in
@@ -274,8 +274,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -286,7 +286,7 @@ struct TraitTests {
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue("""
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild),
@@ -321,8 +321,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -334,7 +334,7 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -377,8 +377,8 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -390,7 +390,7 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)
@@ -495,7 +495,7 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Test,
         ),
@@ -580,7 +580,7 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-build/issues/609"),
+        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Package.Plugin,
         ),
@@ -613,7 +613,7 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+        .IssueSwiftBuildLinuxRunnable,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -625,7 +625,7 @@ struct TraitTests {
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
             try await withKnownIssue("""
-            Linux: .bug("https://github.com/swiftlang/swift-package-manager/issues/8416"),
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             """,
             isIntermittent: true,
             ) {

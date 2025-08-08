@@ -72,10 +72,9 @@ public let xcodebuild: AbsolutePath = {
 package func sh(
     _ arguments: CustomStringConvertible...,
     env: [String: String] = [:],
-    file: StaticString = #file,
-    line: UInt = #line
+    sourceLocation: SourceLocation = #_sourceLocation,
 ) throws -> ShReturnType {
-    let result = try _sh(arguments, env: env, file: file, line: line)
+    let result = try _sh(arguments, env: env)
     let stdout = try result.utf8Output()
     let stderr = try result.utf8stderrOutput()
 
@@ -84,7 +83,8 @@ package func sh(
             .record(
                 Comment(
                     "Command failed with exit code: \(result.exitStatus) - \(result.integrationTests_debugDescription)"
-                )
+                ),
+                sourceLocation: sourceLocation,
             )
     }
 
@@ -95,8 +95,6 @@ package func sh(
 package func _sh(
     _ arguments: [CustomStringConvertible],
     env: [String: String] = [:],
-    file: StaticString = #file,
-    line: UInt = #line
 ) throws -> AsyncProcessResult {
     var environment = Environment()
 
