@@ -62,17 +62,17 @@ extension Target {
         var visited = Set<Target.ID>()
         func dependencyClosure(for target: Target) -> [Target] {
             guard visited.insert(target.id).inserted else { return [] }
-            return target.dependencies.flatMap{ dependencyClosure(for: $0) } + [target]
+            return target.dependencies.flatMap { dependencyClosure(for: $0) } + [target]
         }
         func dependencyClosure(for dependency: TargetDependency) -> [Target] {
             switch dependency {
             case .target(let target):
                 return dependencyClosure(for: target)
             case .product(let product):
-                return product.targets.flatMap{ dependencyClosure(for: $0) }
+                return product.targets.flatMap { dependencyClosure(for: $0) }
             }
         }
-        return self.dependencies.flatMap{ dependencyClosure(for: $0) }
+        return self.dependencies.flatMap { dependencyClosure(for: $0) }
     }
 
     /// Convenience accessor which casts the receiver to`SourceModuleTarget`, if possible.
@@ -98,6 +98,6 @@ extension SourceModuleTarget {
     /// A possibly empty list of source files in the target that have the given
     /// filename suffix.
     public func sourceFiles(withSuffix suffix: String) -> FileList {
-        return FileList(self.sourceFiles.filter{ $0.url.lastPathComponent.hasSuffix(suffix) })
+        return FileList(self.sourceFiles.filter { $0.url.lastPathComponent.hasSuffix(suffix) })
     }
 }

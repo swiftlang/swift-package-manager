@@ -70,7 +70,7 @@ extension PackageFingerprintStorage {
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType,
         observabilityScope: ObservabilityScope
-    ) throws -> Fingerprint{
+    ) throws -> Fingerprint {
         let fingerprints = try self.get(
             package: package,
             version: version,
@@ -88,14 +88,16 @@ extension PackageFingerprintStorage {
         _ fingerprintsByKindResult: Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>,
         callback: @escaping (Result<Fingerprint, Error>) -> Void
     ) {
-        callback(fingerprintsByKindResult.tryMap { fingerprintsByKind in
-            guard let fingerprintsByContentType = fingerprintsByKind[kind],
-                  let fingerprint = fingerprintsByContentType[contentType]
-            else {
-                throw PackageFingerprintStorageError.notFound
+        callback(
+            fingerprintsByKindResult.tryMap { fingerprintsByKind in
+                guard let fingerprintsByContentType = fingerprintsByKind[kind],
+                    let fingerprint = fingerprintsByContentType[contentType]
+                else {
+                    throw PackageFingerprintStorageError.notFound
+                }
+                return fingerprint
             }
-            return fingerprint
-        })
+        )
     }
 }
 

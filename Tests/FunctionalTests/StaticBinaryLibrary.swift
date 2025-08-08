@@ -41,11 +41,13 @@ struct StaticBinaryLibraryTests {
                     extraArgs: ["--experimental-prune-unused-dependencies"],
                     buildSystem: buildData.buildSystem,
                 )
-                #expect(stdout == """
-                42
-                42
+                #expect(
+                    stdout == """
+                        42
+                        42
 
-                """)
+                        """
+                )
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows

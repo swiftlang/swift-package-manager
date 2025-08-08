@@ -198,7 +198,7 @@ struct BuildPlanTraversalTests {
         #expect(moduleDependencies[0].0.name == "MMIOMacros")
         #expect(moduleDependencies[1].0.name == "SwiftSyntax")
 
-        for index in 0 ..< moduleDependencies.count {
+        for index in 0..<moduleDependencies.count {
             #expect(moduleDependencies[index].1 == .host)
             #expect(moduleDependencies[index].2 != nil)
         }
@@ -281,8 +281,10 @@ struct BuildPlanTraversalTests {
             if case .module(let module, let description) = dependency {
                 #expect(description != nil)
                 #expect(description!.destination == .host)
-                #expect(uniqueModules.insert(.init(module: module, destination: description!.destination))
-                    .inserted)
+                #expect(
+                    uniqueModules.insert(.init(module: module, destination: description!.destination))
+                        .inserted
+                )
             }
         }
     }

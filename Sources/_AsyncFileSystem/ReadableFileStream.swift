@@ -89,7 +89,6 @@ package struct RealReadableFileStream: AsyncSequence {
     }
 }
 
-
 /// A stream of file contents backed by an in-memory array of bytes.
 package struct MockReadableFileStream: AsyncSequence {
     package typealias Element = ArraySlice<UInt8>

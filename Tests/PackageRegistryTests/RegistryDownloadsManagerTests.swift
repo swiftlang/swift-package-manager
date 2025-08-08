@@ -49,7 +49,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         let manager = RegistryDownloadsManager(
             fileSystem: fs,
             path: downloadsPath,
-            cachePath: .none, // cache disabled
+            cachePath: .none,  // cache disabled
             registryClient: registry.registryClient,
             delegate: delegate
         )
@@ -85,17 +85,19 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             }
 
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                ]
             )
         }
 
@@ -109,17 +111,19 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                ]
             )
         }
 
@@ -135,19 +139,21 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
-                            (PackageVersion(package: package, version: packageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.willFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                    (PackageVersion(package: package, version: packageVersion)),
+                ]
             )
-            XCTAssertEqual(delegate.didFetch.map { ($0.packageVersion) },
-                           [
-                            (PackageVersion(package: package, version: packageVersion)),
-                            (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
-                            (PackageVersion(package: package, version: packageVersion))
-                           ]
+            XCTAssertEqual(
+                delegate.didFetch.map { ($0.packageVersion) },
+                [
+                    (PackageVersion(package: package, version: packageVersion)),
+                    (PackageVersion(package: unknownPackage, version: unknownPackageVersion)),
+                    (PackageVersion(package: package, version: packageVersion)),
+                ]
             )
         }
     }
@@ -181,7 +187,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         let manager = RegistryDownloadsManager(
             fileSystem: fs,
             path: downloadsPath,
-            cachePath: cachePath, // cache enabled
+            cachePath: cachePath,  // cache enabled
             registryClient: registry.registryClient,
             delegate: delegate
         )
@@ -270,7 +276,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         let manager = RegistryDownloadsManager(
             fileSystem: fs,
             path: downloadsPath,
-            cachePath: .none, // cache disabled
+            cachePath: .none,  // cache disabled
             registryClient: registry.registryClient,
             delegate: delegate
         )
@@ -280,7 +286,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         do {
             let concurrency = 100
             let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
-            let packageVersions = (0 ..< concurrency).map { Version($0, 0 , 0) }
+            let packageVersions = (0..<concurrency).map { Version($0, 0, 0) }
             let packageSource = InMemoryRegistryPackageSource(fileSystem: fs, path: .root.appending(components: "registry", "server", package.description))
             try packageSource.writePackageContent()
 
@@ -318,7 +324,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             let concurrency = 1000
             let repeatRatio = 10
             let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
-            let packageVersions = (0 ..< concurrency / 10).map { Version($0, 0 , 0) }
+            let packageVersions = (0..<concurrency / 10).map { Version($0, 0, 0) }
             let packageSource = InMemoryRegistryPackageSource(fileSystem: fs, path: .root.appending(components: "registry", "server", package.description))
             try packageSource.writePackageContent()
 
@@ -331,10 +337,10 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.reset()
             let results = ThreadSafeKeyValueStore<Version, AbsolutePath>()
             try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< concurrency {
+                for index in 0..<concurrency {
                     group.addTask {
                         delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
-                        let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
+                        let packageVersion = Version(index % (concurrency / repeatRatio), 0, 0)
                         results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
                     }
                 }
@@ -363,8 +369,8 @@ private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManag
 
     public func prepare(fetchExpected: Bool) {
         if fetchExpected {
-            group.enter() // will fetch
-            group.enter() // did fetch
+            group.enter()  // will fetch
+            group.enter()  // did fetch
         }
     }
 

@@ -32,7 +32,8 @@ struct MacroTests {
         .tags(
             Tag.Feature.Command.Build
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        BuildConfiguration.allCases,
     )
     func macrosBasic(
         buildSystem: BuildSystemProvider.Kind,

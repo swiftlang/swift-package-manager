@@ -15,15 +15,13 @@ import Basics
 @testable import Build
 import LLBuildManifest
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 import PackageModel
 import struct SPMBuildCore.BuildParameters
 
 import _InternalBuildTestSupport
-@_spi(SwiftPMInternal)
-import _InternalTestSupport
+@_spi(SwiftPMInternal) import _InternalTestSupport
 
 import Testing
 
@@ -44,9 +42,9 @@ struct LLBuildManifestBuilderTests {
                     displayName: "Pkg",
                     path: .init(validating: pkg.pathString),
                     targets: [
-                        TargetDescription(name: "exe"),
+                        TargetDescription(name: "exe")
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope
         )
@@ -106,23 +104,30 @@ struct LLBuildManifestBuilderTests {
             "C.exe-\(plan.destinationBuildParameters.triple)-debug.exe",
         ]
 
-        #expect(llbuild.manifest.commands.map(\.key).sorted() == (basicDebugCommandNames + [
-            AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
-            entitlementsCommandName,
-        ]).sorted())
+        #expect(
+            llbuild.manifest.commands.map(\.key).sorted()
+                == (basicDebugCommandNames + [
+                    AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist").pathString,
+                    entitlementsCommandName,
+                ]).sorted()
+        )
 
         let entitlementsCommand = try #require(
             llbuild.manifest.commands[entitlementsCommandName]?.tool as? ShellTool,
             "unexpected entitlements command type"
         )
 
-        #expect(entitlementsCommand.inputs == [
-            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
-            .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
-        ])
-        #expect(entitlementsCommand.outputs == [
-            .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning"),
-        ])
+        #expect(
+            entitlementsCommand.inputs == [
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe", isMutated: true),
+                .file("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/exe-entitlement.plist"),
+            ]
+        )
+        #expect(
+            entitlementsCommand.outputs == [
+                .virtual("exe-\(plan.destinationBuildParameters.triple)-debug.exe-CodeSigning")
+            ]
+        )
 
         // Linux, release build
 

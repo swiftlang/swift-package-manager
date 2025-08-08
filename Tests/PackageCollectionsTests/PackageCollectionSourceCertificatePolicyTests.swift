@@ -29,10 +29,12 @@ final class PackageCollectionSourceCertificatePolicyTests: XCTestCase {
                     base64EncodedRootCerts: ["root-cert-1c"]
                 ),
             ],
-            "package-collection-2": [PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
-                certPolicyKey: CertificatePolicyKey.default,
-                base64EncodedRootCerts: ["root-cert-2"]
-            )],
+            "package-collection-2": [
+                PackageCollectionSourceCertificatePolicy.CertificatePolicyConfig(
+                    certPolicyKey: CertificatePolicyKey.default,
+                    base64EncodedRootCerts: ["root-cert-2"]
+                )
+            ],
         ])
         let source1 = Model.CollectionSource(type: .json, url: "https://package-collection-1")
         let unsignedSource = Model.CollectionSource(type: .json, url: "https://package-collection-unsigned")

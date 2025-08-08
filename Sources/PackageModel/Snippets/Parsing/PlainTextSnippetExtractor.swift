@@ -64,20 +64,26 @@ fileprivate extension String {
     /// without changing the relative indentation between lines. This is
     /// useful for re-indenting some inner part of a block of nested code.
     mutating func trimExtraIndentation() {
-        var lines = self.split(separator: "\n", maxSplits: Int.max,
-                               omittingEmptySubsequences: false)
-        lines = Array(lines
-                        .drop(while: { $0.isEmptyOrWhiteSpace })
-                        .reversed()
-                        .drop(while: { $0.isEmptyOrWhiteSpace })
-                        .reversed())
+        var lines = self.split(
+            separator: "\n",
+            maxSplits: Int.max,
+            omittingEmptySubsequences: false
+        )
+        lines = Array(
+            lines
+                .drop(while: { $0.isEmptyOrWhiteSpace })
+                .reversed()
+                .drop(while: { $0.isEmptyOrWhiteSpace })
+                .reversed()
+        )
 
-        let minimumIndentation = lines.map {
-            guard !$0.isEmpty else {
-                return Int.max
-            }
-            return $0.prefix { $0 == " " }.count
-        }.min() ?? 0
+        let minimumIndentation =
+            lines.map {
+                guard !$0.isEmpty else {
+                    return Int.max
+                }
+                return $0.prefix { $0 == " " }.count
+            }.min() ?? 0
 
         guard minimumIndentation > 0 else {
             return
@@ -116,7 +122,8 @@ struct PlainTextSnippetExtractor {
             }
 
             if var comment = line.parsedLineCommentText,
-               comment.starts(with: "!") {
+                comment.starts(with: "!")
+            {
                 comment.removeFirst(1)
                 comment = comment.drop { $0.isWhitespace }
                 if lastExplanationLine.isEmptyOrWhiteSpace && comment.isEmptyOrWhiteSpace {
@@ -137,7 +144,7 @@ struct PlainTextSnippetExtractor {
 
         self.presentationCode
             .removeLeadingAndTrailingNewlines()
-        
+
         self.presentationCode
             .trimExtraIndentation()
     }

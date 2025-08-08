@@ -39,7 +39,10 @@ enum TestingSupport {
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
             // XCTestHelper tool is installed in libexec.
             let maybePath = swiftBuildPath.parentDirectory.parentDirectory.appending(
-                components: "libexec", "swift", "pm", "swiftpm-xctest-helper"
+                components: "libexec",
+                "swift",
+                "pm",
+                "swiftpm-xctest-helper"
             )
             if swiftCommandState.fileSystem.isFile(maybePath) {
                 return maybePath
@@ -59,7 +62,9 @@ enum TestingSupport {
         // This will be true during swiftpm development or when using swift.org toolchains.
         let xcodePath = try AsyncProcess.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
         let installedSwiftBuildPath = try AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--find", "swift-build",
+            args: "/usr/bin/xcrun",
+            "--find",
+            "swift-build",
             environment: ["DEVELOPER_DIR": xcodePath]
         ).spm_chomp()
         if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
@@ -77,18 +82,21 @@ enum TestingSupport {
         experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
     ) throws -> [AbsolutePath: [TestSuite]] {
-        let testSuitesByProduct = try testProducts
-            .map {(
-                $0.bundlePath,
-                try Self.getTestSuites(
-                    fromTestAt: $0.bundlePath,
-                    swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput,
-                    sanitizers: sanitizers
+        let testSuitesByProduct =
+            try testProducts
+            .map {
+                (
+                    $0.bundlePath,
+                    try Self.getTestSuites(
+                        fromTestAt: $0.bundlePath,
+                        swiftCommandState: swiftCommandState,
+                        enableCodeCoverage: enableCodeCoverage,
+                        shouldSkipBuilding: shouldSkipBuilding,
+                        experimentalTestOutput: experimentalTestOutput,
+                        sanitizers: sanitizers
+                    )
                 )
-            )}
+            }
         return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
     }
 
@@ -113,45 +121,45 @@ enum TestingSupport {
         // Run the correct tool.
         var args = [String]()
         #if os(macOS)
-        let data: String = try withTemporaryFile { tempFile in
-            args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
+            let data: String = try withTemporaryFile { tempFile in
+                args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
+                let env = try Self.constructTestEnvironment(
+                    toolchain: try swiftCommandState.getTargetToolchain(),
+                    destinationBuildParameters: swiftCommandState.buildParametersForTest(
+                        enableCodeCoverage: enableCodeCoverage,
+                        shouldSkipBuilding: shouldSkipBuilding,
+                        experimentalTestOutput: experimentalTestOutput
+                    ).productsBuildParameters,
+                    sanitizers: sanitizers,
+                    library: .xctest
+                )
+                try Self.runProcessWithExistenceCheck(
+                    path: path,
+                    fileSystem: swiftCommandState.fileSystem,
+                    args: args,
+                    env: env
+                )
+
+                // Read the temporary file's content.
+                return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
+            }
+        #else
             let env = try Self.constructTestEnvironment(
                 toolchain: try swiftCommandState.getTargetToolchain(),
                 destinationBuildParameters: swiftCommandState.buildParametersForTest(
                     enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput
+                    shouldSkipBuilding: shouldSkipBuilding
                 ).productsBuildParameters,
                 sanitizers: sanitizers,
                 library: .xctest
             )
-            try Self.runProcessWithExistenceCheck(
+            args = [path.description, "--dump-tests-json"]
+            let data = try Self.runProcessWithExistenceCheck(
                 path: path,
                 fileSystem: swiftCommandState.fileSystem,
                 args: args,
                 env: env
             )
-
-            // Read the temporary file's content.
-            return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
-        }
-        #else
-        let env = try Self.constructTestEnvironment(
-            toolchain: try swiftCommandState.getTargetToolchain(),
-            destinationBuildParameters: swiftCommandState.buildParametersForTest(
-                enableCodeCoverage: enableCodeCoverage,
-                shouldSkipBuilding: shouldSkipBuilding
-            ).productsBuildParameters,
-            sanitizers: sanitizers,
-            library: .xctest
-        )
-        args = [path.description, "--dump-tests-json"]
-        let data = try Self.runProcessWithExistenceCheck(
-            path: path,
-            fileSystem: swiftCommandState.fileSystem,
-            args: args,
-            env: env
-        )
         #endif
         // Parse json and return TestSuites.
         return try TestSuite.parse(jsonString: data, context: args.joined(separator: " "))
@@ -219,59 +227,59 @@ enum TestingSupport {
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
         #if !os(macOS)
-        #if os(Windows)
-        if let xctestLocation = toolchain.xctestPath {
-            env.prependPath(key: .path, value: xctestLocation.pathString)
-        }
-        if let swiftTestingLocation = toolchain.swiftTestingPath {
-            env.prependPath(key: .path, value: swiftTestingLocation.pathString)
-        }
-        #endif
-        return env
-        #else
-        // Add path to swift-testing override if there is one
-        if let swiftTestingPath = toolchain.swiftTestingPath {
-            if swiftTestingPath.extension == "framework" {
-                env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: swiftTestingPath.pathString)
-            } else {
-                env.appendPath(key: "DYLD_LIBRARY_PATH", value: swiftTestingPath.pathString)
-            }
-        }
-
-        // Add the sdk platform path if we have it.
-        // Since XCTestHelper targets macOS, we need the macOS platform paths here.
-        if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
-            // appending since we prefer the user setting (if set) to the one we inject
-            for frameworkPath in sdkPlatformPaths.frameworks {
-                env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: frameworkPath.pathString)
-            }
-            for libraryPath in sdkPlatformPaths.libraries {
-                env.appendPath(key: "DYLD_LIBRARY_PATH", value: libraryPath.pathString)
-            }
-        }
-
-        // We aren't using XCTest's harness logic to run Swift Testing tests.
-        if library == .xctest {
-            env["SWIFT_TESTING_ENABLED"] = "0"
-        }
-
-        // Fast path when no sanitizers are enabled.
-        if sanitizers.isEmpty {
+            #if os(Windows)
+                if let xctestLocation = toolchain.xctestPath {
+                    env.prependPath(key: .path, value: xctestLocation.pathString)
+                }
+                if let swiftTestingLocation = toolchain.swiftTestingPath {
+                    env.prependPath(key: .path, value: swiftTestingLocation.pathString)
+                }
+            #endif
             return env
-        }
+        #else
+            // Add path to swift-testing override if there is one
+            if let swiftTestingPath = toolchain.swiftTestingPath {
+                if swiftTestingPath.extension == "framework" {
+                    env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: swiftTestingPath.pathString)
+                } else {
+                    env.appendPath(key: "DYLD_LIBRARY_PATH", value: swiftTestingPath.pathString)
+                }
+            }
 
-        // Get the runtime libraries.
-        var runtimes = try sanitizers.map({ sanitizer in
-            return try toolchain.runtimeLibrary(for: sanitizer).pathString
-        })
+            // Add the sdk platform path if we have it.
+            // Since XCTestHelper targets macOS, we need the macOS platform paths here.
+            if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
+                // appending since we prefer the user setting (if set) to the one we inject
+                for frameworkPath in sdkPlatformPaths.frameworks {
+                    env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: frameworkPath.pathString)
+                }
+                for libraryPath in sdkPlatformPaths.libraries {
+                    env.appendPath(key: "DYLD_LIBRARY_PATH", value: libraryPath.pathString)
+                }
+            }
 
-        // Append any existing value to the front.
-        if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
-            runtimes.insert(existingValue, at: 0)
-        }
+            // We aren't using XCTest's harness logic to run Swift Testing tests.
+            if library == .xctest {
+                env["SWIFT_TESTING_ENABLED"] = "0"
+            }
 
-        env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
-        return env
+            // Fast path when no sanitizers are enabled.
+            if sanitizers.isEmpty {
+                return env
+            }
+
+            // Get the runtime libraries.
+            var runtimes = try sanitizers.map({ sanitizer in
+                return try toolchain.runtimeLibrary(for: sanitizer).pathString
+            })
+
+            // Append any existing value to the front.
+            if let existingValue = env["DYLD_INSERT_LIBRARIES"], !existingValue.isEmpty {
+                runtimes.insert(existingValue, at: 0)
+            }
+
+            env["DYLD_INSERT_LIBRARIES"] = runtimes.joined(separator: ":")
+            return env
         #endif
     }
 }

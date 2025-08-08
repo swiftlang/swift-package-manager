@@ -13,7 +13,7 @@
 import Basics
 @testable import struct Basics.TarArchiver
 @testable import struct Basics.ZipArchiver
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import _InternalTestSupport
 import XCTest
 
@@ -91,20 +91,20 @@ final class UniversalArchiverTests: XCTestCase {
                 .appending(components: "Inputs", "invalid_archive.tar.gz")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
                 #if os(Linux)
-                XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
+                    XCTAssertMatch((error as? StringError)?.description, .contains("not in gzip format"))
                 #else
-                XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
+                    XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
                 #endif
             }
 
             inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-#if os(Windows) || os(FreeBSD)
-                XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
-#else
-                XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))
-#endif
+                #if os(Windows) || os(FreeBSD)
+                    XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
+                #else
+                    XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))
+                #endif
             }
         }
     }
@@ -136,9 +136,9 @@ final class UniversalArchiverTests: XCTestCase {
 
     func testCompress() async throws {
         #if !os(Windows)
-        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-            throw XCTSkip("working directory not supported on this platform")
-        }
+            guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+                throw XCTSkip("working directory not supported on this platform")
+            }
         #endif
 
         try await testWithTemporaryDirectory { tmpdir in

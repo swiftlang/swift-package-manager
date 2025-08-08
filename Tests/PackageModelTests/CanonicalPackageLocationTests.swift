@@ -29,19 +29,19 @@ final class CanonicalPackageLocationTests: XCTestCase {
 
     func testNormalizationInsensitivity() {
         XCTAssertEqual(
-            CanonicalPackageLocation("mona/e\u{0301}clair").description, // ◌́ COMBINING ACUTE ACCENT (U+0301)
+            CanonicalPackageLocation("mona/e\u{0301}clair").description,  // ◌́ COMBINING ACUTE ACCENT (U+0301)
             "mona/éclair"
         )
 
         XCTAssertEqual(
-            CanonicalPackageLocation("mona/\u{00C9}clair").description, // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
+            CanonicalPackageLocation("mona/\u{00C9}clair").description,  // LATIN CAPITAL LETTER E WITH ACUTE (U+00C9)
             "mona/éclair"
         )
     }
 
     func testCaseAndNormalizationInsensitivity() {
         XCTAssertEqual(
-            CanonicalPackageLocation("mona/E\u{0301}clair").description, // ◌́ COMBINING ACUTE ACCENT (U+0301)
+            CanonicalPackageLocation("mona/E\u{0301}clair").description,  // ◌́ COMBINING ACUTE ACCENT (U+0301)
             "mona/éclair"
         )
     }

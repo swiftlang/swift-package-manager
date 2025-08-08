@@ -79,7 +79,6 @@ public class Module {
         /// A dependency referencing a product, with conditions.
         case product(_ product: ProductReference, conditions: [PackageCondition])
 
-
         @available(*, deprecated, renamed: "module")
         public var target: Module? { self.module }
 

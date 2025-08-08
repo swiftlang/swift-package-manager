@@ -48,20 +48,21 @@ public func getFiles(
 ) throws -> [AbsolutePath] {
     var matchingFiles: [AbsolutePath] = []
     let normalizedExtension = `extension`.lowercased()
-    
+
     guard fileSystem.exists(directory) else {
         throw StringError("Directory does not exist: \(directory)")
     }
-    
+
     guard fileSystem.isDirectory(directory) else {
         throw StringError("Path is not a directory: \(directory)")
     }
-    
+
     if recursive {
         try fileSystem.enumerate(directory: directory) { filePath in
             if fileSystem.isFile(filePath) {
                 if let fileExtension = filePath.extension?.lowercased(),
-                   fileExtension == normalizedExtension {
+                    fileExtension == normalizedExtension
+                {
                     matchingFiles.append(filePath)
                 }
             }
@@ -73,13 +74,14 @@ public func getFiles(
             let itemPath = directory.appending(component: item)
             if fileSystem.isFile(itemPath) {
                 if let fileExtension = itemPath.extension?.lowercased(),
-                   fileExtension == normalizedExtension {
+                    fileExtension == normalizedExtension
+                {
                     matchingFiles.append(itemPath)
                 }
             }
         }
     }
-    
+
     return matchingFiles
 }
 
@@ -102,7 +104,7 @@ public func getFiles(
     guard let currentWorkingDirectory = fileSystem.currentWorkingDirectory else {
         throw StringError("Cannot determine current working directory")
     }
-    
+
     let absoluteDirectory = currentWorkingDirectory.appending(directory)
     let absoluteResults = try getFiles(
         in: absoluteDirectory,
@@ -110,7 +112,7 @@ public func getFiles(
         recursive: recursive,
         fileSystem: fileSystem
     )
-    
+
     // Convert results back to RelativePath
     return absoluteResults.map { absolutePath in
         absolutePath.relative(to: currentWorkingDirectory)

@@ -23,13 +23,16 @@ import struct TSCUtility.Version
 struct PackageVersionChecksumTOFU {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
-    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
-        .PackageVersionMetadata
+    private let versionMetadataProvider:
+        (PackageIdentity.RegistryIdentity, Version) async throws ->
+            RegistryClient
+            .PackageVersionMetadata
 
     init(
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
+        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws ->
+            RegistryClient
             .PackageVersionMetadata
     ) {
         self.fingerprintStorage = fingerprintStorage
@@ -150,12 +153,14 @@ struct PackageVersionChecksumTOFU {
     ) throws {
         let contentType = Fingerprint.ContentType.manifest(toolsVersion)
 
-        guard let expectedChecksum = try? self.readFromStorage(
-            package: package,
-            version: version,
-            contentType: .manifest(toolsVersion),
-            observabilityScope: observabilityScope
-        ) else {
+        guard
+            let expectedChecksum = try? self.readFromStorage(
+                package: package,
+                version: version,
+                contentType: .manifest(toolsVersion),
+                observabilityScope: observabilityScope
+            )
+        else {
             return try self.writeToStorage(
                 registry: registry,
                 package: package,
@@ -231,7 +236,7 @@ struct PackageVersionChecksumTOFU {
                 fingerprint: fingerprint,
                 observabilityScope: observabilityScope
             )
-        } catch PackageFingerprintStorageError.conflict(_, let existing){
+        } catch PackageFingerprintStorageError.conflict(_, let existing) {
             switch self.fingerprintCheckingMode {
             case .strict:
                 throw RegistryError.checksumChanged(latest: checksum, previous: existing.value)

@@ -114,7 +114,6 @@ public enum ProductType: Equatable, Hashable, Sendable {
     }
 }
 
-
 /// The products requested of a package.
 ///
 /// Any product which matches the filter will be used for dependency resolution, whereas unrequested products will be ignored.
@@ -171,7 +170,6 @@ public enum ProductFilter: Equatable, Hashable, Sendable {
         }
     }
 }
-
 
 // MARK: - CustomStringConvertible
 

@@ -18,7 +18,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testHead() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
@@ -50,7 +50,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testGet() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -83,7 +83,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -117,7 +117,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -150,7 +150,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testDelete() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201..<500)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -326,7 +326,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testValidResponseCodes() {
-        let statusCode = Int.random(in: 201 ..< 500)
+        let statusCode = Int.random(in: 201..<500)
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
         }
@@ -355,7 +355,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let delay = SendableTimeInterval.milliseconds(100)
 
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
@@ -390,7 +390,7 @@ final class LegacyHTTPClientTests: XCTestCase {
 
     func testHostCircuitBreaker() {
         let maxErrors = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let age = SendableTimeInterval.seconds(5)
 
         let host = "http://tes-\(UUID().uuidString).com"
@@ -403,7 +403,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         do {
             let sync = DispatchGroup()
             let count = ThreadSafeBox<Int>(0)
-            (0 ..< maxErrors).forEach { index in
+            (0..<maxErrors).forEach { index in
                 sync.enter()
                 httpClient.get(URL("\(host)/\(index)/foo")) { result in
                     defer { sync.leave() }
@@ -423,8 +423,8 @@ final class LegacyHTTPClientTests: XCTestCase {
         // these should all circuit break
         let sync = DispatchGroup()
         let count = ThreadSafeBox<Int>(0)
-        let total = Int.random(in: 10 ..< 20)
-        (0 ..< total).forEach { index in
+        let total = Int.random(in: 10..<20)
+        (0..<total).forEach { index in
             sync.enter()
             httpClient.get(URL("\(host)/\(index)/foo")) { result in
                 defer { sync.leave() }
@@ -444,7 +444,7 @@ final class LegacyHTTPClientTests: XCTestCase {
 
     func testHostCircuitBreakerAging() {
         let maxErrors = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = Int.random(in: 500..<600)
         let ageInMilliseconds = 100
 
         let host = "http://tes-\(UUID().uuidString).com"
@@ -462,12 +462,11 @@ final class LegacyHTTPClientTests: XCTestCase {
             age: .milliseconds(ageInMilliseconds)
         )
 
-
         // make the initial errors
         do {
             let sync = DispatchGroup()
             let count = ThreadSafeBox<Int>(0)
-            (0 ..< maxErrors).forEach { index in
+            (0..<maxErrors).forEach { index in
                 sync.enter()
                 httpClient.get(URL("\(host)/\(index)/error")) { result in
                     defer { sync.leave() }
@@ -486,10 +485,10 @@ final class LegacyHTTPClientTests: XCTestCase {
 
         // these should not circuit break since they are deliberately aged
         let sync = DispatchGroup()
-        let total = Int.random(in: 10 ..< 20)
+        let total = Int.random(in: 10..<20)
         let count = ThreadSafeBox<Int>(0)
 
-        (0 ..< total).forEach { index in
+        (0..<total).forEach { index in
             sync.enter()
             // age it
             DispatchQueue.sharedConcurrent.asyncAfter(deadline: .now() + .milliseconds(ageInMilliseconds)) {
@@ -517,10 +516,14 @@ final class LegacyHTTPClientTests: XCTestCase {
         let httpClient = LegacyHTTPClient(handler: { request, progress, completion in
             switch request.method {
             case .head:
-                completion(.success(.init(
-                    statusCode: 200,
-                    headers: .init([.init(name: "Content-Length", value: "0")])
-                )))
+                completion(
+                    .success(
+                        .init(
+                            statusCode: 200,
+                            headers: .init([.init(name: "Content-Length", value: "0")])
+                        )
+                    )
+                )
             case .get:
                 do {
                     try progress?(Int64(maxSize * 2), 0)
@@ -556,27 +559,30 @@ final class LegacyHTTPClientTests: XCTestCase {
 
         var configuration = LegacyHTTPClient.Configuration()
         configuration.maxConcurrentRequests = maxConcurrentRequests
-        let httpClient = LegacyHTTPClient(configuration: configuration, handler: { request, _, completion in
-            defer {
+        let httpClient = LegacyHTTPClient(
+            configuration: configuration,
+            handler: { request, _, completion in
+                defer {
+                    concurrentRequestsLock.withLock {
+                        concurrentRequests -= 1
+                    }
+                }
+
                 concurrentRequestsLock.withLock {
-                    concurrentRequests -= 1
+                    concurrentRequests += 1
+                    if concurrentRequests > maxConcurrentRequests {
+                        XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
+                    }
                 }
-            }
 
-            concurrentRequestsLock.withLock {
-                concurrentRequests += 1
-                if concurrentRequests > maxConcurrentRequests {
-                    XCTFail("too many concurrent requests \(concurrentRequests), expected \(maxConcurrentRequests)")
-                }
+                completion(.success(.okay()))
             }
-
-            completion(.success(.okay()))
-        })
+        )
 
         let total = 1000
         let sync = DispatchGroup()
         let results = ThreadSafeArrayStore<Result<LegacyHTTPClient.Response, Error>>()
-        for _ in 0 ..< total {
+        for _ in 0..<total {
             sync.enter()
             httpClient.get(URL("http://localhost/test")) { result in
                 defer { sync.leave() }
@@ -631,7 +637,7 @@ final class LegacyHTTPClientTests: XCTestCase {
 
         let finishGroup = DispatchGroup()
         let results = ThreadSafeKeyValueStore<URL, Result<LegacyHTTPClient.Response, Error>>()
-        for index in 0 ..< total {
+        for index in 0..<total {
             startGroup.enter()
             finishGroup.enter()
             let url = URL("http://test/\(index)")
@@ -655,7 +661,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         for (url, result) in results.get() {
             switch (Int(url.lastPathComponent)! < total / 2, result) {
             case (true, .success):
-                break // as expected!
+                break  // as expected!
             case (true, .failure(let error)):
                 XCTFail("expected success, but failed with \(type(of: error)) '\(error)'")
             case (false, .success):

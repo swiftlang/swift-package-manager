@@ -46,7 +46,7 @@ public final class PackagePIFBuilder {
     private let package: ResolvedPackage
 
     /// Contains the package declarative specification.
-    let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
+    let packageManifest: PackageModel.Manifest  // FIXME: Can't we just use `package.manifest` instead? —— Paulo
 
     /// The built PIF project object.
     public var pifProject: ProjectModel.Project {
@@ -388,21 +388,22 @@ public final class PackagePIFBuilder {
         public var description: String { rawValue }
 
         init(from pifProductType: ProjectModel.Target.ProductType) {
-            self = switch pifProductType {
-            case .application: .application
-            case .staticArchive: .staticArchive
-            case .commonObject: .commonObject
-            case .dynamicLibrary: .dynamicLibrary
-            case .framework: .framework
-            case .executable: .executable
-            case .unitTest: .unitTest
-            case .swiftpmTestRunner: .unitTestRunner
-            case .bundle: .bundle
-            case .packageProduct: .packageProduct
-            case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
-            @unknown default:
-                fatalError()
-            }
+            self =
+                switch pifProductType {
+                case .application: .application
+                case .staticArchive: .staticArchive
+                case .commonObject: .commonObject
+                case .dynamicLibrary: .dynamicLibrary
+                case .framework: .framework
+                case .executable: .executable
+                case .unitTest: .unitTest
+                case .swiftpmTestRunner: .unitTestRunner
+                case .bundle: .bundle
+                case .packageProduct: .packageProduct
+                case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
+                @unknown default:
+                    fatalError()
+                }
         }
     }
 
@@ -411,8 +412,7 @@ public final class PackagePIFBuilder {
     public func build() throws -> [ModuleOrProduct] {
         self.log(
             .info,
-            "Building PIF project for package '\(self.package.identity)' " +
-            "(\(package.products.count) products, \(package.modules.count) modules)"
+            "Building PIF project for package '\(self.package.identity)' " + "(\(package.products.count) products, \(package.modules.count) modules)"
         )
 
         var projectBuilder = PackagePIFProjectBuilder(createForPackage: package, builder: self)
@@ -438,7 +438,7 @@ public final class PackagePIFBuilder {
         //
 
         self.log(.debug, "Processing \(package.products.count) products:")
-        
+
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
             switch product.type {
@@ -467,7 +467,7 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makePluginProduct(product)
 
             case .macro:
-                break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
+                break  // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }
 
@@ -561,8 +561,8 @@ public final class PackagePIFBuilder {
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
         settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
-        
-        // rdar://47937899 (Don't try to link frameworks to object files) 
+
+        // rdar://47937899 (Don't try to link frameworks to object files)
         //  - looks like this defaults to OTHER_LDFLAGS (via xcspec) which can result in linking frameworks to mh_objects which is unwanted.
         settings[.OTHER_LDRFLAGS] = []
 

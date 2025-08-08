@@ -22,7 +22,7 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testPlatforms() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                name: "Foo",
@@ -39,15 +39,18 @@ final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.platforms, [
-            PlatformDescription(name: "macos", version: "14.0"),
-            PlatformDescription(name: "ios", version: "17.0"),
-            PlatformDescription(name: "tvos", version: "17.0"),
-            PlatformDescription(name: "watchos", version: "10.0"),
-            PlatformDescription(name: "visionos", version: "1.0"),
-            PlatformDescription(name: "maccatalyst", version: "17.0"),
-            PlatformDescription(name: "driverkit", version: "23.0"),
-        ])
+        XCTAssertEqual(
+            manifest.platforms,
+            [
+                PlatformDescription(name: "macos", version: "14.0"),
+                PlatformDescription(name: "ios", version: "17.0"),
+                PlatformDescription(name: "tvos", version: "17.0"),
+                PlatformDescription(name: "watchos", version: "10.0"),
+                PlatformDescription(name: "visionos", version: "1.0"),
+                PlatformDescription(name: "maccatalyst", version: "17.0"),
+                PlatformDescription(name: "driverkit", version: "23.0"),
+            ]
+        )
     }
 
     func testMacroTargets() async throws {

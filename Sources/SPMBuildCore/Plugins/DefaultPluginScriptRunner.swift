@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 
 import Foundation
 import PackageGraph
@@ -24,7 +23,7 @@ import class Basics.AsyncProcess
 import struct TSCUtility.SerializedDiagnostics
 
 #if os(Android)
-import Android
+    import Android
 #endif
 
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
@@ -96,9 +95,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                             observabilityScope: observabilityScope,
                             callbackQueue: callbackQueue,
                             delegate: delegate,
-                            completion: completion)
-                    }
-                    else {
+                            completion: completion
+                        )
+                    } else {
                         // Compilation failed, so throw an error.
                         callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationFailed(result))) }
                     }
@@ -127,9 +126,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Determine the path of the executable and other produced files.
         let execName = pluginName.spm_mangledToC99ExtendedIdentifier()
         #if os(Windows)
-        let execSuffix = ".exe"
+            let execSuffix = ".exe"
         #else
-        let execSuffix = ""
+            let execSuffix = ""
         #endif
         let execFilePath = self.cacheDir.appending(component: execName + execSuffix)
         let diagFilePath = self.cacheDir.appending(component: execName + ".dia")
@@ -161,31 +160,30 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 "-lPackagePlugin",
             ]
             #if !os(Windows)
-            // -rpath argument is not supported on Windows,
-            // so we add runtimePath to PATH when executing the manifest instead
-            commandLine += ["-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.pathString]
+                // -rpath argument is not supported on Windows,
+                // so we add runtimePath to PATH when executing the manifest instead
+                commandLine += ["-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.pathString]
             #endif
         }
 
         #if os(macOS)
-        // On macOS earlier than 12, add an rpath to the directory that contains the concurrency fallback library.
-        if #available(macOS 12.0, *) {
-            // Nothing is needed; the system has everything we need.
-        }
-        else {
-            // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
-            let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
-            commandLine += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
-        }
+            // On macOS earlier than 12, add an rpath to the directory that contains the concurrency fallback library.
+            if #available(macOS 12.0, *) {
+                // Nothing is needed; the system has everything we need.
+            } else {
+                // Add an `-rpath` so the Swift 5.5 fallback libraries can be found.
+                let swiftSupportLibPath = self.toolchain.swiftCompilerPathForManifests.parentDirectory.parentDirectory.appending(components: "lib", "swift-5.5", "macosx")
+                commandLine += ["-Xlinker", "-rpath", "-Xlinker", swiftSupportLibPath.pathString]
+            }
         #endif
 
         // Use the same minimum deployment target as the PackagePlugin library (with a fallback to the default host triple).
         #if os(macOS)
-        if let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget?.versionString {
-            commandLine += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
-        } else {
-            commandLine += ["-target", self.toolchain.targetTriple.tripleString]
-        }
+            if let version = self.toolchain.swiftPMLibrariesLocation.pluginLibraryMinimumDeploymentTarget?.versionString {
+                commandLine += ["-target", "\(self.toolchain.targetTriple.tripleString(forPlatformVersion: version))"]
+            } else {
+                commandLine += ["-target", self.toolchain.targetTriple.tripleString]
+            }
         #endif
 
         // Add any extra flags required as indicated by the ManifestLoader.
@@ -207,9 +205,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             commandLine += ["-I", pluginModulesPath.pathString]
         }
         #if os(macOS)
-        if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
-            commandLine += ["-sdk", sdkRoot.pathString]
-        }
+            if let sdkRoot = self.toolchain.sdkRootPath ?? self.sdkRoot() {
+                commandLine += ["-sdk", sdkRoot.pathString]
+            }
         #endif
 
         // Honor any module cache override that's set in the environment.
@@ -243,8 +241,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         do {
             observabilityScope.emit(debug: "Plugin compilation output directory '\(execFilePath.parentDirectory)'")
             try FileManager.default.createDirectory(at: execFilePath.parentDirectory.asURL, withIntermediateDirectories: true, attributes: nil)
-        }
-        catch {
+        } catch {
             // Bail out right away if we didn't even get this far.
             return callbackQueue.async {
                 completion(.failure(DefaultPluginScriptRunnerError.compilationPreparationFailed(error: error)))
@@ -265,8 +262,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             }
             compilerInputHash = ByteString(encodingAsUTF8: stringToHash).sha256Checksum
             observabilityScope.emit(debug: "Computed hash of plugin compilation inputs: \(compilerInputHash!)")
-        }
-        catch {
+        } catch {
             // We couldn't compute the hash. We warn about it but proceed with the compilation (a cache miss).
             observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs", underlyingError: error)
             compilerInputHash = .none
@@ -289,11 +285,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     case .terminated(let code):
                         self = .exit(code: code)
                     #if os(Windows)
-                    case .abnormal(let exception):
-                        self = .abnormal(exception: exception)
+                        case .abnormal(let exception):
+                            self = .abnormal(exception: exception)
                     #else
-                    case .signalled(let signal):
-                        self = .signal(number: signal)
+                        case .signalled(let signal):
+                            self = .signal(number: signal)
                     #endif
                     }
                 }
@@ -313,14 +309,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 let previousState = try JSONDecoder.makeWithDefaults().decode(
                     path: stateFilePath,
                     fileSystem: fileSystem,
-                    as: PersistedCompilationState.self)
+                    as: PersistedCompilationState.self
+                )
 
                 // If it succeeded last time and the compiler inputs are the same, we don't need to recompile.
                 if previousState.succeeded && previousState.inputHash == compilerInputHash {
                     compilationState = previousState
                 }
-            }
-            catch {
+            } catch {
                 // We couldn't read the compilation state file even though it existed. We warn about it but proceed with recompiling.
                 observabilityScope.emit(debug: "Couldn't read previous compilation state", underlyingError: error)
             }
@@ -335,7 +331,8 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 executableFile: execFilePath,
                 diagnosticsFile: diagFilePath,
                 compilerOutput: compilationState.output,
-                cached: true)
+                cached: true
+            )
             delegate.skippedCompilingPlugin(cachedResult: result)
             return callbackQueue.async {
                 completion(.success(result))
@@ -350,8 +347,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             try fileSystem.removeFileTree(execFilePath)
             try fileSystem.removeFileTree(diagFilePath)
             try fileSystem.removeFileTree(stateFilePath)
-        }
-        catch {
+        } catch {
             observabilityScope.emit(debug: "Couldn't clean up before invoking compiler", underlyingError: error)
         }
 
@@ -359,43 +355,46 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         AsyncProcess.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
-            completion($0.tryMap { process in
-                // Emit the compiler output as observable info.
-                let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
-                if !compilerOutput.isEmpty {
-                    observabilityScope.emit(info: compilerOutput)
+            completion(
+                $0.tryMap { process in
+                    // Emit the compiler output as observable info.
+                    let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
+                    if !compilerOutput.isEmpty {
+                        observabilityScope.emit(info: compilerOutput)
+                    }
+
+                    // Save the persisted compilation state for possible reuse next time.
+                    let compilationState = PersistedCompilationState(
+                        commandLine: commandLine,
+                        environment: toolchain.swiftCompilerEnvironment.cachable,
+                        inputHash: compilerInputHash,
+                        output: compilerOutput,
+                        result: .init(process.exitStatus)
+                    )
+                    do {
+                        try JSONEncoder.makeWithDefaults().encode(path: stateFilePath, fileSystem: self.fileSystem, compilationState)
+                    } catch {
+                        // We couldn't write out the `.state` file. We warn about it but proceed.
+                        observabilityScope.emit(debug: "Couldn't save plugin compilation state", underlyingError: error)
+                    }
+
+                    // Construct a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
+                    let result = PluginCompilationResult(
+                        succeeded: compilationState.succeeded,
+                        commandLine: commandLine,
+                        executableFile: execFilePath,
+                        diagnosticsFile: diagFilePath,
+                        compilerOutput: compilerOutput,
+                        cached: false
+                    )
+
+                    // Tell the delegate that we're done compiling the plugin, passing it the result.
+                    delegate.didCompilePlugin(result: result)
+
+                    // Also return the result to the caller.
+                    return result
                 }
-
-                // Save the persisted compilation state for possible reuse next time.
-                let compilationState = PersistedCompilationState(
-                    commandLine: commandLine,
-                    environment: toolchain.swiftCompilerEnvironment.cachable,
-                    inputHash: compilerInputHash,
-                    output: compilerOutput,
-                    result: .init(process.exitStatus))
-                do {
-                    try JSONEncoder.makeWithDefaults().encode(path: stateFilePath, fileSystem: self.fileSystem, compilationState)
-                }
-                catch {
-                    // We couldn't write out the `.state` file. We warn about it but proceed.
-                    observabilityScope.emit(debug: "Couldn't save plugin compilation state", underlyingError: error)
-                }
-
-                // Construct a PluginCompilationResult for both the successful and unsuccessful cases (to convey diagnostics, etc).
-                let result = PluginCompilationResult(
-                    succeeded: compilationState.succeeded,
-                    commandLine: commandLine,
-                    executableFile: execFilePath,
-                    diagnosticsFile: diagFilePath,
-                    compilerOutput: compilerOutput,
-                    cached: false)
-
-                // Tell the delegate that we're done compiling the plugin, passing it the result.
-                delegate.didCompilePlugin(result: result)
-
-                // Also return the result to the caller.
-                return result
-            })
+            )
         }
     }
 
@@ -409,21 +408,24 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         var sdkRootPath: Basics.AbsolutePath?
         // Find SDKROOT on macOS using xcrun.
         #if os(macOS)
-        let foundPath = try? AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--sdk", "macosx", "--show-sdk-path"
-        )
-        guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
-            return nil
-        }
-        if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
-            sdkRootPath = path
-            self.sdkRootCache.put(path)
-        }
+            let foundPath = try? AsyncProcess.checkNonZeroExit(
+                args: "/usr/bin/xcrun",
+                "--sdk",
+                "macosx",
+                "--show-sdk-path"
+            )
+            guard let sdkRoot = foundPath?.spm_chomp(), !sdkRoot.isEmpty else {
+                return nil
+            }
+            if let path = try? Basics.AbsolutePath(validating: sdkRoot) {
+                sdkRootPath = path
+                self.sdkRootCache.put(path)
+            }
         #endif
 
         return sdkRootPath
     }
-    
+
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
         compiledExec: Basics.AbsolutePath,
@@ -437,180 +439,181 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         delegate: PluginScriptRunnerDelegate,
         completion: @escaping (Result<Int32, Error>) -> Void
     ) {
-#if canImport(Darwin) && !os(macOS)
-        callbackQueue.async {
-            completion(.failure(DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")))
-        }
-#else
-        // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
-        var command = [compiledExec.pathString]
+        #if canImport(Darwin) && !os(macOS)
+            callbackQueue.async {
+                completion(.failure(DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")))
+            }
+        #else
+            // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
+            var command = [compiledExec.pathString]
 
-        // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
-        if self.enableSandbox {
-            do {
-                command = try Sandbox.apply(
-                    command: command,
-                    fileSystem: self.fileSystem,
-                    strictness: .writableTemporaryDirectory,
-                    writableDirectories: writableDirectories + [self.cacheDir],
-                    readOnlyDirectories: readOnlyDirectories,
-                    allowNetworkConnections: allowNetworkConnections
-                )
-            } catch {
-                return callbackQueue.async {
-                    completion(.failure(error))
+            // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
+            if self.enableSandbox {
+                do {
+                    command = try Sandbox.apply(
+                        command: command,
+                        fileSystem: self.fileSystem,
+                        strictness: .writableTemporaryDirectory,
+                        writableDirectories: writableDirectories + [self.cacheDir],
+                        readOnlyDirectories: readOnlyDirectories,
+                        allowNetworkConnections: allowNetworkConnections
+                    )
+                } catch {
+                    return callbackQueue.async {
+                        completion(.failure(error))
+                    }
                 }
             }
-        }
 
-        // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
-        let process = Foundation.Process()
-        process.executableURL = URL(fileURLWithPath: command[0])
-        process.arguments = Array(command.dropFirst())
+            // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
+            let process = Foundation.Process()
+            process.executableURL = URL(fileURLWithPath: command[0])
+            process.arguments = Array(command.dropFirst())
 
-        var env = Environment.current
+            var env = Environment.current
 
-        // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
-        // removed once the Swift Build backend switches to use swiftc as the linker driver
-        // for targets with Swift sources. For now, limit the scope to non-macOS, so that
-        // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
-        // when built with a Swift.org toolchain.
-        #if !os(macOS)
-        // Update the environment for any runtime library paths that tools compiled
-        // for the command plugin might require after they have been built.
-        let runtimeLibPaths = self.toolchain.runtimeLibraryPaths
-        for libPath in runtimeLibPaths {
-            env.appendPath(key: .libraryPath, value: libPath.pathString)
-        }
-        #endif
+            // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+            // removed once the Swift Build backend switches to use swiftc as the linker driver
+            // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+            // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+            // when built with a Swift.org toolchain.
+            #if !os(macOS)
+                // Update the environment for any runtime library paths that tools compiled
+                // for the command plugin might require after they have been built.
+                let runtimeLibPaths = self.toolchain.runtimeLibraryPaths
+                for libPath in runtimeLibPaths {
+                    env.appendPath(key: .libraryPath, value: libPath.pathString)
+                }
+            #endif
 
-#if os(Windows)
-        let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
-        env.prependPath(key: .path, value: pluginLibraryPath)
-#endif
-        process.environment = .init(env)
+            #if os(Windows)
+                let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
+                env.prependPath(key: .path, value: pluginLibraryPath)
+            #endif
+            process.environment = .init(env)
 
-        process.currentDirectoryURL = workingDirectory.asURL
+            process.currentDirectoryURL = workingDirectory.asURL
 
-        // Set up a pipe for sending structured messages to the plugin on its stdin.
-        let stdinPipe = Pipe()
-        let outputHandle = stdinPipe.fileHandleForWriting
-        let outputQueue = DispatchQueue(label: "plugin-send-queue")
-        process.standardInput = stdinPipe
+            // Set up a pipe for sending structured messages to the plugin on its stdin.
+            let stdinPipe = Pipe()
+            let outputHandle = stdinPipe.fileHandleForWriting
+            let outputQueue = DispatchQueue(label: "plugin-send-queue")
+            process.standardInput = stdinPipe
 
-        // Set up a pipe for receiving messages from the plugin on its stdout.
-        let stdoutPipe = Pipe()
-        let stdoutLock = NSLock()
-        stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-            // Receive the next message and pass it on to the delegate.
-            stdoutLock.withLock {
-                do {
-                    while let message = try fileHandle.readPluginMessage() {
-                        // FIXME: We should handle errors here.
-                        callbackQueue.async {
-                            do {
-                                try delegate.handleMessage(data: message, responder: { data in
-                                    outputQueue.async {
-                                        do {
-                                            try outputHandle.writePluginMessage(data)
+            // Set up a pipe for receiving messages from the plugin on its stdout.
+            let stdoutPipe = Pipe()
+            let stdoutLock = NSLock()
+            stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                // Receive the next message and pass it on to the delegate.
+                stdoutLock.withLock {
+                    do {
+                        while let message = try fileHandle.readPluginMessage() {
+                            // FIXME: We should handle errors here.
+                            callbackQueue.async {
+                                do {
+                                    try delegate.handleMessage(
+                                        data: message,
+                                        responder: { data in
+                                            outputQueue.async {
+                                                do {
+                                                    try outputHandle.writePluginMessage(data)
+                                                } catch {
+                                                    print("error while trying to send message to plugin: \(error.interpolationDescription)")
+                                                }
+                                            }
                                         }
-                                        catch {
-                                            print("error while trying to send message to plugin: \(error.interpolationDescription)")
-                                        }
-                                    }
-                                })
-                            }
-                            catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
-                                print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
-                            }
-                            catch {
-                                print("error while trying to handle message from plugin: \(error.interpolationDescription)")
+                                    )
+                                } catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
+                                    print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
+                                } catch {
+                                    print("error while trying to handle message from plugin: \(error.interpolationDescription)")
+                                }
                             }
                         }
+                    } catch {
+                        print("error while trying to read message from plugin: \(error.interpolationDescription)")
                     }
                 }
-                catch {
-                    print("error while trying to read message from plugin: \(error.interpolationDescription)")
+            }
+            process.standardOutput = stdoutPipe
+
+            // Set up a pipe for receiving free-form text output from the plugin on its stderr.
+            let stderrPipe = Pipe()
+            let stderrLock = NSLock()
+            var stderrData = Data()
+            let stderrHandler = { (data: Data) in
+                // Pass on any available data to the delegate.
+                if data.isEmpty { return }
+                stderrData.append(contentsOf: data)
+                callbackQueue.async { delegate.handleOutput(data: data) }
+            }
+            stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                // Read and pass on any available free-form text output from the plugin.
+                // We need the lock since we could run concurrently with the termination handler.
+                stderrLock.withLock { stderrHandler(fileHandle.availableData) }
+            }
+            process.standardError = stderrPipe
+
+            // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
+            guard let cancellationKey = self.cancellator.register(process) else {
+                return callbackQueue.async {
+                    completion(.failure(CancellationError()))
                 }
             }
-        }
-        process.standardOutput = stdoutPipe
 
-        // Set up a pipe for receiving free-form text output from the plugin on its stderr.
-        let stderrPipe = Pipe()
-        let stderrLock = NSLock()
-        var stderrData = Data()
-        let stderrHandler = { (data: Data) in
-            // Pass on any available data to the delegate.
-            if data.isEmpty { return }
-            stderrData.append(contentsOf: data)
-            callbackQueue.async { delegate.handleOutput(data: data) }
-        }
-        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-            // Read and pass on any available free-form text output from the plugin.
-            // We need the lock since we could run concurrently with the termination handler.
-            stderrLock.withLock { stderrHandler(fileHandle.availableData) }
-        }
-        process.standardError = stderrPipe
-        
-        // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
-        guard let cancellationKey = self.cancellator.register(process) else {
-            return callbackQueue.async {
-                completion(.failure(CancellationError()))
-            }
-        }
+            // Set up a handler to deal with the exit of the plugin process.
+            process.terminationHandler = { process in
+                // Remove the process from the list of currently running ones.
+                self.cancellator.deregister(cancellationKey)
 
-        // Set up a handler to deal with the exit of the plugin process.
-        process.terminationHandler = { process in
-            // Remove the process from the list of currently running ones.
-            self.cancellator.deregister(cancellationKey)
+                // Close the output handle through which we talked to the plugin.
+                try? outputHandle.close()
 
-            // Close the output handle through which we talked to the plugin.
-            try? outputHandle.close()
+                // Read and pass on any remaining free-form text output from the plugin.
+                // We need the lock since we could run concurrently with the readability handler.
+                stderrLock.withLock {
+                    try? stderrPipe.fileHandleForReading.readToEnd().map { stderrHandler($0) }
+                }
 
-            // Read and pass on any remaining free-form text output from the plugin.
-            // We need the lock since we could run concurrently with the readability handler.
-            stderrLock.withLock {
-                try? stderrPipe.fileHandleForReading.readToEnd().map{ stderrHandler($0) }
-            }
+                // Read and pass on any remaining messages from the plugin.
+                let handle = stdoutPipe.fileHandleForReading
+                if let handler = handle.readabilityHandler {
+                    handler(handle)
+                }
 
-            // Read and pass on any remaining messages from the plugin.
-            let handle = stdoutPipe.fileHandleForReading
-            if let handler = handle.readabilityHandler {
-                handler(handle)
+                // Call the completion block with a result that depends on how the process ended.
+                callbackQueue.async {
+                    completion(
+                        Result {
+                            // We throw an error if the plugin ended with a signal.
+                            if process.terminationReason == .uncaughtSignal {
+                                throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
+                                    signal: process.terminationStatus,
+                                    command: command,
+                                    output: String(decoding: stderrData, as: UTF8.self)
+                                )
+                            }
+                            // Otherwise return the termination satatus.
+                            return process.terminationStatus
+                        }
+                    )
+                }
             }
 
-            // Call the completion block with a result that depends on how the process ended.
-            callbackQueue.async {
-                completion(Result {
-                    // We throw an error if the plugin ended with a signal.
-                    if process.terminationReason == .uncaughtSignal {
-                        throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
-                            signal: process.terminationStatus,
-                            command: command,
-                            output: String(decoding: stderrData, as: UTF8.self))
-                    }
-                    // Otherwise return the termination satatus.
-                    return process.terminationStatus
-                })
+            // Start the plugin process.
+            do {
+                try process.run()
+            } catch {
+                callbackQueue.async {
+                    completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error: error, command: command)))
+                }
             }
-        }
- 
-        // Start the plugin process.
-        do {
-            try process.run()
-        }
-        catch {
-            callbackQueue.async {
-                completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error: error, command: command)))
-            }
-        }
 
-        /// Send the initial message to the plugin.
-        outputQueue.async {
-            try? outputHandle.writePluginMessage(initialMessage)
-        }
-#endif
+            /// Send the initial message to the plugin.
+            outputQueue.async {
+                try? outputHandle.writePluginMessage(initialMessage)
+            }
+        #endif
     }
 
     public func cancel(deadline: DispatchTime) throws {
@@ -666,25 +669,25 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
 }
 
 fileprivate extension FileHandle {
-    
+
     func writePluginMessage(_ message: Data) throws {
         // Write the header (a 64-bit length field in little endian byte order).
         var length = UInt64(littleEndian: UInt64(message.count))
         let header = Swift.withUnsafeBytes(of: &length) { Data($0) }
         assert(header.count == 8)
         try self.write(contentsOf: header)
-        
+
         // Write the payload.
         try self.write(contentsOf: message)
     }
-    
+
     func readPluginMessage() throws -> Data? {
         // Read the header (a 64-bit length field in little endian byte order).
         guard let header = try self.read(upToCount: 8) else { return nil }
         guard header.count == 8 else {
             throw PluginMessageError.truncatedHeader
         }
-        let length = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
+        let length = header.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self).littleEndian }
         guard length >= 2 else {
             throw PluginMessageError.invalidPayloadSize
         }

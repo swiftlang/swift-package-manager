@@ -64,10 +64,12 @@ extension ConfigurationSubcommand {
         )
         let targetTriple = try Triple(self.targetTriple)
 
-        guard let swiftSDK = try configurationStore.readConfiguration(
-            sdkID: sdkID,
-            targetTriple: targetTriple
-        ) else {
+        guard
+            let swiftSDK = try configurationStore.readConfiguration(
+                sdkID: sdkID,
+                targetTriple: targetTriple
+            )
+        else {
             throw SwiftSDKError.swiftSDKNotFound(
                 artifactID: sdkID,
                 hostTriple: hostTriple,

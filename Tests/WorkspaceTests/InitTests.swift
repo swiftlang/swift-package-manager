@@ -19,14 +19,14 @@ import XCTest
 final class InitTests: XCTestCase {
 
     // MARK: TSCBasic package creation for each package type.
-    
+
     func testInitPackageEmpty() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
             let name = path.basename
             try fs.createDirectory(path)
-            
+
             // Create the package
             let initPackage = try InitPackage(
                 name: name,
@@ -54,7 +54,7 @@ final class InitTests: XCTestCase {
         }
     }
 
-    func testInitPackageExecutable() async throws  {
+    func testInitPackageExecutable() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending("Foo")
@@ -76,7 +76,7 @@ final class InitTests: XCTestCase {
 
             // Not picky about the specific progress messages, just checking that we got some.
             XCTAssertGreaterThan(progressMessages.count, 0)
-            
+
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
@@ -92,11 +92,11 @@ final class InitTests: XCTestCase {
             )
             let triple = try UserToolchain.default.targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
-#if os(Windows)
-            XCTAssertFileExists(binPath.appending("Foo.exe"))
-#else
-            XCTAssertFileExists(binPath.appending("Foo"))
-#endif
+            #if os(Windows)
+                XCTAssertFileExists(binPath.appending("Foo.exe"))
+            #else
+                XCTAssertFileExists(binPath.appending("Foo"))
+            #endif
             XCTAssertFileExists(binPath.appending(components: "Modules", "Foo.swiftmodule"))
         }
     }
@@ -164,10 +164,13 @@ final class InitTests: XCTestCase {
 
             let testFile = tests.appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
-            XCTAssertTrue(testFileContents.hasPrefix("import XCTest"), """
-                          Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
-                          \(testFileContents)
-                          """)
+            XCTAssertTrue(
+                testFileContents.hasPrefix("import XCTest"),
+                """
+                Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
+                \(testFileContents)
+                """
+            )
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
             // Try building it
@@ -208,15 +211,15 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertNoMatch(testFileContents, .contains("func testExample() throws"))
 
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
+            #if canImport(TestingDisabled)
+                // Try building it
+                await XCTAssertBuilds(
+                    path,
+                    buildSystem: .native,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            #endif
         }
     }
 
@@ -248,15 +251,15 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains(#"@Test func example() async throws"#))
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
+            #if canImport(TestingDisabled)
+                // Try building it
+                await XCTAssertBuilds(
+                    path,
+                    buildSystem: .native,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            #endif
         }
     }
 
@@ -285,15 +288,15 @@ final class InitTests: XCTestCase {
 
             XCTAssertNoSuchPath(path.appending("Tests"))
 
-#if canImport(TestingDisabled)
-            // Try building it
-            await XCTAssertBuilds(
-                path,
-                buildSystem: .native,
-            )
-            let triple = try UserToolchain.default.targetTriple
-            XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
-#endif
+            #if canImport(TestingDisabled)
+                // Try building it
+                await XCTAssertBuilds(
+                    path,
+                    buildSystem: .native,
+                )
+                let triple = try UserToolchain.default.targetTriple
+                XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
+            #endif
         }
     }
 
@@ -377,8 +380,13 @@ final class InitTests: XCTestCase {
             XCTAssertFileExists(manifest)
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
             XCTAssertMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"MyCommandPlugin\"]")))
-            XCTAssertMatch(manifestContents, .and(.contains(".plugin("),
-                .and(.contains("capability: .command(intent: .custom("), .contains("verb: \"MyCommandPlugin\""))))
+            XCTAssertMatch(
+                manifestContents,
+                .and(
+                    .contains(".plugin("),
+                    .and(.contains("capability: .command(intent: .custom("), .contains("verb: \"MyCommandPlugin\""))
+                )
+            )
 
             // Check basic content that we expect in the plugin source file
             let source = path.appending("Plugins", "MyCommandPlugin.swift")
@@ -391,7 +399,7 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(sourceContents, .contains("performCommand(context: XcodePluginContext"))
         }
     }
-    
+
     func testInitPackageBuildToolPlugin() throws {
         try testWithTemporaryDirectory { tmpPath in
             let fs = localFileSystem
@@ -431,13 +439,13 @@ final class InitTests: XCTestCase {
     func testInitPackageNonc99Directory() async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
-            
+
             // Create a directory with non c99name.
             let packageRoot = tempDirPath.appending("some-package")
             let packageName = packageRoot.basename
             try localFileSystem.createDirectory(packageRoot)
             XCTAssertDirectoryExists(packageRoot)
-            
+
             // Create the package
             let initPackage = try InitPackage(
                 name: packageName,
@@ -457,15 +465,15 @@ final class InitTests: XCTestCase {
             XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
         }
     }
-    
+
     func testNonC99NameExecutablePackage() async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
             XCTAssertDirectoryExists(tempDirPath)
-            
+
             let packageRoot = tempDirPath.appending("Foo")
             try localFileSystem.createDirectory(packageRoot)
             XCTAssertDirectoryExists(packageRoot)
-            
+
             // Create package with non c99name.
             let initPackage = try InitPackage(
                 name: "package-name",
@@ -474,7 +482,7 @@ final class InitTests: XCTestCase {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            
+
             await XCTAssertBuilds(
                 packageRoot,
                 buildSystem: .native,
@@ -537,21 +545,21 @@ final class InitTests: XCTestCase {
 
     private func packageWithNameOnly(named name: String) -> String {
         return """
-        let package = Package(
-            name: "\(name)"
-        )
-        """
+            let package = Package(
+                name: "\(name)"
+            )
+            """
     }
 
     private func packageWithNameAndDependencies(with name: String) -> String {
         return """
-let package = Package(
-    name: "\(name)",
-    dependencies: [
-        // Dependencies declare other packages that this package depends on.
-        // .package(url: /* package url */, from: "1.0.0"),
-    ]
-)
-"""
+            let package = Package(
+                name: "\(name)",
+                dependencies: [
+                    // Dependencies declare other packages that this package depends on.
+                    // .package(url: /* package url */, from: "1.0.0"),
+                ]
+            )
+            """
     }
 }

@@ -45,285 +45,285 @@ final class CancellatorTests: XCTestCase {
     }
 
     func testTSCProcess() throws {
-#if os(macOS)
-        try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(
-                scriptPath,
-                string: """
-                set -e
+        #if os(macOS)
+            try withTemporaryDirectory { temporaryDirectory in
+                let scriptPath = temporaryDirectory.appending("script")
+                try localFileSystem.writeFileContents(
+                    scriptPath,
+                    string: """
+                        set -e
 
-                echo "process started"
-                sleep 10
-                echo "exit normally"
-                """
-            )
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let cancellator = Cancellator(observabilityScope: observability.topScope)
-
-            // outputRedirection used to signal that the process started
-            let startSemaphore = ProcessStartedSemaphore(term: "process started")
-            let process = AsyncProcess(
-                arguments: ["bash", scriptPath.pathString],
-                outputRedirection: .stream(
-                    stdout: startSemaphore.handleOutput,
-                    stderr: startSemaphore.handleOutput
+                        echo "process started"
+                        sleep 10
+                        echo "exit normally"
+                        """
                 )
-            )
 
-            let registrationKey = cancellator.register(process)
-            XCTAssertNotNil(registrationKey)
+                let observability = ObservabilitySystem.makeForTesting()
+                let cancellator = Cancellator(observabilityScope: observability.topScope)
 
-            let finishSemaphore = DispatchSemaphore(value: 0)
-            DispatchQueue.sharedConcurrent.async {
-                defer { finishSemaphore.signal() }
-                do {
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    print("process finished")
-                    XCTAssertEqual(result.exitStatus, .signalled(signal: SIGINT))
-                } catch {
-                    XCTFail("failed launching process: \(error)")
+                // outputRedirection used to signal that the process started
+                let startSemaphore = ProcessStartedSemaphore(term: "process started")
+                let process = AsyncProcess(
+                    arguments: ["bash", scriptPath.pathString],
+                    outputRedirection: .stream(
+                        stdout: startSemaphore.handleOutput,
+                        stderr: startSemaphore.handleOutput
+                    )
+                )
+
+                let registrationKey = cancellator.register(process)
+                XCTAssertNotNil(registrationKey)
+
+                let finishSemaphore = DispatchSemaphore(value: 0)
+                DispatchQueue.sharedConcurrent.async {
+                    defer { finishSemaphore.signal() }
+                    do {
+                        try process.launch()
+                        let result = try process.waitUntilExit()
+                        print("process finished")
+                        XCTAssertEqual(result.exitStatus, .signalled(signal: SIGINT))
+                    } catch {
+                        XCTFail("failed launching process: \(error)")
+                    }
                 }
+
+                XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
+                print("process started")
+
+                let canncelled = cancellator._cancel(deadline: .now() + .seconds(1))
+                XCTAssertEqual(canncelled, 1)
+
+                XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
             }
-
-            XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
-            print("process started")
-
-            let canncelled = cancellator._cancel(deadline: .now() + .seconds(1))
-            XCTAssertEqual(canncelled, 1)
-
-            XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
-
-            XCTAssertNoDiagnostics(observability.diagnostics)
-        }
-#else
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-#endif
+        #else
+            try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
     }
 
     func testTSCProcessForceKill() throws {
-#if os(macOS)
-        try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(
-                scriptPath,
-                string: """
-                set -e
+        #if os(macOS)
+            try withTemporaryDirectory { temporaryDirectory in
+                let scriptPath = temporaryDirectory.appending("script")
+                try localFileSystem.writeFileContents(
+                    scriptPath,
+                    string: """
+                        set -e
 
-                trap_handler() {
-                    echo "SIGINT trap"
-                    sleep 10
-                    echo "exit SIGINT trap"
-                }
+                        trap_handler() {
+                            echo "SIGINT trap"
+                            sleep 10
+                            echo "exit SIGINT trap"
+                        }
 
-                echo "process started"
-                trap trap_handler SIGINT
-                echo "trap installed"
+                        echo "process started"
+                        trap trap_handler SIGINT
+                        echo "trap installed"
 
-                sleep 10
-                echo "exit normally"
-                """
-            )
-
-            let observability = ObservabilitySystem.makeForTesting()
-            let cancellator = Cancellator(observabilityScope: observability.topScope)
-
-            // outputRedirection used to signal that the process SIGINT traps have been set up
-            let startSemaphore = ProcessStartedSemaphore(term: "trap installed")
-            let process = AsyncProcess(
-                arguments: ["bash", scriptPath.pathString],
-                outputRedirection: .stream(
-                    stdout: startSemaphore.handleOutput,
-                    stderr: startSemaphore.handleOutput
+                        sleep 10
+                        echo "exit normally"
+                        """
                 )
-            )
-            let registrationKey = cancellator.register(process)
-            XCTAssertNotNil(registrationKey)
 
-            let finishSemaphore = DispatchSemaphore(value: 0)
-            DispatchQueue.sharedConcurrent.async {
-                defer { finishSemaphore.signal() }
-                do {
-                    try process.launch()
-                    let result = try process.waitUntilExit()
-                    print("process finished")
-                    XCTAssertEqual(result.exitStatus, .signalled(signal: SIGKILL))
-                } catch {
-                    XCTFail("failed launching process: \(error)")
+                let observability = ObservabilitySystem.makeForTesting()
+                let cancellator = Cancellator(observabilityScope: observability.topScope)
+
+                // outputRedirection used to signal that the process SIGINT traps have been set up
+                let startSemaphore = ProcessStartedSemaphore(term: "trap installed")
+                let process = AsyncProcess(
+                    arguments: ["bash", scriptPath.pathString],
+                    outputRedirection: .stream(
+                        stdout: startSemaphore.handleOutput,
+                        stderr: startSemaphore.handleOutput
+                    )
+                )
+                let registrationKey = cancellator.register(process)
+                XCTAssertNotNil(registrationKey)
+
+                let finishSemaphore = DispatchSemaphore(value: 0)
+                DispatchQueue.sharedConcurrent.async {
+                    defer { finishSemaphore.signal() }
+                    do {
+                        try process.launch()
+                        let result = try process.waitUntilExit()
+                        print("process finished")
+                        XCTAssertEqual(result.exitStatus, .signalled(signal: SIGKILL))
+                    } catch {
+                        XCTFail("failed launching process: \(error)")
+                    }
                 }
+
+                XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
+                print("process started")
+
+                let cancelled = cancellator._cancel(deadline: .now() + .seconds(1))
+                XCTAssertEqual(cancelled, 1)
+
+                XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
             }
-
-            XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
-            print("process started")
-
-            let cancelled = cancellator._cancel(deadline: .now() + .seconds(1))
-            XCTAssertEqual(cancelled, 1)
-
-            XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
-
-            XCTAssertNoDiagnostics(observability.diagnostics)
-        }
-#else
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-#endif
+        #else
+            try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
     }
 
     func testFoundationProcess() throws {
-#if os(macOS)
-        try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(
-                scriptPath,
-                string: """
-                set -e
+        #if os(macOS)
+            try withTemporaryDirectory { temporaryDirectory in
+                let scriptPath = temporaryDirectory.appending("script")
+                try localFileSystem.writeFileContents(
+                    scriptPath,
+                    string: """
+                        set -e
 
-                echo "process started"
+                        echo "process started"
 
-                sleep 10
-                echo "exit normally"
-                """
-            )
+                        sleep 10
+                        echo "exit normally"
+                        """
+                )
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let cancellator = Cancellator(observabilityScope: observability.topScope)
+                let observability = ObservabilitySystem.makeForTesting()
+                let cancellator = Cancellator(observabilityScope: observability.topScope)
 
-            // pipe used to signal that the process started
-            let startSemaphore = ProcessStartedSemaphore(term: "process started")
-            let process = Foundation.Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = [scriptPath.pathString]
-            let stdoutPipe = Pipe()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-                startSemaphore.handleOutput([UInt8](fileHandle.availableData))
-            }
-            let stderrPipe = Pipe()
-            stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-                startSemaphore.handleOutput([UInt8](fileHandle.availableData))
-            }
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-
-            let registrationKey = cancellator.register(process)
-            XCTAssertNotNil(registrationKey)
-
-            let finishSemaphore = DispatchSemaphore(value: 0)
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { finishSemaphore.signal() }
-                do {
-                    try process.run()
-                } catch {
-                    XCTFail("Process failed to run with error: \(error)")
+                // pipe used to signal that the process started
+                let startSemaphore = ProcessStartedSemaphore(term: "process started")
+                let process = Foundation.Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/bash")
+                process.arguments = [scriptPath.pathString]
+                let stdoutPipe = Pipe()
+                stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                    startSemaphore.handleOutput([UInt8](fileHandle.availableData))
                 }
-                process.waitUntilExit()
-                print("process finished")
-                XCTAssertEqual(process.terminationStatus, SIGINT)
+                let stderrPipe = Pipe()
+                stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                    startSemaphore.handleOutput([UInt8](fileHandle.availableData))
+                }
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
+
+                let registrationKey = cancellator.register(process)
+                XCTAssertNotNil(registrationKey)
+
+                let finishSemaphore = DispatchSemaphore(value: 0)
+
+                DispatchQueue.sharedConcurrent.async {
+                    defer { finishSemaphore.signal() }
+                    do {
+                        try process.run()
+                    } catch {
+                        XCTFail("Process failed to run with error: \(error)")
+                    }
+                    process.waitUntilExit()
+                    print("process finished")
+                    XCTAssertEqual(process.terminationStatus, SIGINT)
+                }
+
+                XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
+                print("process started")
+
+                let canncelled = cancellator._cancel(deadline: .now() + .seconds(1))
+                XCTAssertEqual(canncelled, 1)
+
+                XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
+                print(startSemaphore.output)
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
             }
-
-            XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
-            print("process started")
-
-            let canncelled = cancellator._cancel(deadline: .now() + .seconds(1))
-            XCTAssertEqual(canncelled, 1)
-
-            XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
-            print(startSemaphore.output)
-            
-            XCTAssertNoDiagnostics(observability.diagnostics)
-        }
-#else
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-#endif
+        #else
+            try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
     }
 
     func testFoundationProcessForceKill() throws {
-#if os(macOS)
+        #if os(macOS)
 
-        try withTemporaryDirectory { temporaryDirectory in
-            let scriptPath = temporaryDirectory.appending("script")
-            try localFileSystem.writeFileContents(
-                scriptPath,
-                string: """
-                set -e
+            try withTemporaryDirectory { temporaryDirectory in
+                let scriptPath = temporaryDirectory.appending("script")
+                try localFileSystem.writeFileContents(
+                    scriptPath,
+                    string: """
+                        set -e
 
-                trap_handler() {
-                    echo "SIGINT trap"
-                    sleep 10
-                    echo "exit SIGINT trap"
+                        trap_handler() {
+                            echo "SIGINT trap"
+                            sleep 10
+                            echo "exit SIGINT trap"
+                        }
+
+                        echo "process started"
+                        trap trap_handler SIGINT
+                        echo "trap installed"
+
+                        sleep 10
+                        echo "exit normally"
+                        """
+                )
+
+                let observability = ObservabilitySystem.makeForTesting()
+                let cancellator = Cancellator(observabilityScope: observability.topScope)
+
+                // pipe used to signal that the process SIGINT traps have been set up
+                let startSemaphore = ProcessStartedSemaphore(term: "trap installed")
+                let process = Foundation.Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/bash")
+                process.arguments = [scriptPath.pathString]
+                let stdoutPipe = Pipe()
+                stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                    startSemaphore.handleOutput([UInt8](fileHandle.availableData))
+                }
+                let stderrPipe = Pipe()
+                stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
+                    startSemaphore.handleOutput([UInt8](fileHandle.availableData))
+                }
+                process.standardOutput = stdoutPipe
+                process.standardError = stderrPipe
+
+                let registrationKey = cancellator.register(process)
+                XCTAssertNotNil(registrationKey)
+
+                let finishSemaphore = DispatchSemaphore(value: 0)
+
+                DispatchQueue.sharedConcurrent.async {
+                    defer { finishSemaphore.signal() }
+                    do {
+                        try process.run()
+                    } catch {
+                        XCTFail("Process failed to run with error: \(error)")
+                    }
+                    process.waitUntilExit()
+                    print("process finished")
+                    XCTAssertEqual(process.terminationStatus, SIGTERM)
                 }
 
-                echo "process started"
-                trap trap_handler SIGINT
-                echo "trap installed"
+                XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
+                print("process started")
+                print(startSemaphore.output)
 
-                sleep 10
-                echo "exit normally"
-                """
-            )
+                let cancelled = cancellator._cancel(deadline: .now() + .seconds(1))
+                XCTAssertEqual(cancelled, 1)
 
-            let observability = ObservabilitySystem.makeForTesting()
-            let cancellator = Cancellator(observabilityScope: observability.topScope)
+                XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
 
-            // pipe used to signal that the process SIGINT traps have been set up
-            let startSemaphore = ProcessStartedSemaphore(term: "trap installed")
-            let process = Foundation.Process()
-            process.executableURL = URL(fileURLWithPath: "/bin/bash")
-            process.arguments = [scriptPath.pathString]
-            let stdoutPipe = Pipe()
-            stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-                startSemaphore.handleOutput([UInt8](fileHandle.availableData))
+                XCTAssertNoDiagnostics(observability.diagnostics)
             }
-            let stderrPipe = Pipe()
-            stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-                startSemaphore.handleOutput([UInt8](fileHandle.availableData))
-            }
-            process.standardOutput = stdoutPipe
-            process.standardError = stderrPipe
-
-            let registrationKey = cancellator.register(process)
-            XCTAssertNotNil(registrationKey)
-
-            let finishSemaphore = DispatchSemaphore(value: 0)
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { finishSemaphore.signal() }
-                do {
-                    try process.run()
-                } catch {
-                    XCTFail("Process failed to run with error: \(error)")
-                }
-                process.waitUntilExit()
-                print("process finished")
-                XCTAssertEqual(process.terminationStatus, SIGTERM)
-            }
-
-            XCTAssertEqual(.success, startSemaphore.wait(timeout: .now() + .seconds(5)), "timeout starting tasks")
-            print("process started")
-            print(startSemaphore.output)
-
-            let cancelled = cancellator._cancel(deadline: .now() + .seconds(1))
-            XCTAssertEqual(cancelled, 1)
-
-            XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
-
-            XCTAssertNoDiagnostics(observability.diagnostics)
-        }
-#else
-        try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
-#endif
+        #else
+            try XCTSkipIf(true, "skipping on non-macOS, signal traps do not work well on docker")
+        #endif
     }
 
     func testConcurrency() throws {
-#if !os(macOS)
-        try XCTSkipIf(true, "skipping on non-macOS because of timeout problems")
-#endif
+        #if !os(macOS)
+            try XCTSkipIf(true, "skipping on non-macOS because of timeout problems")
+        #endif
         let observability = ObservabilitySystem.makeForTesting()
         let cancellator = Cancellator(observabilityScope: observability.topScope)
 
         let total = Concurrency.maxOperations
-        let workers: [Worker] = (0 ..< total).map { index in
+        let workers: [Worker] = (0..<total).map { index in
             let worker = Worker(name: "worker \(index)")
             cancellator.register(name: worker.name, handler: worker.cancel)
             return worker

@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(ProcessEnvironmentBlockShim)
-import Basics
+@_spi(ProcessEnvironmentBlockShim) import Basics
 import Dispatch
 import class Foundation.NSLock
 
@@ -55,7 +54,7 @@ private struct GitShellHelper {
         let result: AsyncProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
-                throw CancellationError() // terminating
+                throw CancellationError()  // terminating
             }
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
@@ -109,10 +108,13 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
+                let outputHandler = AsyncProcess.OutputRedirection.stream(
+                    stdout: { stdoutBytes += $0 },
+                    stderr: {
+                        stderrBytes += $0
+                        gitFetchStatusFilter($0, progress: progress)
+                    }
+                )
                 return try self.git.run(
                     args + ["--progress"],
                     environment: environment,
@@ -161,16 +163,17 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         _ options: [String],
         progress: FetchProgress.Handler? = nil
     ) throws {
-        let invocation: [String] = [
-            "clone",
-            // Enable symbolic links for Windows support.
-            "-c", "core.symlinks=true",
-            // Disable fsmonitor to avoid spawning a monitor process.
-            "-c", "core.fsmonitor=false",
-            // Enable long path support on Windows as otherwise we are limited
-            // to 261 characters in the complete path.
-            "-c", "core.longpaths=true",
-        ] + options + [origin, destination]
+        let invocation: [String] =
+            [
+                "clone",
+                // Enable symbolic links for Windows support.
+                "-c", "core.symlinks=true",
+                // Disable fsmonitor to avoid spawning a monitor process.
+                "-c", "core.fsmonitor=false",
+                // Enable long path support on Windows as otherwise we are limited
+                // to 261 characters in the complete path.
+                "-c", "core.longpaths=true",
+            ] + options + [origin, destination]
 
         try self.callGit(
             invocation,
@@ -322,8 +325,8 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
             for byte in bytes {
                 switch byte {
-                case UInt8(ascii: "0") ... UInt8(ascii: "9"),
-                     UInt8(ascii: "a") ... UInt8(ascii: "z"):
+                case UInt8(ascii: "0")...UInt8(ascii: "9"),
+                    UInt8(ascii: "a")...UInt8(ascii: "z"):
                     continue
                 default:
                     return nil
@@ -426,10 +429,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         self.git = git
         self.path = path
         self.isWorkingRepo = isWorkingRepo
-        assert({
-            // Ignore if we couldn't run popen for some reason.
-            (try? self.isBare() != isWorkingRepo) ?? true
-        }())
+        assert(
+            {
+                // Ignore if we couldn't run popen for some reason.
+                (try? self.isBare() != isWorkingRepo) ?? true
+            }()
+        )
     }
 
     /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the
@@ -447,10 +452,13 @@ public final class GitRepository: Repository, WorkingCheckout {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
+                let outputHandler = AsyncProcess.OutputRedirection.stream(
+                    stdout: { stdoutBytes += $0 },
+                    stderr: {
+                        stderrBytes += $0
+                        gitFetchStatusFilter($0, progress: progress)
+                    }
+                )
                 return try self.git.run(
                     ["-C", self.path.pathString] + args,
                     environment: environment,
@@ -462,7 +470,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes))
+                    stderrOutput: .success(stderrBytes)
+                )
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {
@@ -611,12 +620,14 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     public func getCurrentRevision() throws -> Revision {
         try self.lock.withLock {
-            try Revision(identifier: callGit(
-                "rev-parse",
-                "--verify",
-                "HEAD",
-                failureMessage: "Couldn’t get current revision"
-            ))
+            try Revision(
+                identifier: callGit(
+                    "rev-parse",
+                    "--verify",
+                    "HEAD",
+                    failureMessage: "Couldn’t get current revision"
+                )
+            )
         }
     }
 
@@ -777,13 +788,15 @@ public final class GitRepository: Repository, WorkingCheckout {
                 output = try error.result.utf8Output().spm_chomp()
             }
 
-            return stringPaths.map(output.split(whereSeparator: { $0.isNewline }).map {
-                let string = String($0).replacing("\\\\", with: "\\")
-                if string.utf8.first == UInt8(ascii: "\"") {
-                    return String(string.dropFirst(1).dropLast(1))
-                }
-                return string
-            }.contains)
+            return stringPaths.map(
+                output.split(whereSeparator: { $0.isNewline }).map {
+                    let string = String($0).replacing("\\\\", with: "\\")
+                    if string.utf8.first == UInt8(ascii: "\"") {
+                        return String(string.dropFirst(1).dropLast(1))
+                    }
+                    return string
+                }.contains
+            )
         }
     }
 
@@ -880,22 +893,22 @@ public final class GitRepository: Repository, WorkingCheckout {
             let bytes = ByteString(encodingAsUTF8: line)
             let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
             guard bytes.count > expectedBytesCount,
-                  bytes.contents[6] == UInt8(ascii: " "),
-                  // Search for the second space since `type` is of variable length.
-                  let secondSpace = bytes.contents[6 + 1 ..< bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
-                  bytes.contents[secondSpace] == UInt8(ascii: " "),
-                  bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
+                bytes.contents[6] == UInt8(ascii: " "),
+                // Search for the second space since `type` is of variable length.
+                let secondSpace = bytes.contents[6 + 1..<bytes.contents.endIndex].firstIndex(of: UInt8(ascii: " ")),
+                bytes.contents[secondSpace] == UInt8(ascii: " "),
+                bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
             else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
             }
 
             // Compute the mode.
-            let mode = bytes.contents[0 ..< 6].reduce(0) { (acc: Int, char: UInt8) in
+            let mode = bytes.contents[0..<6].reduce(0) { (acc: Int, char: UInt8) in
                 (acc << 3) | (Int(char) - Int(UInt8(ascii: "0")))
             }
             guard let type = Tree.Entry.EntryType(mode: mode),
-                  let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
-                  let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription
+                let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1)..<(secondSpace + 1 + 40)]),
+                let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1)..<bytes.count]).validDescription
             else {
                 throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
             }
@@ -931,7 +944,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Read a symbolic link.
     func readLink(hash: Hash) throws -> String {
         return try callGit(
-            "cat-file", "-p", String(describing: hash.bytes),
+            "cat-file",
+            "-p",
+            String(describing: hash.bytes),
             failureMessage: "Couldn't read '\(String(describing: hash.bytes))'"
         )
     }
@@ -1244,29 +1259,30 @@ public enum GitProgressParser: FetchProgress {
 
     /// The pattern used to match git output. Capture groups are labeled from ?<i0> to ?<i19>.
     static let pattern = #"""
-    (?xi)
-    (?:
-        remote: \h+ (?<i0>Enumerating \h objects): \h+ (?<i1>[0-9]+)
-    )|
-    (?:
-        remote: \h+ (?<i2>Counting \h objects): \h+ (?<i3>[0-9]+)% \h+ \((?<i4>[0-9]+)\/(?<i5>[0-9]+)\)
-    )|
-    (?:
-        remote: \h+ (?<i6>Compressing \h objects): \h+ (?<i7>[0-9]+)% \h+ \((?<i8>[0-9]+)\/(?<i9>[0-9]+)\)
-    )|
-    (?:
-        (?<i10>Resolving \h deltas): \h+ (?<i11>[0-9]+)% \h+ \((?<i12>[0-9]+)\/(?<i13>[0-9]+)\)
-    )|
-    (?:
-        (?<i14>Receiving \h objects): \h+ (?<i15>[0-9]+)% \h+ \((?<i16>[0-9]+)\/(?<i17>[0-9]+)\)
-        (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
-    )
-    """#
+        (?xi)
+        (?:
+            remote: \h+ (?<i0>Enumerating \h objects): \h+ (?<i1>[0-9]+)
+        )|
+        (?:
+            remote: \h+ (?<i2>Counting \h objects): \h+ (?<i3>[0-9]+)% \h+ \((?<i4>[0-9]+)\/(?<i5>[0-9]+)\)
+        )|
+        (?:
+            remote: \h+ (?<i6>Compressing \h objects): \h+ (?<i7>[0-9]+)% \h+ \((?<i8>[0-9]+)\/(?<i9>[0-9]+)\)
+        )|
+        (?:
+            (?<i10>Resolving \h deltas): \h+ (?<i11>[0-9]+)% \h+ \((?<i12>[0-9]+)\/(?<i13>[0-9]+)\)
+        )|
+        (?:
+            (?<i14>Receiving \h objects): \h+ (?<i15>[0-9]+)% \h+ \((?<i16>[0-9]+)\/(?<i17>[0-9]+)\)
+            (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
+        )
+        """#
     static let regex = try? RegEx(pattern: pattern)
 
     init?(from string: String) {
         guard let matches = GitProgressParser.regex?.matchGroups(in: string).first,
-              matches.count == 20 else { return nil }
+            matches.count == 20
+        else { return nil }
 
         if matches[0] == "Enumerating objects" {
             guard let currentObjects = Int(matches[1]) else { return nil }
@@ -1274,8 +1290,9 @@ public enum GitProgressParser: FetchProgress {
             self = .enumeratingObjects(currentObjects: currentObjects)
         } else if matches[2] == "Counting objects" {
             guard let progress = Double(matches[3]),
-                  let currentObjects = Int(matches[4]),
-                  let totalObjects = Int(matches[5]) else { return nil }
+                let currentObjects = Int(matches[4]),
+                let totalObjects = Int(matches[5])
+            else { return nil }
 
             self = .countingObjects(
                 progress: progress / 100,
@@ -1285,8 +1302,9 @@ public enum GitProgressParser: FetchProgress {
 
         } else if matches[6] == "Compressing objects" {
             guard let progress = Double(matches[7]),
-                  let currentObjects = Int(matches[8]),
-                  let totalObjects = Int(matches[9]) else { return nil }
+                let currentObjects = Int(matches[8]),
+                let totalObjects = Int(matches[9])
+            else { return nil }
 
             self = .compressingObjects(
                 progress: progress / 100,
@@ -1296,8 +1314,9 @@ public enum GitProgressParser: FetchProgress {
 
         } else if matches[10] == "Resolving deltas" {
             guard let progress = Double(matches[11]),
-                  let currentObjects = Int(matches[12]),
-                  let totalObjects = Int(matches[13]) else { return nil }
+                let currentObjects = Int(matches[12]),
+                let totalObjects = Int(matches[13])
+            else { return nil }
 
             self = .resolvingDeltas(
                 progress: progress / 100,
@@ -1307,8 +1326,9 @@ public enum GitProgressParser: FetchProgress {
 
         } else if matches[14] == "Receiving objects" {
             guard let progress = Double(matches[15]),
-                  let currentObjects = Int(matches[16]),
-                  let totalObjects = Int(matches[17]) else { return nil }
+                let currentObjects = Int(matches[16]),
+                let totalObjects = Int(matches[17])
+            else { return nil }
 
             let downloadProgress = matches[18]
             let downloadSpeed = matches[19]
@@ -1388,7 +1408,8 @@ public enum GitProgressParser: FetchProgress {
 /// Processes stdout output and calls the progress callback with `GitStatus` objects.
 private func gitFetchStatusFilter(_ bytes: [UInt8], progress: FetchProgress.Handler) {
     guard let string = String(bytes: bytes, encoding: .utf8) else { return }
-    let lines = string
+    let lines =
+        string
         .split { $0.isNewline }
         .map { String($0) }
 

@@ -37,10 +37,10 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
-    public static let current = ToolsVersion(string:
-        "\(SwiftVersion.current.major)." +
-        "\(SwiftVersion.current.minor)." +
-        "\(SwiftVersion.current.patch)")!
+    public static let current = ToolsVersion(
+        string:
+            "\(SwiftVersion.current.major)." + "\(SwiftVersion.current.minor)." + "\(SwiftVersion.current.patch)"
+    )!
 
     /// The minimum tools version that is required by the package manager.
     public static let minimumRequired: ToolsVersion = .v4
@@ -49,16 +49,16 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// addition that specifying the patch version is optional.
     static let toolsVersionRegex = try! NSRegularExpression(
         pattern: #"""
-                 ^
-                 (\d+)\.(\d+)(?:\.(\d+))?
-                 (
-                     \-[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
-                 )?
-                 (
-                     \+[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
-                 )?
-                 $
-                 """#,
+            ^
+            (\d+)\.(\d+)(?:\.(\d+))?
+            (
+                \-[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
+            )?
+            (
+                \+[A-Za-z\d]+(?:\.[A-Za-z\d]+)*
+            )?
+            $
+            """#,
         options: [.allowCommentsAndWhitespace]
     )
 
@@ -87,8 +87,13 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
 
     /// Create an instance of tools version from a given string.
     public init?(string: String) {
-        guard let match = ToolsVersion.toolsVersionRegex.firstMatch(
-            in: string, options: [], range: NSRange(location: 0, length: string.count)) else {
+        guard
+            let match = ToolsVersion.toolsVersionRegex.firstMatch(
+                in: string,
+                options: [],
+                range: NSRange(location: 0, length: string.count)
+            )
+        else {
             return nil
         }
         // The regex succeeded, compute individual components.
@@ -168,9 +173,9 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// The subpath to the PackageDescription runtime library.
     public var runtimeSubpath: RelativePath {
         if self < .v4_2 {
-            return try! RelativePath(validating: "4") // try! safe
+            return try! RelativePath(validating: "4")  // try! safe
         }
-        return try! RelativePath(validating: "4_2") // try! safe
+        return try! RelativePath(validating: "4_2")  // try! safe
     }
 
     /// The swift language version based on this tools version.

@@ -16,8 +16,7 @@ import TSCUtility
 import Testing
 import _InternalTestSupport
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-@testable import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) @testable import PackageGraph
 
 extension ModulesGraphTests {
     @Test
@@ -38,13 +37,13 @@ extension ModulesGraphTests {
                     targets: [
                         TargetDescription(
                             name: "Foo"
-                        ),
+                        )
                     ],
                     traits: [
                         .init(name: "default", enabledTraits: ["Trait1"]),
                         "Trait1",
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope,
             enabledTraitsMap: [
@@ -79,7 +78,7 @@ extension ModulesGraphTests {
                     targets: [
                         TargetDescription(
                             name: "Foo"
-                        ),
+                        )
                     ],
                     traits: [
                         .init(name: "default", enabledTraits: ["Trait1"]),
@@ -89,7 +88,7 @@ extension ModulesGraphTests {
                         .init(name: "Trait4", enabledTraits: ["Trait5"]),
                         "Trait5",
                     ]
-                ),
+                )
             ],
             observabilityScope: observability.topScope,
             enabledTraitsMap: [
@@ -126,15 +125,15 @@ extension ModulesGraphTests {
                             path: "/Package2",
                             requirement: .upToNextMajor(from: "1.0.0"),
                             traits: ["Package2Trait1"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
                             name: "Package1Target1",
                             dependencies: [
-                                .product(name: "Package2Target1", package: "Package2"),
+                                .product(name: "Package2Target1", package: "Package2")
                             ]
-                        ),
+                        )
                     ],
                     traits: [
                         .init(name: "default", enabledTraits: ["Package1Trait1"]),
@@ -150,22 +149,22 @@ extension ModulesGraphTests {
                             name: "Package2Target1",
                             type: .library(.automatic),
                             targets: ["Package2Target1"]
-                        ),
+                        )
                     ],
                     targets: [
                         TargetDescription(
                             name: "Package2Target1"
-                        ),
+                        )
                     ],
                     traits: [
-                        "Package2Trait1",
+                        "Package2Trait1"
                     ]
                 ),
             ],
             observabilityScope: observability.topScope,
             enabledTraitsMap: [
                 "Package1": ["Package1Trait1"],
-                "Package2": ["Package2Trait1"]
+                "Package2": ["Package2Trait1"],
             ]
         )
 
@@ -200,15 +199,15 @@ extension ModulesGraphTests {
                         path: "/Package2",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package2Trait1", condition: .init(traits: ["Package1Trait1"]))])
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package1Target1",
                         dependencies: [
-                            .product(name: "Package2Target1", package: "Package2"),
+                            .product(name: "Package2Target1", package: "Package2")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
                     .init(name: "default", enabledTraits: ["Package1Trait1"]),
@@ -224,15 +223,15 @@ extension ModulesGraphTests {
                         name: "Package2Target1",
                         type: .library(.automatic),
                         targets: ["Package2Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package2Target1"
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package2Trait1",
+                    "Package2Trait1"
                 ]
             ),
         ]
@@ -243,7 +242,7 @@ extension ModulesGraphTests {
             observabilityScope: observability.topScope,
             enabledTraitsMap: [
                 "Package1": ["Package1Trait1"],
-                "Package2": ["Package2Trait1"]
+                "Package2": ["Package2Trait1"],
             ]
         )
 
@@ -264,7 +263,7 @@ extension ModulesGraphTests {
     func traits_whenComplex() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
-            "/Package1/Sources/Package1Target1/source.swift",
+                "/Package1/Sources/Package1Target1/source.swift",
             "/Package2/Sources/Package2Target1/source.swift",
             "/Package3/Sources/Package3Target1/source.swift",
             "/Package4/Sources/Package4Target1/source.swift",
@@ -309,9 +308,9 @@ extension ModulesGraphTests {
                                 tool: .swift,
                                 kind: .define("TEST_DEFINE"),
                                 condition: .init(traits: ["Package1Trait1"])
-                            ),
+                            )
                         ]
-                    ),
+                    )
                 ],
                 traits: [
                     .init(name: "default", enabledTraits: ["Package1Trait1", "Package1Trait2"]),
@@ -328,25 +327,25 @@ extension ModulesGraphTests {
                         path: "/Package3",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package3Trait1", condition: .init(traits: ["Package2Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package2Target1",
                         type: .library(.automatic),
                         targets: ["Package2Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package2Target1",
                         dependencies: [
-                            .product(name: "Package3Target1", package: "Package3"),
+                            .product(name: "Package3Target1", package: "Package3")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package2Trait1",
+                    "Package2Trait1"
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -358,25 +357,25 @@ extension ModulesGraphTests {
                         path: "/Package4",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package4Trait1", condition: .init(traits: ["Package3Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package3Target1",
                         type: .library(.automatic),
                         targets: ["Package3Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package3Target1",
                         dependencies: [
-                            .product(name: "Package4Target1", package: "Package4"),
+                            .product(name: "Package4Target1", package: "Package4")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package3Trait1",
+                    "Package3Trait1"
                 ]
             ),
             Manifest.createFileSystemManifest(
@@ -388,12 +387,12 @@ extension ModulesGraphTests {
                         name: "Package4Target1",
                         type: .library(.automatic),
                         targets: ["Package4Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package4Target1"
-                    ),
+                    )
                 ],
                 traits: [
                     "Package4Trait1",
@@ -409,12 +408,12 @@ extension ModulesGraphTests {
                         name: "Package5Target1",
                         type: .library(.automatic),
                         targets: ["Package5Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package5Target1"
-                    ),
+                    )
                 ]
             ),
         ]
@@ -427,7 +426,7 @@ extension ModulesGraphTests {
                 "Package1": ["Package1Trait1", "Package1Trait2"],
                 "Package2": ["Package2Trait1"],
                 "Package3": ["Package3Trait1"],
-                "Package4": ["Package4Trait1", "Package4Trait2"]
+                "Package4": ["Package4Trait1", "Package4Trait2"],
             ]
         )
 
@@ -517,7 +516,7 @@ extension ModulesGraphTests {
                                 condition: .init(traits: ["Package1Trait3"])
                             ),
                         ]
-                    ),
+                    )
                 ],
                 traits: [
                     .init(name: "default", enabledTraits: ["Package1Trait3"]),
@@ -536,25 +535,25 @@ extension ModulesGraphTests {
                         path: "/Package3",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package3Trait1", condition: .init(traits: ["Package2Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package2Target1",
                         type: .library(.automatic),
                         targets: ["Package2Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package2Target1",
                         dependencies: [
-                            .product(name: "Package3Target1", package: "Package3"),
+                            .product(name: "Package3Target1", package: "Package3")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package2Trait1",
+                    "Package2Trait1"
                 ],
                 pruneDependencies: true
             ),
@@ -567,25 +566,25 @@ extension ModulesGraphTests {
                         path: "/Package4",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package4Trait1", condition: .init(traits: ["Package3Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package3Target1",
                         type: .library(.automatic),
                         targets: ["Package3Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package3Target1",
                         dependencies: [
-                            .product(name: "Package4Target1", package: "Package4"),
+                            .product(name: "Package4Target1", package: "Package4")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package3Trait1",
+                    "Package3Trait1"
                 ],
                 pruneDependencies: true
             ),
@@ -598,12 +597,12 @@ extension ModulesGraphTests {
                         name: "Package4Target1",
                         type: .library(.automatic),
                         targets: ["Package4Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package4Target1"
-                    ),
+                    )
                 ],
                 traits: [
                     "Package4Trait1",
@@ -620,12 +619,12 @@ extension ModulesGraphTests {
                         name: "Package5Target1",
                         type: .library(.automatic),
                         targets: ["Package5Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package5Target1"
-                    ),
+                    )
                 ],
                 pruneDependencies: true
             ),
@@ -639,7 +638,7 @@ extension ModulesGraphTests {
                 "Package1": ["Package1Trait3"],
                 "Package2": [],
                 "Package3": [],
-                "Package4": ["Package4Trait2"]
+                "Package4": ["Package4Trait2"],
             ]
         )
 
@@ -728,7 +727,7 @@ extension ModulesGraphTests {
                                 condition: .init(traits: ["Package1Trait3"])
                             ),
                         ]
-                    ),
+                    )
                 ],
                 traits: [
                     .init(name: "default", enabledTraits: ["Package1Trait3"]),
@@ -747,25 +746,25 @@ extension ModulesGraphTests {
                         path: "/Package3",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package3Trait1", condition: .init(traits: ["Package2Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package2Target1",
                         type: .library(.automatic),
                         targets: ["Package2Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package2Target1",
                         dependencies: [
-                            .product(name: "Package3Target1", package: "Package3"),
+                            .product(name: "Package3Target1", package: "Package3")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package2Trait1",
+                    "Package2Trait1"
                 ],
                 pruneDependencies: true
             ),
@@ -778,25 +777,25 @@ extension ModulesGraphTests {
                         path: "/Package4",
                         requirement: .upToNextMajor(from: "1.0.0"),
                         traits: .init([.init(name: "Package4Trait1", condition: .init(traits: ["Package3Trait1"]))])
-                    ),
+                    )
                 ],
                 products: [
                     .init(
                         name: "Package3Target1",
                         type: .library(.automatic),
                         targets: ["Package3Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package3Target1",
                         dependencies: [
-                            .product(name: "Package4Target1", package: "Package4"),
+                            .product(name: "Package4Target1", package: "Package4")
                         ]
-                    ),
+                    )
                 ],
                 traits: [
-                    "Package3Trait1",
+                    "Package3Trait1"
                 ],
                 pruneDependencies: true
             ),
@@ -809,12 +808,12 @@ extension ModulesGraphTests {
                         name: "Package4Target1",
                         type: .library(.automatic),
                         targets: ["Package4Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package4Target1"
-                    ),
+                    )
                 ],
                 traits: [
                     "Package4Trait1",
@@ -831,12 +830,12 @@ extension ModulesGraphTests {
                         name: "Package5Target1",
                         type: .library(.automatic),
                         targets: ["Package5Target1"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "Package5Target1"
-                    ),
+                    )
                 ],
                 pruneDependencies: true
             ),
@@ -850,7 +849,7 @@ extension ModulesGraphTests {
                 "Package1": ["Package1Trait3"],
                 "Package2": [],
                 "Package3": [],
-                "Package4": ["Package4Trait2"]
+                "Package4": ["Package4Trait2"],
             ]
         )
 
@@ -904,7 +903,7 @@ extension ModulesGraphTests {
                     .localSourceControl(
                         path: "/Juice",
                         requirement: .upToNextMajor(from: "1.0.0")
-                    )
+                    ),
                 ],
                 targets: [
                     TargetDescription(
@@ -919,9 +918,9 @@ extension ModulesGraphTests {
                                 name: "AppleJuice",
                                 package: "Juice",
                                 condition: .init(traits: ["EnableAppleJuiceDep"])
-                            )
+                            ),
                         ],
-                    ),
+                    )
                 ],
                 traits: [
                     .init(name: "default", enabledTraits: ["EnableCoffeeDep"]),
@@ -938,12 +937,12 @@ extension ModulesGraphTests {
                         name: "Coffee",
                         type: .library(.automatic),
                         targets: ["CoffeeTarget"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "CoffeeTarget",
-                    ),
+                    )
                 ],
             ),
             Manifest.createFileSystemManifest(
@@ -955,14 +954,14 @@ extension ModulesGraphTests {
                         name: "AppleJuice",
                         type: .library(.automatic),
                         targets: ["AppleJuiceTarget"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "AppleJuiceTarget",
-                    ),
+                    )
                 ],
-            )
+            ),
         ]
 
         // Test graph with default trait configuration
@@ -1000,7 +999,7 @@ extension ModulesGraphTests {
             observabilityScope: observability.topScope,
             traitConfiguration: .disableAllTraits,
             enabledTraitsMap: [
-                "Lunch": [],
+                "Lunch": []
             ]
         )
         #expect(observability.diagnostics.count == 0)
@@ -1028,7 +1027,7 @@ extension ModulesGraphTests {
             observabilityScope: observability.topScope,
             traitConfiguration: .enabledTraits(["EnableAppleJuiceDep"]),
             enabledTraitsMap: [
-                "Lunch": ["EnableAppleJuiceDep"],
+                "Lunch": ["EnableAppleJuiceDep"]
             ]
         )
         #expect(observability.diagnostics.count == 0)

@@ -41,7 +41,7 @@ extension BuildParameters {
     public struct Linking: Encodable {
         /// Whether to disable dead code stripping by the linker
         public var linkerDeadStrip: Bool
-        
+
         public var linkTimeOptimizationMode: LinkTimeOptimizationMode?
 
         /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying

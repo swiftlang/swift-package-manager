@@ -23,17 +23,17 @@ struct ConcurrencyHelpersTest {
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
         )
         func threadSafeKeyValueStore() async throws {
-            for num in 0 ..< 100 {
+            for num in 0..<100 {
                 var expected = [Int: Int]()
                 let lock = NSLock()
 
                 let cache = ThreadSafeKeyValueStore<Int, Int>()
 
                 try await withThrowingTaskGroup(of: Void.self) { group in
-                    for index in 0 ..< 1000 {
+                    for index in 0..<1000 {
                         group.addTask {
-                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
-                            let value = Int.random(in: Int.min ..< Int.max)
+                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100...300) * 1000))
+                            let value = Int.random(in: Int.min..<Int.max)
                             lock.withLock {
                                 expected[index] = value
                             }
@@ -41,7 +41,7 @@ struct ConcurrencyHelpersTest {
                                 value
                             }
                             cache.memoize(index) {
-                                Int.random(in: Int.min ..< Int.max)
+                                Int.random(in: Int.min..<Int.max)
                             }
                         }
                     }
@@ -58,17 +58,17 @@ struct ConcurrencyHelpersTest {
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
         )
         func threadSafeArrayStore() async throws {
-            for num in 0 ..< 100 {
+            for num in 0..<100 {
                 var expected = [Int]()
                 let lock = NSLock()
 
                 let cache = ThreadSafeArrayStore<Int>()
 
                 try await withThrowingTaskGroup(of: Void.self) { group in
-                    for _ in 0 ..< 1000 {
+                    for _ in 0..<1000 {
                         group.addTask {
-                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
-                            let value = Int.random(in: Int.min ..< Int.max)
+                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100...300) * 1000))
+                            let value = Int.random(in: Int.min..<Int.max)
                             lock.withLock {
                                 expected.append(value)
                             }
@@ -82,7 +82,7 @@ struct ConcurrencyHelpersTest {
                 let resultsSorted = cache.get().sorted()
                 #expect(expectedSorted == resultsSorted, "Iteration \(num) failed")
             }
-       }
+        }
     }
 
     @Test(
@@ -103,16 +103,16 @@ struct ConcurrencyHelpersTest {
             }
         }
 
-        for num in 0 ..< 100 {
+        for num in 0..<100 {
             var winner: Int?
             let cache = ThreadSafeBox<Int>()
             let coordinator = SerialCoordinator()
 
             try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< 1000 {
+                for index in 0..<1000 {
                     group.addTask {
                         // Random sleep to simulate concurrent access timing
-                        try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
+                        try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100...300) * 1000))
 
                         // Process both winner determination and cache memoization serially
                         await coordinator.processTask(index, winner: &winner, cache: cache)

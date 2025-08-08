@@ -62,7 +62,7 @@ extension Version: LosslessStringConvertible {
             versionCoreIdentifiers.count == 3,
             // Major, minor, and patch versions must be ASCII numbers, according to the semantic versioning standard.
             // Converting each identifier from a substring to an integer doubles as checking if the identifiers have non-numeric characters.
-                let major = Int(versionCoreIdentifiers[0]),
+            let major = Int(versionCoreIdentifiers[0]),
             let minor = Int(versionCoreIdentifiers[1]),
             let patch = Int(versionCoreIdentifiers[2])
         else { return nil }
@@ -74,7 +74,7 @@ extension Version: LosslessStringConvertible {
         if let prereleaseDelimiterIndex {
             let prereleaseStartIndex = versionString.index(after: prereleaseDelimiterIndex)
             let prereleaseIdentifiers = versionString[prereleaseStartIndex..<(metadataDelimiterIndex ?? versionString.endIndex)].split(separator: ".", omittingEmptySubsequences: false)
-            guard prereleaseIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })}) else { return nil }
+            guard prereleaseIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) }) else { return nil }
             self.prereleaseIdentifiers = prereleaseIdentifiers.map { String($0) }
         } else {
             self.prereleaseIdentifiers = []
@@ -83,7 +83,7 @@ extension Version: LosslessStringConvertible {
         if let metadataDelimiterIndex {
             let metadataStartIndex = versionString.index(after: metadataDelimiterIndex)
             let buildMetadataIdentifiers = versionString[metadataStartIndex...].split(separator: ".", omittingEmptySubsequences: false)
-            guard buildMetadataIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" })}) else { return nil }
+            guard buildMetadataIdentifiers.allSatisfy({ $0.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" }) }) else { return nil }
             self.buildMetadataIdentifiers = buildMetadataIdentifiers.map { String($0) }
         } else {
             self.buildMetadataIdentifiers = []

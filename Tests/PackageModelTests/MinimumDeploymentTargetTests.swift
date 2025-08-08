@@ -18,8 +18,8 @@ import struct Basics.AsyncProcessResult
 final class MinimumDeploymentTargetTests: XCTestCase {
     func testDoesNotAssertWithNoOutput() throws {
         #if !os(macOS)
-        // these tests eventually call `xcrun`.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // these tests eventually call `xcrun`.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = AsyncProcessResult(
             arguments: [],
@@ -34,8 +34,8 @@ final class MinimumDeploymentTargetTests: XCTestCase {
 
     func testThrowsWithNonPathOutput() throws {
         #if !os(macOS)
-        // these tests eventually call `xcrun`.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // these tests eventually call `xcrun`.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = AsyncProcessResult(
             arguments: [],
@@ -45,16 +45,18 @@ final class MinimumDeploymentTargetTests: XCTestCase {
             stderrOutput: "".asResult
         )
 
-        XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(
-            with: result,
-            platform: .macOS
-        ))
+        XCTAssertThrowsError(
+            try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(
+                with: result,
+                platform: .macOS
+            )
+        )
     }
 
     func testThrowsWithErrorForOutput() throws {
         #if !os(macOS)
-        // these tests eventually call `xcrun`.
-        try XCTSkipIf(true, "test is only supported on macOS")
+            // these tests eventually call `xcrun`.
+            try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         let result = AsyncProcessResult(
             arguments: [],
@@ -64,10 +66,12 @@ final class MinimumDeploymentTargetTests: XCTestCase {
             stderrOutput: "".asResult
         )
 
-        XCTAssertThrowsError(try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(
-            with: result,
-            platform: .macOS
-        ))
+        XCTAssertThrowsError(
+            try MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(
+                with: result,
+                platform: .macOS
+            )
+        )
     }
 }
 

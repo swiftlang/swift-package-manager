@@ -150,10 +150,14 @@ final class RepositoryManagerTests: XCTestCase {
             try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch[0].details,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
-            XCTAssertEqual(try delegate.didFetch[0].result.get(),
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+            XCTAssertEqual(
+                delegate.willFetch[0].details,
+                RepositoryManager.FetchDetails(fromCache: false, updatedCache: false)
+            )
+            XCTAssertEqual(
+                try delegate.didFetch[0].result.get(),
+                RepositoryManager.FetchDetails(fromCache: false, updatedCache: true)
+            )
 
             // removing the repositories path to force re-fetch
             try fs.removeFileTree(repositoriesPath)
@@ -164,10 +168,14 @@ final class RepositoryManagerTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch[1].details,
-                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: false))
-            XCTAssertEqual(try delegate.didFetch[1].result.get(),
-                           RepositoryManager.FetchDetails(fromCache: true, updatedCache: true))
+            XCTAssertEqual(
+                delegate.willFetch[1].details,
+                RepositoryManager.FetchDetails(fromCache: true, updatedCache: false)
+            )
+            XCTAssertEqual(
+                try delegate.didFetch[1].result.get(),
+                RepositoryManager.FetchDetails(fromCache: true, updatedCache: true)
+            )
 
             //  reset the state on disk
             try fs.removeFileTree(cachePath)
@@ -180,10 +188,14 @@ final class RepositoryManagerTests: XCTestCase {
             try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
             try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
             try delegate.wait(timeout: .now() + 2)
-            XCTAssertEqual(delegate.willFetch[2].details,
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
-            XCTAssertEqual(try delegate.didFetch[2].result.get(),
-                           RepositoryManager.FetchDetails(fromCache: false, updatedCache: true))
+            XCTAssertEqual(
+                delegate.willFetch[2].details,
+                RepositoryManager.FetchDetails(fromCache: false, updatedCache: false)
+            )
+            XCTAssertEqual(
+                try delegate.didFetch[2].result.get(),
+                RepositoryManager.FetchDetails(fromCache: false, updatedCache: true)
+            )
 
             // update packages from the cache
             delegate.prepare(fetchExpected: false, updateExpected: true)
@@ -351,7 +363,7 @@ final class RepositoryManagerTests: XCTestCase {
             let results = ThreadSafeKeyValueStore<Int, RepositoryManager.RepositoryHandle>()
             let concurrency = 10000
             try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< concurrency {
+                for index in 0..<concurrency {
                     group.addTask {
                         delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
                         results[index] = try await manager.lookup(
@@ -374,7 +386,7 @@ final class RepositoryManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didUpdate.count, concurrency - 1)
 
             XCTAssertEqual(results.count, concurrency)
-            for index in 0 ..< concurrency {
+            for index in 0..<concurrency {
                 XCTAssertEqual(results[index]?.repository, dummyRepo)
             }
         }
@@ -448,7 +460,7 @@ final class RepositoryManagerTests: XCTestCase {
 
         let finishGroup = DispatchGroup()
         let results = ThreadSafeKeyValueStore<RepositorySpecifier, Result<RepositoryManager.RepositoryHandle, Error>>()
-        for index in 0 ..< total {
+        for index in 0..<total {
             let path = try AbsolutePath(validating: "/repo/\(index)")
             let repository = RepositorySpecifier(path: path)
             provider.startGroup.enter()
@@ -479,7 +491,7 @@ final class RepositoryManagerTests: XCTestCase {
         for (repository, result) in results.get() {
             switch (Int(repository.basename)! < total / 2, result) {
             case (true, .success):
-                break // as expected!
+                break  // as expected!
             case (true, .failure(let error)):
                 XCTFail("expected success, but failed with \(type(of: error)) '\(error)'")
             case (false, .success):
@@ -670,7 +682,7 @@ extension RepositoryManager {
         fileSystem: FileSystem,
         path: AbsolutePath,
         provider: RepositoryProvider,
-        cachePath: AbsolutePath? =  .none,
+        cachePath: AbsolutePath? = .none,
         cacheLocalPackages: Bool = false,
         maxConcurrentOperations: Int? = .none,
         delegate: RepositoryManagerDelegate? = .none
@@ -750,7 +762,7 @@ private class DummyRepositoryProvider: RepositoryProvider, @unchecked Sendable {
         return DummyRepository(provider: self)
     }
 
-    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) async throws -> WorkingCheckout  {
+    func createWorkingCopy(repository: RepositorySpecifier, sourcePath: AbsolutePath, at destinationPath: AbsolutePath, editable: Bool) async throws -> WorkingCheckout {
         try self.fileSystem.createDirectory(destinationPath)
         try self.fileSystem.writeFileContents(destinationPath.appending("README.txt"), bytes: "Hi")
         return try await self.openWorkingCopy(at: destinationPath)
@@ -795,7 +807,7 @@ private class DummyRepositoryProvider: RepositoryProvider, @unchecked Sendable {
     }
 
     struct DummyWorkingCheckout: WorkingCheckout {
-        let path : AbsolutePath
+        let path: AbsolutePath
 
         init(at path: AbsolutePath) {
             self.path = path
@@ -857,12 +869,12 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
 
     public func prepare(fetchExpected: Bool, updateExpected: Bool) {
         if fetchExpected {
-            self.group.enter() // will fetch
-            self.group.enter() // did fetch
+            self.group.enter()  // will fetch
+            self.group.enter()  // did fetch
         }
         if updateExpected {
-            self.group.enter() // will update
-            self.group.enter() // did v
+            self.group.enter()  // will update
+            self.group.enter()  // did v
         }
     }
 

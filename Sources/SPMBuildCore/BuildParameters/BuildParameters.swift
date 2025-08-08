@@ -178,17 +178,22 @@ public struct BuildParameters: Encodable {
         apiDigesterMode: APIDigesterMode? = nil
     ) throws {
         // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
-        let triple = try triple ?? {
-            let hostTriple = try Triple.getHostTriple(
-                    usingSwiftCompiler: toolchain.swiftCompilerPath)
-            return hostTriple.versionedTriple.isDarwin() ? hostTriple.unversionedTriple : hostTriple.versionedTriple
-        }()
+        let triple =
+            try triple
+            ?? {
+                let hostTriple = try Triple.getHostTriple(
+                    usingSwiftCompiler: toolchain.swiftCompilerPath
+                )
+                return hostTriple.versionedTriple.isDarwin() ? hostTriple.unversionedTriple : hostTriple.versionedTriple
+            }()
 
-        self.debuggingParameters = debuggingParameters ?? .init(
-            triple: triple,
-            shouldEnableDebuggingEntitlement: configuration == .debug,
-            omitFramePointers: nil
-        )
+        self.debuggingParameters =
+            debuggingParameters
+            ?? .init(
+                triple: triple,
+                shouldEnableDebuggingEntitlement: configuration == .debug,
+                omitFramePointers: nil
+            )
 
         self.destination = destination
         self.dataPath = dataPath
@@ -200,30 +205,37 @@ public struct BuildParameters: Encodable {
         case .dwarf:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
-            self.flags = flags.merging(triple.isWindows() ? BuildFlags(
-                cCompilerFlags: ["-gdwarf"],
-                cxxCompilerFlags: ["-gdwarf"],
-                swiftCompilerFlags: ["-g", "-use-ld=lld"],
-                linkerFlags: ["-debug:dwarf"]
-            ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"]))
+            self.flags = flags.merging(
+                triple.isWindows()
+                    ? BuildFlags(
+                        cCompilerFlags: ["-gdwarf"],
+                        cxxCompilerFlags: ["-gdwarf"],
+                        swiftCompilerFlags: ["-g", "-use-ld=lld"],
+                        linkerFlags: ["-debug:dwarf"]
+                    ) : BuildFlags(cCompilerFlags: ["-g"], cxxCompilerFlags: ["-g"], swiftCompilerFlags: ["-g"])
+            )
         case .codeview:
             if !triple.isWindows() {
                 throw StringError("CodeView debug information is currently not supported on \(triple.osName)")
             }
             var flags = flags
-            self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g"],
-                cxxCompilerFlags: ["-g"],
-                swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
-                linkerFlags: ["-debug"]
-            ))
+            self.flags = flags.merging(
+                BuildFlags(
+                    cCompilerFlags: ["-g"],
+                    cxxCompilerFlags: ["-g"],
+                    swiftCompilerFlags: ["-g", "-debug-info-format=codeview"],
+                    linkerFlags: ["-debug"]
+                )
+            )
         case .none:
             var flags = flags
-            self.flags = flags.merging(BuildFlags(
-                cCompilerFlags: ["-g0"],
-                cxxCompilerFlags: ["-g0"],
-                swiftCompilerFlags: ["-gnone"]
-            ))
+            self.flags = flags.merging(
+                BuildFlags(
+                    cCompilerFlags: ["-g0"],
+                    cxxCompilerFlags: ["-g0"],
+                    swiftCompilerFlags: ["-gnone"]
+                )
+            )
         }
         self.pkgConfigDirectories = pkgConfigDirectories
         self.architectures = architectures
@@ -306,9 +318,9 @@ public struct BuildParameters: Encodable {
     public func macroBinaryPath(_ module: ResolvedModule) throws -> Basics.AbsolutePath {
         assert(module.type == .macro)
         #if BUILD_MACROS_AS_DYLIBS
-        return buildPath.appending(try dynamicLibraryPath(for: module.name))
+            return buildPath.appending(try dynamicLibraryPath(for: module.name))
         #else
-        return buildPath.appending(try executablePath(for: module.name))
+            return buildPath.appending(try executablePath(for: module.name))
         #endif
     }
 
@@ -357,9 +369,9 @@ public struct BuildParameters: Encodable {
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return try dynamicLibraryPath(for: product.name)
+                return try dynamicLibraryPath(for: product.name)
             #else
-            return try executablePath(for: product.name)
+                return try executablePath(for: product.name)
             #endif
         }
     }

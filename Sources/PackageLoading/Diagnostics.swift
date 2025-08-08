@@ -38,7 +38,7 @@ extension Basics.Diagnostic {
         case .library(.automatic):
             typeString = ""
         case .executable, .snippet, .plugin, .test, .macro,
-             .library(.dynamic), .library(.static):
+            .library(.dynamic), .library(.static):
             typeString = " (\(product.type))"
         }
 
@@ -74,17 +74,21 @@ extension Basics.Diagnostic {
     }
 
     static func executableProductTargetNotExecutable(product: String, target: String) -> Self {
-        .error("""
+        .error(
+            """
             executable product '\(product)' expects target '\(target)' to be executable; an executable target requires \
             a 'main.swift' file
-            """)
+            """
+        )
     }
 
     static func executableProductWithoutExecutableTarget(product: String) -> Self {
-        .error("""
+        .error(
+            """
             executable product '\(product)' should have one executable target; an executable target requires a \
             'main.swift' file
-            """)
+            """
+        )
     }
 
     static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Self {
@@ -123,10 +127,12 @@ extension Basics.Diagnostic {
         path: RelativePath,
         targetName: String
     ) -> Self {
-        .error("""
+        .error(
+            """
             resource '\(path)' in target '\(targetName)' is forbidden; Info.plist is not supported as a top-level \
             resource file in the resources bundle
-            """)
+            """
+        )
     }
 
     static func copyConflictWithLocalizationDirectory(path: RelativePath, targetName: String) -> Self {
@@ -138,17 +144,21 @@ extension Basics.Diagnostic {
     }
 
     static func localizationAmbiguity(path: RelativePath, targetName: String) -> Self {
-        .error("""
+        .error(
+            """
             resource '\(path)' in target '\(targetName)' is in a localization directory and has an explicit \
             localization declaration in the package manifest; choose one or the other to avoid any ambiguity
-            """)
+            """
+        )
     }
 
     static func localizedAndUnlocalizedVariants(resource: String, targetName: String) -> Self {
-        .warning("""
+        .warning(
+            """
             resource '\(resource)' in target '\(targetName)' has both localized and un-localized variants; the \
             localized variants will never be chosen
-            """)
+            """
+        )
     }
 }
 

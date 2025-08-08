@@ -73,7 +73,8 @@ struct PackageDescription6_2LoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         try await withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors on Windows") {
-            let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
+            let (_, validationDiagnostics) =
+                try await PackageDescriptionLoadingTests
                 .loadAndValidateManifest(
                     content,
                     toolsVersion: .v6_2,
@@ -96,9 +97,9 @@ struct PackageDescription6_2LoadingTests {
 }
 
 private var isWindows: Bool {
-#if os(Windows)
-    true
-#else
-    false
-#endif
+    #if os(Windows)
+        true
+    #else
+        false
+    #endif
 }

@@ -123,7 +123,7 @@ struct Trie<Document: Hashable> {
 
             // Construct the new prefix by adding the sub-trie root's character
             var previousCharacters = prefix
-            previousCharacters.append(root.value!.lowercased()) // !-safe; see precondition
+            previousCharacters.append(root.value!.lowercased())  // !-safe; see precondition
 
             // The root actually forms a word
             if root.isTerminating {

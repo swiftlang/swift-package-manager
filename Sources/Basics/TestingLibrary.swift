@@ -12,22 +12,21 @@
 
 /// The testing libraries supported by the package manager.
 public enum TestingLibrary: Sendable, CustomStringConvertible {
-  /// The XCTest library.
-  ///
-  /// This case represents both the open-source swift-corelibs-xctest
-  /// package and Apple's XCTest framework that ships with Xcode.
-  case xctest
+    /// The XCTest library.
+    ///
+    /// This case represents both the open-source swift-corelibs-xctest
+    /// package and Apple's XCTest framework that ships with Xcode.
+    case xctest
 
-  /// The swift-testing library.
-  case swiftTesting
+    /// The swift-testing library.
+    case swiftTesting
 
-  public var description: String {
-    switch self {
-    case .xctest:
-      "XCTest"
-    case .swiftTesting:
-      "Swift Testing"
+    public var description: String {
+        switch self {
+        case .xctest:
+            "XCTest"
+        case .swiftTesting:
+            "Swift Testing"
+        }
     }
-  }
 }
-

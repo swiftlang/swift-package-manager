@@ -57,8 +57,8 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
     var stored: ValueStorage?
 
     enum ValueStorage {
-    case inProgress([CheckedContinuation<Value, Error>])
-    case complete(Result<Value, Error>)
+        case inProgress([CheckedContinuation<Value, Error>])
+        case complete(Result<Value, Error>)
     }
 
     public init() {}
@@ -74,7 +74,7 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
             }
             if case .inProgress(let array) = self.stored {
                 self.stored = .complete(result)
-                array.forEach { $0.resume(with: result)}
+                array.forEach { $0.resume(with: result) }
             }
             return try result.get()
         }
@@ -89,8 +89,6 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
         }
     }
 }
-
-
 
 /// Thread-safe dictionary like structure
 public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
@@ -112,7 +110,8 @@ public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
             self.lock.withLock {
                 self.underlying[key]
             }
-        } set {
+        }
+        set {
             self.lock.withLock {
                 self.underlying[key] = newValue
             }

@@ -65,7 +65,8 @@ extension Workspace: PackageContainerProvider {
                 manifestLoader: self.manifestLoader,
                 currentToolsVersion: self.currentToolsVersion,
                 fingerprintStorage: self.fingerprints,
-                fingerprintCheckingMode: FingerprintCheckingMode
+                fingerprintCheckingMode:
+                    FingerprintCheckingMode
                     .map(self.configuration.fingerprintCheckingMode),
                 observabilityScope: observabilityScope
             )

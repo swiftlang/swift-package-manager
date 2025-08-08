@@ -81,9 +81,10 @@ extension Toolset {
             )
         }
 
-        let rootPaths = try decoded.rootPath.map {
-            [try AbsolutePath(validating: $0, relativeTo: toolsetPath.parentDirectory)]
-        } ?? []
+        let rootPaths =
+            try decoded.rootPath.map {
+                [try AbsolutePath(validating: $0, relativeTo: toolsetPath.parentDirectory)]
+            } ?? []
 
         var knownTools = [KnownTool: ToolProperties]()
         var hasEmptyToolConfiguration = false
@@ -109,10 +110,10 @@ extension Toolset {
                 // don't keep track of a tool with no path and CLI options specified.
                 observabilityScope.emit(
                     error:
-                    """
-                    Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \
-                    `extraCLIOptions` properties specified with valid values, skipping it.
-                    """
+                        """
+                        Tool `\(knownTool.rawValue) in toolset configuration at `\(toolsetPath)` has neither `path` nor \
+                        `extraCLIOptions` properties specified with valid values, skipping it.
+                        """
                 )
                 hasEmptyToolConfiguration = true
                 continue

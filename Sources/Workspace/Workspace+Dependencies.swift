@@ -116,8 +116,9 @@ extension Workspace {
             // resolved packages for the input packages so only those packages are updated.
             resolvedPackages = resolvedPackagesStore.resolvedPackages
                 .filter {
-                    !packages.contains($0.value.packageRef.identity.description) && !packages
-                        .contains($0.value.packageRef.deprecatedName)
+                    !packages.contains($0.value.packageRef.identity.description)
+                        && !packages
+                            .contains($0.value.packageRef.deprecatedName)
                 }
         }
 
@@ -360,14 +361,15 @@ extension Workspace {
 
         // Load the `Package.resolved` store or abort now.
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
-              !observabilityScope.errorsReported
+            !observabilityScope.errorsReported
         else {
             let dependencyManifests = try await self.loadDependencyManifests(
                 root: graphRoot,
                 observabilityScope: observabilityScope
-                )
+            )
 
-            return (dependencyManifests,
+            return (
+                dependencyManifests,
                 .notRequired
             )
         }
@@ -388,14 +390,14 @@ extension Workspace {
                         return .never
                     } else {
                         switch resolvedPackage.state {
-                            case .branch(_, let revision):
-                                return .ifNeeded(revision: revision)
-                            case .revision(let revision):
-                                return .ifNeeded(revision: revision)
-                            case .version(_, .some(let revision)):
-                                return .ifNeeded(revision: revision)
-                            case .version(_, .none):
-                                return .always
+                        case .branch(_, let revision):
+                            return .ifNeeded(revision: revision)
+                        case .revision(let revision):
+                            return .ifNeeded(revision: revision)
+                        case .version(_, .some(let revision)):
+                            return .ifNeeded(revision: revision)
+                        case .version(_, .none):
+                            return .always
                         }
                     }
                 }()
@@ -465,7 +467,7 @@ extension Workspace {
             automaticallyAddManagedDependencies: true,
             observabilityScope: observabilityScope
         )
-        
+
         try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
@@ -535,11 +537,13 @@ extension Workspace {
         }
 
         // load and update the `Package.resolved` store with any changes from loading the top level dependencies
-        guard let resolvedPackagesStore = await self.loadAndUpdateResolvedPackagesStore(
-            dependencyManifests: currentManifests,
-            rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
-            observabilityScope: observabilityScope
-        ), !observabilityScope.errorsReported else {
+        guard
+            let resolvedPackagesStore = await self.loadAndUpdateResolvedPackagesStore(
+                dependencyManifests: currentManifests,
+                rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+                observabilityScope: observabilityScope
+            ), !observabilityScope.errorsReported
+        else {
             // abort if `Package.resolved` store reported any errors.
             return currentManifests
         }
@@ -596,7 +600,6 @@ extension Workspace {
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
-
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -680,14 +683,16 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
-        guard let packageStateChanges = await observabilityScope.trap({
-            try await self.computePackageStateChanges(
-                root: root,
-                resolvedDependencies: updateResults,
-                updateBranches: updateBranches,
-                observabilityScope: observabilityScope
-            )
-        }) else {
+        guard
+            let packageStateChanges = await observabilityScope.trap({
+                try await self.computePackageStateChanges(
+                    root: root,
+                    resolvedDependencies: updateResults,
+                    updateBranches: updateBranches,
+                    observabilityScope: observabilityScope
+                )
+            })
+        else {
             return []
         }
 
@@ -859,11 +864,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-        try root.constraints(self.enabledTraitsMap) +
+            try root.constraints(self.enabledTraitsMap)
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } +
-            dependencyManifests.dependencyConstraints +
-            constraints
+            + root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } + dependencyManifests.dependencyConstraints + constraints
 
         let precomputationProvider = ResolverPrecomputationProvider(
             root: root,
@@ -886,11 +889,13 @@ extension Workspace {
         case .failure(ResolverPrecomputationError.missingPackage(let package)):
             return .required(reason: .newPackages(packages: [package]))
         case .failure(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
-            return .required(reason: .packageRequirementChange(
-                package: package,
-                state: state,
-                requirement: requirement
-            ))
+            return .required(
+                reason: .packageRequirementChange(
+                    package: package,
+                    state: state,
+                    requirement: requirement
+                )
+            )
         case .failure(let error):
             return .required(reason: .other("\(error.interpolationDescription)"))
         }
@@ -906,8 +911,10 @@ extension Workspace {
             return nil
         }
 
-        guard let requiredDependencies = observabilityScope
-            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
+        guard
+            let requiredDependencies =
+                observabilityScope
+                .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
         }
@@ -1062,13 +1069,14 @@ extension Workspace {
             case .revision(let identifier, let branch):
                 // Get the latest revision from the container.
                 // TODO: replace with async/await when available
-                guard let container = try await
-                    packageContainerProvider.getContainer(
+                guard
+                    let container = try await packageContainerProvider.getContainer(
                         for: binding.package,
                         updateStrategy: .never,
                         observabilityScope: observabilityScope
                     )
-                 as? SourceControlPackageContainer else {
+                        as? SourceControlPackageContainer
+                else {
                     throw InternalError(
                         "invalid container for \(binding.package) expected a SourceControlPackageContainer"
                     )
@@ -1097,7 +1105,7 @@ extension Workspace {
                         newState = .revision(revision)
                     }
                     if case .sourceControlCheckout(let checkoutState) = currentDependency.state,
-                       checkoutState == newState
+                        checkoutState == newState
                     {
                         packageStateChanges[binding.package.identity] = (binding.package, .unchanged)
                     } else {
@@ -1131,8 +1139,7 @@ extension Workspace {
         }
         // Set the state of any old package that might have been removed.
         for packageRef in await self.state.dependencies.lazy.map(\.packageRef)
-            where packageStateChanges[packageRef.identity] == nil
-        {
+        where packageStateChanges[packageRef.identity] == nil {
             packageStateChanges[packageRef.identity] = (packageRef, .removed)
         }
 

@@ -31,7 +31,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -45,7 +45,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 5),
                                 end: .init(path: path, line: 1, column: 6),
                                 text: "_"
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -76,9 +76,9 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -102,7 +102,7 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "_"
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -124,9 +124,9 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 9),
                                         end: .init(path: path, line: 1, column: 10),
                                         text: "22",
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -151,7 +151,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -165,7 +165,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22",
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -200,7 +200,7 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let",
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -216,7 +216,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22",
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -236,9 +236,9 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "_"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -264,7 +264,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 1),
                                 end: .init(path: path, line: 1, column: 4),
                                 text: "let"
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -278,7 +278,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22",
-                            ),
+                            )
                         ]
                     ),
                 ]
@@ -313,7 +313,7 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 1),
                                         end: .init(path: path, line: 1, column: 4),
                                         text: "let",
-                                    ),
+                                    )
                                 ]
                             ),
                         ]
@@ -329,7 +329,7 @@ struct CategoryTests {
                                 start: .init(path: path, line: 1, column: 9),
                                 end: .init(path: path, line: 1, column: 10),
                                 text: "22",
-                            ),
+                            )
                         ]
                     ),
                     PrimaryDiagnostic(
@@ -349,9 +349,9 @@ struct CategoryTests {
                                         start: .init(path: path, line: 1, column: 5),
                                         end: .init(path: path, line: 1, column: 6),
                                         text: "_"
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ]
                     ),
                 ]

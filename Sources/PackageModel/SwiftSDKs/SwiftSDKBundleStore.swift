@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
@@ -52,10 +51,10 @@ public final class SwiftSDKBundleStore {
             switch self {
             case let .noMatchingSwiftSDK(selector, hostTriple):
                 return """
-                No Swift SDK found matching query `\(selector)` and host triple \
-                `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
-                available Swift SDKs.
-                """
+                    No Swift SDK found matching query `\(selector)` and host triple \
+                    `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
+                    available Swift SDKs.
+                    """
             }
         }
     }
@@ -136,11 +135,13 @@ public final class SwiftSDKBundleStore {
             )
         }
 
-        guard var selectedSwiftSDKs = validBundles.selectSwiftSDK(
-            matching: selector,
-            hostTriple: hostTriple,
-            observabilityScope: self.observabilityScope
-        ) else {
+        guard
+            var selectedSwiftSDKs = validBundles.selectSwiftSDK(
+                matching: selector,
+                hostTriple: hostTriple,
+                observabilityScope: self.observabilityScope
+            )
+        else {
             throw Error.noMatchingSwiftSDK(selector: selector, hostTriple: hostTriple)
         }
 
@@ -164,8 +165,7 @@ public final class SwiftSDKBundleStore {
         let bundleName = try await withTemporaryDirectory(fileSystem: self.fileSystem, removeTreeOnDeinit: true) { temporaryDirectory in
             let bundlePath: AbsolutePath
 
-            if
-                let bundleURL = URL(string: bundlePathOrURL),
+            if let bundleURL = URL(string: bundlePathOrURL),
                 let scheme = bundleURL.scheme,
                 scheme == "http" || scheme == "https"
             {
@@ -202,9 +202,9 @@ public final class SwiftSDKBundleStore {
                         let step = step > Int.max ? Int.max : Int(step)
                         let total = total.map { $0 > Int.max ? Int.max : Int($0) } ?? step
                         progressAnimation.update(
-                          step: step,
-                          total: total,
-                          text: "Downloading \(bundleURL.lastPathComponent)"
+                            step: step,
+                            total: total,
+                            text: "Downloading \(bundleURL.lastPathComponent)"
                         )
                     }
                 )
@@ -220,8 +220,7 @@ public final class SwiftSDKBundleStore {
                 self.outputHandler(.checksumValid)
 
                 bundlePath = downloadedBundlePath
-            } else if
-                let cwd: AbsolutePath = self.fileSystem.currentWorkingDirectory,
+            } else if let cwd: AbsolutePath = self.fileSystem.currentWorkingDirectory,
                 let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
             {
                 bundlePath = originalBundlePath
@@ -264,10 +263,11 @@ public final class SwiftSDKBundleStore {
 
         try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
-            $0.hasSuffix(".\(artifactBundleExtension)") &&
-                fileSystem.isDirectory(extractionResultsDirectory.appending($0))
-        }) else {
+        guard
+            let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
+                $0.hasSuffix(".\(artifactBundleExtension)") && fileSystem.isDirectory(extractionResultsDirectory.appending($0))
+            })
+        else {
             throw SwiftSDKError.invalidBundleArchive(bundlePath)
         }
 
@@ -292,10 +292,10 @@ public final class SwiftSDKBundleStore {
         archiver: any Archiver
     ) async throws -> String {
         #if os(macOS)
-        // Check the quarantine attribute on bundles downloaded manually in the browser.
-        guard !self.fileSystem.hasAttribute(.quarantine, validatedBundlePath) else {
-            throw SwiftSDKError.quarantineAttributePresent(bundlePath: validatedBundlePath)
-        }
+            // Check the quarantine attribute on bundles downloaded manually in the browser.
+            guard !self.fileSystem.hasAttribute(.quarantine, validatedBundlePath) else {
+                throw SwiftSDKError.quarantineAttributePresent(bundlePath: validatedBundlePath)
+            }
         #endif
 
         let unpackedBundlePath = try await self.unpackIfNeeded(
@@ -364,9 +364,9 @@ public final class SwiftSDKBundleStore {
             if artifactMetadata.type == .crossCompilationDestination {
                 self.observabilityScope.emit(
                     warning: """
-                    `crossCompilationDestination` bundle metadata value used for `\(artifactID)` is deprecated, \
-                    use `swiftSDK` instead.
-                    """
+                        `crossCompilationDestination` bundle metadata value used for `\(artifactID)` is deprecated, \
+                        use `swiftSDK` instead.
+                        """
                 )
             } else {
                 guard artifactMetadata.type == .swiftSDK else { continue }
@@ -375,11 +375,11 @@ public final class SwiftSDKBundleStore {
             var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                var variantConfigurationPath = bundlePath
+                var variantConfigurationPath =
+                    bundlePath
                     .appending(variantMetadata.path)
 
-                if variantConfigurationPath.extension != ".json" &&
-                        self.fileSystem.isDirectory(variantConfigurationPath) {
+                if variantConfigurationPath.extension != ".json" && self.fileSystem.isDirectory(variantConfigurationPath) {
                     variantConfigurationPath = variantConfigurationPath.appending("swift-sdk.json")
                 }
 

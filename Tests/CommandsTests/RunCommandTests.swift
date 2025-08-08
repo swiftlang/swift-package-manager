@@ -24,7 +24,7 @@ import enum PackageModel.BuildConfiguration
 import class Basics.AsyncProcess
 
 @Suite(
-    .serialized, // to limit the number of swift executable running.
+    .serialized,  // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Run,
@@ -53,7 +53,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind
     ) async throws {
         let stdout = try await execute(["-help"], buildSystem: buildSystem).stdout
-        
+
         #expect(stdout.contains("USAGE: swift run <options>") || stdout.contains("USAGE: swift run [<options>]"), "got stdout:\n \(stdout)")
     }
 
@@ -107,42 +107,42 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue {
-        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            #if os(Windows)
-                let win32 = ".win32"
-            #else
-                let win32 = ""
-            #endif
-            let (stdout, stderr) = try await execute(
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                #if os(Windows)
+                    let win32 = ".win32"
+                #else
+                    let win32 = ""
+                #endif
+                let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath.appending("toolset\(win32).json").pathString)"],
                     packagePath: fixturePath,
                     buildSystem: buildSystem,
                 )
 
-            // We only expect tool's output on the stdout stream.
-            #expect(stdout.contains("\(fixturePath.appending(".build").pathString)"))
-            #expect(stdout.contains("sentinel"))
+                // We only expect tool's output on the stdout stream.
+                #expect(stdout.contains("\(fixturePath.appending(".build").pathString)"))
+                #expect(stdout.contains("sentinel"))
 
-            // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
+                // swift-build-tool output should go to stderr.
+                withKnownIssue {
+                    #expect(stderr.contains("Compiling"))
+                } when: {
+                    buildSystem == .swiftbuild
+                }
+                withKnownIssue {
+                    #expect(stderr.contains("Linking"))
+                } when: {
+                    buildSystem == .swiftbuild
+                }
             }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-        }
         } when: {
             (.swiftbuild == buildSystem && ProcessInfo.hostOperatingSystem == .windows)
-            || (.native == buildSystem && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
+                || (.native == buildSystem && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
@@ -161,9 +161,13 @@ struct RunCommandTests {
                 )
 
                 // We only expect tool's output on the stdout stream.
-                #expect(stdout.contains("""
-                    "1" "--hello" "world"
-                    """))
+                #expect(
+                    stdout.contains(
+                        """
+                        "1" "--hello" "world"
+                        """
+                    )
+                )
 
                 // swift-build-tool output should go to stderr.
                 withKnownIssue {
@@ -179,7 +183,7 @@ struct RunCommandTests {
             }
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
-            || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
+                || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -192,7 +196,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let error = await #expect(throws: SwiftPMError.self ) {
+            let error = await #expect(throws: SwiftPMError.self) {
                 try await execute(["unknown"], packagePath: fixturePath, buildSystem: buildSystem)
             }
             guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
@@ -208,9 +212,8 @@ struct RunCommandTests {
         }
     }
 
-
     @Test(
-         .tags(
+        .tags(
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
@@ -221,33 +224,32 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue {
-        try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
+            try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
 
-            let error = await #expect(throws: SwiftPMError.self ) {
-                try await execute(packagePath: fixturePath, buildSystem: buildSystem)
+                let error = await #expect(throws: SwiftPMError.self) {
+                    try await execute(packagePath: fixturePath, buildSystem: buildSystem)
+                }
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                    Issue.record("Incorrect error was raised.")
+                    return
+                }
+
+                #expect(
+                    stderr.contains("error: multiple executable products available: exec1, exec2"),
+                    "got stdout: \(stdout), stderr: \(stderr)",
+                )
+
+                var (runOutput, _) = try await execute(["exec1"], packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(runOutput.contains("1"))
+
+                (runOutput, _) = try await execute(["exec2"], packagePath: fixturePath, buildSystem: buildSystem)
+                #expect(runOutput.contains("2"))
             }
-            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
-                Issue.record("Incorrect error was raised.")
-                return
-            }
-
-            #expect(
-                stderr.contains("error: multiple executable products available: exec1, exec2"),
-                "got stdout: \(stdout), stderr: \(stderr)",
-            )
-
-            var (runOutput, _) = try await execute(["exec1"], packagePath: fixturePath, buildSystem: buildSystem)
-            #expect(runOutput.contains("1"))
-
-            (runOutput, _) = try await execute(["exec2"], packagePath: fixturePath, buildSystem: buildSystem)
-            #expect(runOutput.contains("2"))
-        }
         } when: {
             ([.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
-            || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
+                || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
-
 
     @Test(
         .tags(
@@ -305,7 +307,7 @@ struct RunCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            let error = await #expect(throws: SwiftPMError.self ) {
+            let error = await #expect(throws: SwiftPMError.self) {
                 try await execute(["--build-tests", "--skip-build"], packagePath: fixturePath, buildSystem: buildSystem)
             }
             guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
@@ -336,14 +338,14 @@ struct RunCommandTests {
                 try localFileSystem.writeFileContents(
                     mainFilePath,
                     string: """
-                    import Foundation
+                        import Foundation
 
-                    print("sleeping")
-                    fflush(stdout)
+                        print("sleeping")
+                        fflush(stdout)
 
-                    Thread.sleep(forTimeInterval: 10)
-                    print("done")
-                    """
+                        Thread.sleep(forTimeInterval: 10)
+                        print("done")
+                        """
                 )
 
                 let sync = DispatchGroup()
@@ -369,11 +371,11 @@ struct RunCommandTests {
 
                 // check for interrupt result
                 let result = try process.waitUntilExit()
-    #if os(Windows)
-                #expect(result.exitStatus == .abnormal(exception: 2))
-    #else
-                #expect(result.exitStatus == .signalled(signal: SIGINT))
-    #endif
+                #if os(Windows)
+                    #expect(result.exitStatus == .abnormal(exception: 2))
+                #else
+                    #expect(result.exitStatus == .signalled(signal: SIGINT))
+                #endif
             }
 
             class OutputHandler {
@@ -398,7 +400,7 @@ struct RunCommandTests {
                             let newBuffer = buffer + output
                             self.state = processOutput(newBuffer)
                         case .done:
-                            break //noop
+                            break  //noop
                         }
                     }
 
@@ -431,7 +433,8 @@ struct RunCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+        arguments: SupportedBuildSystemOnPlatform,
+        BuildConfiguration.allCases
     )
     func swiftRunQuietLogLevel(
         buildSystem: BuildSystemProvider.Kind,
@@ -440,27 +443,28 @@ struct RunCommandTests {
         try await withKnownIssue {
             // GIVEN we have a simple test package
             try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
-               //WHEN we run with the --quiet option
-               let (stdout, stderr) = try await executeSwiftRun(
-                   fixturePath,
-                   nil,
-                   configuration: configuration,
-                   extraArgs: ["--quiet"],
-                   buildSystem: buildSystem
-               )
-               // THEN we should not see any output in stderr
+                //WHEN we run with the --quiet option
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath,
+                    nil,
+                    configuration: configuration,
+                    extraArgs: ["--quiet"],
+                    buildSystem: buildSystem
+                )
+                // THEN we should not see any output in stderr
                 #expect(stderr.isEmpty)
-               // AND no content in stdout
+                // AND no content in stdout
                 #expect(stdout == "done\n")
-           }
+            }
         } when: {
-           (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
+            (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+        arguments: SupportedBuildSystemOnPlatform,
+        BuildConfiguration.allCases
     )
     func swiftRunQuietLogLevelWithError(
         buildSystem: BuildSystemProvider.Kind,
@@ -473,8 +477,8 @@ struct RunCommandTests {
             try localFileSystem.writeFileContents(
                 mainFilePath,
                 string: """
-                print("done"
-                """
+                    print("done"
+                    """
             )
 
             //WHEN we run with the --quiet option

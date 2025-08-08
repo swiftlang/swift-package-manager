@@ -94,13 +94,16 @@ public struct PackageGraphRoot {
         observabilityScope: ObservabilityScope,
         enabledTraitsMap: EnabledTraitsMap = .init()
     ) throws {
-        self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
-            if let manifest = manifests[inputPath]  {
-                let packagePath = manifest.path.parentDirectory
-                let identity = PackageIdentity(path: packagePath) // this does not use the identity resolver which is fine since these are the root packages
-                partial[identity] = (.root(identity: identity, path: packagePath), manifest)
+        self.packages = input.packages.reduce(
+            into: .init(),
+            { partial, inputPath in
+                if let manifest = manifests[inputPath] {
+                    let packagePath = manifest.path.parentDirectory
+                    let identity = PackageIdentity(path: packagePath)  // this does not use the identity resolver which is fine since these are the root packages
+                    partial[identity] = (.root(identity: identity, path: packagePath), manifest)
+                }
             }
-        })
+        )
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -156,8 +159,9 @@ public struct PackageGraphRoot {
                 enabledTraits: enabledTraits
             )
         }
-        
-        let depend = try dependencies
+
+        let depend =
+            try dependencies
             .map { dep in
                 let enabledTraits = dep.traits?.filter {
                     guard let condition = $0.condition else { return true }
@@ -173,7 +177,7 @@ public struct PackageGraphRoot {
                     products: dep.productFilter,
                     enabledTraits: enabledTraitsSet
                 )
-        }
+            }
 
         return constraints + depend
     }
@@ -220,4 +224,3 @@ extension PackageDependency.Registry.Requirement {
         }
     }
 }
-

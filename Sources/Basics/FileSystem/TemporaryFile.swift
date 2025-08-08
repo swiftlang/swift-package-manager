@@ -89,7 +89,7 @@ private func createTemporaryDirectory(
     // it is more or less equal to generation using `mkdtemp` function
     let letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-    let randomSuffix = String((0 ..< 6).map { _ in letters.randomElement()! })
+    let randomSuffix = String((0..<6).map { _ in letters.randomElement()! })
 
     let tempDirectory = try dir ?? fileSystem.tempDirectory
     guard fileSystem.isDirectory(tempDirectory) else {

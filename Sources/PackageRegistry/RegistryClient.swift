@@ -89,7 +89,7 @@ public final class RegistryClient: AsyncCancellable {
                     let authorizationString = "\(user):\(password)"
                     let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
-                case .token: // `user` value is irrelevant in this case
+                case .token:  // `user` value is irrelevant in this case
                     return "Bearer \(password)"
                 }
             }
@@ -312,8 +312,9 @@ public final class RegistryClient: AsyncCancellable {
         var resourceSigning: [(resource: RegistryClient.Serialization.VersionMetadata.Resource, signingEntity: SigningEntity?)] = []
         for resource in versionMetadata.resources {
             guard let signing = resource.signing,
-                  let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
-                  let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat) else {
+                let signatureData = Data(base64Encoded: signing.signatureBase64Encoded),
+                let signatureFormat = SignatureFormat(rawValue: signing.signatureFormat)
+            else {
                 resourceSigning.append((resource, nil))
                 continue
             }
@@ -464,7 +465,7 @@ public final class RegistryClient: AsyncCancellable {
         version: Version,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
-    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
+    ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)] {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
 
         try await withAvailabilityCheck(
@@ -666,7 +667,7 @@ public final class RegistryClient: AsyncCancellable {
 
         if let toolsVersion = customToolsVersion {
             components.queryItems = [
-                URLQueryItem(name: "swift-version", value: toolsVersion.description),
+                URLQueryItem(name: "swift-version", value: toolsVersion.description)
             ]
         }
 
@@ -1032,7 +1033,7 @@ public final class RegistryClient: AsyncCancellable {
         components.appendPathComponents("identifiers")
 
         components.queryItems = [
-            URLQueryItem(name: "url", value: scmURL.absoluteString),
+            URLQueryItem(name: "url", value: scmURL.absoluteString)
         ]
 
         guard let url = components.url else {
@@ -1222,13 +1223,15 @@ public final class RegistryClient: AsyncCancellable {
         var body = Data()
 
         // archive field
-        body.append(contentsOf: """
-        --\(boundary)\r
-        Content-Disposition: form-data; name=\"source-archive\"\r
-        Content-Type: application/zip\r
-        Content-Transfer-Encoding: binary\r
-        \r\n
-        """.utf8)
+        body.append(
+            contentsOf: """
+                --\(boundary)\r
+                Content-Disposition: form-data; name=\"source-archive\"\r
+                Content-Type: application/zip\r
+                Content-Transfer-Encoding: binary\r
+                \r\n
+                """.utf8
+        )
         body.append(packageArchiveContent)
 
         if let signature {
@@ -1236,28 +1239,32 @@ public final class RegistryClient: AsyncCancellable {
                 throw RegistryError.missingSignatureFormat
             }
 
-            body.append(contentsOf: """
-            \r
-            --\(boundary)\r
-            Content-Disposition: form-data; name=\"source-archive-signature\"\r
-            Content-Type: application/octet-stream\r
-            Content-Transfer-Encoding: binary\r
-            \r\n
-            """.utf8)
+            body.append(
+                contentsOf: """
+                    \r
+                    --\(boundary)\r
+                    Content-Disposition: form-data; name=\"source-archive-signature\"\r
+                    Content-Type: application/octet-stream\r
+                    Content-Transfer-Encoding: binary\r
+                    \r\n
+                    """.utf8
+            )
             body.append(contentsOf: signature)
         }
 
         // metadata field
         if let metadataContent {
-            body.append(contentsOf: """
-            \r
-            --\(boundary)\r
-            Content-Disposition: form-data; name=\"metadata\"\r
-            Content-Type: application/json\r
-            Content-Transfer-Encoding: quoted-printable\r
-            \r
-            \(metadataContent)
-            """.utf8)
+            body.append(
+                contentsOf: """
+                    \r
+                    --\(boundary)\r
+                    Content-Disposition: form-data; name=\"metadata\"\r
+                    Content-Type: application/json\r
+                    Content-Transfer-Encoding: quoted-printable\r
+                    \r
+                    \(metadataContent)
+                    """.utf8
+            )
 
             if signature != nil {
                 guard metadataSignature != nil else {
@@ -1273,14 +1280,16 @@ public final class RegistryClient: AsyncCancellable {
                     throw RegistryError.missingSignatureFormat
                 }
 
-                body.append(contentsOf: """
-                \r
-                --\(boundary)\r
-                Content-Disposition: form-data; name=\"metadata-signature\"\r
-                Content-Type: application/octet-stream\r
-                Content-Transfer-Encoding: binary\r
-                \r\n
-                """.utf8)
+                body.append(
+                    contentsOf: """
+                        \r
+                        --\(boundary)\r
+                        Content-Disposition: form-data; name=\"metadata-signature\"\r
+                        Content-Type: application/octet-stream\r
+                        Content-Transfer-Encoding: binary\r
+                        \r\n
+                        """.utf8
+                )
                 body.append(contentsOf: metadataSignature)
             }
         }
@@ -2014,13 +2023,13 @@ extension HTTPClientHeaders {
         }
 
         guard let link = fields.first(where: { $0.hasPrefix("<") }).map({ String($0.dropFirst().dropLast()) }),
-              let url = URL(string: link)
+            let url = URL(string: link)
         else {
             return nil
         }
 
         guard let rel = fields.first(where: { $0.hasPrefix("rel=") }).flatMap({ parseLinkFieldValue($0) }),
-              rel == "alternate"
+            rel == "alternate"
         else {
             return nil
         }
@@ -2030,8 +2039,9 @@ extension HTTPClientHeaders {
             return nil
         }
 
-        guard let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") })
-            .flatMap({ parseLinkFieldValue($0) })
+        guard
+            let toolsVersion = fields.first(where: { $0.hasPrefix("swift-tools-version=") })
+                .flatMap({ parseLinkFieldValue($0) })
         else {
             return nil
         }

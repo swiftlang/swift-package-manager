@@ -17,8 +17,7 @@ import class Basics.ObservabilityScope
 
 import struct PackageGraph.ModulesGraph
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import class PackageModel.Manifest
 import struct PackageModel.ProductDescription
@@ -33,8 +32,9 @@ package typealias MockPackageGraph = (
 )
 
 package func macrosPackageGraph() throws -> MockPackageGraph {
-    let fs = InMemoryFileSystem(emptyFiles:
-        "/swift-firmware/Sources/Core/source.swift",
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+            "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
         "/swift-firmware/Tests/CoreTests/source.swift",
         "/swift-firmware/Tests/HALTests/source.swift",
@@ -104,7 +104,7 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                         name: "MMIOMacros",
                         dependencies: [.product(name: "SwiftSyntax", package: "swift-syntax")],
                         type: .macro
-                    )
+                    ),
                 ],
                 traits: []
             ),
@@ -136,8 +136,9 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
 }
 
 package func macrosTestsPackageGraph() throws -> MockPackageGraph {
-    let fs = InMemoryFileSystem(emptyFiles:
-        "/swift-mmio/Plugins/MMIOPlugin/source.swift",
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+            "/swift-mmio/Plugins/MMIOPlugin/source.swift",
         "/swift-mmio/Sources/MMIO/source.swift",
         "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
@@ -174,7 +175,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "MMIOPlugin",
                         type: .plugin,
                         targets: ["MMIOPlugin"]
-                    )
+                    ),
                 ],
                 targets: [
                     TargetDescription(
@@ -198,7 +199,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "MMIOMacrosTests",
                         dependencies: [
                             .target(name: "MMIOMacros"),
-                            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")
+                            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
                         ],
                         type: .test
                     ),
@@ -206,7 +207,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "MMIOMacro+PluginTests",
                         dependencies: [
                             .target(name: "MMIOPlugin"),
-                            .target(name: "MMIOMacros")
+                            .target(name: "MMIOMacros"),
                         ],
                         type: .test
                     ),
@@ -214,7 +215,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
                         name: "NOOPTests",
                         dependencies: [],
                         type: .test
-                    )
+                    ),
                 ],
                 traits: []
             ),
@@ -297,7 +298,7 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
 package func trivialPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
-        "/Pkg/Sources/app/main.swift",
+            "/Pkg/Sources/app/main.swift",
         "/Pkg/Sources/lib/lib.c",
         "/Pkg/Sources/lib/include/lib.h",
         "/Pkg/Tests/test/TestCase.swift"
@@ -316,7 +317,7 @@ package func trivialPackageGraph() throws -> MockPackageGraph {
                     TargetDescription(name: "test", dependencies: ["lib"], type: .test),
                 ],
                 traits: []
-            ),
+            )
         ],
         observabilityScope: observability.topScope,
         traitConfiguration: .default,
@@ -330,7 +331,7 @@ package func trivialPackageGraph() throws -> MockPackageGraph {
 package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:
-        "/Pkg/Sources/app/main.swift",
+            "/Pkg/Sources/app/main.swift",
         "/Pkg/Sources/lib/lib.cpp",
         "/Pkg/Sources/lib/include/lib.h",
         "/Pkg/Tests/test/TestCase.swift"
@@ -361,7 +362,7 @@ package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
                     ),
                 ],
                 traits: []
-            ),
+            )
         ],
         observabilityScope: observability.topScope,
         traitConfiguration: .default,
@@ -373,8 +374,9 @@ package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
 }
 
 package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
-    let fs = InMemoryFileSystem(emptyFiles:
-        "/swift-mmio/Sources/MMIOMacros/source.swift",
+    let fs = InMemoryFileSystem(
+        emptyFiles:
+            "/swift-mmio/Sources/MMIOMacros/source.swift",
         "/swift-mmio/Sources/MMIOMacrosTests/source.swift",
         "/swift-syntax/Sources/SwiftSyntax/source.swift"
     )
@@ -396,17 +398,17 @@ package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throw
                     TargetDescription(
                         name: "MMIOMacros",
                         dependencies: [
-                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                            .product(name: "SwiftSyntax", package: "swift-syntax")
                         ],
                         type: .macro
                     ),
                     TargetDescription(
                         name: "MMIOMacrosTests",
                         dependencies: [
-                            .target(name: "MMIOMacros"),
+                            .target(name: "MMIOMacros")
                         ],
                         type: .test
-                    )
+                    ),
                 ],
                 traits: []
             ),
@@ -418,13 +420,13 @@ package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throw
                         name: "SwiftSyntax",
                         type: .library(linkage),
                         targets: ["SwiftSyntax"]
-                    ),
+                    )
                 ],
                 targets: [
                     TargetDescription(
                         name: "SwiftSyntax",
                         dependencies: []
-                    ),
+                    )
                 ],
                 traits: []
             ),

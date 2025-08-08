@@ -52,7 +52,7 @@ struct ToolsVersionTests {
     func basicsValidVersions(
         version: String,
         expected: String
-    ) async  throws {
+    ) async throws {
         let toolsVersion = try #require(
             ToolsVersion(string: version),
             "Couldn't form a version with string: \(version)"
@@ -95,7 +95,7 @@ struct ToolsVersionTests {
     func runtimeSubpath(
         version: String,
         expectedRuntimeSubpath: String,
-    ) async  throws {
+    ) async throws {
         let version = try #require(ToolsVersion(string: version))
 
         #expect(version.runtimeSubpath.pathString == expectedRuntimeSubpath)
@@ -117,7 +117,7 @@ struct ToolsVersionTests {
     func swiftLangVersion(
         version: String,
         expectedSwiftLanguageVersion: String,
-    ) async  throws {
+    ) async throws {
         let version = try #require(ToolsVersion(string: version))
         #expect(version.swiftLanguageVersion.description == expectedSwiftLanguageVersion)
     }

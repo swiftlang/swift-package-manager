@@ -17,16 +17,14 @@ import PackageGraph
 import PackageLoading
 import TSCUtility
 
-@_spi(SwiftPMInternal)
-import PackageModel
+@_spi(SwiftPMInternal) import PackageModel
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import DriverSupport
+    @_implementationOnly import DriverSupport
 #else
-import DriverSupport
+    import DriverSupport
 #endif
 
 import struct TSCBasic.ByteString
@@ -123,7 +121,8 @@ public final class SwiftModuleBuildDescription {
     /// depending on the build parameters used.
     public var objects: [AbsolutePath] {
         get throws {
-            let relativeSources = self.target.sources.relativePaths
+            let relativeSources =
+                self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
                 + self.pluginDerivedSources.relativePaths
             let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
@@ -131,7 +130,8 @@ public final class SwiftModuleBuildDescription {
             return try relativeSources.map {
                 try AbsolutePath(
                     validating: "\($0.basename).\(objectFileExtension)",
-                    relativeTo: self.tempsPath)
+                    relativeTo: self.tempsPath
+                )
             }
         }
     }
@@ -142,7 +142,7 @@ public final class SwiftModuleBuildDescription {
     }
 
     /// The path to the swiftmodule file after compilation.
-    public var moduleOutputPath: AbsolutePath { // note: needs to be public because of sourcekit-lsp
+    public var moduleOutputPath: AbsolutePath {  // note: needs to be public because of sourcekit-lsp
         // If we're an executable and we're not allowing test targets to link against us, we hide the module.
         let triple = buildParameters.triple
         let allowLinkingAgainstExecutables = [.coff, .macho, .elf].contains(triple.objectFormat) && self.toolsVersion >= .v5_5
@@ -347,8 +347,7 @@ public final class SwiftModuleBuildDescription {
         }
 
         guard
-            self.buildParameters.triple.isDarwin() &&
-            self.buildParameters.testingParameters.experimentalTestOutput
+            self.buildParameters.triple.isDarwin() && self.buildParameters.testingParameters.experimentalTestOutput
         else {
             return
         }
@@ -423,18 +422,18 @@ public final class SwiftModuleBuildDescription {
         var args = [String]()
 
         #if BUILD_MACROS_AS_DYLIBS
-        try self.requiredMacros.forEach { macro in
-            args += [
-                "-Xfrontend", "-load-plugin-library",
-                "-Xfrontend", macroBuildParameters.macroBinaryPath(macro).pathString
-            ]
-        }
+            try self.requiredMacros.forEach { macro in
+                args += [
+                    "-Xfrontend", "-load-plugin-library",
+                    "-Xfrontend", macroBuildParameters.macroBinaryPath(macro).pathString,
+                ]
+            }
         #else
-        let macroModules = try self.requiredMacros
-        try macroModules.forEach { macro in
-            let executablePath = try macroBuildParameters.macroBinaryPath(macro).pathString
-            args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
-        }
+            let macroModules = try self.requiredMacros
+            try macroModules.forEach { macro in
+                let executablePath = try macroBuildParameters.macroBinaryPath(macro).pathString
+                args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
+            }
         #endif
 
         if self.shouldDisableSandbox {
@@ -507,7 +506,7 @@ public final class SwiftModuleBuildDescription {
             // No `-` for these flags because the set of Strings in driver.supportedFrontendFlags do
             // not have a leading `-`
             if self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
-               self.buildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
+                self.buildParameters.linkerFlagsForRenamingMainFunction(of: self.target) != nil
             {
                 args += ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(self.target.c99name)_main"]
             }
@@ -544,7 +543,8 @@ public final class SwiftModuleBuildDescription {
         }
 
         args += try self.cxxInteroperabilityModeArguments(
-            propagateFromCurrentModuleOtherSwiftFlags: false)
+            propagateFromCurrentModuleOtherSwiftFlags: false
+        )
 
         // Add arguments from declared build settings.
         args += try self.buildSettingsFlags()
@@ -559,7 +559,7 @@ public final class SwiftModuleBuildDescription {
         case .off:
             break
         case .on:
-            args += ["-Xfrontend", "-experimental-lazy-typecheck",]
+            args += ["-Xfrontend", "-experimental-lazy-typecheck"]
             if !args.contains("-enable-testing") {
                 // enable-testing needs the non-exportable-decls
                 args += ["-Xfrontend", "-experimental-skip-non-exportable-decls"]
@@ -569,7 +569,7 @@ public final class SwiftModuleBuildDescription {
             args += [
                 "-Xfrontend", "-experimental-skip-all-function-bodies",
                 "-Xfrontend", "-experimental-allow-module-with-compiler-errors",
-                "-Xfrontend", "-empty-abi-descriptor"
+                "-Xfrontend", "-empty-abi-descriptor",
             ]
         }
 
@@ -628,11 +628,8 @@ public final class SwiftModuleBuildDescription {
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
-        if
-          let version = package.manifest.version,
-          version.prereleaseIdentifiers.isEmpty &&
-          version.buildMetadataIdentifiers.isEmpty &&
-          toolsVersion >= .v6_0
+        if let version = package.manifest.version,
+            version.prereleaseIdentifiers.isEmpty && version.buildMetadataIdentifiers.isEmpty && toolsVersion >= .v6_0
         {
             args += ["-user-module-version", version.description]
         }
@@ -667,7 +664,8 @@ public final class SwiftModuleBuildDescription {
         args += ["-module-cache-path", try self.buildParameters.moduleCache.pathString]
 
         args += try self.cxxInteroperabilityModeArguments(
-            propagateFromCurrentModuleOtherSwiftFlags: true)
+            propagateFromCurrentModuleOtherSwiftFlags: true
+        )
 
         args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
 
@@ -827,7 +825,6 @@ public final class SwiftModuleBuildDescription {
 
             """#
 
-
         // Write out the entries for each source file.
         let sources = self.sources
         let objects = try self.objects
@@ -943,9 +940,9 @@ public final class SwiftModuleBuildDescription {
 
         // Include path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
-        if module.type == .macro {
-            flags += try ["-I", self.defaultBuildParameters.toolchain.hostLibDir.pathString]
-        }
+            if module.type == .macro {
+                flags += try ["-I", self.defaultBuildParameters.toolchain.hostLibDir.pathString]
+            }
         #endif
 
         return flags
@@ -1012,7 +1009,8 @@ public final class SwiftModuleBuildDescription {
     private var stdlibArguments: [String] {
         var arguments: [String] = []
 
-        let isLinkingStaticStdlib = self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
+        let isLinkingStaticStdlib =
+            self.buildParameters.linkingParameters.shouldLinkStaticSwiftStdlib
             && self.buildParameters.triple.isSupportingStaticStdlib
         if isLinkingStaticStdlib {
             arguments += ["-static-stdlib"]
@@ -1043,7 +1041,7 @@ public final class SwiftModuleBuildDescription {
 
         let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
         if toolchainFlags.contains(queryFlags) { return true }
-        
+
         let generalFlags = self.buildParameters.flags.swiftCompilerFlags
         if generalFlags.contains(queryFlags) { return true }
 

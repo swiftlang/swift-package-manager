@@ -140,11 +140,12 @@ extension SwiftPackageCommand {
             let requirement: PackageDependency.SourceControl.Requirement
             switch firstRequirement {
             case .range(let lowerBound, _), .rangeFrom(let lowerBound):
-                requirement = if let to {
-                    .range(lowerBound: lowerBound, upperBound: to.description)
-                } else {
-                    firstRequirement
-                }
+                requirement =
+                    if let to {
+                        .range(lowerBound: lowerBound, upperBound: to.description)
+                    } else {
+                        firstRequirement
+                    }
             default:
                 requirement = firstRequirement
 
@@ -200,11 +201,12 @@ extension SwiftPackageCommand {
             let requirement: PackageDependency.Registry.Requirement
             switch firstRequirement {
             case .range(let lowerBound, _), .rangeFrom(let lowerBound):
-                requirement = if let to {
-                    .range(lowerBound: lowerBound, upperBound: to.description)
-                } else {
-                    firstRequirement
-                }
+                requirement =
+                    if let to {
+                        .range(lowerBound: lowerBound, upperBound: to.description)
+                    } else {
+                        firstRequirement
+                    }
             default:
                 requirement = firstRequirement
 

@@ -10,8 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(SwiftPMInternal)
-import Basics
+@_spi(SwiftPMInternal) import Basics
 import Dispatch
 import class Foundation.JSONEncoder
 import class Foundation.NSArray
@@ -19,8 +18,7 @@ import class Foundation.NSDictionary
 import PackageGraph
 import PackageModel
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 import class Basics.AsyncProcess
 import func TSCBasic.memoize
@@ -142,19 +140,20 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                     false
                 }
             }
-            let supportedSwiftVersions: [SwiftLanguageVersion] = if let versions =
-                compilerSpec?["SupportedLanguageVersions"] as? NSArray
-            {
-                versions.compactMap {
-                    if let stringValue = $0 as? String {
-                        SwiftLanguageVersion(string: stringValue)
-                    } else {
-                        nil
+            let supportedSwiftVersions: [SwiftLanguageVersion] =
+                if let versions =
+                    compilerSpec?["SupportedLanguageVersions"] as? NSArray
+                {
+                    versions.compactMap {
+                        if let stringValue = $0 as? String {
+                            SwiftLanguageVersion(string: stringValue)
+                        } else {
+                            nil
+                        }
                     }
+                } else {
+                    []
                 }
-            } else {
-                []
-            }
             return supportedSwiftVersions
         }
         return []
@@ -205,16 +204,19 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         var hasStdout = false
         var stdoutBuffer: [UInt8] = []
         var stderrBuffer: [UInt8] = []
-        let redirection: AsyncProcess.OutputRedirection = .stream(stdout: { bytes in
-            hasStdout = hasStdout || !bytes.isEmpty
-            delegate.parse(bytes: bytes)
+        let redirection: AsyncProcess.OutputRedirection = .stream(
+            stdout: { bytes in
+                hasStdout = hasStdout || !bytes.isEmpty
+                delegate.parse(bytes: bytes)
 
-            if !delegate.didParseAnyOutput {
-                stdoutBuffer.append(contentsOf: bytes)
+                if !delegate.didParseAnyOutput {
+                    stdoutBuffer.append(contentsOf: bytes)
+                }
+            },
+            stderr: { bytes in
+                stderrBuffer.append(contentsOf: bytes)
             }
-        }, stderr: { bytes in
-            stderrBuffer.append(contentsOf: bytes)
-        })
+        )
 
         // We need to sanitize the environment we are passing to XCBuild because we could otherwise interfere with its
         // linked dependencies e.g. when we have a custom swift-driver dynamic library in the path.
@@ -275,26 +277,22 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         // native build system.
         settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
-        settings["OTHER_CFLAGS"] = (
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_CPLUSPLUSFLAGS"] = (
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_SWIFT_FLAGS"] = (
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
-        ).joined(separator: " ")
-        settings["OTHER_LDFLAGS"] = (
-            ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }
-        ).joined(separator: " ")
+        settings["OTHER_CFLAGS"] =
+            (["$(inherited)"]
+            + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }).joined(separator: " ")
+        settings["OTHER_CPLUSPLUSFLAGS"] =
+            (["$(inherited)"]
+            + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }).joined(separator: " ")
+        settings["OTHER_SWIFT_FLAGS"] =
+            (["$(inherited)"]
+            + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }).joined(separator: " ")
+        settings["OTHER_LDFLAGS"] =
+            (["$(inherited)"]
+            + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {

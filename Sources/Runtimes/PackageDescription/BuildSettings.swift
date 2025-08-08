@@ -203,7 +203,7 @@ public struct CSetting: Sendable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
-    
+
     /// Controls how all C compiler warnings are treated during compilation.
     ///
     /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
@@ -220,11 +220,14 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatAllWarnings(
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> CSetting {
         return CSetting(
-            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+            name: "treatAllWarnings",
+            value: [level.rawValue],
+            condition: condition
+        )
     }
 
     /// Controls how a specific C compiler warning is treated during compilation.
@@ -244,12 +247,15 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatWarning(
-      _ name: String,
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> CSetting {
         return CSetting(
-            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+            name: "treatWarning",
+            value: [name, level.rawValue],
+            condition: condition
+        )
     }
 
     /// Enable a specific C compiler warning group.
@@ -264,11 +270,14 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func enableWarning(
-      _ name: String,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
     ) -> CSetting {
         return CSetting(
-            name: "enableWarning", value: [name], condition: condition)
+            name: "enableWarning",
+            value: [name],
+            condition: condition
+        )
     }
 
     /// Disable a specific C compiler warning group.
@@ -283,11 +292,14 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func disableWarning(
-      _ name: String,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
     ) -> CSetting {
         return CSetting(
-            name: "disableWarning", value: [name], condition: condition)
+            name: "disableWarning",
+            value: [name],
+            condition: condition
+        )
     }
 }
 
@@ -359,7 +371,7 @@ public struct CXXSetting: Sendable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
-    
+
     /// Controls how all C++ compiler warnings are treated during compilation.
     ///
     /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
@@ -376,11 +388,14 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatAllWarnings(
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> CXXSetting {
         return CXXSetting(
-            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+            name: "treatAllWarnings",
+            value: [level.rawValue],
+            condition: condition
+        )
     }
 
     /// Controls how a specific C++ compiler warning is treated during compilation.
@@ -400,12 +415,15 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatWarning(
-      _ name: String,
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> CXXSetting {
         return CXXSetting(
-            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+            name: "treatWarning",
+            value: [name, level.rawValue],
+            condition: condition
+        )
     }
 
     /// Enable a specific C++ compiler warning group.
@@ -420,11 +438,14 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func enableWarning(
-      _ name: String,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
     ) -> CXXSetting {
         return CXXSetting(
-            name: "enableWarning", value: [name], condition: condition)
+            name: "enableWarning",
+            value: [name],
+            condition: condition
+        )
     }
 
     /// Disable a specific C++ compiler warning group.
@@ -439,11 +460,14 @@ public struct CXXSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func disableWarning(
-      _ name: String,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        _ condition: BuildSettingCondition? = nil
     ) -> CXXSetting {
         return CXXSetting(
-            name: "disableWarning", value: [name], condition: condition)
+            name: "disableWarning",
+            value: [name],
+            condition: condition
+        )
     }
 }
 
@@ -526,7 +550,10 @@ public struct SwiftSetting: Sendable {
         _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "enableUpcomingFeature", value: [name], condition: condition)
+            name: "enableUpcomingFeature",
+            value: [name],
+            condition: condition
+        )
     }
 
     /// Enable an experimental feature with the given name.
@@ -550,7 +577,10 @@ public struct SwiftSetting: Sendable {
         _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "enableExperimentalFeature", value: [name], condition: condition)
+            name: "enableExperimentalFeature",
+            value: [name],
+            condition: condition
+        )
     }
 
     /// Enable strict memory safety checking.
@@ -569,10 +599,13 @@ public struct SwiftSetting: Sendable {
     /// setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func strictMemorySafety(
-      _ condition: BuildSettingCondition? = nil
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "strictMemorySafety", value: ["ON"], condition: condition)
+            name: "strictMemorySafety",
+            value: ["ON"],
+            condition: condition
+        )
     }
 
     /// The interoperability mode
@@ -599,11 +632,14 @@ public struct SwiftSetting: Sendable {
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
     public static func interoperabilityMode(
-      _ mode: InteroperabilityMode,
-      _ condition: BuildSettingCondition? = nil
+        _ mode: InteroperabilityMode,
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-          name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
+            name: "interoperabilityMode",
+            value: [mode.rawValue],
+            condition: condition
+        )
     }
 
     /// Defines a `-swift-version` to pass  to the
@@ -616,11 +652,14 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.0, deprecated: 6.0, renamed: "swiftLanguageMode(_:_:)")
     public static func swiftLanguageVersion(
-      _ version: SwiftVersion,
-      _ condition: BuildSettingCondition? = nil
+        _ version: SwiftVersion,
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "swiftLanguageMode", value: [.init(describing: version)], condition: condition)
+            name: "swiftLanguageMode",
+            value: [.init(describing: version)],
+            condition: condition
+        )
     }
 
     /// Defines a `-language-mode` to pass  to the
@@ -633,11 +672,14 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.0)
     public static func swiftLanguageMode(
-      _ mode: SwiftLanguageMode,
-      _ condition: BuildSettingCondition? = nil
+        _ mode: SwiftLanguageMode,
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
+            name: "swiftLanguageMode",
+            value: [.init(describing: mode)],
+            condition: condition
+        )
     }
 
     /// Controls how all Swift compiler warnings are treated during compilation.
@@ -656,11 +698,14 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatAllWarnings(
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+            name: "treatAllWarnings",
+            value: [level.rawValue],
+            condition: condition
+        )
     }
 
     /// Controls how a specific Swift compiler warning is treated during compilation.
@@ -680,12 +725,15 @@ public struct SwiftSetting: Sendable {
     ///   - condition: A condition that restricts the application of the build setting.
     @available(_PackageDescription, introduced: 6.2)
     public static func treatWarning(
-      _ name: String,
-      as level: WarningLevel,
-      _ condition: BuildSettingCondition? = nil
+        _ name: String,
+        as level: WarningLevel,
+        _ condition: BuildSettingCondition? = nil
     ) -> SwiftSetting {
         return SwiftSetting(
-            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+            name: "treatWarning",
+            value: [name, level.rawValue],
+            condition: condition
+        )
     }
 
     /// Set the default isolation to the given global actor type.
@@ -712,7 +760,10 @@ public struct SwiftSetting: Sendable {
                 "MainActor"
             }
         return SwiftSetting(
-            name: "defaultIsolation", value: [isolationString], condition: condition)
+            name: "defaultIsolation",
+            value: [isolationString],
+            condition: condition
+        )
     }
 }
 
@@ -756,7 +807,7 @@ public struct LinkerSetting: Sendable {
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
-   
+
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///

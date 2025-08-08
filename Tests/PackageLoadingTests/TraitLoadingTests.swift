@@ -22,7 +22,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTraits() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -39,16 +39,19 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2", description: "Trait 2 description"),
-            TraitDescription(name: "Trait3", description: "Trait 3 description", enabledTraits: ["Trait1"]),
-        ])
+        XCTAssertEqual(
+            manifest.traits,
+            [
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2", description: "Trait 2 description"),
+                TraitDescription(name: "Trait3", description: "Trait 3 description", enabledTraits: ["Trait1"]),
+            ]
+        )
     }
 
     func testTraits_whenTooMany() async throws {
         let traits = Array(0...300).map { "\"Trait\($0)\"" }.joined(separator: ",")
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -65,7 +68,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testTraits_whenUnknownEnabledTrait() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -97,15 +100,15 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         ]
 
         for traitName in invalidTraitNames {
-            let content =  """
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                traits: [
-                    "\(traitName)"
-                ]
-            )
-            """
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    traits: [
+                        "\(traitName)"
+                    ]
+                )
+                """
 
             let observability = ObservabilitySystem.makeForTesting()
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
@@ -130,15 +133,15 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         ]
 
         for traitName in invalidTraitNames {
-            let content =  """
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                traits: [
-                    "\(traitName)"
-                ]
-            )
-            """
+            let content = """
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    traits: [
+                        "\(traitName)"
+                    ]
+                )
+                """
 
             let observability = ObservabilitySystem.makeForTesting()
             let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
@@ -149,7 +152,7 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
     }
 
     func testDefaultTraits() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -167,16 +170,19 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait3"]),
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2"),
-            TraitDescription(name: "Trait3", enabledTraits: ["Trait1"]),
-        ])
+        XCTAssertEqual(
+            manifest.traits,
+            [
+                TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait3"]),
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2"),
+                TraitDescription(name: "Trait3", enabledTraits: ["Trait1"]),
+            ]
+        )
     }
 
     func testDependencies() async throws {
-        let content =  """
+        let content = """
             import PackageDescription
             let package = Package(
                 name: "Foo",
@@ -246,12 +252,15 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait2"]),
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2"),
-        ])
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+        XCTAssertEqual(
+            manifest.traits,
+            [
+                TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait2"]),
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2"),
+            ]
+        )
+        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
         XCTAssertEqual(
             deps["x.foo"]?.traits,
             [

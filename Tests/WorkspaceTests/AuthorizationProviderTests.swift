@@ -151,7 +151,8 @@ fileprivate struct AuthorizationProviderTests {
                 // Even if user .netrc file doesn't exist, the provider will be non-nil but contain no data.
                 let expectedAuthorizationProvider = try resolveSymlinks(userPath)
                 let authorizationProvider: NetrcAuthorizationProvider = try #require(
-                    authorizationProviderOpt)
+                    authorizationProviderOpt
+                )
                 #expect(authorizationProvider.path == expectedAuthorizationProvider)
                 #expect(authorizationProvider.machines.isEmpty)
             }

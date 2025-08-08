@@ -18,8 +18,7 @@ import Basics
 import LLBuildManifest
 import _InternalTestSupport
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 
 struct WindowsBuildPlanTests {
     // Tests that our build plan is build correctly to handle separation
@@ -67,13 +66,16 @@ struct WindowsBuildPlanTests {
                     path: "/exePkg",
                     dependencies: [.fileSystem(path: "/libPkg")],
                     targets: [
-                        .init(name: "exe", dependencies: [
-                            .product(name: "DLLProduct", package: "libPkg"),
-                            .product(name: "StaticProduct", package: "libPkg"),
-                            .product(name: "ObjectProduct", package: "libPkg"),
-                        ]),
+                        .init(
+                            name: "exe",
+                            dependencies: [
+                                .product(name: "DLLProduct", package: "libPkg"),
+                                .product(name: "StaticProduct", package: "libPkg"),
+                                .product(name: "ObjectProduct", package: "libPkg"),
+                            ]
+                        )
                     ]
-                )
+                ),
             ],
             observabilityScope: observability.topScope
         )

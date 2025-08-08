@@ -57,7 +57,7 @@ extension Workspace {
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
 
-        private let cacheTTL = DispatchTimeInterval.seconds(300) // 5m
+        private let cacheTTL = DispatchTimeInterval.seconds(300)  // 5m
         private let identityLookupCache = ThreadSafeKeyValueStore<
             SourceControlURL,
             (result: Result<PackageIdentity?, Error>, expirationTime: DispatchTime)
@@ -205,8 +205,10 @@ extension Workspace {
                                 .emit(
                                     info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
                                 )
-                            targetDependencyPackageNameTransformations[dependency
-                                .nameForModuleDependencyResolutionOnly.lowercased()] = registryIdentity.description
+                            targetDependencyPackageNameTransformations[
+                                dependency
+                                    .nameForModuleDependencyResolutionOnly.lowercased()
+                            ] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
@@ -251,9 +253,9 @@ extension Workspace {
                             condition: let condition
                         ):
                             if let packageName,
-                               // makes sure we use the updated package name for target based dependencies
-                               let modifiedPackageName =
-                               targetDependencyPackageNameTransformations[packageName.lowercased()]
+                                // makes sure we use the updated package name for target based dependencies
+                                let modifiedPackageName =
+                                    targetDependencyPackageNameTransformations[packageName.lowercased()]
                             {
                                 modifiedDependency = .product(
                                     name: name,

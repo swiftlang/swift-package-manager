@@ -19,8 +19,8 @@ struct ShowConfiguration: ConfigurationSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "show",
         abstract: """
-        Prints all configuration properties currently applied to a given Swift SDK and target triple.
-        """
+            Prints all configuration properties currently applied to a given Swift SDK and target triple.
+            """
     )
 
     @OptionGroup(visibility: .hidden)
@@ -28,9 +28,9 @@ struct ShowConfiguration: ConfigurationSubcommand {
 
     @Argument(
         help: """
-        An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
-        identifiers.
-        """
+            An identifier of an already installed Swift SDK. Use the `list` subcommand to see all available \
+            identifiers.
+            """
     )
     var sdkID: String
 

@@ -14,8 +14,7 @@ import _InternalTestSupport
 import struct Basics.AbsolutePath
 import var Basics.localFileSystem
 import struct Foundation.UUID
-@testable
-import SwiftFixIt
+@testable import SwiftFixIt
 import class SwiftSyntax.SourceLocationConverter
 import Testing
 import struct TSCUtility.SerializedDiagnostics
@@ -126,13 +125,14 @@ struct PrimaryDiagnostic {
         fixIts: [FixIt] = [],
         notes: [Note] = [],
     ) {
-        let level: SerializedDiagnostics.Diagnostic.Level = switch level {
-        case .ignored: .ignored
-        case .warning: .warning
-        case .error: .error
-        case .fatal: .fatal
-        case .remark: .remark
-        }
+        let level: SerializedDiagnostics.Diagnostic.Level =
+            switch level {
+            case .ignored: .ignored
+            case .warning: .warning
+            case .error: .error
+            case .fatal: .fatal
+            case .remark: .remark
+            }
         self.diagnostic = .init(
             level: level,
             text: text,
@@ -220,9 +220,11 @@ private func _testAPI(
 
     let flatDiagnostics: [Diagnostic]
     do {
-        let converters = Dictionary(uniqueKeysWithValues: sourceFilePathsAndEdits.map { path, edit in
-            (path, SourceLocationConverter(file: path.pathString, source: edit.input))
-        })
+        let converters = Dictionary(
+            uniqueKeysWithValues: sourceFilePathsAndEdits.map { path, edit in
+                (path, SourceLocationConverter(file: path.pathString, source: edit.input))
+            }
+        )
 
         flatDiagnostics = diagnostics.reduce(into: Array()) { partialResult, primaryDiagnostic in
             partialResult.append(primaryDiagnostic.diagnostic.withSourceLocationOffsets(using: converters))
@@ -248,7 +250,9 @@ private func _testAPI(
         if expectedContents != actualContents {
             Issue.record(
                 title: "File #\(i + 1) (original/expected/actual contents)",
-                comparisonComponents: originalContents, expectedContents, actualContents,
+                comparisonComponents: originalContents,
+                expectedContents,
+                actualContents,
                 sourceLocation: edit.locationInTest
             )
         }
@@ -257,7 +261,8 @@ private func _testAPI(
     if expectedSummary.summary != actualSummary {
         Issue.record(
             title: "Expected/actual change summaries",
-            comparisonComponents: expectedSummary.summary, actualSummary,
+            comparisonComponents: expectedSummary.summary,
+            actualSummary,
             sourceLocation: expectedSummary.locationInTest
         )
     }

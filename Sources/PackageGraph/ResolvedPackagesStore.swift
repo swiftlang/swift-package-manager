@@ -21,7 +21,6 @@ import struct TSCUtility.Version
 @available(*, deprecated, renamed: "PackageResolvedStore", message: "Renamed for consistency with the actual name of the feature")
 public typealias PinsStore = ResolvedPackagesStore
 
-
 /// An in-memory representation of `Package.resolved` file.
 public final class ResolvedPackagesStore {
     @available(*, deprecated, renamed: "ResolvedPackages", message: "Renamed for consistency with the actual name of the feature")
@@ -132,10 +131,12 @@ public final class ResolvedPackagesStore {
     ///   - packageRef: The package reference to track.
     ///   - state: The state to track with.
     public func track(packageRef: PackageReference, state: ResolutionState) {
-        self.add(.init(
-            packageRef: packageRef,
-            state: state
-        ))
+        self.add(
+            .init(
+                packageRef: packageRef,
+                state: state
+            )
+        )
     }
 
     /// Add a resolved package.
@@ -268,7 +269,7 @@ private struct ResolvedPackagesStorage {
             }
 
             var data: Data
-            if toolsVersion > .v5_9  {
+            if toolsVersion > .v5_9 {
                 let container = try V3(
                     pins: resolvedPackages,
                     mirrors: mirrors,
@@ -288,10 +289,10 @@ private struct ResolvedPackagesStorage {
                 data = Data(bytes.contents)
             }
             #if !os(Windows)
-            // rdar://83646952: add newline for POSIXy systems
-            if data.last != 0x0A {
-                data.append(0x0A)
-            }
+                // rdar://83646952: add newline for POSIXy systems
+                if data.last != 0x0A {
+                    data.append(0x0A)
+                }
             #endif
             try self.fileSystem.writeFileContents(self.path, data: data)
         }
@@ -346,7 +347,7 @@ private struct ResolvedPackagesStorage {
             // backwards compatibility of JSON format
             func toLegacyJSON() -> JSON {
                 .init([
-                    "pins": self.pins.map { $0.toLegacyJSON() },
+                    "pins": self.pins.map { $0.toLegacyJSON() }
                 ])
             }
         }
@@ -393,7 +394,7 @@ private struct ResolvedPackagesStorage {
                 case .version(let version, let revision) where revision != nil:
                     self.version = version.description
                     self.branch = nil
-                    self.revision = revision! // nil guarded above in case
+                    self.revision = revision!  // nil guarded above in case
                 case .branch(let branch, let revision):
                     self.version = nil
                     self.branch = branch
@@ -453,7 +454,7 @@ private struct ResolvedPackagesStorage {
                     location = url.absoluteString
                 case .registry:
                     kind = .registry
-                    location = "" // FIXME: this is likely not correct
+                    location = ""  // FIXME: this is likely not correct
                 default:
                     throw StringError("invalid package type \(pin.packageRef.kind)")
                 }
@@ -522,7 +523,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
     fileprivate init(_ pin: ResolvedPackagesStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
-        let identity = PackageIdentity(urlString: location) // FIXME: pin store should also encode identity
+        let identity = PackageIdentity(urlString: location)  // FIXME: pin store should also encode identity
         var packageRef: PackageReference
         if let path = try? AbsolutePath(validating: location) {
             packageRef = .localSourceControl(identity: identity, path: path)

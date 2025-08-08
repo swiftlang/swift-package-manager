@@ -20,39 +20,38 @@ public enum OperatingSystem: Hashable, Sendable {
     case unknown
 }
 
-
 extension ProcessInfo {
     public static var hostOperatingSystem: OperatingSystem {
         #if os(macOS)
-        .macOS
+            .macOS
         #elseif os(Linux)
-        .linux
+            .linux
         #elseif os(Windows)
-        .windows
+            .windows
         #elseif os(FreeBSD)
-        .freebsd
+            .freebsd
         #elseif os(OpenBSD)
-        .openbsd
+            .openbsd
         #else
-        .unknown
+            .unknown
         #endif
     }
 
     #if os(Windows)
-    public static let EOL = "\r\n"
+        public static let EOL = "\r\n"
     #else
-    public static let EOL = "\n"
+        public static let EOL = "\n"
     #endif
 
     #if os(Windows)
-    public static let exeSuffix = ".exe"
+        public static let exeSuffix = ".exe"
     #else
-    public static let exeSuffix = ""
+        public static let exeSuffix = ""
     #endif
 
     #if os(Windows)
-    public static let batSuffix = ".bat"
+        public static let batSuffix = ".bat"
     #else
-    public static let batSuffix = ""
+        public static let batSuffix = ""
     #endif
 }

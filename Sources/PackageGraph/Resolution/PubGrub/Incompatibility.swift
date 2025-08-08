@@ -41,7 +41,7 @@ public struct Incompatibility: Equatable, Hashable {
         // always be selected.
         var terms = terms
         if terms.count > 1, cause.isConflict,
-           terms.contains(where: { $0.isPositive && $0.node == root })
+            terms.contains(where: { $0.isPositive && $0.node == root })
         {
             terms = OrderedSet(terms.filter { !$0.isPositive || $0.node != root })
         }
@@ -141,7 +141,8 @@ extension Incompatibility {
 /// requirements to a^1.5.0.
 private func normalize(terms: [Term]) throws -> [Term] {
     let dict = try terms.reduce(into: OrderedCollections.OrderedDictionary<DependencyResolutionNode, (req: VersionSetSpecifier, polarity: Bool)>()) {
-        res, term in
+        res,
+        term in
         // Don't try to intersect if this is the first time we're seeing this package.
         guard let previous = res[term.node] else {
             res[term.node] = (term.requirement, term.isPositive)
@@ -149,12 +150,14 @@ private func normalize(terms: [Term]) throws -> [Term] {
         }
 
         guard let intersection = term.intersect(withRequirement: previous.req, andPolarity: previous.polarity) else {
-            throw InternalError("""
-            Attempting to create an incompatibility with terms for \(term.node) \
-            intersecting versions \(previous) and \(term.requirement). These are \
-            mutually exclusive and can't be intersected, making this incompatibility \
-            irrelevant.
-            """)
+            throw InternalError(
+                """
+                Attempting to create an incompatibility with terms for \(term.node) \
+                intersecting versions \(previous) and \(term.requirement). These are \
+                mutually exclusive and can't be intersected, making this incompatibility \
+                irrelevant.
+                """
+            )
         }
         res[term.node] = (intersection.requirement, intersection.isPositive)
     }

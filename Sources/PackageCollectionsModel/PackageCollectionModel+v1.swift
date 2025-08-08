@@ -81,7 +81,7 @@ extension PackageCollectionModel.V1.Collection {
     public struct Package: Equatable, Codable {
         /// The URL of the package. Currently only Git repository URLs are supported.
         public let url: URL
-        
+
         /// Package identity for registry (https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md#36-package-identification).
         public let identity: String?
 
@@ -380,13 +380,13 @@ extension PackageCollectionModel.V1 {
 
         /// An plugin product.
         case plugin
-        
+
         /// An executable code snippet.
         case snippet
 
         /// A test product.
         case test
-        
+
         /// A macro product.
         case `macro`
     }
@@ -500,10 +500,12 @@ extension PackageCollectionModel.V1 {
                 public let organization: String?
 
                 /// Creates a `Name`
-                public init(userID: String?,
-                            commonName: String?,
-                            organizationalUnit: String?,
-                            organization: String?) {
+                public init(
+                    userID: String?,
+                    commonName: String?,
+                    organizationalUnit: String?,
+                    organization: String?
+                ) {
                     self.userID = userID
                     self.commonName = commonName
                     self.organizationalUnit = organizationalUnit

@@ -12,40 +12,40 @@
 
 @testable import Basics
 import XCTest
-import _InternalTestSupport // for XCTSkipOnWindows
+import _InternalTestSupport  // for XCTSkipOnWindows
 
 final class SerializedJSONTests: XCTestCase {
     func testPathInterpolation() throws {
         var path = try AbsolutePath(validating: #"/test\backslashes"#)
         var json: SerializedJSON = "\(path)"
 
-#if os(Windows)
-        XCTAssertEqual(json.underlying, #"\\test\\backslashes"#)
-#else
-        XCTAssertEqual(json.underlying, #"/test\\backslashes"#)
-#endif
+        #if os(Windows)
+            XCTAssertEqual(json.underlying, #"\\test\\backslashes"#)
+        #else
+            XCTAssertEqual(json.underlying, #"/test\\backslashes"#)
+        #endif
 
         #if os(Windows)
-        path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
-        json = "\(path)"
+            path = try AbsolutePath(validating: #"\??\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}\\"#)
+            json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
+            XCTAssertEqual(json.underlying, #"\\??\\Volumes{b79de17a-a1ed-4c58-a353-731b7c4885a6}"#)
         #endif
     }
 
     func testPathInterpolationFailsOnWindows() throws {
         try XCTSkipOnWindows(because: "Expectations are not met. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511")
 
-#if os(Windows)
-        var path = try AbsolutePath(validating: #"\\?\C:\Users"#)
-        var json: SerializedJSON = "\(path)"
+        #if os(Windows)
+            var path = try AbsolutePath(validating: #"\\?\C:\Users"#)
+            var json: SerializedJSON = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"C:\\Users"#)
+            XCTAssertEqual(json.underlying, #"C:\\Users"#)
 
-        path = try AbsolutePath(validating: #"\\.\UNC\server\share\"#)
-        json = "\(path)"
+            path = try AbsolutePath(validating: #"\\.\UNC\server\share\"#)
+            json = "\(path)"
 
-        XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
-#endif
+            XCTAssertEqual(json.underlying, #"\\.\\UNC\\server\\share"#)
+        #endif
     }
 }

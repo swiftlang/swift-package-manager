@@ -53,13 +53,15 @@ final class ManifestLoaderCacheTests: XCTestCase {
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
 
-                let manifest = try await XCTAsyncUnwrap(try await loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .root(manifestPath.parentDirectory),
-                    toolsVersion: .current,
-                    fileSystem: fileSystem,
-                    observabilityScope: observability.topScope
-                ))
+                let manifest = try await XCTAsyncUnwrap(
+                    try await loader.load(
+                        manifestPath: manifestPath,
+                        packageKind: .root(manifestPath.parentDirectory),
+                        toolsVersion: .current,
+                        fileSystem: fileSystem,
+                        observabilityScope: observability.topScope
+                    )
+                )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
@@ -146,13 +148,15 @@ final class ManifestLoaderCacheTests: XCTestCase {
         func check(loader: ManifestLoader, expectCached: Bool) async throws {
             delegate.clear()
 
-            let manifest = try await XCTAsyncUnwrap(try await loader.load(
-                manifestPath: manifestPath,
-                packageKind: .root(manifestPath.parentDirectory),
-                toolsVersion: .current,
-                fileSystem: fileSystem,
-                observabilityScope: observability.topScope
-            ))
+            let manifest = try await XCTAsyncUnwrap(
+                try await loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(manifestPath.parentDirectory),
+                    toolsVersion: .current,
+                    fileSystem: fileSystem,
+                    observabilityScope: observability.topScope
+                )
+            )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
             try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
@@ -205,14 +209,14 @@ final class ManifestLoaderCacheTests: XCTestCase {
     func testContentBasedCaching() async throws {
         try await testWithTemporaryDirectory { path in
             let manifest = """
-                import PackageDescription
-                let package = Package(
-                    name: "Trivial",
-                    targets: [
-                        .target(name: "foo"),
-                    ]
-                )
-            """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(name: "foo"),
+                        ]
+                    )
+                """
 
             let delegate = ManifestTestDelegate()
 
@@ -304,13 +308,15 @@ final class ManifestLoaderCacheTests: XCTestCase {
                     delegate: delegate
                 )
 
-                let manifest = try await XCTAsyncUnwrap(try await loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .root(manifestPath.parentDirectory),
-                    toolsVersion: .current,
-                    fileSystem: fileSystem,
-                    observabilityScope: observability.topScope
-                ))
+                let manifest = try await XCTAsyncUnwrap(
+                    try await loader.load(
+                        manifestPath: manifestPath,
+                        packageKind: .root(manifestPath.parentDirectory),
+                        toolsVersion: .current,
+                        fileSystem: fileSystem,
+                        observabilityScope: observability.topScope
+                    )
+                )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
@@ -369,13 +375,15 @@ final class ManifestLoaderCacheTests: XCTestCase {
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
 
-                let manifest = try await XCTAsyncUnwrap(try await loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .root(manifestPath.parentDirectory),
-                    toolsVersion: .current,
-                    fileSystem: fileSystem,
-                    observabilityScope: observability.topScope
-                ))
+                let manifest = try await XCTAsyncUnwrap(
+                    try await loader.load(
+                        manifestPath: manifestPath,
+                        packageKind: .root(manifestPath.parentDirectory),
+                        toolsVersion: .current,
+                        fileSystem: fileSystem,
+                        observabilityScope: observability.topScope
+                    )
+                )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
@@ -419,13 +427,15 @@ final class ManifestLoaderCacheTests: XCTestCase {
             func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
 
-                let manifest = try await XCTAsyncUnwrap(try await loader.load(
-                    manifestPath: manifestPath,
-                    packageKind: .root(manifestPath.parentDirectory),
-                    toolsVersion: .current,
-                    fileSystem: fileSystem,
-                    observabilityScope: observability.topScope
-                ))
+                let manifest = try await XCTAsyncUnwrap(
+                    try await loader.load(
+                        manifestPath: manifestPath,
+                        packageKind: .root(manifestPath.parentDirectory),
+                        toolsVersion: .current,
+                        fileSystem: fileSystem,
+                        observabilityScope: observability.topScope
+                    )
+                )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
                 try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
@@ -510,7 +520,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo"], .remoteSourceControl(url: "https://scm.com/foo", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["bar"], .remoteSourceControl(url: "https://scm.com/bar", requirement: .upToNextMajor(from: "2.1.0")))
         }
@@ -534,7 +544,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo"], .remoteSourceControl(url: "https://scm.com/foo", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["bar"], .remoteSourceControl(url: "https://scm.com/bar", requirement: .upToNextMajor(from: "2.1.0")))
         }
@@ -559,7 +569,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo"], .remoteSourceControl(url: "https://scm.com/foo", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["bar"], .remoteSourceControl(url: "https://scm.com/bar", requirement: .upToNextMajor(from: "2.1.0")))
         }
@@ -583,7 +593,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             }
             XCTAssertNoDiagnostics(validationDiagnostics)
 
-            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) })
             XCTAssertEqual(deps["foo"], .remoteSourceControl(url: "https://scm.com/foo", requirement: .upToNextMajor(from: "1.0.0")))
             XCTAssertEqual(deps["bar"], .remoteSourceControl(url: "https://scm.com/bar", requirement: .upToNextMajor(from: "2.1.0")))
         }
@@ -593,10 +603,10 @@ final class ManifestLoaderCacheTests: XCTestCase {
 private func makeMockManifests(
     fileSystem: FileSystem,
     rootPath: AbsolutePath,
-    count: Int = Int.random(in: 50 ..< 100)
+    count: Int = Int.random(in: 50..<100)
 ) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
     var manifests = [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult]()
-    for index in 0 ..< count {
+    for index in 0..<count {
         let packagePath = rootPath.appending("\(index)")
         let manifestPath = packagePath.appending("Package.swift")
 
@@ -604,16 +614,16 @@ private func makeMockManifests(
         try fileSystem.writeFileContents(
             manifestPath,
             string: """
-            import PackageDescription
-            let package = Package(
-            name: "Trivial-\(index)",
-                targets: [
-                    .target(
-                        name: "foo-\(index)",
-                        dependencies: []),
+                import PackageDescription
+                let package = Package(
+                name: "Trivial-\(index)",
+                    targets: [
+                        .target(
+                            name: "foo-\(index)",
+                            dependencies: []),
 
-            )
-            """
+                )
+                """
         )
         let key = try ManifestLoader.CacheKey(
             packageIdentity: PackageIdentity(path: packagePath),

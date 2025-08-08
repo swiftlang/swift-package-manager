@@ -164,11 +164,13 @@ struct PackagePIFProjectBuilder {
         generatedResourceFiles: [String]
     ) throws -> (PackagePIFBuilder.EmbedResourcesResult, PackagePIFBuilder.ModuleOrProduct?) {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
-            return (PackagePIFBuilder.EmbedResourcesResult(
-                bundleName: nil,
-                shouldGenerateBundleAccessor: false,
-                shouldGenerateEmbedInCodeAccessor: false
-            ), nil)
+            return (
+                PackagePIFBuilder.EmbedResourcesResult(
+                    bundleName: nil,
+                    shouldGenerateBundleAccessor: false,
+                    shouldGenerateEmbedInCodeAccessor: false
+                ), nil
+            )
         }
 
         let bundleName = self.resourceBundleName(forModuleName: module.name)
@@ -201,8 +203,7 @@ struct PackagePIFProjectBuilder {
         self.log(
             .debug,
             indent: 1,
-            "Created target '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " +
-            "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
+            "Created target '\(resourcesTarget.id)' of type '\(resourcesTarget.productType)' " + "with name '\(resourcesTarget.name)' and product name '\(resourcesTarget.productName)'"
         )
 
         var settings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
@@ -266,7 +267,7 @@ struct PackagePIFProjectBuilder {
         // If resourceBundleTarget is nil, we add resources to the sourceModuleTarget instead.
         let targetForResourcesKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target> =
             resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
-        
+
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
             PackagePIFBuilder.Resource(path: $0, rule: .process(localization: nil))
@@ -354,7 +355,7 @@ struct PackagePIFProjectBuilder {
         } else {
             resourceBundleTargetName = nil
         }
-        
+
         return PackagePIFBuilder.EmbedResourcesResult(
             bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
@@ -544,7 +545,7 @@ struct PackagePIFProjectBuilder {
             FileRuleDescription(
                 rule: .processResource(localization: .none),
                 toolsVersion: .v5_7,
-                fileTypes: ["rkassets"] // visionOS
+                fileTypes: ["rkassets"]  // visionOS
             ),
         ]
 
@@ -566,4 +567,3 @@ struct PackagePIFProjectBuilder {
         !self.dynamicLibraryProductNames.contains(targetName)
     }
 }
-

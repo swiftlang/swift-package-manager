@@ -43,7 +43,7 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows) ) {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -57,7 +57,7 @@ struct DependencyResolutionTests {
                 #expect(output == "Foo\nBar\n")
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem  == .windows && buildSystem == .swiftbuild)
+            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
         }
     }
 
@@ -83,7 +83,7 @@ struct DependencyResolutionTests {
                     )
                 }
             } when: {
-                configuration == .release && buildSystem == .swiftbuild  && ProcessInfo.hostOperatingSystem != .windows // an error is not raised.
+                configuration == .release && buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .windows  // an error is not raised.
             }
         }
     }
@@ -177,8 +177,8 @@ struct DependencyResolutionTests {
     ) async throws {
         try await withKnownIssue(
             isIntermittent: ProcessInfo.hostOperatingSystem == .windows
-            // rdar://162339964
-            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
+                // rdar://162339964
+                || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
         ) {
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
                 let packageRoot = fixturePath.appending("app")
@@ -195,8 +195,8 @@ struct DependencyResolutionTests {
                 #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows // due to long path issues
-            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild) // Linker ld throws an unexpected error.
+            ProcessInfo.hostOperatingSystem == .windows  // due to long path issues
+                || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)  // Linker ld throws an unexpected error.
         }
     }
 

@@ -153,11 +153,11 @@ public class MockRegistry {
             let package = PackageIdentity.plain(routeComponents.joined(separator: "."))
             return try self.getPackageMetadata(packageIdentity: package)
         case 3:
-            let package = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
+            let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
             let version = String(routeComponents[2])
             return try self.getVersionMetadata(packageIdentity: package, version: version)
         case 4 where routeComponents[3] == "Package.swift":
-            let package = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
+            let package = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
             let version = String(routeComponents[2])
             guard let components = URLComponents(url: request.url, resolvingAgainstBaseURL: false) else {
                 throw StringError("invalid url: \(request.url)")
@@ -230,7 +230,7 @@ public class MockRegistry {
                     type: "application/zip",
                     checksum: zipfileChecksum.hexadecimalRepresentation,
                     signing: nil
-                ),
+                )
             ],
             metadata: .init(
                 description: "\(packageIdentity) description",
@@ -309,7 +309,7 @@ public class MockRegistry {
             throw StringError("invalid request \(request.url), expecting zip suffix")
         }
 
-        let packageIdentity = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
+        let packageIdentity = PackageIdentity.plain(routeComponents[0...1].joined(separator: "."))
         let version = String(routeComponents[2].dropLast(4))
 
         guard let package = self.packageVersions[packageIdentity]?[version] else {
@@ -409,7 +409,7 @@ private struct MockRegistryArchiver: Archiver {
                 throw StringError("invalid mock zip format, not enough lines")
             }
             let rootPath = lines[1]
-            for path in lines[2 ..< lines.count] {
+            for path in lines[2..<lines.count] {
                 let relativePath = String(path.dropFirst(rootPath.count + 1))
                 let targetPath = try AbsolutePath(
                     validating: relativePath,

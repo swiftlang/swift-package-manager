@@ -21,11 +21,11 @@ import TSCUtility
 
 public struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
-    public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
+        public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
     #elseif canImport(Darwin)
-    public let librarianPath = AbsolutePath("/fake/path/to/libtool")
+        public let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
-    public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
+        public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
     #endif
     public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     public let includeSearchPaths = [AbsolutePath]()
@@ -37,7 +37,8 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let extraFlags = PackageModel.BuildFlags()
     public let installedSwiftPMConfiguration = InstalledSwiftPMConfiguration.default
     public let swiftPMLibrariesLocation = ToolchainConfiguration.SwiftPMLibrariesLocation(
-        manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"), pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
+        manifestLibraryPath: AbsolutePath("/fake/manifestLib/path"),
+        pluginLibraryPath: AbsolutePath("/fake/pluginLibrary/path")
     )
 
     public func getClangCompiler() throws -> AbsolutePath {
@@ -46,9 +47,9 @@ public struct MockToolchain: PackageModel.Toolchain {
 
     public func _isClangCompilerVendorApple() throws -> Bool? {
         #if os(macOS)
-        return true
+            return true
         #else
-        return false
+            return false
         #endif
     }
 
@@ -71,9 +72,9 @@ extension Basics.Triple {
 
 public let hostTriple = try! UserToolchain.default.targetTriple
 #if os(macOS)
-public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
+    public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
 #else
-public let defaultTargetTriple: String = hostTriple.tripleString
+    public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
 
 public func mockBuildParameters(

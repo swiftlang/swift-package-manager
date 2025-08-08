@@ -9,7 +9,7 @@
  */
 
 import Foundation
-package  struct CombinationsWithRepetition<C: Collection> : Sequence {
+package struct CombinationsWithRepetition<C: Collection>: Sequence {
 
     let base: C
     let length: Int
@@ -19,7 +19,7 @@ package  struct CombinationsWithRepetition<C: Collection> : Sequence {
         self.length = length
     }
 
-    package struct Iterator : IteratorProtocol {
+    package struct Iterator: IteratorProtocol {
         let base: C
 
         var firstIteration = true

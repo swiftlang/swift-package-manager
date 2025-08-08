@@ -31,7 +31,7 @@ struct Artifact: Codable {
     var libraryName: String?
     var products: [String]?
     var includePath: [String]?
-    var cModules: [String]? // deprecated, includePath is the way forward
+    var cModules: [String]?  // deprecated, includePath is the way forward
     var swiftVersion: String?
 }
 
@@ -162,12 +162,12 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             var packageContents = try String(contentsOf: packageFile.asURL)
             packageContents += """
-                    package.products += [
-                        .library(name: "\(libraryName)", type: .static, targets: [
-                            \(libraryTargets.map({ "\"\($0.name)\"" }).joined(separator: ","))
-                        ])
-                    ]
-                    """
+                package.products += [
+                    .library(name: "\(libraryName)", type: .static, targets: [
+                        \(libraryTargets.map({ "\"\($0.name)\"" }).joined(separator: ","))
+                    ])
+                ]
+                """
             try packageContents.write(to: packageFile.asURL, atomically: true, encoding: .utf8)
 
             // Build
@@ -201,19 +201,19 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
                 // Zip it up
                 let contentDirs = ["lib", "Modules"]
-#if os(Windows)
-                let zipFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).zip")
-                try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                let contents = try ByteString(Data(contentsOf: zipFile.asURL))
-#elseif os(Linux)
-                let tarFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).tar.gz")
-                try await shell("tar -zcf \(tarFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                let contents = try ByteString(Data(contentsOf: tarFile.asURL))
-#else
-                let zipFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).zip")
-                try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                let contents = try ByteString(Data(contentsOf: zipFile.asURL))
-#endif
+                #if os(Windows)
+                    let zipFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).zip")
+                    try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
+                    let contents = try ByteString(Data(contentsOf: zipFile.asURL))
+                #elseif os(Linux)
+                    let tarFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).tar.gz")
+                    try await shell("tar -zcf \(tarFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
+                    let contents = try ByteString(Data(contentsOf: tarFile.asURL))
+                #else
+                    let zipFile = versionDir.appending("\(swiftVersion)-\(libraryName)-\(platform).zip")
+                    try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
+                    let contents = try ByteString(Data(contentsOf: zipFile.asURL))
+                #endif
 
                 // Manifest fragment for the zip file
                 let checksum = SHA256().hash(contents).hexadecimalRepresentation
@@ -222,7 +222,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     checksum: checksum,
                     libraryName: libraryName,
                     products: package.products.map(\.name),
-                    includePath: cModules.map({ $0.includeDir.relative(to: repoDir ).pathString.replacingOccurrences(of: "\\", with: "/") }),
+                    includePath: cModules.map({ $0.includeDir.relative(to: repoDir).pathString.replacingOccurrences(of: "\\", with: "/") }),
                     swiftVersion: swiftVersion
                 )
 
@@ -268,9 +268,9 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     if artifact.swiftVersion == nil || artifact.libraryName == nil {
                         let regex = try Regex(#"(.+)-([^-]+)-[^-]+.zip.json"#)
                         if let match = try regex.firstMatch(in: $0),
-                           match.count > 2,
-                           let swiftVersion = match[1].substring,
-                           let libraryName = match[2].substring
+                            match.count > 2,
+                            let swiftVersion = match[1].substring,
+                            let libraryName = match[2].substring
                         {
                             artifact.swiftVersion = .init(swiftVersion)
                             artifact.libraryName = .init(libraryName)
@@ -380,7 +380,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 certChainPathStrs = [
                     certsPath.appending("Test_rsa.cer").pathString,
                     certsPath.appending("TestIntermediateCA.cer").pathString,
-                    certsPath.appending("TestRootCA.cer").pathString
+                    certsPath.appending("TestRootCA.cer").pathString,
                 ]
             }
 
@@ -421,15 +421,15 @@ struct BuildPrebuilts: AsyncParsableCommand {
     }
 
     func canBuild(_ platform: Workspace.PrebuiltsManifest.Platform) -> Bool {
-#if os(macOS)
-        return platform.os == .macos
-#elseif os(Windows)
-        return platform.os == .windows
-#elseif os(Linux)
-        return platform == Workspace.PrebuiltsManifest.Platform.hostPlatform
-#else
-        return false
-#endif
+        #if os(macOS)
+            return platform.os == .macos
+        #elseif os(Windows)
+            return platform.os == .windows
+        #elseif os(Linux)
+            return platform == Workspace.PrebuiltsManifest.Platform.hostPlatform
+        #else
+            return false
+        #endif
     }
 
     func make(path: String) throws -> AbsolutePath {
@@ -447,11 +447,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
 func shell(_ command: String, cwd: AbsolutePath) async throws {
     _ = FileManager.default.changeCurrentDirectoryPath(cwd.pathString)
 
-#if os(Windows)
-    let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
-#else
-    let arguments = ["/bin/bash", "-c", command]
-#endif
+    #if os(Windows)
+        let arguments = ["C:\\Windows\\System32\\cmd.exe", "/c", command]
+    #else
+        let arguments = ["/bin/bash", "-c", command]
+    #endif
     let process = AsyncProcess(
         arguments: arguments,
         outputRedirection: .none
@@ -464,13 +464,13 @@ func shell(_ command: String, cwd: AbsolutePath) async throws {
         if code != 0 {
             throw StringError("Command exited with code \(code): \(command)")
         }
-#if os(Windows)
-    case .abnormal(exception: let exception):
-        throw StringError("Command threw exception \(exception): \(command)")
-#else
-    case .signalled(signal: let signal):
-        throw StringError("Command exited on signal \(signal): \(command)")
-#endif
+    #if os(Windows)
+        case .abnormal(exception: let exception):
+            throw StringError("Command threw exception \(exception): \(command)")
+    #else
+        case .signalled(signal: let signal):
+            throw StringError("Command exited on signal \(signal): \(command)")
+    #endif
     }
 }
 

@@ -20,16 +20,16 @@ import XCTest
 
 extension String {
     fileprivate func nativePathString(escaped: Bool) -> String {
-#if _runtime(_ObjC)
-        return self
-#else
-        let fsr = self.fileSystemRepresentation
-        defer { fsr.deallocate() }
-        if escaped {
-            return String(cString: fsr).replacingOccurrences(of: "\\", with: "\\\\")
-        }
-        return String(cString: fsr)
-#endif
+        #if _runtime(_ObjC)
+            return self
+        #else
+            let fsr = self.fileSystemRepresentation
+            defer { fsr.deallocate() }
+            if escaped {
+                return String(cString: fsr).replacingOccurrences(of: "\\", with: "\\\\")
+            }
+            return String(cString: fsr)
+        #endif
     }
 }
 
@@ -74,7 +74,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
             let newContents = try manifest.generateManifestFileContents(
                 packageDirectory: packageDir,
                 toolsVersionHeaderComment: toolsVersionHeaderComment,
-                additionalImportModuleNames: additionalImportModuleNames)
+                additionalImportModuleNames: additionalImportModuleNames
+            )
 
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
@@ -286,7 +287,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
     func testPackageDependencyVariations() async throws {
         try XCTSkipOnWindows(
-            because:"Intermittently fails",
+            because: "Intermittently fails",
             skipPlatformCi: true,
         )
         let manifestContents = """
@@ -517,7 +518,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             """
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
     }
-    
+
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let packageDir = AbsolutePath("/tmp/MyLibrary")
@@ -535,24 +536,26 @@ final class ManifestSourceGenerationTests: XCTestCase {
         )
 
         // Generate the manifest contents, using a custom source generator for the product type.
-        let contents = manifest.generateManifestFileContents(packageDirectory: packageDir, customProductTypeSourceGenerator: { product in
-            // This example handles library types in a custom way, for testing purposes.
-            var params: [SourceCodeFragment] = []
-            params.append(SourceCodeFragment(key: "name", string: product.name))
-            if !product.targets.isEmpty {
-                params.append(SourceCodeFragment(key: "targets", strings: product.targets))
-            }
-            // Handle .library specially (by not emitting as multiline), otherwise asking for default behavior.
-            if case .library(let type) = product.type {
-                if type != .automatic {
-                    params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
+        let contents = manifest.generateManifestFileContents(
+            packageDirectory: packageDir,
+            customProductTypeSourceGenerator: { product in
+                // This example handles library types in a custom way, for testing purposes.
+                var params: [SourceCodeFragment] = []
+                params.append(SourceCodeFragment(key: "name", string: product.name))
+                if !product.targets.isEmpty {
+                    params.append(SourceCodeFragment(key: "targets", strings: product.targets))
                 }
-                return SourceCodeFragment(enum: "library", subnodes: params, multiline: false)
+                // Handle .library specially (by not emitting as multiline), otherwise asking for default behavior.
+                if case .library(let type) = product.type {
+                    if type != .automatic {
+                        params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
+                    }
+                    return SourceCodeFragment(enum: "library", subnodes: params, multiline: false)
+                } else {
+                    return nil
+                }
             }
-            else {
-                return nil
-            }
-        })
+        )
 
         // Check that we generated what we expected.
         XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
@@ -560,179 +563,179 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
     /// Tests a fully customized iOSApplication (one that exercises every parameter in at least some way).
     func testAppleProductSettings() throws {
-      #if ENABLE_APPLE_PRODUCT_TYPES
-        let manifestContents = """
-            // swift-tools-version: 999.0
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                products: [
-                    .iOSApplication(
-                        name: "Foo",
-                        targets: ["Foo"],
-                        bundleIdentifier: "com.my.app",
-                        teamIdentifier: "ZXYTEAM123",
-                        displayVersion: "1.4.2 Extra Cool",
-                        bundleVersion: "1.4.2",
-                        appIcon: .placeholder(icon: .cloud),
-                        accentColor: .presetColor(.red),
-                        supportedDeviceFamilies: [.phone, .pad, .mac],
-                        supportedInterfaceOrientations: [
-                            .portrait,
-                            .landscapeRight(),
-                            .landscapeLeft(.when(deviceFamilies: [.mac]))
-                        ],
-                        capabilities: [
-                            .camera(purposeString: "All the better to see you with…", .when(deviceFamilies: [.pad, .phone])),
-                            .fileAccess(.userSelectedFiles, mode: .readOnly, .when(deviceFamilies: [.mac])),
-                            .fileAccess(.pictureFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
-                            .fileAccess(.musicFolder, mode: .readOnly),
-                            .fileAccess(.downloadsFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
-                            .fileAccess(.moviesFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
-                            .incomingNetworkConnections(.when(deviceFamilies: [.mac])),
-                            .outgoingNetworkConnections(),
-                            .microphone(purposeString: "All the better to hear you with…"),
-                            .motion(purposeString: "Move along, move along, …"),
-                            .localNetwork(
-                                purposeString: "Communication is key…",
-                                bonjourServiceTypes: ["_ipp._tcp", "_ipps._tcp"],
-                                .when(deviceFamilies: [.mac])
-                            ),
-                            .appTransportSecurity(
-                                configuration: .init(
-                                    allowsArbitraryLoadsInWebContent: true,
-                                    allowsArbitraryLoadsForMedia: false,
-                                    allowsLocalNetworking: false,
-                                    exceptionDomains: [
-                                        .init(
-                                            domainName: "not-shady-at-all-domain.biz",
-                                            includesSubdomains: true,
-                                            exceptionAllowsInsecureHTTPLoads: true,
-                                            exceptionMinimumTLSVersion: "2",
-                                            exceptionRequiresForwardSecrecy: false,
-                                            requiresCertificateTransparency: false
-                                        )
-                                    ],
-                                    pinnedDomains: [
-                                        .init(
-                                            domainName: "honest-harrys-pinned-domain.biz",
-                                            includesSubdomains : false,
-                                            pinnedCAIdentities : [["a": "b", "x": "y"], [:]],
-                                            pinnedLeafIdentities : [["v": "w"]]
-                                        )
-                                    ]
+        #if ENABLE_APPLE_PRODUCT_TYPES
+            let manifestContents = """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .iOSApplication(
+                            name: "Foo",
+                            targets: ["Foo"],
+                            bundleIdentifier: "com.my.app",
+                            teamIdentifier: "ZXYTEAM123",
+                            displayVersion: "1.4.2 Extra Cool",
+                            bundleVersion: "1.4.2",
+                            appIcon: .placeholder(icon: .cloud),
+                            accentColor: .presetColor(.red),
+                            supportedDeviceFamilies: [.phone, .pad, .mac],
+                            supportedInterfaceOrientations: [
+                                .portrait,
+                                .landscapeRight(),
+                                .landscapeLeft(.when(deviceFamilies: [.mac]))
+                            ],
+                            capabilities: [
+                                .camera(purposeString: "All the better to see you with…", .when(deviceFamilies: [.pad, .phone])),
+                                .fileAccess(.userSelectedFiles, mode: .readOnly, .when(deviceFamilies: [.mac])),
+                                .fileAccess(.pictureFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                                .fileAccess(.musicFolder, mode: .readOnly),
+                                .fileAccess(.downloadsFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                                .fileAccess(.moviesFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                                .incomingNetworkConnections(.when(deviceFamilies: [.mac])),
+                                .outgoingNetworkConnections(),
+                                .microphone(purposeString: "All the better to hear you with…"),
+                                .motion(purposeString: "Move along, move along, …"),
+                                .localNetwork(
+                                    purposeString: "Communication is key…",
+                                    bonjourServiceTypes: ["_ipp._tcp", "_ipps._tcp"],
+                                    .when(deviceFamilies: [.mac])
                                 ),
-                                .when(deviceFamilies: [.phone, .pad])
-                            )
-                        ],
-                        appCategory: .weather,
-                        additionalInfoPlistContentFilePath: "some/path/to/a/file.plist"
-                    ),
-                ],
-                targets: [
-                    .executableTarget(
-                        name: "Foo"
-                    ),
-                ]
-            )
-            """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
-      #else
-        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
-      #endif
+                                .appTransportSecurity(
+                                    configuration: .init(
+                                        allowsArbitraryLoadsInWebContent: true,
+                                        allowsArbitraryLoadsForMedia: false,
+                                        allowsLocalNetworking: false,
+                                        exceptionDomains: [
+                                            .init(
+                                                domainName: "not-shady-at-all-domain.biz",
+                                                includesSubdomains: true,
+                                                exceptionAllowsInsecureHTTPLoads: true,
+                                                exceptionMinimumTLSVersion: "2",
+                                                exceptionRequiresForwardSecrecy: false,
+                                                requiresCertificateTransparency: false
+                                            )
+                                        ],
+                                        pinnedDomains: [
+                                            .init(
+                                                domainName: "honest-harrys-pinned-domain.biz",
+                                                includesSubdomains : false,
+                                                pinnedCAIdentities : [["a": "b", "x": "y"], [:]],
+                                                pinnedLeafIdentities : [["v": "w"]]
+                                            )
+                                        ]
+                                    ),
+                                    .when(deviceFamilies: [.phone, .pad])
+                                )
+                            ],
+                            appCategory: .weather,
+                            additionalInfoPlistContentFilePath: "some/path/to/a/file.plist"
+                        ),
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "Foo"
+                        ),
+                    ]
+                )
+                """
+            try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        #else
+            throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+        #endif
     }
 
     /// Tests loading an iOSApplication product configured with the `.asset(_)` variant of the
     /// appIcon and accentColor parameters.
     func testAssetBasedAccentColorAndAppIconAppleProductSettings() throws {
-      #if ENABLE_APPLE_PRODUCT_TYPES
-        let manifestContents = """
-            // swift-tools-version: 999.0
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                products: [
-                    .iOSApplication(
-                        name: "Foo",
-                        targets: ["Foo"],
-                        appIcon: .asset("AppIcon"),
-                        accentColor: .asset("AccentColor")
-                    ),
-                ],
-                targets: [
-                    .executableTarget(
-                        name: "Foo"
-                    ),
-                ]
-            )
-            """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
-      #else
-        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
-      #endif
+        #if ENABLE_APPLE_PRODUCT_TYPES
+            let manifestContents = """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .iOSApplication(
+                            name: "Foo",
+                            targets: ["Foo"],
+                            appIcon: .asset("AppIcon"),
+                            accentColor: .asset("AccentColor")
+                        ),
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "Foo"
+                        ),
+                    ]
+                )
+                """
+            try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        #else
+            throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+        #endif
     }
 
     /// Tests loading an iOSApplication product configured with legacy 'iconAssetName' and 'accentColorAssetName' parameters.
     func testLegacyAccentColorAndAppIconAppleProductSettings() throws {
-      #if ENABLE_APPLE_PRODUCT_TYPES
-        let manifestContents = """
-            // swift-tools-version: 999.0
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                products: [
-                    .iOSApplication(
-                        name: "Foo",
-                        targets: ["Foo"],
-                        iconAssetName: "icon",
-                        accentColorAssetName: "accentColor"
-                    ),
-                ],
-                targets: [
-                    .executableTarget(
-                        name: "Foo"
-                    ),
-                ]
-            )
-            """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
-      #else
-        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
-      #endif
+        #if ENABLE_APPLE_PRODUCT_TYPES
+            let manifestContents = """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .iOSApplication(
+                            name: "Foo",
+                            targets: ["Foo"],
+                            iconAssetName: "icon",
+                            accentColorAssetName: "accentColor"
+                        ),
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "Foo"
+                        ),
+                    ]
+                )
+                """
+            try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        #else
+            throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+        #endif
     }
 
     /// Tests the smallest allowed iOSApplication (one that has default values for everything not required). Make sure no defaults get added to it.
     func testMinimalAppleProductSettings() throws {
-      #if ENABLE_APPLE_PRODUCT_TYPES
-        let manifestContents = """
-            // swift-tools-version: 999.0
-            import PackageDescription
-            let package = Package(
-                name: "Foo",
-                products: [
-                    .iOSApplication(
-                        name: "Foo",
-                        targets: ["Foo"],
-                        accentColor: .asset("AccentColor"),
-                        supportedDeviceFamilies: [
-                            .mac
-                        ],
-                        supportedInterfaceOrientations: [
-                            .portrait
-                        ]
-                    ),
-                ],
-                targets: [
-                    .executableTarget(
-                        name: "Foo"
-                    ),
-                ]
-            )
-            """
-        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
-      #else
-        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
-      #endif
+        #if ENABLE_APPLE_PRODUCT_TYPES
+            let manifestContents = """
+                // swift-tools-version: 999.0
+                import PackageDescription
+                let package = Package(
+                    name: "Foo",
+                    products: [
+                        .iOSApplication(
+                            name: "Foo",
+                            targets: ["Foo"],
+                            accentColor: .asset("AccentColor"),
+                            supportedDeviceFamilies: [
+                                .mac
+                            ],
+                            supportedInterfaceOrientations: [
+                                .portrait
+                            ]
+                        ),
+                    ],
+                    targets: [
+                        .executableTarget(
+                            name: "Foo"
+                        ),
+                    ]
+                )
+                """
+            try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+        #else
+            throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+        #endif
     }
 
     func testModuleAliasGeneration() async throws {
@@ -745,32 +748,38 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
-                try TargetDescription(name: "exe",
-                                  dependencies: ["Logging",
-                                                 .product(name: "Foo",
-                                                          package: "fooPkg",
-                                                          moduleAliases: ["Logging": "FooLogging"]
-                                                         ),
-                                                 .product(name: "Bar",
-                                                          package: "barPkg",
-                                                          moduleAliases: ["Logging": "BarLogging"]
-                                                         )
-                                                ]),
+                try TargetDescription(
+                    name: "exe",
+                    dependencies: [
+                        "Logging",
+                        .product(
+                            name: "Foo",
+                            package: "fooPkg",
+                            moduleAliases: ["Logging": "FooLogging"]
+                        ),
+                        .product(
+                            name: "Bar",
+                            package: "barPkg",
+                            moduleAliases: ["Logging": "BarLogging"]
+                        ),
+                    ]
+                ),
                 try TargetDescription(name: "Logging", dependencies: []),
-            ])
+            ]
+        )
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         let parts =
-        """
-            dependencies: [
-                "Logging",
-                .product(name: "Foo", package: "fooPkg", moduleAliases: [
-                    "Logging": "FooLogging"
-                ]),
-                .product(name: "Bar", package: "barPkg", moduleAliases: [
-                    "Logging": "BarLogging"
-                ])
-            ]
-        """
+            """
+                dependencies: [
+                    "Logging",
+                    .product(name: "Foo", package: "fooPkg", moduleAliases: [
+                        "Logging": "FooLogging"
+                    ]),
+                    .product(name: "Bar", package: "barPkg", moduleAliases: [
+                        "Logging": "BarLogging"
+                    ])
+                ]
+            """
         let trimmedContents = contents.components(separatedBy: CharacterSet.whitespacesAndNewlines)
         let trimmedParts = parts.components(separatedBy: CharacterSet.whitespacesAndNewlines)
         let isContained = trimmedParts.allSatisfy(trimmedContents.contains(_:))
@@ -831,7 +840,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
             dependencies: [],
             targets: [
                 try TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .command(intent: .custom(verb: "foo", description: "bar"), permissions: [.allowNetworkConnections(scope: .all(ports: [23, 42, 443, 8080]), reason: "internet good")]))
-            ])
+            ]
+        )
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
     }
@@ -862,10 +872,11 @@ final class ManifestSourceGenerationTests: XCTestCase {
                     type: .executable,
                     settings: [
                         .init(tool: .swift, kind: .swiftLanguageMode(.v5), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug")),
                     ]
-                )
-            ])
+                ),
+            ]
+        )
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
     }
@@ -910,7 +921,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
                         .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
                     ]
                 ),
-            ])
+            ]
+        )
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
     }
@@ -943,10 +955,11 @@ final class ManifestSourceGenerationTests: XCTestCase {
                     type: .executable,
                     settings: [
                         .init(tool: .swift, kind: .defaultIsolation(.nonisolated), condition: .init(platformNames: ["linux"])),
-                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug"))
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug")),
                     ]
-                )
-            ])
+                ),
+            ]
+        )
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
     }

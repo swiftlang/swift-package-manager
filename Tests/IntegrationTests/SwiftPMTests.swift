@@ -32,10 +32,10 @@ private struct SwiftPMTests {
                 #expect(!runOutput.stderr.contains("error:"))
                 #expect(
                     runOutput.stdout == """
-                            SwiftFramework()
-                            Library(framework: SwiftFramework.SwiftFramework())
-                            
-                            """
+                        SwiftFramework()
+                        Library(framework: SwiftFramework.SwiftFramework())
+
+                        """
                 )
             }
 
@@ -71,7 +71,7 @@ private struct SwiftPMTests {
                 )
                 #expect(
                     packageOutput.stdout.spm_chomp()
-                    == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
+                        == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
                 )
             }
         }
@@ -154,7 +154,7 @@ private struct SwiftPMTests {
 
     @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
     func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await  withTemporaryDirectory { tmpDir in
+        try await withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
@@ -212,16 +212,17 @@ private struct SwiftPMTests {
             let fooPath: AbsolutePath
             let hostArch: String
             #if arch(x86_64)
-            hostArch = "x86_64"
+                hostArch = "x86_64"
             #elseif arch(arm64)
-            hostArch = "arm64"
+                hostArch = "arm64"
             #else
-            precondition("Unsupported platform or host arch for test")
+                precondition("Unsupported platform or host arch for test")
             #endif
             switch buildSystem {
             case .native:
                 fooPath = try AbsolutePath(
-                    validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+                    validating: ".build/apple/Products/Debug/foo",
+                    relativeTo: packagePath
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(
@@ -275,26 +276,26 @@ private struct SwiftPMTests {
             try localFileSystem.writeFileContents(
                 AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
                 string: """
-                struct Subject {
-                    static func a() { _ = "a" }
-                    static func b() { _ = "b" }
-                }
-                """
+                    struct Subject {
+                        static func a() { _ = "a" }
+                        static func b() { _ = "b" }
+                    }
+                    """
             )
             try localFileSystem.writeFileContents(
                 AbsolutePath(validating: "Tests/ReproTests/ReproTests.swift", relativeTo: packagePath),
                 string: """
-                import Testing
-                import class Foundation.ProcessInfo
-                @Suite struct Suite {
-                    @Test func testProfilePathCanary() throws {
-                        let pattern = try #require(ProcessInfo.processInfo.environment["LLVM_PROFILE_FILE"])
-                        #expect(pattern.hasSuffix(".%p.profraw"))
+                    import Testing
+                    import class Foundation.ProcessInfo
+                    @Suite struct Suite {
+                        @Test func testProfilePathCanary() throws {
+                            let pattern = try #require(ProcessInfo.processInfo.environment["LLVM_PROFILE_FILE"])
+                            #expect(pattern.hasSuffix(".%p.profraw"))
+                        }
+                        @Test func testA() async { await #expect(processExitsWith: .success) { Subject.a() } }
+                        @Test func testB() async { await #expect(processExitsWith: .success) { Subject.b() } }
                     }
-                    @Test func testA() async { await #expect(processExitsWith: .success) { Subject.a() } }
-                    @Test func testB() async { await #expect(processExitsWith: .success) { Subject.b() } }
-                }
-                """
+                    """
             )
             let expectedCoveragePath = try await executeSwiftTest(
                 packagePath,

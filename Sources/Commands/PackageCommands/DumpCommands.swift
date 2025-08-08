@@ -45,7 +45,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
     @Flag(help: "Add symbols with SPI information to the symbol graph.")
     var includeSPISymbols = false
-    
+
     @Flag(help: "Emit extension block symbols for extensions to external types or directly associate members and conformances with the extended nominal.")
     var extensionBlockSymbolBehavior: ExtensionBlockSymbolBehavior = .omitExtensionBlockSymbols
 
@@ -58,16 +58,21 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             enableAllTraits: true,
             cacheBuildManifest: false
         )
-        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(
-            BuildOutput.SymbolGraphOptions(
-                prettyPrint: prettyPrint,
-                minimumAccessLevel: .accessLevel(minimumAccessLevel),
-                includeInheritedDocs: !skipInheritedDocs,
-                includeSynthesized: !skipSynthesizedMembers,
-                includeSPI: includeSPISymbols,
-                emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
-            )
-        ), .buildPlan])
+        let buildResult = try await buildSystem.build(
+            subset: .allExcludingTests,
+            buildOutputs: [
+                .symbolGraph(
+                    BuildOutput.SymbolGraphOptions(
+                        prettyPrint: prettyPrint,
+                        minimumAccessLevel: .accessLevel(minimumAccessLevel),
+                        includeInheritedDocs: !skipInheritedDocs,
+                        includeSynthesized: !skipSynthesizedMembers,
+                        includeSPI: includeSPISymbols,
+                        emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
+                    )
+                ), .buildPlan,
+            ]
+        )
 
         let symbolGraphDirectory = try swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
 

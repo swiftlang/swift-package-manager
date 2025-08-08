@@ -23,7 +23,7 @@ struct SanitizerExtensionTests {
         arguments: Sanitizer.allCases
     )
     func creatingSanitizers(sanitizer: Sanitizer) throws {
-            #expect(sanitizer == Sanitizer(argument: sanitizer.shortName))
+        #expect(sanitizer == Sanitizer(argument: sanitizer.shortName))
     }
 
     @Test

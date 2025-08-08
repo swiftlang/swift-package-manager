@@ -74,7 +74,8 @@ public enum WriteAuxiliary {
                 }
             }
 
-            var content = objects
+            var content =
+                objects
                 .map { $0.spm_shellEscaped() }
                 .joined(separator: "\n")
 
@@ -105,7 +106,8 @@ public enum WriteAuxiliary {
 
             guard sources.count > 0 else { return "" }
 
-            var contents = sources
+            var contents =
+                sources
                 .map { $0.spm_shellEscaped() }
                 .joined(separator: "\n")
             contents.append("\n")
@@ -364,11 +366,11 @@ public struct LLBuildManifest {
         arguments: [String]
     ) {
         let tool = SwiftFrontendTool(
-                moduleName: moduleName,
-                description: description,
-                inputs: inputs,
-                outputs: outputs,
-                arguments: arguments
+            moduleName: moduleName,
+            description: description,
+            inputs: inputs,
+            outputs: outputs,
+            arguments: arguments
         )
         addCommand(name: name, tool: tool)
     }

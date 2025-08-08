@@ -16,11 +16,11 @@ import Basics
 import struct TSCBasic.ByteString
 
 #if USE_IMPL_ONLY_IMPORTS
-@_implementationOnly import SwiftASN1
-@_implementationOnly import X509
+    @_implementationOnly import SwiftASN1
+    @_implementationOnly import X509
 #else
-import SwiftASN1
-import X509
+    import SwiftASN1
+    import X509
 #endif
 
 public enum CertificatePolicyKey: Hashable, CustomStringConvertible {
@@ -178,7 +178,7 @@ struct DefaultCertificatePolicy: CertificatePolicy {
             certChain: certChain,
             trustedRoots: self.trustedRoots,
             policies: {
-                _ADPCertificatePolicy() // included for testing
+                _ADPCertificatePolicy()  // included for testing
                 // Check if subject name matches
                 _SubjectNamePolicy(
                     expectedUserID: self.expectedSubjectUserID,
@@ -255,7 +255,7 @@ struct ADPSwiftPackageCollectionCertificatePolicy: CertificatePolicy {
             policies: {
                 // Check for specific markers
                 _ADPSwiftPackageCertificatePolicy()
-                _ADPCertificatePolicy() // included for testing
+                _ADPCertificatePolicy()  // included for testing
                 // Check if subject name matches
                 _SubjectNamePolicy(
                     expectedUserID: self.expectedSubjectUserID,
@@ -332,7 +332,7 @@ struct ADPAppleDistributionCertificatePolicy: CertificatePolicy {
             policies: {
                 // Check for specific markers
                 _ADPAppleDistributionCertificatePolicy()
-                _ADPCertificatePolicy() // included for testing
+                _ADPCertificatePolicy()  // included for testing
                 // Check if subject name matches
                 _SubjectNamePolicy(
                     expectedUserID: self.expectedSubjectUserID,
@@ -363,9 +363,7 @@ struct _CodeSigningPolicy: VerifierPolicy {
     ]
 
     func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
-        let isCodeSigning = (
-            try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)
-        ) ?? false
+        let isCodeSigning = (try? chain.leaf.extensions.extendedKeyUsage?.contains(ExtendedKeyUsage.Usage.codeSigning)) ?? false
         guard isCodeSigning else {
             return .failsToMeetPolicy(reason: "Certificate \(chain.leaf) does not have code signing extended key usage")
         }
@@ -480,7 +478,7 @@ struct _ADPCertificatePolicy: VerifierPolicy {
     /// Include custom marker extensions (which can be critical) so they would not
     /// be considered unhandled and cause certificate chain validation to fail.
     let verifyingCriticalExtensions: [ASN1ObjectIdentifier] =
-        ASN1ObjectIdentifier.NameAttributes.adpAppleDevelopmentMarkers // included for testing
+        ASN1ObjectIdentifier.NameAttributes.adpAppleDevelopmentMarkers  // included for testing
 
     func chainMeetsPolicyRequirements(chain: UnverifiedCertificateChain) async -> PolicyEvaluationResult {
         // Not policing anything here. This policy is mainly for
@@ -511,8 +509,9 @@ struct _ADPSwiftPackageCertificatePolicy: VerifierPolicy {
 
         // Package collection can be signed with "Swift Package Collection"
         // or "Swift Package" certificate
-        guard chain.leaf.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageCollectionMarker)
-            || chain.leaf.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker)
+        guard
+            chain.leaf.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageCollectionMarker)
+                || chain.leaf.hasExtension(oid: ASN1ObjectIdentifier.NameAttributes.adpSwiftPackageMarker)
         else {
             return .failsToMeetPolicy(reason: "Leaf certificate missing marker OID")
         }

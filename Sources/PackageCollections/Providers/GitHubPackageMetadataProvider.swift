@@ -173,28 +173,28 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             return self.metadataErrorResponse(error, apiHost: baseURL.host)
         }
     }
-    
+
     private func metadataErrorResponse(
         _ error: Error,
         apiHost: String?
     ) -> (Result<PackageCollectionsModel.PackageBasicMetadata, any Error>, PackageMetadataProviderContext?) {
         return (.failure(error), self.createContext(apiHost: apiHost, error: error))
     }
-    
+
     private func createContext(apiHost: String?, error: Error?) -> PackageMetadataProviderContext? {
         // We can't do anything if we can't determine API host
         guard let apiHost else {
             return nil
         }
-        
+
         let authTokenType = self.getAuthTokenType(for: apiHost)
         let isAuthTokenConfigured = self.configuration.authTokens()?[authTokenType] != nil
-        
+
         // This provider should only deal with GitHub token type
         guard case .github(let host) = authTokenType else {
             return nil
         }
-        
+
         guard let error else {
             // It's possible for the request to complete successfully without auth token configured, in
             // which case we will hit the API limit much more easily, so we should always communicate
@@ -205,7 +205,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                 isAuthTokenConfigured: isAuthTokenConfigured
             )
         }
-        
+
         switch error {
         case let error as GitHubPackageMetadataProviderError:
             guard let providerError = PackageMetadataProviderError.from(error) else {
@@ -213,7 +213,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
                 // assume this provider cannot be used for the package.
                 return nil
             }
-            
+
             return PackageMetadataProviderContext(
                 name: host,
                 authTokenType: authTokenType,
@@ -226,7 +226,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             return nil
         }
     }
-    
+
     private func getAuthTokenType(for host: String) -> AuthTokenType {
         let host = host.hasPrefix(Self.apiHostPrefix) ? String(host.dropFirst(Self.apiHostPrefix.count)) : host
         return .github(host)
@@ -239,7 +239,8 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             if let match = regex.firstMatch(in: url, options: [], range: NSRange(location: 0, length: url.count)) {
                 if let hostRange = Range(match.range(at: 1), in: url),
                     let ownerRange = Range(match.range(at: 2), in: url),
-                    let repoRange = Range(match.range(at: 3), in: url) {
+                    let repoRange = Range(match.range(at: 3), in: url)
+                {
                     let host = String(url[hostRange])
                     let owner = String(url[ownerRange])
                     let repo = String(url[repoRange])
@@ -290,7 +291,7 @@ struct GitHubPackageMetadataProvider: PackageMetadataProvider, Closable {
             disableCache: Bool = false,
             cacheDir: AbsolutePath? = nil,
             cacheTTLInSeconds: Int? = nil,
-            cacheSizeInMegabytes: Int? = nil            
+            cacheSizeInMegabytes: Int? = nil
         ) {
             self.authTokens = authTokens
             self.apiLimitWarningThreshold = apiLimitWarningThreshold ?? 5
@@ -397,7 +398,7 @@ extension GitHubPackageMetadataProvider {
             case publishedAt = "published_at"
             case author
         }
-        
+
         fileprivate struct Author: Codable {
             let login: String
             let url: URL?

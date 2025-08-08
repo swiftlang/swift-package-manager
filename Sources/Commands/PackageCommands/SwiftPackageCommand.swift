@@ -118,12 +118,13 @@ extension SwiftPackageCommand {
                     if !pluginCommands.isEmpty {
                         print("\nAVAILABLE PLUGIN COMMANDS:")
                         for cmd in pluginCommands {
-                            let formattedDescription = "\(cmd.name)"
+                            let formattedDescription =
+                                "\(cmd.name)"
                                 .padding(toLength: 24, withPad: " ", startingAt: 0) + cmd.description
                             print("  " + formattedDescription)
                         }
                     }
-                } catch {} // fail silently as user does not need to know we could not fetch plugin command's for the
+                } catch {}  // fail silently as user does not need to know we could not fetch plugin command's for the
                 // help screen
                 return
             }
@@ -187,8 +188,10 @@ extension PluginCommand.PluginOptions {
         )
         // actual merge
         var merged = self
-        merged.allowWritingToPackageDirectory = merged.allowWritingToPackageDirectory || other
-            .allowWritingToPackageDirectory
+        merged.allowWritingToPackageDirectory =
+            merged.allowWritingToPackageDirectory
+            || other
+                .allowWritingToPackageDirectory
         merged.additionalAllowedWritableDirectories.append(contentsOf: other.additionalAllowedWritableDirectories)
         if other.allowNetworkConnections != .none {
             merged.allowNetworkConnections = other.allowNetworkConnections

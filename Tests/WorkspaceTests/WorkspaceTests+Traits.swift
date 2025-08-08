@@ -47,33 +47,33 @@ extension WorkspaceTests {
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     traits: ["Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "Boo",
                     targets: [
-                        MockTarget(name: "Boo"),
+                        MockTarget(name: "Boo")
                     ],
                     products: [
-                        MockProduct(name: "Boo", modules: ["Boo"]),
+                        MockProduct(name: "Boo", modules: ["Boo"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -84,7 +84,7 @@ extension WorkspaceTests {
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]))
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
@@ -131,33 +131,33 @@ extension WorkspaceTests {
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "Boo",
                     targets: [
-                        MockTarget(name: "Boo"),
+                        MockTarget(name: "Boo")
                     ],
                     products: [
-                        MockProduct(name: "Boo", modules: ["Boo"]),
+                        MockProduct(name: "Boo", modules: ["Boo"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -219,7 +219,7 @@ extension WorkspaceTests {
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
@@ -229,19 +229,19 @@ extension WorkspaceTests {
                         .sourceControl(path: "./Bam", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
-                ),
+                )
             ],
             // Trait configuration overrides default traits; no traits enabled
             traitConfiguration: .init(enabledTraits: [], enableAllTraits: false),
@@ -285,7 +285,7 @@ extension WorkspaceTests {
                                 .product(
                                     name: "Baz",
                                     package: "Baz",
-                                    condition: .init(traits: ["Trait1"]) // Baz dependency guarded by traits.
+                                    condition: .init(traits: ["Trait1"])  // Baz dependency guarded by traits.
                                 ),
                                 .product(
                                     name: "Boo",
@@ -294,36 +294,36 @@ extension WorkspaceTests {
                                 ),
                             ]
                         ),
-                        MockTarget(name: "Bar", dependencies: ["Baz"]), // Baz dependency not guarded by traits.
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),  // Baz dependency not guarded by traits.
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Boo", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
                 MockPackage(
                     name: "Boo",
                     targets: [
-                        MockTarget(name: "Boo"),
+                        MockTarget(name: "Boo")
                     ],
                     products: [
-                        MockProduct(name: "Boo", modules: ["Boo"]),
+                        MockProduct(name: "Boo", modules: ["Boo"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -367,37 +367,37 @@ extension WorkspaceTests {
                                     name: "Baz",
                                     package: "Baz",
                                     condition: .init(traits: ["Trait1"])
-                                ),
+                                )
                             ]
                         ),
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitNotFound"]),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitNotFound"])
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     traits: ["TraitFound"],
                     versions: ["1.0.0", "1.5.0"]
-                ),
+                )
             ]
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"])
         ]
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
@@ -428,39 +428,39 @@ extension WorkspaceTests {
                                     name: "Baz",
                                     package: "Baz",
                                     condition: .init(traits: ["Trait1"])
-                                ),
+                                )
                             ]
                         ),
                         MockTarget(name: "Bar", dependencies: ["Baz"]),
                     ],
                     products: [
-                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitFound"]),
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitFound"])
                     ],
                     traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "Baz",
                     targets: [
-                        MockTarget(name: "Baz"),
+                        MockTarget(name: "Baz")
                     ],
                     products: [
-                        MockProduct(name: "Baz", modules: ["Baz"]),
+                        MockProduct(name: "Baz", modules: ["Baz"])
                     ],
                     traits: ["TraitFound"],
                     versions: ["1.0.0", "1.5.0"]
-                ),
+                )
             ],
             // Trait configuration containing trait that isn't defined in the root package.
             traitConfiguration: .enabledTraits(["TraitNotFound"]),
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"])
         ]
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
@@ -489,38 +489,37 @@ extension WorkspaceTests {
                                         name: "Icing",
                                         package: "Sugar",
                                         condition: .init(traits: ["BreakfastOfChampions", "DontTellMom"])
-                                    ),
+                                    )
                                 ]
-                            ),
+                            )
                         ],
                         products: [
                             MockProduct(name: "YummyBreakfast", modules: ["Wheat"])
                         ],
                         dependencies: [
-                            .sourceControl(path: "./Sugar", requirement: .upToNextMajor(from: "1.0.0")),
+                            .sourceControl(path: "./Sugar", requirement: .upToNextMajor(from: "1.0.0"))
                         ],
                         traits: ["BreakfastOfChampions", "DontTellMom"]
-                    ),
+                    )
                 ],
                 packages: [
                     MockPackage(
                         name: "Sugar",
                         targets: [
-                            MockTarget(name: "Icing"),
+                            MockTarget(name: "Icing")
                         ],
                         products: [
-                            MockProduct(name: "Icing", modules: ["Icing"]),
+                            MockProduct(name: "Icing", modules: ["Icing"])
                         ],
                         versions: ["1.0.0", "1.5.0"]
-                    ),
+                    )
                 ],
                 traitConfiguration: traitConfiguration
             )
         }
 
-
         let deps: [MockDependency] = [
-            .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"])),
+            .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"]))
         ]
 
         let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
@@ -604,9 +603,9 @@ extension WorkspaceTests {
                                         name: "Raisin",
                                         package: "Fruit",
                                         condition: .init(traits: ["Healthy"])
-                                    )
+                                    ),
                                 ]
-                            ),
+                            )
                         ],
                         products: [
                             MockProduct(name: "YummyBreakfast", modules: ["Wheat"])
@@ -616,26 +615,26 @@ extension WorkspaceTests {
                             .sourceControl(path: "./Fruit", requirement: .upToNextMajor(from: "1.0.0")),
                         ],
                         traits: ["Healthy", "BreakfastOfChampions"]
-                    ),
+                    )
                 ],
                 packages: [
                     MockPackage(
                         name: "Sugar",
                         targets: [
-                            MockTarget(name: "Icing"),
+                            MockTarget(name: "Icing")
                         ],
                         products: [
-                            MockProduct(name: "Icing", modules: ["Icing"]),
+                            MockProduct(name: "Icing", modules: ["Icing"])
                         ],
                         versions: ["1.0.0", "1.5.0"]
                     ),
                     MockPackage(
                         name: "Fruit",
                         targets: [
-                            MockTarget(name: "Raisin"),
+                            MockTarget(name: "Raisin")
                         ],
                         products: [
-                            MockProduct(name: "Raisin", modules: ["Raisin"]),
+                            MockProduct(name: "Raisin", modules: ["Raisin"])
                         ],
                         versions: ["1.0.0", "1.2.0"]
                     ),
@@ -643,7 +642,6 @@ extension WorkspaceTests {
                 traitConfiguration: traitConfiguration
             )
         }
-
 
         let deps: [MockDependency] = [
             .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"])),
@@ -724,17 +722,17 @@ extension WorkspaceTests {
                                 .product(
                                     name: "MyProduct",
                                     package: "PackageWithDefaultTraits",
-                                ),
+                                )
                             ]
-                        ),
+                        )
                     ],
                     products: [
                         MockProduct(name: "RootProduct", modules: ["MyTarget"])
                     ],
                     dependencies: [
-                        .sourceControl(path: "./PackageWithDefaultTraits", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./PackageWithDefaultTraits", requirement: .upToNextMajor(from: "1.0.0"))
                     ],
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -749,10 +747,10 @@ extension WorkspaceTests {
                                     condition: .init(traits: ["Enabled1"])
                                 )
                             ]
-                        ),
+                        )
                     ],
                     products: [
-                        MockProduct(name: "MyProduct", modules: ["PackageTarget"]),
+                        MockProduct(name: "MyProduct", modules: ["PackageTarget"])
                     ],
                     dependencies: [
                         .sourceControl(path: "./GuardedDependency", requirement: .upToNextMajor(from: "1.0.0"))
@@ -761,7 +759,7 @@ extension WorkspaceTests {
                         "Enabled1",
                         "Enabled2",
                         TraitDescription(name: "default", enabledTraits: ["Enabled1", "Enabled2"]),
-                        "NotEnabled"
+                        "NotEnabled",
                     ],
                     versions: ["1.0.0", "1.5.0"]
                 ),
@@ -776,12 +774,12 @@ extension WorkspaceTests {
                         MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])
                     ],
                     versions: ["1.0.0", "1.5.0"]
-                )
+                ),
             ],
         )
 
         let deps: [MockDependency] = [
-            .sourceControl(path: "./PackageWithDefaultTraits", requirement: .upToNextMajor(from: "1.0.0")),
+            .sourceControl(path: "./PackageWithDefaultTraits", requirement: .upToNextMajor(from: "1.0.0"))
         ]
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
@@ -822,7 +820,7 @@ extension WorkspaceTests {
                                 .product(name: "Parent1Product", package: "Parent1"),
                                 .product(name: "Parent2Product", package: "Parent2"),
                             ]
-                        ),
+                        )
                     ],
                     products: [
                         MockProduct(name: "RootProduct", modules: ["RootTarget"])
@@ -831,7 +829,7 @@ extension WorkspaceTests {
                         .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -842,7 +840,7 @@ extension WorkspaceTests {
                             dependencies: [
                                 .product(name: "ChildProduct", package: "ChildPackage")
                             ]
-                        ),
+                        )
                     ],
                     products: [
                         MockProduct(name: "Parent1Product", modules: ["Parent1Target"])
@@ -861,7 +859,7 @@ extension WorkspaceTests {
                             dependencies: [
                                 .product(name: "ChildProduct", package: "ChildPackage")
                             ]
-                        ),
+                        )
                     ],
                     products: [
                         MockProduct(name: "Parent2Product", modules: ["Parent2Target"])
@@ -884,7 +882,7 @@ extension WorkspaceTests {
                                     condition: .init(traits: ["Feature1"])
                                 )
                             ]
-                        ),
+                        )
                     ],
                     products: [
                         MockProduct(name: "ChildProduct", modules: ["ChildTarget"])
@@ -895,7 +893,7 @@ extension WorkspaceTests {
                     traits: [
                         "Feature1",
                         "Feature2",
-                        TraitDescription(name: "default", enabledTraits: ["Feature1"])
+                        TraitDescription(name: "default", enabledTraits: ["Feature1"]),
                     ],
                     versions: ["1.0.0"]
                 ),
@@ -908,7 +906,7 @@ extension WorkspaceTests {
                         MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])
                     ],
                     versions: ["1.0.0"]
-                )
+                ),
             ]
         )
 
@@ -961,20 +959,20 @@ extension WorkspaceTests {
                         MockTarget(
                             name: "RootTarget",
                             dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
                     dependencies: [
                         // Root doesn't specify traits - wants defaults
                         .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
                     name: "ChildPackage",
                     targets: [
-                        MockTarget(name: "ChildTarget"),
+                        MockTarget(name: "ChildTarget")
                     ],
                     products: [MockProduct(name: "ChildProduct", modules: ["ChildTarget"])],
                     traits: [
@@ -983,7 +981,7 @@ extension WorkspaceTests {
                         .init(name: "Feature1"),
                     ],
                     versions: ["1.0.0"]
-                ),
+                )
             ]
         )
 
@@ -1036,14 +1034,14 @@ extension WorkspaceTests {
                                 .product(name: "Parent1Product", package: "Parent1"),
                                 .product(name: "Parent2Product", package: "Parent2"),
                             ]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
                     dependencies: [
                         .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -1052,7 +1050,7 @@ extension WorkspaceTests {
                         MockTarget(
                             name: "Parent1Target",
                             dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "Parent1Product", modules: ["Parent1Target"])],
                     dependencies: [
@@ -1067,7 +1065,7 @@ extension WorkspaceTests {
                         MockTarget(
                             name: "Parent2Target",
                             dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "Parent2Product", modules: ["Parent2Target"])],
                     dependencies: [
@@ -1131,14 +1129,14 @@ extension WorkspaceTests {
                                 .product(name: "Parent1Product", package: "Parent1"),
                                 .product(name: "Parent2Product", package: "Parent2"),
                             ]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
                     dependencies: [
                         .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
                         .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
-                ),
+                )
             ],
             packages: [
                 MockPackage(
@@ -1147,7 +1145,7 @@ extension WorkspaceTests {
                         MockTarget(
                             name: "Parent1Target",
                             dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "Parent1Product", modules: ["Parent1Target"])],
                     dependencies: [
@@ -1162,7 +1160,7 @@ extension WorkspaceTests {
                         MockTarget(
                             name: "Parent2Target",
                             dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
-                        ),
+                        )
                     ],
                     products: [MockProduct(name: "Parent2Product", modules: ["Parent2Target"])],
                     dependencies: [
@@ -1206,4 +1204,3 @@ extension WorkspaceTests {
     }
 
 }
-

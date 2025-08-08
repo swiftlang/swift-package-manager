@@ -21,7 +21,7 @@ import TSCUtility
 
 /// Implements the mechanics of running and communicating with a plugin (implemented as a set of Swift source files). In most environments this is done by compiling the code to an executable, invoking it as a sandboxed subprocess, and communicating with it using pipes. Specific implementations are free to implement things differently, however.
 public protocol PluginScriptRunner {
-    
+
     /// Public protocol function that starts compiling the plugin script to an executable. The name is used as the basename for the executable and auxiliary files. The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not of the target to which it is being applied). This function returns immediately and then calls the completion handler on the callback queue when compilation ends.
     @available(*, noasync, message: "Use the async alternative")
     func compilePluginScript(
@@ -83,7 +83,7 @@ public extension PluginScriptRunner {
                 callbackQueue: callbackQueue,
                 delegate: delegate,
                 completion: {
-                  continuation.resume(with: $0)
+                    continuation.resume(with: $0)
                 }
             )
         }
@@ -97,7 +97,7 @@ public protocol PluginScriptCompilerDelegate {
 
     /// Called immediately after compiling a plugin (regardless of whether it succeeded or failed). Will not be called if the plugin didn't have to be compiled. This call is always follows a `willCompilePlugin()` but is mutually exclusive with a `skippedCompilingPlugin()` call.
     func didCompilePlugin(result: PluginCompilationResult)
-    
+
     /// Called if a plugin didn't need to be compiled because previous compilation results were still valid. In this case neither `willCompilePlugin()` nor `didCompilePlugin()` will be called.
     func skippedCompilingPlugin(cachedResult: PluginCompilationResult)
 }
@@ -106,7 +106,7 @@ public protocol PluginScriptCompilerDelegate {
 public protocol PluginScriptRunnerDelegate {
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
     func handleOutput(data: Data)
-    
+
     /// Called for each length-delimited message received from the plugin. The `responder` is closure that can be used to send one or more messages in reply.
     func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws
 }
@@ -115,22 +115,22 @@ public protocol PluginScriptRunnerDelegate {
 public struct PluginCompilationResult: Equatable {
     /// Whether compilation succeeded.
     public var succeeded: Bool
-    
+
     /// Complete compiler command line.
     public var commandLine: [String]
-    
+
     /// Path of the compiled executable.
     public var executableFile: Basics.AbsolutePath
 
     /// Path of the libClang diagnostics file emitted by the compiler.
     public var diagnosticsFile: Basics.AbsolutePath
-    
+
     /// Any output emitted by the compiler (stdout and stderr combined).
     public var rawCompilerOutput: String
-    
+
     /// Whether the compilation result came from the cache (false means that the compiler did run).
     public var cached: Bool
-    
+
     public init(
         succeeded: Bool,
         commandLine: [String],

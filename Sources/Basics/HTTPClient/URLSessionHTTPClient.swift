@@ -14,8 +14,8 @@ import _Concurrency
 import Foundation
 import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
-// FIXME: this brings OpenSSL dependency on Linux and needs to be replaced with `swift-server/async-http-client` package
-import FoundationNetworking
+    // FIXME: this brings OpenSSL dependency on Linux and needs to be replaced with `swift-server/async-http-client` package
+    import FoundationNetworking
 #endif
 
 final class URLSessionHTTPClient: Sendable {
@@ -212,7 +212,7 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
         var request = request
         // Set `Authorization` header for the redirected request
         if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL),
-           request.value(forHTTPHeaderField: "Authorization") == nil
+            request.value(forHTTPHeaderField: "Authorization") == nil
         {
             request.addValue(authorization, forHTTPHeaderField: "Authorization")
         }
@@ -285,8 +285,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        let totalBytesToDownload = totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown ?
-            totalBytesExpectedToWrite : nil
+        let totalBytesToDownload = totalBytesExpectedToWrite != NSURLSessionTransferSizeUnknown ? totalBytesExpectedToWrite : nil
 
         do {
             try task.progressHandler?(totalBytesWritten, totalBytesToDownload)
@@ -420,9 +419,11 @@ extension URLRequest {
 
 extension HTTPURLResponse {
     fileprivate func response(body: Data?) -> HTTPClientResponse {
-        let headers = HTTPClientHeaders(self.allHeaderFields.map { header in
-            .init(name: "\(header.key)", value: "\(header.value)")
-        })
+        let headers = HTTPClientHeaders(
+            self.allHeaderFields.map { header in
+                .init(name: "\(header.key)", value: "\(header.value)")
+            }
+        )
         return HTTPClientResponse(
             statusCode: self.statusCode,
             statusText: Self.localizedString(forStatusCode: self.statusCode),

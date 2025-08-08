@@ -45,32 +45,32 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
-                {
-                    "releases": {
-                        "1.1.1": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.1"
-                        },
-                        "1.1.0": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.0",
-                            "problem": {
-                                "status": 410,
-                                "title": "Gone",
-                                "detail": "this release was removed from the registry"
+                    {
+                        "releases": {
+                            "1.1.1": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.1"
+                            },
+                            "1.1.0": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.0",
+                                "problem": {
+                                    "status": 410,
+                                    "title": "Gone",
+                                    "detail": "this release was removed from the registry"
+                                }
+                            },
+                            "1.0.0": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.0.0"
                             }
-                        },
-                        "1.0.0": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.0.0"
                         }
                     }
-                }
-                """#.data(using: .utf8)!
+                    """#.data(using: .utf8)!
 
                 let links = """
-                <https://github.com/mona/LinkedList>; rel="canonical",
-                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-                <git@github.com:mona/LinkedList.git>; rel="alternate",
-                <https://gitlab.com/mona/LinkedList>; rel="alternate"
-                """
+                    <https://github.com/mona/LinkedList>; rel="canonical",
+                    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <https://gitlab.com/mona/LinkedList>; rel="alternate"
+                    """
 
                 return .init(
                     statusCode: 200,
@@ -93,12 +93,14 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let assert: (RegistryClient.PackageMetadata) -> Void = { metadata in
             #expect(metadata.versions == ["1.1.1", "1.0.0"])
-            #expect(metadata.alternateLocations == [
-                SourceControlURL("https://github.com/mona/LinkedList"),
-                SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-                SourceControlURL("git@github.com:mona/LinkedList.git"),
-                SourceControlURL("https://gitlab.com/mona/LinkedList"),
-            ])
+            #expect(
+                metadata.alternateLocations == [
+                    SourceControlURL("https://github.com/mona/LinkedList"),
+                    SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+                    SourceControlURL("git@github.com:mona/LinkedList.git"),
+                    SourceControlURL("https://gitlab.com/mona/LinkedList"),
+                ]
+            )
         }
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
@@ -131,47 +133,47 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch request.url {
             case releasesURL:
                 data = #"""
-                {
-                    "releases": {
-                        "1.1.1": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.1"
-                        },
-                        "1.1.0": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.0",
-                            "problem": {
-                                "status": 410,
-                                "title": "Gone",
-                                "detail": "this release was removed from the registry"
+                    {
+                        "releases": {
+                            "1.1.1": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.1"
+                            },
+                            "1.1.0": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.0",
+                                "problem": {
+                                    "status": 410,
+                                    "title": "Gone",
+                                    "detail": "this release was removed from the registry"
+                                }
                             }
                         }
                     }
-                }
-                """#.data(using: .utf8)!
+                    """#.data(using: .utf8)!
 
                 links = """
-                <https://github.com/mona/LinkedList>; rel="canonical",
-                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-                <git@github.com:mona/LinkedList.git>; rel="alternate",
-                <https://gitlab.com/mona/LinkedList>; rel="alternate",
-                <\(releasesURLPage2)>; rel="next"
-                """
+                    <https://github.com/mona/LinkedList>; rel="canonical",
+                    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <https://gitlab.com/mona/LinkedList>; rel="alternate",
+                    <\(releasesURLPage2)>; rel="next"
+                    """
             case releasesURLPage2:
                 data = #"""
-                {
-                    "releases": {
-                        "1.0.0": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.0.0"
+                    {
+                        "releases": {
+                            "1.0.0": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.0.0"
+                            }
                         }
                     }
-                }
-                """#.data(using: .utf8)!
+                    """#.data(using: .utf8)!
 
                 links = """
-                <https://github.com/mona/LinkedList>; rel="canonical",
-                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-                <git@github.com:mona/LinkedList.git>; rel="alternate",
-                <https://gitlab.com/mona/LinkedList>; rel="alternate"
-                """
+                    <https://github.com/mona/LinkedList>; rel="canonical",
+                    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <https://gitlab.com/mona/LinkedList>; rel="alternate"
+                    """
             default:
                 throw StringError("method and url should match")
             }
@@ -195,12 +197,14 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
         let metadata = try await registryClient.getPackageMetadata(package: identity)
         #expect(metadata.versions == ["1.1.1", "1.0.0"])
-        #expect(metadata.alternateLocations == [
-            SourceControlURL("https://github.com/mona/LinkedList"),
-            SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-            SourceControlURL("git@github.com:mona/LinkedList.git"),
-            SourceControlURL("https://gitlab.com/mona/LinkedList"),
-        ])
+        #expect(
+            metadata.alternateLocations == [
+                SourceControlURL("https://github.com/mona/LinkedList"),
+                SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+                SourceControlURL("git@github.com:mona/LinkedList.git"),
+                SourceControlURL("https://gitlab.com/mona/LinkedList"),
+            ]
+        )
     }
 
     @Test func getPackageMetadataPaginatedCancellation() async throws {
@@ -222,30 +226,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 fallthrough
             case releasesURL:
                 data = #"""
-                {
-                    "releases": {
-                        "1.1.1": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.1"
-                        },
-                        "1.1.0": {
-                            "url": "https://packages.example.com/mona/LinkedList/1.1.0",
-                            "problem": {
-                                "status": 410,
-                                "title": "Gone",
-                                "detail": "this release was removed from the registry"
+                    {
+                        "releases": {
+                            "1.1.1": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.1"
+                            },
+                            "1.1.0": {
+                                "url": "https://packages.example.com/mona/LinkedList/1.1.0",
+                                "problem": {
+                                    "status": 410,
+                                    "title": "Gone",
+                                    "detail": "this release was removed from the registry"
+                                }
                             }
                         }
                     }
-                }
-                """#.data(using: .utf8)!
+                    """#.data(using: .utf8)!
 
                 links = """
-                <https://github.com/mona/LinkedList>; rel="canonical",
-                <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
-                <git@github.com:mona/LinkedList.git>; rel="alternate",
-                <https://gitlab.com/mona/LinkedList>; rel="alternate",
-                <\(releasesURLPage2)>; rel="next"
-                """
+                    <https://github.com/mona/LinkedList>; rel="canonical",
+                    <ssh://git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <git@github.com:mona/LinkedList.git>; rel="alternate",
+                    <https://gitlab.com/mona/LinkedList>; rel="alternate",
+                    <\(releasesURLPage2)>; rel="next"
+                    """
             default:
                 throw StringError("method and url should match")
             }
@@ -310,7 +314,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: releasesURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -322,7 +326,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         await #expect {
             try await registryClient.getPackageMetadata(package: identity)
         } throws: { error in
-            if case RegistryError
+            if case
+                RegistryError
                 .failedRetrievingReleases(
                     registry: configuration.defaultRegistry!,
                     package: identity,
@@ -330,7 +335,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                         code: serverErrorHandler.errorCode,
                         details: serverErrorHandler.errorDescription
                     )
-                ) = error {
+                ) = error
+            {
                 return true
             }
             return false
@@ -365,30 +371,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """#.data(using: .utf8)!
+                    """#.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -416,11 +422,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             #expect(metadata.author?.name == "J. Appleseed")
             #expect(metadata.licenseURL == URL("https://github.com/mona/LinkedList/license"))
             #expect(metadata.readmeURL == URL("https://github.com/mona/LinkedList/readme"))
-            #expect(metadata.repositoryURLs! == [
-                SourceControlURL("https://github.com/mona/LinkedList"),
-                SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
-                SourceControlURL("git@github.com:mona/LinkedList.git"),
-            ])
+            #expect(
+                metadata.repositoryURLs! == [
+                    SourceControlURL("https://github.com/mona/LinkedList"),
+                    SourceControlURL("ssh://git@github.com:mona/LinkedList.git"),
+                    SourceControlURL("git@github.com:mona/LinkedList.git"),
+                ]
+            )
         }
 
         let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
@@ -444,7 +452,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
         let expectedChecksums: [Version: String] = [
             Version("1.1.1"): "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812",
-            Version("1.1.0"): checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+            Version("1.1.0"): checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation,
         ]
 
         let counter = SendableBox(0)
@@ -456,30 +464,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.1",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(expectedChecksum)"
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.1",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(expectedChecksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -495,30 +503,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                    "id": "mona.LinkedList",
-                    "version": "1.1.0",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(expectedChecksum)",
+                    {
+                        "id": "mona.LinkedList",
+                        "version": "1.1.0",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(expectedChecksum)",
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -576,13 +584,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         await #expect {
             try await registryClient.getPackageVersionMetadata(package: identity, version: version)
         } throws: { error in
-            if case RegistryError
+            if case
+                RegistryError
                 .failedRetrievingReleaseInfo(
                     registry: configuration.defaultRegistry!,
                     package: identity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
-                ) = error {
+                ) = error
+            {
                 return true
             }
             return false
@@ -593,7 +603,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: releaseURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -605,7 +615,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         await #expect {
             try await registryClient.getPackageVersionMetadata(package: identity, version: version)
         } throws: { error in
-            if case RegistryError
+            if case
+                RegistryError
                 .failedRetrievingReleaseInfo(
                     registry: configuration.defaultRegistry!,
                     package: identity,
@@ -614,7 +625,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                         code: serverErrorHandler.errorCode,
                         details: serverErrorHandler.errorDescription
                     )
-                ) = error {
+                ) = error
+            {
                 return true
             }
             return false
@@ -651,50 +663,50 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let defaultManifest = """
-        // swift-tools-version:5.5
-        import PackageDescription
+            // swift-tools-version:5.5
+            import PackageDescription
 
-        let package = Package(
-            name: "LinkedList",
-            products: [
-                .library(name: "LinkedList", targets: ["LinkedList"])
-            ],
-            targets: [
-                .target(name: "LinkedList"),
-                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-            ],
-            swiftLanguageVersions: [.v4, .v5]
-        )
-        """
+            let package = Package(
+                name: "LinkedList",
+                products: [
+                    .library(name: "LinkedList", targets: ["LinkedList"])
+                ],
+                targets: [
+                    .target(name: "LinkedList"),
+                    .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+                ],
+                swiftLanguageVersions: [.v4, .v5]
+            )
+            """
 
         let handler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -711,10 +723,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
-                """
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                    """
 
                 return .init(
                     statusCode: 200,
@@ -777,50 +789,50 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let defaultManifest = """
-        // swift-tools-version:5.5
-        import PackageDescription
+            // swift-tools-version:5.5
+            import PackageDescription
 
-        let package = Package(
-            name: "LinkedList",
-            products: [
-                .library(name: "LinkedList", targets: ["LinkedList"])
-            ],
-            targets: [
-                .target(name: "LinkedList"),
-                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-            ],
-            swiftLanguageVersions: [.v4, .v5]
-        )
-        """
+            let package = Package(
+                name: "LinkedList",
+                products: [
+                    .library(name: "LinkedList", targets: ["LinkedList"])
+                ],
+                targets: [
+                    .target(name: "LinkedList"),
+                    .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+                ],
+                swiftLanguageVersions: [.v4, .v5]
+            )
+            """
 
         let handler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -837,10 +849,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
-                """
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                    """
 
                 return .init(
                     statusCode: 200,
@@ -873,10 +885,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: manifestChecksum,
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
@@ -907,50 +919,50 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let defaultManifest = """
-        // swift-tools-version:5.5
-        import PackageDescription
+            // swift-tools-version:5.5
+            import PackageDescription
 
-        let package = Package(
-            name: "LinkedList",
-            products: [
-                .library(name: "LinkedList", targets: ["LinkedList"])
-            ],
-            targets: [
-                .target(name: "LinkedList"),
-                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-            ],
-            swiftLanguageVersions: [.v4, .v5]
-        )
-        """
+            let package = Package(
+                name: "LinkedList",
+                products: [
+                    .library(name: "LinkedList", targets: ["LinkedList"])
+                ],
+                targets: [
+                    .target(name: "LinkedList"),
+                    .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+                ],
+                swiftLanguageVersions: [.v4, .v5]
+            )
+            """
 
         let handler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -967,10 +979,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
-                """
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                    """
 
                 return .init(
                     statusCode: 200,
@@ -1001,17 +1013,17 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
             httpClient: httpClient,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .strict, // intended for this test; don't change
+            fingerprintCheckingMode: .strict,  // intended for this test; don't change
             checksumAlgorithm: checksumAlgorithm
         )
 
@@ -1034,50 +1046,50 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let checksum = checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
 
         let defaultManifest = """
-        // swift-tools-version:5.5
-        import PackageDescription
+            // swift-tools-version:5.5
+            import PackageDescription
 
-        let package = Package(
-            name: "LinkedList",
-            products: [
-                .library(name: "LinkedList", targets: ["LinkedList"])
-            ],
-            targets: [
-                .target(name: "LinkedList"),
-                .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
-            ],
-            swiftLanguageVersions: [.v4, .v5]
-        )
-        """
+            let package = Package(
+                name: "LinkedList",
+                products: [
+                    .library(name: "LinkedList", targets: ["LinkedList"])
+                ],
+                targets: [
+                    .target(name: "LinkedList"),
+                    .testTarget(name: "LinkedListTests", dependencies: ["LinkedList"]),
+                ],
+                swiftLanguageVersions: [.v4, .v5]
+            )
+            """
 
         let handler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1094,10 +1106,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 let defaultManifestData = Data(defaultManifest.utf8)
 
                 let links = """
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
-                <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
-                """
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4>; rel="alternate"; filename="Package@swift-4.swift"; swift-tools-version="4.0",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=4.2>; rel="alternate"; filename="Package@swift-4.2.swift"; swift-tools-version="4.2",
+                    <http://packages.example.com/mona/LinkedList/1.1.1/Package.swift?swift-version=5.3>; rel="alternate"; filename="Package@swift-5.3.swift"; swift-tools-version="5.3"
+                    """
 
                 return .init(
                     statusCode: 200,
@@ -1128,17 +1140,17 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: contentType
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
             httpClient: httpClient,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .warn, // intended for this test; don't change
+            fingerprintCheckingMode: .warn,  // intended for this test; don't change
             checksumAlgorithm: checksumAlgorithm
         )
 
@@ -1178,13 +1190,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1228,7 +1240,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: manifestURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -1236,13 +1248,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, request.url) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1313,7 +1325,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
     @Test(arguments: [
         (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
         (toolsVersion: ToolsVersion.v4, expectedToolsVersion: ToolsVersion.v4),
-        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current),
     ])
     func getManifestContent(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
@@ -1321,7 +1333,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let handler: HTTPClient.Implementation = { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+            let toolsVersion =
+                components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
@@ -1329,30 +1342,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, urlWithoutQuery) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1367,12 +1380,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+swift")
 
                 let data = """
-                // swift-tools-version:\(toolsVersion)
+                    // swift-tools-version:\(toolsVersion)
 
-                import PackageDescription
+                    import PackageDescription
 
-                let package = Package()
-                """.data(using: .utf8)!
+                    let package = Package()
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1426,7 +1439,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
     @Test(arguments: [
         (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
-        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current),
     ])
     func getManifestContentWithOptionalContentVersion(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
@@ -1434,7 +1447,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let handler: HTTPClient.Implementation = { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+            let toolsVersion =
+                components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
@@ -1442,30 +1456,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, urlWithoutQuery) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1480,12 +1494,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+swift")
 
                 let data = """
-                // swift-tools-version:\(toolsVersion)
+                    // swift-tools-version:\(toolsVersion)
 
-                import PackageDescription
+                    import PackageDescription
 
-                let package = Package()
-                """.data(using: .utf8)!
+                    let package = Package()
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1525,7 +1539,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
     @Test(arguments: [
         (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
-        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current),
     ])
     func getManifestContentMatchingChecksumInStorage(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
@@ -1533,7 +1547,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let handler: HTTPClient.Implementation = { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+            let toolsVersion =
+                components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
@@ -1541,30 +1556,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, urlWithoutQuery) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1599,9 +1614,11 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
         configuration.security = .testDefault
 
-        let defaultManifestChecksum = checksumAlgorithm
+        let defaultManifestChecksum =
+            checksumAlgorithm
             .hash(.init(Data(manifestContent(toolsVersion: .none).utf8))).hexadecimalRepresentation
-        let versionManifestChecksum = checksumAlgorithm
+        let versionManifestChecksum =
+            checksumAlgorithm
             .hash(.init(Data(manifestContent(toolsVersion: .v5_3).utf8))).hexadecimalRepresentation
         let fingerprintStorage = MockPackageFingerprintStorage([
             identity: [
@@ -1617,9 +1634,9 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             value: versionManifestChecksum,
                             contentType: Fingerprint.ContentType.manifest(.v5_3)
                         ),
-                    ],
-                ],
-            ],
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
@@ -1648,7 +1665,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let handler: HTTPClient.Implementation = { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+            let toolsVersion =
+                components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
@@ -1656,30 +1674,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, urlWithoutQuery) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1728,16 +1746,16 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             value: "non-matching checksum",
                             contentType: Fingerprint.ContentType.manifest(.v5_3)
                         ),
-                    ],
-                ],
-            ],
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
             httpClient: httpClient,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .strict, // intended for this test; don't change
+            fingerprintCheckingMode: .strict,  // intended for this test; don't change
             checksumAlgorithm: checksumAlgorithm
         )
 
@@ -1757,7 +1775,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
     @Test(arguments: [
         (toolsVersion: ToolsVersion.v5_3, expectedToolsVersion: ToolsVersion.v5_3),
-        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current)
+        (toolsVersion: nil, expectedToolsVersion: ToolsVersion.current),
     ])
     func getManifestContentWithNonMatchingChecksumInStorage_warn(toolsVersion: ToolsVersion?, expectedToolsVersion: ToolsVersion) async throws {
         let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
@@ -1765,7 +1783,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         let handler: HTTPClient.Implementation = { request, _ in
             var components = URLComponents(url: request.url, resolvingAgainstBaseURL: false)!
-            let toolsVersion = components.queryItems?.first { $0.name == "swift-version" }
+            let toolsVersion =
+                components.queryItems?.first { $0.name == "swift-version" }
                 .flatMap { ToolsVersion(string: $0.value!) } ?? ToolsVersion.current
             // remove query
             components.query = nil
@@ -1773,30 +1792,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.method, urlWithoutQuery) {
             case (.get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1845,16 +1864,16 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             value: "non-matching checksum",
                             contentType: Fingerprint.ContentType.manifest(.v5_3)
                         ),
-                    ],
-                ],
-            ],
+                    ]
+                ]
+            ]
         ])
 
         let registryClient = makeRegistryClient(
             configuration: configuration,
             httpClient: httpClient,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .warn, // intended for this test; don't change
+            fingerprintCheckingMode: .warn,  // intended for this test; don't change
             checksumAlgorithm: checksumAlgorithm
         )
 
@@ -1891,13 +1910,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -1941,7 +1960,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: manifestURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -1949,13 +1968,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2040,26 +2059,26 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "\(author)"
+                            },
+                            "licenseURL": "\(licenseURL)",
+                            "readmeURL": "\(readmeURL)",
+                            "repositoryURLs": [\"\(repositoryURLs.map(\.absoluteString).joined(separator: "\", \""))\"]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "\(author)"
-                        },
-                        "licenseURL": "\(licenseURL)",
-                        "readmeURL": "\(readmeURL)",
-                        "repositoryURLs": [\"\(repositoryURLs.map(\.absoluteString).joined(separator: "\", \""))\"]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2177,30 +2196,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2249,10 +2268,10 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: checksum,
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
@@ -2299,30 +2318,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2371,15 +2390,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .strict, // intended for this test; don't change
+            fingerprintCheckingMode: .strict,  // intended for this test; don't change
             skipSignatureValidation: false,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
@@ -2428,30 +2447,30 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [
-                        {
-                            "name": "source-archive",
-                            "type": "application/zip",
-                            "checksum": "\(checksum)"
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [
+                            {
+                                "name": "source-archive",
+                                "type": "application/zip",
+                                "checksum": "\(checksum)"
+                            }
+                        ],
+                        "metadata": {
+                            "author": {
+                                "name": "J. Appleseed"
+                            },
+                            "licenseURL": "https://github.com/mona/LinkedList/license",
+                            "readmeURL": "https://github.com/mona/LinkedList/readme",
+                            "repositoryURLs": [
+                                "https://github.com/mona/LinkedList",
+                                "ssh://git@github.com:mona/LinkedList.git",
+                                "git@github.com:mona/LinkedList.git"
+                            ]
                         }
-                    ],
-                    "metadata": {
-                        "author": {
-                            "name": "J. Appleseed"
-                        },
-                        "licenseURL": "https://github.com/mona/LinkedList/license",
-                        "readmeURL": "https://github.com/mona/LinkedList/readme",
-                        "repositoryURLs": [
-                            "https://github.com/mona/LinkedList",
-                            "ssh://git@github.com:mona/LinkedList.git",
-                            "git@github.com:mona/LinkedList.git"
-                        ]
                     }
-                }
-                """.data(using: .utf8)!
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2500,15 +2519,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                             origin: .registry(registryURL),
                             value: "non-matching checksum",
                             contentType: .sourceCode
-                        ),
-                    ],
-                ],
-            ],
+                        )
+                    ]
+                ]
+            ]
         ])
         let registryClient = RegistryClient(
             configuration: configuration,
             fingerprintStorage: fingerprintStorage,
-            fingerprintCheckingMode: .warn, // intended for this test; don't change
+            fingerprintCheckingMode: .warn,  // intended for this test; don't change
             skipSignatureValidation: false,
             signingEntityStorage: .none,
             signingEntityCheckingMode: .strict,
@@ -2577,26 +2596,26 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                     ]),
                     body: nil
                 )
-                // `downloadSourceArchive` calls this API to fetch checksum
+            // `downloadSourceArchive` calls this API to fetch checksum
             case (.generic, .get, metadataURL):
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                "id": "mona.LinkedList",
-                "version": "1.1.1",
-                "resources": [
                     {
-                    "name": "source-archive",
-                    "type": "application/zip",
-                    "checksum": "\(checksum)"
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                        "name": "source-archive",
+                        "type": "application/zip",
+                        "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
                     }
-                ],
-                "metadata": {
-                    "description": "One thing links to another."
-                }
-                }
-                """.data(using: .utf8)!
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2693,26 +2712,26 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                     ]),
                     body: nil
                 )
-                // `downloadSourceArchive` calls this API to fetch checksum
+            // `downloadSourceArchive` calls this API to fetch checksum
             case (.generic, .get, metadataURL):
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = """
-                {
-                "id": "mona.LinkedList",
-                "version": "1.1.1",
-                "resources": [
                     {
-                    "name": "source-archive",
-                    "type": "application/zip",
-                    "checksum": "\(checksum)"
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                        "name": "source-archive",
+                        "type": "application/zip",
+                        "checksum": "\(checksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "description": "One thing links to another."
                     }
-                ],
-                "metadata": {
-                    "description": "One thing links to another."
-                }
-                }
-                """.data(using: .utf8)!
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2784,13 +2803,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2833,13 +2852,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 destinationPath: path
             )
         } throws: { error in
-            if case RegistryError
+            if case
+                RegistryError
                 .failedDownloadingSourceArchive(
                     registry: configuration.defaultRegistry!,
                     package: identity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
-                ) = error {
+                ) = error
+            {
                 return true
             }
             return false
@@ -2850,7 +2871,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: downloadURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -2858,13 +2879,13 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             switch (request.kind, request.method, request.url) {
             case (.generic, .get, metadataURL):
                 let data = """
-                {
-                    "id": "\(identity)",
-                    "version": "\(version)",
-                    "resources": [],
-                    "metadata": {}
-                }
-                """.data(using: .utf8)!
+                    {
+                        "id": "\(identity)",
+                        "version": "\(version)",
+                        "resources": [],
+                        "metadata": {}
+                    }
+                    """.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -2907,13 +2928,15 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 destinationPath: path
             )
         } throws: { error in
-            if case RegistryError
+            if case
+                RegistryError
                 .failedDownloadingSourceArchive(
                     registry: configuration.defaultRegistry!,
                     package: identity,
                     version: version,
                     error: RegistryError.serverError(code: serverErrorHandler.errorCode, details: serverErrorHandler.errorDescription)
-                ) = error {
+                ) = error
+            {
                 return true
             }
             return false
@@ -2967,12 +2990,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
-                {
-                    "identifiers": [
-                    "mona.LinkedList"
-                    ]
-                }
-                """#.data(using: .utf8)!
+                    {
+                        "identifiers": [
+                        "mona.LinkedList"
+                        ]
+                    }
+                    """#.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -3031,7 +3054,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: identifiersURL,
-            errorCode: Int.random(in: 405 ..< 500), // avoid 404 since it is not considered an error
+            errorCode: Int.random(in: 405..<500),  // avoid 404 since it is not considered an error
             errorDescription: UUID().uuidString
         )
 
@@ -3064,12 +3087,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
-                {
-                    "identifiers": [
-                    "mona.LinkedList"
-                    ]
-                }
-                """#.data(using: .utf8)!
+                    {
+                        "identifiers": [
+                        "mona.LinkedList"
+                        ]
+                    }
+                    """#.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -3112,12 +3135,12 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
 
                 let data = #"""
-                {
-                    "identifiers": [
-                    "mona.LinkedList"
-                    ]
-                }
-                """#.data(using: .utf8)!
+                    {
+                        "identifiers": [
+                        "mona.LinkedList"
+                        ]
+                    }
+                    """#.data(using: .utf8)!
 
                 return .init(
                     statusCode: 200,
@@ -3164,7 +3187,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 return .init(
                     statusCode: 200,
                     headers: .init([
-                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Content-Version", value: "1")
                     ])
                 )
             default:
@@ -3207,7 +3230,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 return .init(
                     statusCode: 401,
                     headers: .init([
-                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Content-Version", value: "1")
                     ])
                 )
             default:
@@ -3247,7 +3270,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 return .init(
                     statusCode: 501,
                     headers: .init([
-                        .init(name: "Content-Version", value: "1"),
+                        .init(name: "Content-Version", value: "1")
                     ])
                 )
             default:
@@ -3282,7 +3305,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 @Suite("Registry Publishing") struct RegistryPublishing {
     @Test func publishSync() async throws {
         let expectedLocation =
-        URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+            URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -3346,8 +3369,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
     @Test func publishAsync() async throws {
         let expectedLocation =
-        URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
-        let expectedRetry = Int.random(in: 10 ..< 100)
+            URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+        let expectedRetry = Int.random(in: 10..<100)
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -3407,7 +3430,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
     @Test func publishWithSignature() async throws {
         let expectedLocation =
-        URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
+            URL("https://\(registryURL)/packages\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 
         let archiveContent = UUID().uuidString
         let metadataContent = UUID().uuidString
@@ -3602,7 +3625,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .put,
             url: publishURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 405..<500),
             errorDescription: UUID().uuidString
         )
 
@@ -3631,14 +3654,16 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                     fileSystem: localFileSystem
                 )
             } throws: { error in
-                if case RegistryError
+                if case
+                    RegistryError
                     .failedPublishing(
                         RegistryError
                             .serverError(
                                 code: serverErrorHandler.errorCode,
                                 details: serverErrorHandler.errorDescription
                             )
-                    ) = error {
+                    ) = error
+                {
                     return true
                 }
                 return false
@@ -4072,14 +4097,12 @@ struct ServerErrorHandler {
         progress: HTTPClient.ProgressHandler?
     ) async throws -> HTTPClient.Response {
         let data = """
-        {
-            "detail": "\(self.errorDescription)"
-        }
-        """.data(using: .utf8)!
+            {
+                "detail": "\(self.errorDescription)"
+            }
+            """.data(using: .utf8)!
 
-        if request.method == self.method &&
-            request.url == self.url
-        {
+        if request.method == self.method && request.url == self.url {
             return .init(
                 statusCode: self.errorCode,
                 headers: .init([

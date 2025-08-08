@@ -16,9 +16,9 @@ import Testing
 import _InternalTestSupport
 
 #if os(Linux)
-let isLinux = true
+    let isLinux = true
 #else
-let isLinux = false
+    let isLinux = false
 #endif
 
 @Suite(
@@ -90,13 +90,13 @@ struct InMemoryFileSystemTests {
                 let expectedPath = AbsolutePath(p)
                 #expect(
                     fs.exists(expectedPath) == shouldExist,
-                    "\(errorMessage(expectedPath, shouldExist))")
+                    "\(errorMessage(expectedPath, shouldExist))"
+                )
             }
         } when: {
             expectError
         }
     }
-
 
     @Test(
         arguments: [
@@ -138,7 +138,8 @@ struct InMemoryFileSystemTests {
             // THEN we expect the file to exist
             #expect(
                 fs.exists(pathUnderTest),
-                "Path \(pathUnderTest.pathString) does not exists when it should")
+                "Path \(pathUnderTest.pathString) does not exists when it should"
+            )
         }
 
         @Test
@@ -158,7 +159,8 @@ struct InMemoryFileSystemTests {
             // AND we expect the file to not exist
             #expect(
                 !fs.exists(pathUnderTest),
-                "Path \(pathUnderTest.pathString) does exists when it should not")
+                "Path \(pathUnderTest.pathString) does exists when it should not"
+            )
         }
 
         @Test
@@ -197,7 +199,6 @@ struct InMemoryFileSystemTests {
 
         }
     }
-
 
     struct testReadFileContentsTests {
         @Test
@@ -255,8 +256,7 @@ struct InMemoryFileSystemTests {
             func errorOccursWhenChangingDirectoryDoesNotExists() async throws {
 
                 // GIVEN we have a filesytstem
-                let fs = InMemoryFileSystem(
-                )
+                let fs = InMemoryFileSystem()
                 let nonExistingDirectory = AbsolutePath.root.appending(components: "does-not-exists")
 
                 // WHEN We change directory to this file

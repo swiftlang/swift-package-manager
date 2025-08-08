@@ -60,7 +60,7 @@ extension Workspace {
         private var prebuiltMap: [PackageIdentity: [String: ManagedPrebuilt]]
 
         internal var prebuilts: AnyCollection<ManagedPrebuilt> {
-            AnyCollection(self.prebuiltMap.values.lazy.flatMap{ $0.values })
+            AnyCollection(self.prebuiltMap.values.lazy.flatMap { $0.values })
         }
 
         init() {
@@ -69,11 +69,14 @@ extension Workspace {
 
         init(_ prebuilts: [ManagedPrebuilt]) throws {
             let prebuiltsByPackagePath = Dictionary(grouping: prebuilts, by: { $0.identity })
-            self.prebuiltMap = try prebuiltsByPackagePath.mapValues{ prebuilt in
-                try Dictionary(prebuilt.map { ($0.libraryName, $0) }, uniquingKeysWith: { _, _ in
-                    // should be unique
-                    throw StringError("prebuilt already exists in managed prebuilts")
-                })
+            self.prebuiltMap = try prebuiltsByPackagePath.mapValues { prebuilt in
+                try Dictionary(
+                    prebuilt.map { ($0.libraryName, $0) },
+                    uniquingKeysWith: { _, _ in
+                        // should be unique
+                        throw StringError("prebuilt already exists in managed prebuilts")
+                    }
+                )
             }
         }
 

@@ -54,7 +54,7 @@ public protocol Toolchain {
     // the OSS clang compiler. This API should not used for any other purpose.
     /// Returns true if clang compiler's vendor is Apple and nil if unknown.
     func _isClangCompilerVendorApple() throws -> Bool?
-    
+
     /// Additional flags to be passed to the build tools.
     var extraFlags: BuildFlags { get }
 
@@ -100,22 +100,22 @@ extension Toolchain {
             switch os {
             case .windows:
                 return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .parentDirectory // <version>
-                    .parentDirectory // Toolchains
-                    .parentDirectory // <toolchain>
+                    .parentDirectory  // bin
+                    .parentDirectory  // usr
+                    .parentDirectory  // <version>
+                    .parentDirectory  // Toolchains
+                    .parentDirectory  // <toolchain>
             case .macOS, .linux, .android:
                 return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
+                    .parentDirectory  // bin
+                    .parentDirectory  // usr
+                    .parentDirectory  // <toolchain>
             case .freebsd, .openbsd:
                 return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // local
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
+                    .parentDirectory  // bin
+                    .parentDirectory  // local
+                    .parentDirectory  // usr
+                    .parentDirectory  // <toolchain>
             case .unknown:
                 throw UnknownToolchainLayout(os: os)
             }
@@ -140,11 +140,11 @@ extension Toolchain {
     public var extraCCFlags: [String] {
         extraFlags.cCompilerFlags
     }
-    
+
     public var extraCPPFlags: [String] {
         extraFlags.cxxCompilerFlags
     }
-    
+
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
     }

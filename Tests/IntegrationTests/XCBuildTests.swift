@@ -213,7 +213,7 @@ private struct XCBuildTests {
             try await executeSwiftBuild(
                 fooPath,
                 extraArgs: [
-                    "--build-tests",
+                    "--build-tests"
                 ],
                 buildSystem: .xcode,
             )
@@ -227,7 +227,7 @@ private struct XCBuildTests {
                 fooPath,
                 configuration: .release,
                 extraArgs: [
-                    "--build-tests",
+                    "--build-tests"
                 ],
                 buildSystem: .xcode,
             )
@@ -521,9 +521,9 @@ private struct XCBuildTests {
 
             do {
                 let output = try await executeSwiftTest(
-                    fooPath, 
+                    fooPath,
                     extraArgs: ["--parallel"],
-                    buildSystem: .xcode, 
+                    buildSystem: .xcode,
                 )
                 #expect(output.stdout.contains("Testing FooTests"))
                 #expect(output.stdout.contains("Testing CFooTests"))

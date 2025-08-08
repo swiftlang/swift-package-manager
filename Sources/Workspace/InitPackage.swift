@@ -170,10 +170,10 @@ public final class InitPackage {
 
             if packageType == .macro {
                 stream.send(
-                  """
-                  import CompilerPluginSupport
+                    """
+                    import CompilerPluginSupport
 
-                  """
+                    """
                 )
             }
 
@@ -186,29 +186,31 @@ public final class InitPackage {
             )
 
             var pkgParams = [String]()
-            pkgParams.append("""
+            pkgParams.append(
+                """
                     name: "\(pkgname)"
-                """)
+                """
+            )
 
             var platforms = options.platforms
 
             // Macros require macOS 10.15, iOS 13, etc.
             if packageType == .macro {
                 func addIfMissing(_ newPlatform: SupportedPlatform) {
-                  if platforms.contains(where: { platform in
-                      platform.platform == newPlatform.platform
-                  }) {
-                      return
-                  }
+                    if platforms.contains(where: { platform in
+                        platform.platform == newPlatform.platform
+                    }) {
+                        return
+                    }
 
-                  platforms.append(newPlatform)
+                    platforms.append(newPlatform)
                 }
 
-              addIfMissing(.init(platform: .macOS, version: .init("10.15")))
-              addIfMissing(.init(platform: .iOS, version: .init("13")))
-              addIfMissing(.init(platform: .tvOS, version: .init("13")))
-              addIfMissing(.init(platform: .watchOS, version: .init("6")))
-              addIfMissing(.init(platform: .macCatalyst, version: .init("13")))
+                addIfMissing(.init(platform: .macOS, version: .init("10.15")))
+                addIfMissing(.init(platform: .iOS, version: .init("13")))
+                addIfMissing(.init(platform: .tvOS, version: .init("13")))
+                addIfMissing(.init(platform: .watchOS, version: .init("6")))
+                addIfMissing(.init(platform: .macCatalyst, version: .init("13")))
             }
 
             var platformsParams = [String]()
@@ -233,46 +235,54 @@ public final class InitPackage {
 
             // Package platforms
             if !platforms.isEmpty {
-                pkgParams.append("""
+                pkgParams.append(
+                    """
                         platforms: [\(platformsParams.joined(separator: ", "))]
-                    """)
+                    """
+                )
             }
 
             // Package products
             if packageType == .library {
-                pkgParams.append("""
-                    products: [
-                        // Products define the executables and libraries a package produces, making them visible to other packages.
-                        .library(
-                            name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
-                        ),
-                    ]
-                """)
+                pkgParams.append(
+                    """
+                        products: [
+                            // Products define the executables and libraries a package produces, making them visible to other packages.
+                            .library(
+                                name: "\(pkgname)",
+                                targets: ["\(pkgname)"]
+                            ),
+                        ]
+                    """
+                )
             } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
-                pkgParams.append("""
-                    products: [
-                        // Products can be used to vend plugins, making them visible to other packages.
-                        .plugin(
-                            name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
-                        ),
-                    ]
-                """)
+                pkgParams.append(
+                    """
+                        products: [
+                            // Products can be used to vend plugins, making them visible to other packages.
+                            .plugin(
+                                name: "\(pkgname)",
+                                targets: ["\(pkgname)"]
+                            ),
+                        ]
+                    """
+                )
             } else if packageType == .macro {
-                pkgParams.append("""
-                    products: [
-                        // Products define the executables and libraries a package produces, making them visible to other packages.
-                        .library(
-                            name: "\(pkgname)",
-                            targets: ["\(pkgname)"]
-                        ),
-                        .executable(
-                            name: "\(pkgname)Client",
-                            targets: ["\(pkgname)Client"]
-                        ),
-                    ]
-                """)
+                pkgParams.append(
+                    """
+                        products: [
+                            // Products define the executables and libraries a package produces, making them visible to other packages.
+                            .library(
+                                name: "\(pkgname)",
+                                targets: ["\(pkgname)"]
+                            ),
+                            .executable(
+                                name: "\(pkgname)Client",
+                                targets: ["\(pkgname)Client"]
+                            ),
+                        ]
+                    """
+                )
 
             }
 
@@ -287,11 +297,13 @@ public final class InitPackage {
                 let dependencies = dependencies.map { dependency in
                     "        \(dependency),"
                 }.joined(separator: "\n")
-                pkgParams.append("""
-                    dependencies: [
-                \(dependencies)
-                    ]
-                """)
+                pkgParams.append(
+                    """
+                        dependencies: [
+                    \(dependencies)
+                        ]
+                    """
+                )
             }
 
             // Package targets
@@ -299,148 +311,150 @@ public final class InitPackage {
                 var param = ""
 
                 param += """
-                    targets: [
-                        // Targets are the basic building blocks of a package, defining a module or a test suite.
-                        // Targets can depend on other targets in this package and products from dependencies.
+                        targets: [
+                            // Targets are the basic building blocks of a package, defining a module or a test suite.
+                            // Targets can depend on other targets in this package and products from dependencies.
 
-                """
+                    """
                 if packageType == .executable {
                     let testTarget: String
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
-                                ),
-                        """
+                                    .testTarget(
+                                        name: "\(pkgname)Tests",
+                                        dependencies: ["\(pkgname)"]
+                                    ),
+                            """
                     } else {
                         testTarget = ""
                     }
                     param += """
-                            .executableTarget(
-                                name: "\(pkgname)"
-                            ),
-                    \(testTarget)
-                        ]
-                    """
+                                .executableTarget(
+                                    name: "\(pkgname)"
+                                ),
+                        \(testTarget)
+                            ]
+                        """
                 } else if packageType == .tool {
                     let testTarget: String
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
-                                ),
-                        """
+                                    .testTarget(
+                                        name: "\(pkgname)Tests",
+                                        dependencies: ["\(pkgname)"]
+                                    ),
+                            """
                     } else {
                         testTarget = ""
                     }
                     param += """
-                            .executableTarget(
-                                name: "\(pkgname)",
-                                dependencies: [
-                                    .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                                ]
-                            ),
-                    \(testTarget)
-                        ]
-                    """
+                                .executableTarget(
+                                    name: "\(pkgname)",
+                                    dependencies: [
+                                        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                                    ]
+                                ),
+                        \(testTarget)
+                            ]
+                        """
                 } else if packageType == .buildToolPlugin {
                     param += """
-                            .plugin(
-                                name: "\(pkgname)",
-                                capability: .buildTool()
-                            ),
-                        ]
-                    """
+                                .plugin(
+                                    name: "\(pkgname)",
+                                    capability: .buildTool()
+                                ),
+                            ]
+                        """
                 } else if packageType == .commandPlugin {
                     param += """
-                            .plugin(
-                                name: "\(pkgname)",
-                                capability: .command(intent: .custom(
-                                    verb: "\(typeName)",
-                                    description: "prints hello world"
-                                ))
-                            ),
-                        ]
-                    """
+                                .plugin(
+                                    name: "\(pkgname)",
+                                    capability: .command(intent: .custom(
+                                        verb: "\(typeName)",
+                                        description: "prints hello world"
+                                    ))
+                                ),
+                            ]
+                        """
                 } else if packageType == .macro {
                     let testTarget: String
                     if options.supportedTestingLibraries.contains(.swiftTesting) {
                         testTarget = """
 
-                                // A test target used to develop the macro implementation.
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: [
-                                        "\(pkgname)Macros",
-                                        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                        .product(name: "Testing", package: "swift-testing"),
-                                    ]
-                                ),
-                        """
+                                    // A test target used to develop the macro implementation.
+                                    .testTarget(
+                                        name: "\(pkgname)Tests",
+                                        dependencies: [
+                                            "\(pkgname)Macros",
+                                            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                            .product(name: "Testing", package: "swift-testing"),
+                                        ]
+                                    ),
+                            """
                     } else if options.supportedTestingLibraries.contains(.xctest) {
                         testTarget = """
 
-                                // A test target used to develop the macro implementation.
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: [
-                                        "\(pkgname)Macros",
-                                        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                    ]
-                                ),
-                        """
+                                    // A test target used to develop the macro implementation.
+                                    .testTarget(
+                                        name: "\(pkgname)Tests",
+                                        dependencies: [
+                                            "\(pkgname)Macros",
+                                            .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
+                                        ]
+                                    ),
+                            """
                     } else {
                         testTarget = ""
                     }
                     param += """
-                            // Macro implementation that performs the source transformation of a macro.
-                            .macro(
-                                name: "\(pkgname)Macros",
-                                dependencies: [
-                                    .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                    .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
-                                ]
-                            ),
+                                // Macro implementation that performs the source transformation of a macro.
+                                .macro(
+                                    name: "\(pkgname)Macros",
+                                    dependencies: [
+                                        .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                                        .product(name: "SwiftCompilerPlugin", package: "swift-syntax")
+                                    ]
+                                ),
 
-                            // Library that exposes a macro as part of its API, which is used in client programs.
-                            .target(name: "\(pkgname)", dependencies: ["\(pkgname)Macros"]),
+                                // Library that exposes a macro as part of its API, which is used in client programs.
+                                .target(name: "\(pkgname)", dependencies: ["\(pkgname)Macros"]),
 
-                            // A client of the library, which is able to use the macro in its own code.
-                            .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
-                    \(testTarget)
-                        ]
-                    """
+                                // A client of the library, which is able to use the macro in its own code.
+                                .executableTarget(name: "\(pkgname)Client", dependencies: ["\(pkgname)"]),
+                        \(testTarget)
+                            ]
+                        """
                 } else {
                     let testTarget: String
                     if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: ["\(pkgname)"]
-                                ),
-                        """
+                                    .testTarget(
+                                        name: "\(pkgname)Tests",
+                                        dependencies: ["\(pkgname)"]
+                                    ),
+                            """
                     } else {
                         testTarget = ""
                     }
 
                     param += """
-                            .target(
-                                name: "\(pkgname)"
-                            ),
-                    \(testTarget)
-                        ]
-                    """
+                                .target(
+                                    name: "\(pkgname)"
+                                ),
+                        \(testTarget)
+                            ]
+                        """
                 }
 
                 pkgParams.append(param)
             }
 
             if (!options.swiftLanguageModes.isEmpty) {
-                pkgParams.append("""
-                    swiftLanguageModes: [\(options.swiftLanguageModes.map { ".v\($0)" }.joined(separator: ", "))]
-                """)
+                pkgParams.append(
+                    """
+                        swiftLanguageModes: [\(options.swiftLanguageModes.map { ".v\($0)" }.joined(separator: ", "))]
+                    """
+                )
             }
 
             stream.send("\(pkgParams.joined(separator: ",\n"))\n)\n")
@@ -510,84 +524,83 @@ public final class InitPackage {
                 """
             if packageType == .buildToolPlugin {
                 content += """
-                struct \(typeName): BuildToolPlugin {
-                    /// Entry point for creating build commands for targets in Swift packages.
-                    func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
-                        // This plugin only runs for package targets that can have source files.
-                        guard let sourceFiles = target.sourceModule?.sourceFiles else { return [] }
+                    struct \(typeName): BuildToolPlugin {
+                        /// Entry point for creating build commands for targets in Swift packages.
+                        func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                            // This plugin only runs for package targets that can have source files.
+                            guard let sourceFiles = target.sourceModule?.sourceFiles else { return [] }
 
-                        // Find the code generator tool to run (replace this with the actual one).
-                        let generatorTool = try context.tool(named: "my-code-generator")
+                            // Find the code generator tool to run (replace this with the actual one).
+                            let generatorTool = try context.tool(named: "my-code-generator")
 
-                        // Construct a build command for each source file with a particular suffix.
-                        return sourceFiles.map(\\.url).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
+                            // Construct a build command for each source file with a particular suffix.
+                            return sourceFiles.map(\\.url).compactMap {
+                                createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
+                            }
                         }
                     }
-                }
 
-                #if canImport(XcodeProjectPlugin)
-                import XcodeProjectPlugin
+                    #if canImport(XcodeProjectPlugin)
+                    import XcodeProjectPlugin
 
-                extension \(typeName): XcodeBuildToolPlugin {
-                    // Entry point for creating build commands for targets in Xcode projects.
-                    func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
-                        // Find the code generator tool to run (replace this with the actual one).
-                        let generatorTool = try context.tool(named: "my-code-generator")
+                    extension \(typeName): XcodeBuildToolPlugin {
+                        // Entry point for creating build commands for targets in Xcode projects.
+                        func createBuildCommands(context: XcodePluginContext, target: XcodeTarget) throws -> [Command] {
+                            // Find the code generator tool to run (replace this with the actual one).
+                            let generatorTool = try context.tool(named: "my-code-generator")
 
-                        // Construct a build command for each source file with a particular suffix.
-                        return target.inputFiles.map(\\.url).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
+                            // Construct a build command for each source file with a particular suffix.
+                            return target.inputFiles.map(\\.url).compactMap {
+                                createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
+                            }
                         }
                     }
-                }
 
-                #endif
+                    #endif
 
-                extension \(typeName) {
-                    /// Shared function that returns a configured build command if the input files is one that should be processed.
-                    func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
-                        // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
-                        guard inputPath.pathExtension == "my-input-suffix" else { return .none }
-                        
-                        // Return a command that will run during the build to generate the output file.
-                        let inputName = inputPath.lastPathComponent
-                        let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
-                        let outputPath = outputDirectoryPath.appendingPathComponent(outputName)
-                        return .buildCommand(
-                            displayName: "Generating \\(outputName) from \\(inputName)",
-                            executable: generatorToolPath,
-                            arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
-                            inputFiles: [inputPath],
-                            outputFiles: [outputPath]
-                        )
+                    extension \(typeName) {
+                        /// Shared function that returns a configured build command if the input files is one that should be processed.
+                        func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
+                            // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
+                            guard inputPath.pathExtension == "my-input-suffix" else { return .none }
+                            
+                            // Return a command that will run during the build to generate the output file.
+                            let inputName = inputPath.lastPathComponent
+                            let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
+                            let outputPath = outputDirectoryPath.appendingPathComponent(outputName)
+                            return .buildCommand(
+                                displayName: "Generating \\(outputName) from \\(inputName)",
+                                executable: generatorToolPath,
+                                arguments: ["\\(inputPath)", "-o", "\\(outputPath)"],
+                                inputFiles: [inputPath],
+                                outputFiles: [outputPath]
+                            )
+                        }
                     }
-                }
 
-                """
-            }
-            else {
+                    """
+            } else {
                 content += """
-                struct \(typeName): CommandPlugin {
-                    // Entry point for command plugins applied to Swift Packages.
-                    func performCommand(context: PluginContext, arguments: [String]) async throws {
-                        print("Hello, World!")
+                    struct \(typeName): CommandPlugin {
+                        // Entry point for command plugins applied to Swift Packages.
+                        func performCommand(context: PluginContext, arguments: [String]) async throws {
+                            print("Hello, World!")
+                        }
                     }
-                }
 
-                #if canImport(XcodeProjectPlugin)
-                import XcodeProjectPlugin
+                    #if canImport(XcodeProjectPlugin)
+                    import XcodeProjectPlugin
 
-                extension \(typeName): XcodeCommandPlugin {
-                    // Entry point for command plugins applied to Xcode projects.
-                    func performCommand(context: XcodePluginContext, arguments: [String]) throws {
-                        print("Hello, World!")
+                    extension \(typeName): XcodeCommandPlugin {
+                        // Entry point for command plugins applied to Xcode projects.
+                        func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+                            print("Hello, World!")
+                        }
                     }
-                }
 
-                #endif
+                    #endif
 
-                """
+                    """
             }
 
             try writePackageFile(sourceFile) { stream in
@@ -642,37 +655,37 @@ public final class InitPackage {
                 """
         case .tool:
             content = """
-            // The Swift Programming Language
-            // https://docs.swift.org/swift-book
-            // 
-            // Swift Argument Parser
-            // https://swiftpackageindex.com/apple/swift-argument-parser/documentation
+                // The Swift Programming Language
+                // https://docs.swift.org/swift-book
+                // 
+                // Swift Argument Parser
+                // https://swiftpackageindex.com/apple/swift-argument-parser/documentation
 
-            import ArgumentParser
+                import ArgumentParser
 
-            @main
-            struct \(typeName): ParsableCommand {
-                mutating func run() throws {
-                    print("Hello, world!")
+                @main
+                struct \(typeName): ParsableCommand {
+                    mutating func run() throws {
+                        print("Hello, world!")
+                    }
                 }
-            }
 
-            """
+                """
         case .macro:
             content = """
-            // The Swift Programming Language
-            // https://docs.swift.org/swift-book
+                // The Swift Programming Language
+                // https://docs.swift.org/swift-book
 
-            /// A macro that produces both a value and a string containing the
-            /// source code that generated the value. For example,
-            ///
-            ///     #stringify(x + y)
-            ///
-            /// produces a tuple `(x + y, "x + y")`.
-            @freestanding(expression)
-            public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
+                /// A macro that produces both a value and a string containing the
+                /// source code that generated the value. For example,
+                ///
+                ///     #stringify(x + y)
+                ///
+                /// produces a tuple `(x + y, "x + y")`.
+                @freestanding(expression)
+                public macro stringify<T>(_ value: T) -> (T, String) = #externalMacro(module: "\(moduleName)Macros", type: "StringifyMacro")
 
-            """
+                """
 
         case .empty, .buildToolPlugin, .commandPlugin:
             throw InternalError("invalid packageType \(packageType)")
@@ -683,8 +696,8 @@ public final class InitPackage {
         }
 
         if packageType == .macro {
-          try writeMacroPluginSources(sources.appending("\(pkgname)Macros"))
-          try writeMacroClientSources(sources.appending("\(pkgname)Client"))
+            try writeMacroPluginSources(sources.appending("\(pkgname)Macros"))
+            try writeMacroClientSources(sources.appending("\(pkgname)Client"))
         }
     }
 

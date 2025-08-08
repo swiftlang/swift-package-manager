@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import _CryptoExtras // for RSA
+import _CryptoExtras  // for RSA
 import Basics
 import Crypto
 import Foundation
 @testable import PackageSigning
 import _InternalTestSupport
 import SwiftASN1
-@testable import X509 // need internal APIs for OCSP testing
+@testable import X509  // need internal APIs for OCSP testing
 import Testing
 
 struct SigningTests {
@@ -26,7 +26,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -73,7 +74,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -118,7 +120,8 @@ struct SigningTests {
         let keyAndCertChain = try self.rsaTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(_RSA.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -163,7 +166,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -182,7 +186,8 @@ struct SigningTests {
         } catch {
             guard case SigningError.keyDoesNotSupportSignatureAlgorithm = error else {
                 Issue.record(
-                    "Expected SigningError.keyDoesNotSupportSignatureAlgorithm but got \(error)")
+                    "Expected SigningError.keyDoesNotSupportSignatureAlgorithm but got \(error)"
+                )
                 return
             }
         }
@@ -193,7 +198,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -240,7 +246,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -285,7 +292,8 @@ struct SigningTests {
         let keyAndCertChain = try self.rsaSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(_RSA.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -349,7 +357,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let signatureContent = Array("per aspera ad astra".utf8)
@@ -388,7 +397,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -402,7 +412,7 @@ struct SigningTests {
         )
 
         let verifierConfiguration = VerifierConfiguration(
-            trustedRoots: [], // trust store is empty
+            trustedRoots: [],  // trust store is empty
             includeDefaultTrustStore: false,
             certificateExpiration: .disabled,
             certificateRevocation: .disabled
@@ -417,7 +427,8 @@ struct SigningTests {
 
         guard case .certificateNotTrusted = status else {
             Issue.record(
-                "Expected signature status to be .certificateNotTrusted but got \(status)")
+                "Expected signature status to be .certificateNotTrusted but got \(status)"
+            )
             return
         }
     }
@@ -427,7 +438,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -459,7 +471,8 @@ struct SigningTests {
 
             guard case .certificateInvalid(let reason) = status else {
                 Issue.record(
-                    "Expected signature status to be .certificateInvalid but got \(status)")
+                    "Expected signature status to be .certificateInvalid but got \(status)"
+                )
                 return
             }
             #expect(reason.contains("not yet valid"))
@@ -484,7 +497,8 @@ struct SigningTests {
 
             guard case .certificateInvalid(let reason) = status else {
                 Issue.record(
-                    "Expected signature status to be .certificateInvalid but got \(status)")
+                    "Expected signature status to be .certificateInvalid but got \(status)"
+                )
                 return
             }
             #expect(reason.contains("has expired"))
@@ -559,9 +573,12 @@ struct SigningTests {
                         ],
                         privateKey: intermediatePrivateKey,
                         responseExtensions: { nonce }
-                    ))
+                    )
+                )
                 return HTTPClientResponse(
-                    statusCode: 200, body: try Data(ocspResponse.derEncodedBytes()))
+                    statusCode: 200,
+                    body: try Data(ocspResponse.derEncodedBytes())
+                )
             default:
                 throw StringError("method and url should match")
             }
@@ -596,7 +613,8 @@ struct SigningTests {
             )
             guard case .certificateInvalid(let reason) = status else {
                 Issue.record(
-                    "Expected signature status to be .certificateInvalid but got \(status)")
+                    "Expected signature status to be .certificateInvalid but got \(status)"
+                )
                 return
             }
             #expect(reason.contains("status unknown"))
@@ -631,7 +649,8 @@ struct SigningTests {
         let keyAndCertChain = try rsaADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(_RSA.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -667,11 +686,13 @@ struct SigningTests {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
                 let privateKey = try readFileContents(
                     in: fixturePath,
-                    pathComponents: "Certificates", "development_key.p8"
+                    pathComponents: "Certificates",
+                    "development_key.p8"
                 )
                 let certificate = try readFileContents(
                     in: fixturePath,
-                    pathComponents: "Certificates", "development.cer"
+                    pathComponents: "Certificates",
+                    "development.cer"
                 )
 
                 return KeyAndCertChain(
@@ -689,7 +710,8 @@ struct SigningTests {
         let keyAndCertChain = try ecADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -725,11 +747,13 @@ struct SigningTests {
             try fixture(name: "Signing", createGitRepo: false) { fixturePath in
                 let privateKey = try readFileContents(
                     in: fixturePath,
-                    pathComponents: "Certificates", "swift_package_key.p8"
+                    pathComponents: "Certificates",
+                    "swift_package_key.p8"
                 )
                 let certificate = try readFileContents(
                     in: fixturePath,
-                    pathComponents: "Certificates", "swift_package.cer"
+                    pathComponents: "Certificates",
+                    "swift_package.cer"
                 )
 
                 return KeyAndCertChain(
@@ -761,14 +785,14 @@ struct SigningTests {
         let signature = try SignatureProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
+            intermediateCertificates: [],  // No need to pass intermediates for WWDR certs
             format: signatureFormat,
             observabilityScope: ObservabilitySystem.NOOP
         )
 
         let verifierConfiguration = VerifierConfiguration(
             trustedRoots: [],
-            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            includeDefaultTrustStore: true,  // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
             certificateRevocation: .strict(validationTime: nil)
         )
@@ -816,13 +840,13 @@ struct SigningTests {
         let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
+            intermediateCertificates: [],  // No need to pass intermediates for WWDR certs
             observabilityScope: ObservabilitySystem.NOOP
         )
 
         let verifierConfiguration = VerifierConfiguration(
             trustedRoots: [],
-            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            includeDefaultTrustStore: true,  // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
             certificateRevocation: .strict(validationTime: nil)
         )
@@ -869,13 +893,13 @@ struct SigningTests {
         let signature = try cmsProvider.sign(
             content: content,
             identity: signingIdentity,
-            intermediateCertificates: [], // No need to pass intermediates for WWDR certs
+            intermediateCertificates: [],  // No need to pass intermediates for WWDR certs
             observabilityScope: ObservabilitySystem.NOOP
         )
 
         let verifierConfiguration = VerifierConfiguration(
             trustedRoots: [],
-            includeDefaultTrustStore: true, // WWDR roots are in the default trust store
+            includeDefaultTrustStore: true,  // WWDR roots are in the default trust store
             certificateExpiration: .enabled(validationTime: nil),
             certificateRevocation: .strict(validationTime: nil)
         )
@@ -907,7 +931,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -948,7 +973,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -989,7 +1015,8 @@ struct SigningTests {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
-            privateKey: try Certificate
+            privateKey:
+                try Certificate
                 .PrivateKey(P256.Signing.PrivateKey(derRepresentation: keyAndCertChain.privateKey))
         )
         let content = Array("per aspera ad astra".utf8)
@@ -1004,7 +1031,7 @@ struct SigningTests {
         )
 
         let verifierConfiguration = VerifierConfiguration(
-            trustedRoots: [], // trust store is empty
+            trustedRoots: [],  // trust store is empty
             includeDefaultTrustStore: false,
             certificateExpiration: .disabled,
             certificateRevocation: .disabled
@@ -1020,7 +1047,8 @@ struct SigningTests {
         } catch {
             guard case SigningError.certificateNotTrusted = error else {
                 Issue.record(
-                    "Expected error to be SigningError.certificateNotTrusted but got \(error)")
+                    "Expected error to be SigningError.certificateNotTrusted but got \(error)"
+                )
                 return
             }
         }
@@ -1030,19 +1058,23 @@ struct SigningTests {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_ec_key.p8"
+                pathComponents: "Certificates",
+                "Test_ec_key.p8"
             )
             let certificate = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_ec.cer"
+                pathComponents: "Certificates",
+                "Test_ec.cer"
             )
             let intermediateCA = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "TestIntermediateCA.cer"
+                pathComponents: "Certificates",
+                "TestIntermediateCA.cer"
             )
             let rootCA = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "TestRootCA.cer"
+                pathComponents: "Certificates",
+                "TestRootCA.cer"
             )
 
             return KeyAndCertChain(
@@ -1056,11 +1088,13 @@ struct SigningTests {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_ec_self_signed_key.p8"
+                pathComponents: "Certificates",
+                "Test_ec_self_signed_key.p8"
             )
             let certificate = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_ec_self_signed.cer"
+                pathComponents: "Certificates",
+                "Test_ec_self_signed.cer"
             )
 
             return KeyAndCertChain(
@@ -1074,19 +1108,23 @@ struct SigningTests {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_rsa_key.p8"
+                pathComponents: "Certificates",
+                "Test_rsa_key.p8"
             )
             let certificate = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_rsa.cer"
+                pathComponents: "Certificates",
+                "Test_rsa.cer"
             )
             let intermediateCA = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "TestIntermediateCA.cer"
+                pathComponents: "Certificates",
+                "TestIntermediateCA.cer"
             )
             let rootCA = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "TestRootCA.cer"
+                pathComponents: "Certificates",
+                "TestRootCA.cer"
             )
 
             return KeyAndCertChain(
@@ -1100,11 +1138,13 @@ struct SigningTests {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let privateKey = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_rsa_self_signed_key.p8"
+                pathComponents: "Certificates",
+                "Test_rsa_self_signed_key.p8"
             )
             let certificate = try readFileContents(
                 in: fixturePath,
-                pathComponents: "Certificates", "Test_rsa_self_signed.cer"
+                pathComponents: "Certificates",
+                "Test_rsa_self_signed.cer"
             )
 
             return KeyAndCertChain(
@@ -1172,7 +1212,7 @@ enum OCSPTestHelper {
                         AuthorityInformationAccess.AccessDescription(
                             method: .ocspServer,
                             location: GeneralName.uniformResourceIdentifier(ocspServer)
-                        ),
+                        )
                     ])
                 }
             },

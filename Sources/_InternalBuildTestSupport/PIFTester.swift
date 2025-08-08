@@ -193,32 +193,38 @@ public class PIFBaseTargetTester {
         dependencies = Set(baseTarget.dependencies.map { targetMap[$0.targetGUID]!.guid })
 
         let sourcesBuildFiles = baseTarget.buildPhases.first { $0 is PIF.SourcesBuildPhase }?.buildFiles ?? []
-        sources = Set(sourcesBuildFiles.map { buildFile -> String in
-            if case .file(let guid) = buildFile.reference {
-                return fileMap[guid]!
-            } else {
-                fatalError("unexpected build file reference: \(buildFile)")
+        sources = Set(
+            sourcesBuildFiles.map { buildFile -> String in
+                if case .file(let guid) = buildFile.reference {
+                    return fileMap[guid]!
+                } else {
+                    fatalError("unexpected build file reference: \(buildFile)")
+                }
             }
-        })
+        )
 
         let frameworksBuildFiles = baseTarget.buildPhases.first { $0 is PIF.FrameworksBuildPhase }?.buildFiles ?? []
-        frameworks = Set(frameworksBuildFiles.map { buildFile -> String in
-            switch buildFile.reference {
-            case .target(let guid):
-                return targetMap[guid]!.guid
-            case .file(let guid):
-                return fileMap[guid]!
+        frameworks = Set(
+            frameworksBuildFiles.map { buildFile -> String in
+                switch buildFile.reference {
+                case .target(let guid):
+                    return targetMap[guid]!.guid
+                case .file(let guid):
+                    return fileMap[guid]!
+                }
             }
-        })
+        )
 
         let resourcesBuildFiles = baseTarget.buildPhases.first { $0 is PIF.ResourcesBuildPhase }?.buildFiles ?? []
-        resources = Set(resourcesBuildFiles.map { buildFile -> String in
-            if case .file(let guid) = buildFile.reference {
-                return fileMap[guid]!
-            } else {
-                fatalError("unexpected build file reference: \(buildFile)")
+        resources = Set(
+            resourcesBuildFiles.map { buildFile -> String in
+                if case .file(let guid) = buildFile.reference {
+                    return fileMap[guid]!
+                } else {
+                    fatalError("unexpected build file reference: \(buildFile)")
+                }
             }
-        })
+        )
     }
 
     public func checkBuildConfiguration(
@@ -367,8 +373,7 @@ public final class PIFBuildSettingsTester {
 
     public func checkUncheckedSettings(file: StaticString = #file, line: UInt = #line, sourceLocation: SourceLocation = #_sourceLocation) {
         let uncheckedKeys =
-            Array(buildSettings.singleValueSettings.keys.map { $0.rawValue }) +
-            Array(buildSettings.multipleValueSettings.keys.map { $0.rawValue })
+            Array(buildSettings.singleValueSettings.keys.map { $0.rawValue }) + Array(buildSettings.multipleValueSettings.keys.map { $0.rawValue })
         if Test.current != nil {
             #expect(
                 uncheckedKeys.isEmpty,
@@ -383,7 +388,8 @@ public final class PIFBuildSettingsTester {
             let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
             if Test.current != nil {
                 #expect(
-                    uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)",
+                    uncheckedKeys.isEmpty,
+                    "\(platform) settings are left unchecked: \(uncheckedKeys)",
                     sourceLocation: sourceLocation,
                 )
             } else {
@@ -395,7 +401,8 @@ public final class PIFBuildSettingsTester {
             let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
             if Test.current != nil {
                 #expect(
-                    uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)",
+                    uncheckedKeys.isEmpty,
+                    "\(platform) settings are left unchecked: \(uncheckedKeys)",
                     sourceLocation: sourceLocation,
                 )
             } else {

@@ -37,9 +37,9 @@ public struct TarArchiver: Archiver {
         self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
 
         #if os(Windows)
-        self.tarCommand = "tar.exe"
+            self.tarCommand = "tar.exe"
         #else
-        self.tarCommand = "tar"
+            self.tarCommand = "tar"
         #endif
     }
 
@@ -67,13 +67,15 @@ public struct TarArchiver: Archiver {
 
             DispatchQueue.sharedConcurrent.async {
                 defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
+                completion(
+                    .init(catching: {
+                        try process.launch()
+                        let processResult = try process.waitUntilExit()
+                        guard processResult.exitStatus == .terminated(code: 0) else {
+                            throw try StringError(processResult.utf8stderrOutput())
+                        }
+                    })
+                )
             }
         } catch {
             return completion(.failure(error))
@@ -121,11 +123,13 @@ public struct TarArchiver: Archiver {
 
             DispatchQueue.sharedConcurrent.async {
                 defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    return processResult.exitStatus == .terminated(code: 0)
-                }))
+                completion(
+                    .init(catching: {
+                        try process.launch()
+                        let processResult = try process.waitUntilExit()
+                        return processResult.exitStatus == .terminated(code: 0)
+                    })
+                )
             }
         } catch {
             return completion(.failure(error))

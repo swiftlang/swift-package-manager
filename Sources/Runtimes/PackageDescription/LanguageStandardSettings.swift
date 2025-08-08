@@ -190,5 +190,5 @@ extension SwiftLanguageMode: CustomStringConvertible {
 }
 
 /// Type alias to previous name for backward source compatibility
-@available(_PackageDescription, deprecated: 6, renamed:"SwiftLanguageMode")
+@available(_PackageDescription, deprecated: 6, renamed: "SwiftLanguageMode")
 public typealias SwiftVersion = SwiftLanguageMode

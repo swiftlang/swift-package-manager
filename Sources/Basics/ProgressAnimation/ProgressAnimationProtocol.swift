@@ -48,7 +48,7 @@ public enum ProgressAnimation {
         if let terminal = TerminalController(stream: stream), !verbose {
             return ttyTerminalAnimationFactory(terminal)
         } else if let fileStream = stream as? LocalFileOutputByteStream,
-                  TerminalController.terminalType(fileStream) == .dumb
+            TerminalController.terminalType(fileStream) == .dumb
         {
             return dumbTerminalAnimationFactory()
         } else {
@@ -56,4 +56,3 @@ public enum ProgressAnimation {
         }
     }
 }
-

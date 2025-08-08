@@ -153,9 +153,11 @@ struct PIFBuilderTests {
     @Test func platformConditionBasics() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem in
             // We should emit a warning to the PIF log about the unknown platform
-            #expect(observabilitySystem.diagnostics.filter {
-                $0.severity == .warning && $0.message.contains("Ignoring settings assignments for unknown platform 'DoesNotExist'")
-            }.count > 0)
+            #expect(
+                observabilitySystem.diagnostics.filter {
+                    $0.severity == .warning && $0.message.contains("Ignoring settings assignments for unknown platform 'DoesNotExist'")
+                }.count > 0
+            )
 
             let releaseConfig = try pif.workspace
                 .project(named: "UnknownPlatforms")
@@ -179,12 +181,12 @@ struct PIFBuilderTests {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                         #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
-                    case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
-                    case .windows, ._iOSDevice:
-                        #expect(ld_flags == nil, "for platform \(platform)")
+                case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
+                case .android, .linux, .wasi, .openbsd:
+                    #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
+                case .windows, ._iOSDevice:
+                    #expect(ld_flags == nil, "for platform \(platform)")
                 }
             }
         }
@@ -233,9 +235,11 @@ struct PIFBuilderTests {
 
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
-            #expect(observabilitySystem.diagnostics.filter {
-                $0.severity == .error
-            }.isEmpty)
+            #expect(
+                observabilitySystem.diagnostics.filter {
+                    $0.severity == .error
+                }.isEmpty
+            )
 
             do {
                 let releaseConfig = try pif.workspace
@@ -268,9 +272,11 @@ struct PIFBuilderTests {
 
     @Test func disablingLocalRpaths() async throws {
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
-            #expect(observabilitySystem.diagnostics.filter {
-                $0.severity == .error
-            }.isEmpty)
+            #expect(
+                observabilitySystem.diagnostics.filter {
+                    $0.severity == .error
+                }.isEmpty
+            )
 
             do {
                 let releaseConfig = try pif.workspace
@@ -283,9 +289,11 @@ struct PIFBuilderTests {
         }
 
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: false) { pif, observabilitySystem in
-            #expect(observabilitySystem.diagnostics.filter {
-                $0.severity == .error
-            }.isEmpty)
+            #expect(
+                observabilitySystem.diagnostics.filter {
+                    $0.severity == .error
+                }.isEmpty
+            )
 
             do {
                 let releaseConfig = try pif.workspace

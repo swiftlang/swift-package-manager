@@ -13,8 +13,7 @@
 import Basics
 import _Concurrency
 
-@_spi(SwiftPMInternal)
-@testable import PackageGraph
+@_spi(SwiftPMInternal) @testable import PackageGraph
 import PackageLoading
 import PackageModel
 @testable import SPMBuildCore
@@ -94,7 +93,7 @@ struct PluginTests {
             }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline && buildSystem == .native)
-            || (buildSystem == .swiftbuild)
+                || (buildSystem == .swiftbuild)
         }
     }
 
@@ -128,9 +127,9 @@ struct PluginTests {
                     #expect(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
                 case .swiftbuild:
                     #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-                 case .xcode:
+                case .xcode:
                     Issue.record("Test expectations must be defined.")
-               }
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -235,7 +234,8 @@ struct PluginTests {
             }
 
             #expect(
-                stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(stderr)"
+                stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."),
+                "stderr:\n\(stderr)"
             )
         }
     }
@@ -321,12 +321,13 @@ struct PluginTests {
     ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let buildSpecificArgs: [String] = switch buildSystem {
+                let buildSpecificArgs: [String] =
+                    switch buildSystem {
                     case .native, .xcode:
                         []
                     case .swiftbuild:
                         ["--disable-sandbox"]
-                }
+                    }
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("ContrivedTestPlugin"),
                     configuration: .debug,
@@ -385,7 +386,7 @@ struct PluginTests {
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            try await withKnownIssue (isIntermittent: true) {
+            try await withKnownIssue(isIntermittent: true) {
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MyBinaryToolPlugin"),
                     configuration: .debug,
@@ -393,7 +394,7 @@ struct PluginTests {
                     buildSystem: buildSystem,
                 )
                 switch buildSystem {
-                case  .native:
+                case .native:
                     #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
                     #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
                 case .swiftbuild:
@@ -401,7 +402,9 @@ struct PluginTests {
                 case .xcode:
                     Issue.record("Test has no expectation for \(buildSystem)")
                 }
-            } when: { ProcessInfo.hostOperatingSystem == .windows }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 
@@ -447,14 +450,15 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: \(toolsVersion.description)
-                import PackageDescription
-                let package = Package(name: "MyPackage",
-                    targets: [
-                        .target(name: "SomeTarget", plugins: ["Plugin"]),
-                        .plugin(name: "Plugin", capability: .buildTool),
-                    ])
-                """)
+                    // swift-tools-version: \(toolsVersion.description)
+                    import PackageDescription
+                    let package = Package(name: "MyPackage",
+                        targets: [
+                            .target(name: "SomeTarget", plugins: ["Plugin"]),
+                            .plugin(name: "Plugin", capability: .buildTool),
+                        ])
+                    """
+            )
 
             let targetSourceFile = packageDir.appending(components: "Sources", "SomeTarget", "dummy.swift")
             try localFileSystem.createDirectory(targetSourceFile.parentDirectory, recursive: true)
@@ -462,29 +466,32 @@ struct PluginTests {
 
             let pluginSourceFile = packageDir.appending(components: "Plugins", "Plugin", "plugin.swift")
             try localFileSystem.createDirectory(pluginSourceFile.parentDirectory, recursive: true)
-            try localFileSystem.writeFileContents(pluginSourceFile, string: """
-            import PackagePlugin
-            #if os(Android)
-            let touchExe = "/system/bin/touch"
-            #else
-            let touchExe = "/usr/bin/touch"
-            #endif
+            try localFileSystem.writeFileContents(
+                pluginSourceFile,
+                string: """
+                    import PackagePlugin
+                    #if os(Android)
+                    let touchExe = "/system/bin/touch"
+                    #else
+                    let touchExe = "/usr/bin/touch"
+                    #endif
 
-            @main
-            struct Plugin: BuildToolPlugin {
-                func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
-                    return [
-                        .buildCommand(
-                            displayName: "empty",
-                            executable: .init(touchExe),
-                            arguments: [context.pluginWorkDirectory.appending("best.txt")],
-                            inputFiles: [],
-                            outputFiles: []
-                        )
-                    ]
-                }
-            }
-            """)
+                    @main
+                    struct Plugin: BuildToolPlugin {
+                        func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
+                            return [
+                                .buildCommand(
+                                    displayName: "empty",
+                                    executable: .init(touchExe),
+                                    arguments: [context.pluginWorkDirectory.appending("best.txt")],
+                                    inputFiles: [],
+                                    outputFiles: []
+                                )
+                            ]
+                        }
+                    }
+                    """
+            )
         }
 
         try await withKnownIssue {
@@ -496,7 +503,7 @@ struct PluginTests {
                     try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v5_9)
                     let (_, stderr) = try await executeSwiftBuild(
                         packageDir,
-                        env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                        env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
                         buildSystem: buildSystem,
                     )
                     #expect(stderr.contains("warning: Build tool command 'empty' (applied to target 'SomeTarget') does not declare any output files"), "expected warning not emitted")
@@ -508,14 +515,16 @@ struct PluginTests {
                 try createPackageUnderTest(packageDir: packageDir, toolsVersion: .v6_0)
                 let (stdout, stderr2) = try await executeSwiftBuild(
                     packageDir,
-                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB": "/this/is/a/bad/path"],
                     buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("Build complete!"))
                 #expect(!stderr2.contains("error:"))
                 #expect(localFileSystem.exists(pathOfGeneratedFile), "plugin did not run, generated file does not exist at \(pathOfGeneratedFile.pathString)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
     @Test(
@@ -533,142 +542,142 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 manifestFile,
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "MyPackage",
-                    dependencies: [
-                        .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
-                    ],
-                    targets: [
-                        .target(
-                            name: "MyLibrary",
-                            dependencies: [
-                                .product(name: "HelperLibrary", package: "HelperPackage")
-                            ]
-                        ),
-                        .plugin(
-                            name: "PluginPrintingInfo",
-                            capability: .command(
-                                intent: .custom(verb: "print-info", description: "Description of the command"),
-                                permissions: [.writeToPackageDirectory(reason: "Reason for wanting to write to package directory")]
-                            )
-                        ),
-                        .plugin(
-                            name: "PluginFailingWithError",
-                            capability: .command(
-                                intent: .custom(verb: "fail-with-error", description: "Sample plugin that throws an error")
-                            )
-                        ),
-                        .plugin(
-                            name: "PluginFailingWithoutError",
-                            capability: .command(
-                                intent: .custom(verb: "fail-without-error", description: "Sample plugin that exits without error")
-                            )
-                        ),
-                        .plugin(
-                            name: "NeverendingPlugin",
-                            capability: .command(
-                                intent: .custom(verb: "neverending-plugin", description: "A plugin that doesn't end running")
-                            )
-                        ),
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        dependencies: [
+                            .package(name: "HelperPackage", path: "VendoredDependencies/HelperPackage")
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLibrary",
+                                dependencies: [
+                                    .product(name: "HelperLibrary", package: "HelperPackage")
+                                ]
+                            ),
+                            .plugin(
+                                name: "PluginPrintingInfo",
+                                capability: .command(
+                                    intent: .custom(verb: "print-info", description: "Description of the command"),
+                                    permissions: [.writeToPackageDirectory(reason: "Reason for wanting to write to package directory")]
+                                )
+                            ),
+                            .plugin(
+                                name: "PluginFailingWithError",
+                                capability: .command(
+                                    intent: .custom(verb: "fail-with-error", description: "Sample plugin that throws an error")
+                                )
+                            ),
+                            .plugin(
+                                name: "PluginFailingWithoutError",
+                                capability: .command(
+                                    intent: .custom(verb: "fail-without-error", description: "Sample plugin that exits without error")
+                                )
+                            ),
+                            .plugin(
+                                name: "NeverendingPlugin",
+                                capability: .command(
+                                    intent: .custom(verb: "neverending-plugin", description: "A plugin that doesn't end running")
+                                )
+                            ),
+                        ]
+                    )
+                    """
             )
             let librarySourceFile = packageDir.appending(components: "Sources", "MyLibrary", "library.swift")
             try localFileSystem.createDirectory(librarySourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
                 librarySourceFile,
                 string: """
-                public func Foo() { }
-                """
+                    public func Foo() { }
+                    """
             )
             let printingPluginSourceFile = packageDir.appending(components: "Plugins", "PluginPrintingInfo", "plugin.swift")
             try localFileSystem.createDirectory(printingPluginSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
                 printingPluginSourceFile,
                 string: """
-                import PackagePlugin
-                @main struct MyCommandPlugin: CommandPlugin {
-                    func performCommand(
-                        context: PluginContext,
-                        arguments: [String]
-                    ) throws {
-                        // Check the identity of the root packages.
-                        print("Root package is \\(context.package.displayName).")
+                    import PackagePlugin
+                    @main struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            // Check the identity of the root packages.
+                            print("Root package is \\(context.package.displayName).")
 
-                        // Check that we can find a tool in the toolchain.
-                        let swiftc = try context.tool(named: "swiftc")
-                        print("Found the swiftc tool at \\(swiftc.path).")
+                            // Check that we can find a tool in the toolchain.
+                            let swiftc = try context.tool(named: "swiftc")
+                            print("Found the swiftc tool at \\(swiftc.path).")
+                        }
                     }
-                }
-                """
+                    """
             )
             let pluginFailingWithErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithErrorSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
                 pluginFailingWithErrorSourceFile,
                 string: """
-                import PackagePlugin
-                @main struct MyCommandPlugin: CommandPlugin {
-                    func performCommand(
-                        context: PluginContext,
-                        arguments: [String]
-                    ) throws {
-                        // Print some output that should appear before the error diagnostic.
-                        print("This text should appear before the uncaught thrown error.")
+                    import PackagePlugin
+                    @main struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            // Print some output that should appear before the error diagnostic.
+                            print("This text should appear before the uncaught thrown error.")
 
-                        // Throw an uncaught error that should be reported as a diagnostics.
-                        throw "This is the uncaught thrown error."
+                            // Throw an uncaught error that should be reported as a diagnostics.
+                            throw "This is the uncaught thrown error."
+                        }
                     }
-                }
-                extension String: Error { }
-                """
+                    extension String: Error { }
+                    """
             )
             let pluginFailingWithoutErrorSourceFile = packageDir.appending(components: "Plugins", "PluginFailingWithoutError", "plugin.swift")
             try localFileSystem.createDirectory(pluginFailingWithoutErrorSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
                 pluginFailingWithoutErrorSourceFile,
                 string: """
-                import PackagePlugin
-                import Foundation
-                @main struct MyCommandPlugin: CommandPlugin {
-                    func performCommand(
-                        context: PluginContext,
-                        arguments: [String]
-                    ) throws {
-                        // Print some output that should appear before we exit.
-                        print("This text should appear before we exit.")
+                    import PackagePlugin
+                    import Foundation
+                    @main struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            // Print some output that should appear before we exit.
+                            print("This text should appear before we exit.")
 
-                        // Just exit with an error code without an emitting error.
-                        exit(1)
+                            // Just exit with an error code without an emitting error.
+                            exit(1)
+                        }
                     }
-                }
-                extension String: Error { }
-                """
+                    extension String: Error { }
+                    """
             )
             let neverendingPluginSourceFile = packageDir.appending(components: "Plugins", "NeverendingPlugin", "plugin.swift")
             try localFileSystem.createDirectory(neverendingPluginSourceFile.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(
                 neverendingPluginSourceFile,
                 string: """
-                import PackagePlugin
-                import Foundation
-                @main struct MyCommandPlugin: CommandPlugin {
-                    func performCommand(
-                        context: PluginContext,
-                        arguments: [String]
-                    ) throws {
-                        // Print some output that should appear before we exit.
-                        print("This text should appear before we exit.")
+                    import PackagePlugin
+                    import Foundation
+                    @main struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            // Print some output that should appear before we exit.
+                            print("This text should appear before we exit.")
 
-                        // Just exit with an error code without an emitting error.
-                        exit(1)
+                            // Just exit with an error code without an emitting error.
+                            exit(1)
+                        }
                     }
-                }
-                extension String: Error { }
-                """
+                    extension String: Error { }
+                    """
             )
 
             // Create the sample vendored dependency package.
@@ -677,23 +686,23 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 library1Path,
                 string: """
-                // swift-tools-version: 5.5
-                import PackageDescription
-                let package = Package(
-                    name: "HelperPackage",
-                    products: [
-                        .library(
-                            name: "HelperLibrary",
-                            targets: ["HelperLibrary"]
-                        ),
-                    ],
-                    targets: [
-                        .target(
-                            name: "HelperLibrary"
-                        ),
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.5
+                    import PackageDescription
+                    let package = Package(
+                        name: "HelperPackage",
+                        products: [
+                            .library(
+                                name: "HelperLibrary",
+                                targets: ["HelperLibrary"]
+                            ),
+                        ],
+                        targets: [
+                            .target(
+                                name: "HelperLibrary"
+                            ),
+                        ]
+                    )
+                    """
             )
 
             let library2Path = packageDir.appending(components: "VendoredDependencies", "HelperPackage", "Sources", "HelperLibrary", "library.swift")
@@ -701,8 +710,8 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 library2Path,
                 string: """
-                public func Bar() { }
-                """
+                    public func Bar() { }
+                    """
             )
 
             // Load a workspace from the package.
@@ -733,7 +742,7 @@ struct PluginTests {
             let package = try #require(packageGraph.rootPackages.first)
 
             // Find the regular target in our test package.
-            let libraryTarget = try #require(package.modules.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftModule)
+            let libraryTarget = try #require(package.modules.map(\.underlying).first { $0.name == "MyLibrary" } as? SwiftModule)
             #expect(libraryTarget.type == .library)
 
             // Set up a delegate to handle callbacks from the command plugin.
@@ -759,10 +768,12 @@ struct PluginTests {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
-                    print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
-                    diagnostics.append(contentsOf: textlines.map{
-                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
-                    })
+                    print(textlines.map { "[TEXT] \($0)" }.joined(separator: "\n"))
+                    diagnostics.append(
+                        contentsOf: textlines.map {
+                            Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                        }
+                    )
                 }
 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
@@ -787,7 +798,7 @@ struct PluginTests {
                 diagnosticsChecker: (DiagnosticsTestResult) throws -> Void
             ) async throws {
                 // Find the named plugin.
-                let plugins = package.modules.compactMap{ $0.underlying as? PluginModule }
+                let plugins = package.modules.compactMap { $0.underlying as? PluginModule }
                 let plugin = try #require(plugins.first(where: { $0.name == pluginName }), "There is no plugin target named ‘\(pluginName)’")
                 try #require(plugin.type == .plugin, "Target \(plugin) isn’t a plugin")
 
@@ -810,42 +821,40 @@ struct PluginTests {
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
                     let success = try await withCheckedThrowingContinuation { continuation in
-                      plugin.invoke(
-                        action: .performCommand(package: package, arguments: arguments),
-                        buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                        scriptRunner: scriptRunner,
-                        workingDirectory: package.path,
-                        outputDirectory: pluginDir.appending("output"),
-                        toolSearchDirectories: toolSearchDirectories,
-                        accessibleTools: [:],
-                        writableDirectories: [pluginDir.appending("output")],
-                        readOnlyDirectories: [package.path],
-                        allowNetworkConnections: [],
-                        pkgConfigDirectories: [],
-                        sdkRootPath: nil,
-                        fileSystem: localFileSystem,
-                        modulesGraph: packageGraph,
-                        observabilityScope: observability.topScope,
-                        callbackQueue: delegateQueue,
-                        delegate: delegate,
-                        completion: {
-                          continuation.resume(with: $0)
-                        }
-                      )
+                        plugin.invoke(
+                            action: .performCommand(package: package, arguments: arguments),
+                            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                            scriptRunner: scriptRunner,
+                            workingDirectory: package.path,
+                            outputDirectory: pluginDir.appending("output"),
+                            toolSearchDirectories: toolSearchDirectories,
+                            accessibleTools: [:],
+                            writableDirectories: [pluginDir.appending("output")],
+                            readOnlyDirectories: [package.path],
+                            allowNetworkConnections: [],
+                            pkgConfigDirectories: [],
+                            sdkRootPath: nil,
+                            fileSystem: localFileSystem,
+                            modulesGraph: packageGraph,
+                            observabilityScope: observability.topScope,
+                            callbackQueue: delegateQueue,
+                            delegate: delegate,
+                            completion: {
+                                continuation.resume(with: $0)
+                            }
+                        )
                     }
                     if expectFailure {
                         #expect(!success, "expected command to fail, but it succeeded")
-                    }
-                    else {
+                    } else {
                         #expect(success, "expected command to succeed, but it failed", sourceLocation: sourceLocation)
                     }
-                }
-                catch {
+                } catch {
                     Issue.record("error \(String(describing: error))", sourceLocation: sourceLocation)
                 }
 
                 // Check that we didn't end up with any completely empty diagnostics.
-                #expect(observability.diagnostics.first{ $0.message.isEmpty } == nil)
+                #expect(observability.diagnostics.first { $0.message.isEmpty } == nil)
 
                 // Invoke the diagnostics checker for the plugin output.
                 try expectDiagnostics(delegate.diagnostics, problemsOnly: false, sourceLocation: sourceLocation, handler: diagnosticsChecker)
@@ -877,7 +886,7 @@ struct PluginTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testLocalAndRemoteToolDependencies(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue (isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
                 let (stdout, stderr) = try await executeSwiftPackage(
                     path.appending("MyLibrary"),
@@ -901,7 +910,7 @@ struct PluginTests {
                 #expect(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows // Intermittent depending on the file path length
+            ProcessInfo.hostOperatingSystem == .windows  // Intermittent depending on the file path length
         }
     }
 
@@ -937,7 +946,7 @@ struct PluginTests {
             // Make sure that the use of plugins doesn't bleed into the use of plugins by tools.
             let testTargetMappings = try packageGraph.computeTestModulesForExecutableModules()
             for (target, testTargets) in testTargetMappings {
-                #expect(!testTargets.contains{ $0.name == "MySourceGenPluginTests" }, "target: \(target), testTargets: \(testTargets)")
+                #expect(!testTargets.contains { $0.name == "MySourceGenPluginTests" }, "target: \(target), testTargets: \(testTargets)")
             }
         }
     }
@@ -955,58 +964,58 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 packageDir.appending(components: "Package.swift"),
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "MyPackage",
-                    products: [
-                        .library(
-                            name: "MyLibrary",
-                            targets: ["MyLibrary"]
-                        ),
-                    ],
-                    targets: [
-                        .target(
-                            name: "MyLibrary"
-                        ),
-                        .plugin(
-                            name: "NeverendingPlugin",
-                            capability: .command(
-                                intent: .custom(verb: "neverending-plugin", description: "Help description")
-                            )
-                        ),
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        products: [
+                            .library(
+                                name: "MyLibrary",
+                                targets: ["MyLibrary"]
+                            ),
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLibrary"
+                            ),
+                            .plugin(
+                                name: "NeverendingPlugin",
+                                capability: .command(
+                                    intent: .custom(verb: "neverending-plugin", description: "Help description")
+                                )
+                            ),
+                        ]
+                    )
+                    """
             )
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
             try localFileSystem.writeFileContents(
                 myLibraryTargetDir.appending("library.swift"),
                 string: """
-                public func GetGreeting() -> String { return "Hello" }
-                """
+                    public func GetGreeting() -> String { return "Hello" }
+                    """
             )
             let neverendingPluginTargetDir = packageDir.appending(components: "Plugins", "NeverendingPlugin")
             try localFileSystem.createDirectory(neverendingPluginTargetDir, recursive: true)
             try localFileSystem.writeFileContents(
                 neverendingPluginTargetDir.appending("plugin.swift"),
                 string: """
-                import PackagePlugin
-                import Foundation
-                @main struct NeverendingPlugin: CommandPlugin {
-                    func performCommand(
-                        context: PluginContext,
-                        arguments: [String]
-                    ) throws {
-                        print("pid: \\(ProcessInfo.processInfo.processIdentifier)")
-                        while true {
-                            Thread.sleep(forTimeInterval: 1.0)
-                            print("still here")
+                    import PackagePlugin
+                    import Foundation
+                    @main struct NeverendingPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            print("pid: \\(ProcessInfo.processInfo.processIdentifier)")
+                            while true {
+                                Thread.sleep(forTimeInterval: 1.0)
+                                print("still here")
+                            }
                         }
                     }
-                }
-                """
+                    """
             )
 
             // Load a workspace from the package.
@@ -1040,7 +1049,7 @@ struct PluginTests {
             let libraryTarget = try #require(
                 package.modules
                     .map(\.underlying)
-                    .first{ $0.name == "MyLibrary" } as? SwiftModule
+                    .first { $0.name == "MyLibrary" } as? SwiftModule
             )
             #expect(libraryTarget.type == .library)
 
@@ -1068,9 +1077,11 @@ struct PluginTests {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
                     let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
-                    diagnostics.append(contentsOf: textlines.map{
-                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
-                    })
+                    diagnostics.append(
+                        contentsOf: textlines.map {
+                            Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                        }
+                    )
 
                     // If we don't already have the process identifier, we try to find it.
                     if parsedProcessIdentifier == .none {
@@ -1080,7 +1091,7 @@ struct PluginTests {
                             assert(match.numberOfRanges == 2)
                             return Int((string as NSString).substring(with: match.range(at: 1)))
                         }
-                        parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
+                        parsedProcessIdentifier = textlines.compactMap { parseProcessIdentifier(String($0)) }.first
                     }
                 }
 
@@ -1153,9 +1164,9 @@ struct PluginTests {
 
             // Check that it's running (we do this by asking for its priority — this only works on some platforms).
             #if os(macOS)
-            errno = 0
-            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-            #expect(errno == 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+                errno = 0
+                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+                #expect(errno == 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
             #endif
 
             // Cancel the plugin task
@@ -1166,9 +1177,9 @@ struct PluginTests {
 
             // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
             #if os(macOS)
-            errno = 0
-            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-            #expect(errno == ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+                errno = 0
+                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+                #expect(errno == ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
             #endif
 
             // Ensure the task was actually cancelled
@@ -1180,7 +1191,6 @@ struct PluginTests {
             } catch {
                 // Also acceptable - plugin may have been terminated
             }
-
 
         }
     }
@@ -1195,32 +1205,32 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 packageDir.appending("Package.swift"),
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "MyPackage",
-                    dependencies: [
-                        .package(name: "BuildToolPluginPackage", path: "VendoredDependencies/BuildToolPluginPackage"),
-                        .package(name: "UnusedBuildToolPluginPackage", path: "VendoredDependencies/UnusedBuildToolPluginPackage"),
-                        .package(name: "CommandPluginPackage", path: "VendoredDependencies/CommandPluginPackage")
-                    ],
-                    targets: [
-                        .target(
-                            name: "MyLibrary",
-                            path: ".",
-                            plugins: [
-                                .plugin(name: "BuildToolPlugin", package: "BuildToolPluginPackage")
-                            ]
-                        ),
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        dependencies: [
+                            .package(name: "BuildToolPluginPackage", path: "VendoredDependencies/BuildToolPluginPackage"),
+                            .package(name: "UnusedBuildToolPluginPackage", path: "VendoredDependencies/UnusedBuildToolPluginPackage"),
+                            .package(name: "CommandPluginPackage", path: "VendoredDependencies/CommandPluginPackage")
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLibrary",
+                                path: ".",
+                                plugins: [
+                                    .plugin(name: "BuildToolPlugin", package: "BuildToolPluginPackage")
+                                ]
+                            ),
+                        ]
+                    )
+                    """
             )
             try localFileSystem.writeFileContents(
                 packageDir.appending("Library.swift"),
                 string: """
-                public var Foo: String
-                """
+                    public var Foo: String
+                    """
             )
 
             // Create the depended-upon package that vends a build tool plugin that is used by the main package.
@@ -1229,34 +1239,34 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 buildToolPluginPackageDir.appending("Package.swift"),
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "BuildToolPluginPackage",
-                    products: [
-                        .plugin(
-                            name: "BuildToolPlugin",
-                            targets: ["BuildToolPlugin"])
-                    ],
-                    targets: [
-                        .plugin(
-                            name: "BuildToolPlugin",
-                            capability: .buildTool(),
-                            path: ".")
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "BuildToolPluginPackage",
+                        products: [
+                            .plugin(
+                                name: "BuildToolPlugin",
+                                targets: ["BuildToolPlugin"])
+                        ],
+                        targets: [
+                            .plugin(
+                                name: "BuildToolPlugin",
+                                capability: .buildTool(),
+                                path: ".")
+                        ]
+                    )
+                    """
             )
             try localFileSystem.writeFileContents(
                 buildToolPluginPackageDir.appending("Plugin.swift"),
                 string: """
-                import PackagePlugin
-                @main struct MyPlugin: BuildToolPlugin {
-                    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-                        return []
+                    import PackagePlugin
+                    @main struct MyPlugin: BuildToolPlugin {
+                        func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
+                            return []
+                        }
                     }
-                }
-                """
+                    """
             )
 
             // Create the depended-upon package that vends a build tool plugin that is not used by the main package.
@@ -1265,34 +1275,34 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 unusedBuildToolPluginPackageDir.appending("Package.swift"),
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "UnusedBuildToolPluginPackage",
-                    products: [
-                        .plugin(
-                            name: "UnusedBuildToolPlugin",
-                            targets: ["UnusedBuildToolPlugin"])
-                    ],
-                    targets: [
-                        .plugin(
-                            name: "UnusedBuildToolPlugin",
-                            capability: .buildTool(),
-                            path: ".")
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "UnusedBuildToolPluginPackage",
+                        products: [
+                            .plugin(
+                                name: "UnusedBuildToolPlugin",
+                                targets: ["UnusedBuildToolPlugin"])
+                        ],
+                        targets: [
+                            .plugin(
+                                name: "UnusedBuildToolPlugin",
+                                capability: .buildTool(),
+                                path: ".")
+                        ]
+                    )
+                    """
             )
             try localFileSystem.writeFileContents(
                 unusedBuildToolPluginPackageDir.appending("Plugin.swift"),
                 string: """
-                import PackagePlugin
-                @main struct MyPlugin: BuildToolPlugin {
-                    func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
-                        return []
+                    import PackagePlugin
+                    @main struct MyPlugin: BuildToolPlugin {
+                        func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
+                            return []
+                        }
                     }
-                }
-                """
+                    """
             )
 
             // Create the depended-upon package that vends a command plugin.
@@ -1301,33 +1311,33 @@ struct PluginTests {
             try localFileSystem.writeFileContents(
                 commandPluginPackageDir.appending("Package.swift"),
                 string: """
-                // swift-tools-version: 5.6
-                import PackageDescription
-                let package = Package(
-                    name: "CommandPluginPackage",
-                    products: [
-                        .plugin(
-                            name: "CommandPlugin",
-                            targets: ["CommandPlugin"])
-                    ],
-                    targets: [
-                        .plugin(
-                            name: "CommandPlugin",
-                            capability: .command(intent: .custom(verb: "how", description: "why")),
-                            path: ".")
-                    ]
-                )
-                """
+                    // swift-tools-version: 5.6
+                    import PackageDescription
+                    let package = Package(
+                        name: "CommandPluginPackage",
+                        products: [
+                            .plugin(
+                                name: "CommandPlugin",
+                                targets: ["CommandPlugin"])
+                        ],
+                        targets: [
+                            .plugin(
+                                name: "CommandPlugin",
+                                capability: .command(intent: .custom(verb: "how", description: "why")),
+                                path: ".")
+                        ]
+                    )
+                    """
             )
             try localFileSystem.writeFileContents(
                 commandPluginPackageDir.appending("Plugin.swift"),
                 string: """
-                import PackagePlugin
-                @main struct MyPlugin: CommandPlugin {
-                    func performCommand(context: PluginContext, targets: [Target], arguments: [String]) throws {
+                    import PackagePlugin
+                    @main struct MyPlugin: CommandPlugin {
+                        func performCommand(context: PluginContext, targets: [Target], arguments: [String]) throws {
+                        }
                     }
-                }
-                """
+                    """
             )
 
             // Load a workspace from the package.
@@ -1428,24 +1438,25 @@ struct PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift", ),
         )
         func testBasicBuildIndividualSnippets(
             data: BuildData,
             targetPath: RelativePath,
         ) async throws {
             try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
-                let targetName = targetPath.basenameWithoutExt
-                await #expect(throws: Never.self) {
-                    let _ = try await executeSwiftBuild(
-                        fixturePath,
-                        configuration: data.config,
-                        extraArgs: ["--product", targetName],
-                        buildSystem: data.buildSystem,
-                    )
+                try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                    let targetName = targetPath.basenameWithoutExt
+                    await #expect(throws: Never.self) {
+                        let _ = try await executeSwiftBuild(
+                            fixturePath,
+                            configuration: data.config,
+                            extraArgs: ["--product", targetName],
+                            buildSystem: data.buildSystem,
+                        )
+                    }
                 }
-            }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
             }
@@ -1455,7 +1466,8 @@ struct PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+            try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift", ),
         )
         func testBasicRunSnippets(
             data: BuildData,
@@ -1463,16 +1475,16 @@ struct PluginTests {
         ) async throws {
             let targetName = targetPath.basenameWithoutExt
             try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
-                let (stdout, stderr) = try await executeSwiftRun(
-                    fixturePath,
-                    targetName,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
+                try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                    let (stdout, stderr) = try await executeSwiftRun(
+                        fixturePath,
+                        targetName,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
 
-                #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
-            }
+                    #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
+                }
             } when: {
                 [.windows].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
             }
@@ -1491,7 +1503,7 @@ struct PluginTests {
     func testIncorrectDependencies(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue (isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Plugins") { path in
                 let (stdout, stderr) = try await executeSwiftBuild(
                     path.appending("IncorrectDependencies"),
@@ -1503,7 +1515,7 @@ struct PluginTests {
             }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-            || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSmokeTestPipeline)
+                || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
@@ -1579,7 +1591,7 @@ struct PluginTests {
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("SwiftFilePlugin"),
                 configuration: .debug,
-                extraArgs: [ "--verbose"],
+                extraArgs: ["--verbose"],
                 buildSystem: buildSystem,
             )
             switch buildSystem {
@@ -1698,10 +1710,11 @@ struct PluginTests {
     ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let buildArgs: [String] = switch buildSystem {
+                let buildArgs: [String] =
+                    switch buildSystem {
                     case .native, .xcode: []
                     case .swiftbuild: ["-v"]
-                }
+                    }
                 let (stdout, stderr) = try await executeSwiftBuild(
                     fixturePath.appending(component: "MySourceGenPlugin"),
                     configuration: .debug,

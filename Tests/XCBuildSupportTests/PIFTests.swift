@@ -20,196 +20,201 @@ import _InternalTestSupport
 import enum TSCBasic.JSON
 
 class PIFTests: XCTestCase {
-    let topLevelObject = PIF.TopLevelObject(workspace:
-        PIF.Workspace(
-            guid: "workspace",
-            name: "MyWorkspace",
-            path: "/path/to/workspace",
-            projects: [
-                PIF.Project(
-                    guid: "project",
-                    name: "MyProject",
-                    path: "/path/to/workspace/project",
-                    projectDirectory: "/path/to/workspace/project",
-                    developmentRegion: "fr",
-                    buildConfigurations: [
-                        PIF.BuildConfiguration(
-                            guid: "project-config-debug-guid",
-                            name: "Debug",
-                            buildSettings: {
-                                var settings = PIF.BuildSettings()
-                                settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
-                                settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
-                                return settings
-                            }()
-                        ),
-                        PIF.BuildConfiguration(
-                            guid: "project-config-release-guid",
-                            name: "Release",
-                            buildSettings: {
-                                var settings = PIF.BuildSettings()
-                                settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
-                                settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
-                                settings[.GCC_OPTIMIZATION_LEVEL] = "s"
-                                return settings
-                            }()
-                        ),
-                    ],
-                    targets: [
-                        PIF.Target(
-                            guid: "target-exe-guid",
-                            name: "MyExecutable",
-                            productType: .executable,
-                            productName: "MyExecutable",
-                            buildConfigurations: [
-                                PIF.BuildConfiguration(
-                                    guid: "target-exe-config-debug-guid",
-                                    name: "Debug",
-                                    buildSettings: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.TARGET_NAME] = "MyExecutable"
-                                        return settings
-                                    }()
-                                ),
-                                PIF.BuildConfiguration(
-                                    guid: "target-exe-config-release-guid",
-                                    name: "Release",
-                                    buildSettings: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.TARGET_NAME] = "MyExecutable"
-                                        settings[.SKIP_INSTALL] = "NO"
-                                        return settings
-                                    }()
-                                ),
-                            ],
-                            buildPhases: [
-                                PIF.SourcesBuildPhase(
-                                    guid: "target-exe-sources-build-phase-guid",
-                                    buildFiles: [
-                                        PIF.BuildFile(
-                                            guid: "target-exe-sources-build-file-guid",
-                                            fileGUID: "exe-file-guid",
-                                            platformFilters: []
-                                        )
-                                    ]
-                                ),
-                                PIF.FrameworksBuildPhase(
-                                    guid: "target-exe-frameworks-build-phase-guid",
-                                    buildFiles: [
-                                        PIF.BuildFile(
-                                            guid: "target-exe-frameworks-build-file-guid",
-                                            targetGUID: "target-lib-guid",
-                                            platformFilters: []
-                                        )
-                                    ]
-                                ),
-                                PIF.HeadersBuildPhase(
-                                    guid: "target-exe-headers-build-phase-guid",
-                                    buildFiles: [
-                                        PIF.BuildFile(
-                                            guid: "target-exe-headers-build-file-guid",
-                                            targetGUID: "target-lib-guid",
-                                            platformFilters: [],
-                                            headerVisibility: .public
-                                        )
-                                    ]
-                                )
-                            ],
-                            dependencies: [
-                                .init(targetGUID: "target-lib-guid")
-                            ],
-                            impartedBuildSettings: PIF.BuildSettings()
-                        ),
-                        PIF.Target(
-                            guid: "target-lib-guid",
-                            name: "MyLibrary",
-                            productType: .objectFile,
-                            productName: "MyLibrary",
-                            buildConfigurations: [
-                                PIF.BuildConfiguration(
-                                    guid: "target-lib-config-debug-guid",
-                                    name: "Debug",
-                                    buildSettings: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.TARGET_NAME] = "MyLibrary-Debug"
-                                        return settings
-                                    }(),
-                                    impartedBuildProperties: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
-                                        return PIF.ImpartedBuildProperties(settings: settings)
-                                    }()
-                                ),
-                                PIF.BuildConfiguration(
-                                    guid: "target-lib-config-release-guid",
-                                    name: "Release",
-                                    buildSettings: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.TARGET_NAME] = "MyLibrary"
-                                        return settings
-                                    }(),
-                                    impartedBuildProperties: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
-                                        return PIF.ImpartedBuildProperties(settings: settings)
-                                    }()
-                                ),
-                            ],
-                            buildPhases: [
-                                PIF.SourcesBuildPhase(
-                                    guid: "target-lib-sources-build-phase-guid",
-                                    buildFiles: [
-                                        PIF.BuildFile(
-                                            guid: "target-lib-sources-build-file-guid",
-                                            fileGUID: "lib-file-guid",
-                                            platformFilters: []
-                                        )
-                                    ]
-                                )
-                            ],
-                            dependencies: [],
-                            impartedBuildSettings: PIF.BuildSettings()
-                        ),
-                        PIF.AggregateTarget(
-                            guid: "aggregate-target-guid",
-                            name: "AggregateLibrary",
-                            buildConfigurations: [
-                                PIF.BuildConfiguration(
-                                    guid: "aggregate-target-config-debug-guid",
-                                    name: "Debug",
-                                    buildSettings: PIF.BuildSettings(),
-                                    impartedBuildProperties: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
-                                        return PIF.ImpartedBuildProperties(settings: settings)
-                                    }()
-                                ),
-                                PIF.BuildConfiguration(
-                                    guid: "aggregate-target-config-release-guid",
-                                    name: "Release",
-                                    buildSettings: PIF.BuildSettings(),
-                                    impartedBuildProperties: {
-                                        var settings = PIF.BuildSettings()
-                                        settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
-                                        return PIF.ImpartedBuildProperties(settings: settings)
-                                    }()
-                                ),
-                            ],
-                            buildPhases: [],
-                            dependencies: [
-                                .init(targetGUID: "target-lib-guid"),
-                                .init(targetGUID: "target-exe-guid"),
-                            ],
-                            impartedBuildSettings: PIF.BuildSettings()
+    let topLevelObject = PIF.TopLevelObject(
+        workspace:
+            PIF.Workspace(
+                guid: "workspace",
+                name: "MyWorkspace",
+                path: "/path/to/workspace",
+                projects: [
+                    PIF.Project(
+                        guid: "project",
+                        name: "MyProject",
+                        path: "/path/to/workspace/project",
+                        projectDirectory: "/path/to/workspace/project",
+                        developmentRegion: "fr",
+                        buildConfigurations: [
+                            PIF.BuildConfiguration(
+                                guid: "project-config-debug-guid",
+                                name: "Debug",
+                                buildSettings: {
+                                    var settings = PIF.BuildSettings()
+                                    settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+                                    settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
+                                    return settings
+                                }()
+                            ),
+                            PIF.BuildConfiguration(
+                                guid: "project-config-release-guid",
+                                name: "Release",
+                                buildSettings: {
+                                    var settings = PIF.BuildSettings()
+                                    settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+                                    settings[.SUPPORTED_PLATFORMS] = ["$(AVAILABLE_PLATFORMS)"]
+                                    settings[.GCC_OPTIMIZATION_LEVEL] = "s"
+                                    return settings
+                                }()
+                            ),
+                        ],
+                        targets: [
+                            PIF.Target(
+                                guid: "target-exe-guid",
+                                name: "MyExecutable",
+                                productType: .executable,
+                                productName: "MyExecutable",
+                                buildConfigurations: [
+                                    PIF.BuildConfiguration(
+                                        guid: "target-exe-config-debug-guid",
+                                        name: "Debug",
+                                        buildSettings: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.TARGET_NAME] = "MyExecutable"
+                                            return settings
+                                        }()
+                                    ),
+                                    PIF.BuildConfiguration(
+                                        guid: "target-exe-config-release-guid",
+                                        name: "Release",
+                                        buildSettings: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.TARGET_NAME] = "MyExecutable"
+                                            settings[.SKIP_INSTALL] = "NO"
+                                            return settings
+                                        }()
+                                    ),
+                                ],
+                                buildPhases: [
+                                    PIF.SourcesBuildPhase(
+                                        guid: "target-exe-sources-build-phase-guid",
+                                        buildFiles: [
+                                            PIF.BuildFile(
+                                                guid: "target-exe-sources-build-file-guid",
+                                                fileGUID: "exe-file-guid",
+                                                platformFilters: []
+                                            )
+                                        ]
+                                    ),
+                                    PIF.FrameworksBuildPhase(
+                                        guid: "target-exe-frameworks-build-phase-guid",
+                                        buildFiles: [
+                                            PIF.BuildFile(
+                                                guid: "target-exe-frameworks-build-file-guid",
+                                                targetGUID: "target-lib-guid",
+                                                platformFilters: []
+                                            )
+                                        ]
+                                    ),
+                                    PIF.HeadersBuildPhase(
+                                        guid: "target-exe-headers-build-phase-guid",
+                                        buildFiles: [
+                                            PIF.BuildFile(
+                                                guid: "target-exe-headers-build-file-guid",
+                                                targetGUID: "target-lib-guid",
+                                                platformFilters: [],
+                                                headerVisibility: .public
+                                            )
+                                        ]
+                                    ),
+                                ],
+                                dependencies: [
+                                    .init(targetGUID: "target-lib-guid")
+                                ],
+                                impartedBuildSettings: PIF.BuildSettings()
+                            ),
+                            PIF.Target(
+                                guid: "target-lib-guid",
+                                name: "MyLibrary",
+                                productType: .objectFile,
+                                productName: "MyLibrary",
+                                buildConfigurations: [
+                                    PIF.BuildConfiguration(
+                                        guid: "target-lib-config-debug-guid",
+                                        name: "Debug",
+                                        buildSettings: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.TARGET_NAME] = "MyLibrary-Debug"
+                                            return settings
+                                        }(),
+                                        impartedBuildProperties: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
+                                            return PIF.ImpartedBuildProperties(settings: settings)
+                                        }()
+                                    ),
+                                    PIF.BuildConfiguration(
+                                        guid: "target-lib-config-release-guid",
+                                        name: "Release",
+                                        buildSettings: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.TARGET_NAME] = "MyLibrary"
+                                            return settings
+                                        }(),
+                                        impartedBuildProperties: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
+                                            return PIF.ImpartedBuildProperties(settings: settings)
+                                        }()
+                                    ),
+                                ],
+                                buildPhases: [
+                                    PIF.SourcesBuildPhase(
+                                        guid: "target-lib-sources-build-phase-guid",
+                                        buildFiles: [
+                                            PIF.BuildFile(
+                                                guid: "target-lib-sources-build-file-guid",
+                                                fileGUID: "lib-file-guid",
+                                                platformFilters: []
+                                            )
+                                        ]
+                                    )
+                                ],
+                                dependencies: [],
+                                impartedBuildSettings: PIF.BuildSettings()
+                            ),
+                            PIF.AggregateTarget(
+                                guid: "aggregate-target-guid",
+                                name: "AggregateLibrary",
+                                buildConfigurations: [
+                                    PIF.BuildConfiguration(
+                                        guid: "aggregate-target-config-debug-guid",
+                                        name: "Debug",
+                                        buildSettings: PIF.BuildSettings(),
+                                        impartedBuildProperties: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
+                                            return PIF.ImpartedBuildProperties(settings: settings)
+                                        }()
+                                    ),
+                                    PIF.BuildConfiguration(
+                                        guid: "aggregate-target-config-release-guid",
+                                        name: "Release",
+                                        buildSettings: PIF.BuildSettings(),
+                                        impartedBuildProperties: {
+                                            var settings = PIF.BuildSettings()
+                                            settings[.OTHER_CFLAGS] = ["-fmodule-map-file=modulemap", "$(inherited)"]
+                                            return PIF.ImpartedBuildProperties(settings: settings)
+                                        }()
+                                    ),
+                                ],
+                                buildPhases: [],
+                                dependencies: [
+                                    .init(targetGUID: "target-lib-guid"),
+                                    .init(targetGUID: "target-exe-guid"),
+                                ],
+                                impartedBuildSettings: PIF.BuildSettings()
+                            ),
+                        ],
+                        groupTree: PIF.Group(
+                            guid: "main-group-guid",
+                            path: "",
+                            children: [
+                                PIF.FileReference(guid: "exe-file-guid", path: "main.swift"),
+                                PIF.FileReference(guid: "lib-file-guid", path: "lib.swift"),
+                            ]
                         )
-                    ],
-                    groupTree: PIF.Group(guid: "main-group-guid", path: "", children: [
-                        PIF.FileReference(guid: "exe-file-guid", path: "main.swift"),
-                        PIF.FileReference(guid: "lib-file-guid", path: "lib.swift"),
-                    ])
-                )
-            ]
-        )
+                    )
+                ]
+            )
     )
 
     func testRoundTrip() throws {
@@ -292,11 +297,14 @@ class PIFTests: XCTestCase {
         XCTAssertEqual(projectContents["projectIsPackage"]?.string, "true")
         XCTAssertEqual(projectContents["developmentRegion"]?.string, "fr")
         XCTAssertEqual(projectContents["defaultConfigurationName"]?.string, "Release")
-        XCTAssertEqual(projectContents["targets"]?.array, [
-            exeTarget["signature"]!,
-            libTarget["signature"]!,
-            aggregateTarget["signature"]!,
-        ])
+        XCTAssertEqual(
+            projectContents["targets"]?.array,
+            [
+                exeTarget["signature"]!,
+                libTarget["signature"]!,
+                aggregateTarget["signature"]!,
+            ]
+        )
 
         if let configurations = projectContents["buildConfigurations"]?.array, configurations.count == 2 {
             let debugConfiguration = configurations[0]
@@ -349,11 +357,14 @@ class PIFTests: XCTestCase {
         XCTAssertEqual(exeTargetContents["productTypeIdentifier"]?.string, "com.apple.product-type.tool")
         XCTAssertEqual(exeTargetContents["buildRules"]?.array, [])
 
-        XCTAssertEqual(exeTargetContents["productReference"], JSON([
-            "type": "file",
-            "guid": "PRODUCTREF-target-exe-guid",
-            "name": "MyExecutable"
-        ]))
+        XCTAssertEqual(
+            exeTargetContents["productReference"],
+            JSON([
+                "type": "file",
+                "guid": "PRODUCTREF-target-exe-guid",
+                "name": "MyExecutable",
+            ])
+        )
 
         if let configurations = exeTargetContents["buildConfigurations"]?.array, configurations.count == 2 {
             let debugConfiguration = configurations[0]
@@ -417,11 +428,14 @@ class PIFTests: XCTestCase {
         XCTAssertEqual(libTargetContents["productTypeIdentifier"]?.string, "com.apple.product-type.objfile")
         XCTAssertEqual(libTargetContents["buildRules"]?.array, [])
 
-        XCTAssertEqual(libTargetContents["productReference"], JSON([
-            "type": "file",
-            "guid": "PRODUCTREF-target-lib-guid",
-            "name": "MyLibrary"
-        ]))
+        XCTAssertEqual(
+            libTargetContents["productReference"],
+            JSON([
+                "type": "file",
+                "guid": "PRODUCTREF-target-lib-guid",
+                "name": "MyLibrary",
+            ])
+        )
 
         if let configurations = libTargetContents["buildConfigurations"]?.array, configurations.count == 2 {
             let debugConfiguration = configurations[0]
@@ -465,10 +479,13 @@ class PIFTests: XCTestCase {
         XCTAssertEqual(aggregateTargetContents["guid"]?.string, "aggregate-target-guid@11")
         XCTAssertEqual(aggregateTargetContents["type"]?.string, "aggregate")
         XCTAssertEqual(aggregateTargetContents["name"]?.string, "AggregateLibrary")
-        XCTAssertEqual(aggregateTargetContents["dependencies"]?.array, [
-            JSON(["guid": "target-lib-guid@11"]),
-            JSON(["guid": "target-exe-guid@11"]),
-        ])
+        XCTAssertEqual(
+            aggregateTargetContents["dependencies"]?.array,
+            [
+                JSON(["guid": "target-lib-guid@11"]),
+                JSON(["guid": "target-exe-guid@11"]),
+            ]
+        )
         XCTAssertEqual(aggregateTargetContents["buildRules"], nil)
 
         if let configurations = aggregateTargetContents["buildConfigurations"]?.array, configurations.count == 2 {

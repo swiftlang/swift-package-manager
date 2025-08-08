@@ -133,7 +133,7 @@ public struct BuildResult {
         self.replArguments = replArguments
         self.builtArtifacts = builtArtifacts
     }
-    
+
     public let replArguments: CLIArguments?
     public let symbolGraph: SymbolGraphResult?
     public let buildPlan: BuildPlan?

@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(ucrt) && canImport(WinSDK)
-@_implementationOnly import ucrt
-@_implementationOnly import struct WinSDK.HANDLE
+    @_implementationOnly import ucrt
+    @_implementationOnly import struct WinSDK.HANDLE
 #endif
 @_implementationOnly import Foundation
 
@@ -106,7 +106,7 @@ public final class Package {
 
     /// The list of Swift language modes with which this package is compatible.
     public var swiftLanguageModes: [SwiftLanguageMode]?
-    
+
     /// Legacy property name, accesses value of `swiftLanguageModes`
     @available(_PackageDescription, deprecated: 6, renamed: "swiftLanguageModes")
     public var swiftLanguageVersions: [SwiftVersion]? {
@@ -154,7 +154,7 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
-        self.swiftLanguageModes = swiftLanguageVersions.map{ $0.map{ .version("\($0)") } }
+        self.swiftLanguageModes = swiftLanguageVersions.map { $0.map { .version("\($0)") } }
         self.cLanguageStandard = cLanguageStandard
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
@@ -260,7 +260,7 @@ public final class Package {
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @_disfavoredOverload
     @available(_PackageDescription, introduced: 5.3)
-    @available(_PackageDescription, deprecated: 6, renamed:"init(name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageModes:cLanguageStandard:cxxLanguageStandard:)")
+    @available(_PackageDescription, deprecated: 6, renamed: "init(name:defaultLocalization:platforms:pkgConfig:providers:products:dependencies:targets:swiftLanguageModes:cLanguageStandard:cxxLanguageStandard:)")
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -288,7 +288,7 @@ public final class Package {
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
     }
-    
+
     /// Initializes a Swift package with configuration options you provide.
     ///
     /// - Parameters:
@@ -332,7 +332,6 @@ public final class Package {
         self.cxxLanguageStandard = cxxLanguageStandard
         registerExitHandler()
     }
-
 
     /// Initializes a Swift package with configuration options you provide.
     ///
@@ -396,19 +395,19 @@ public final class Package {
         //
         // Note: `-fileno` is not viable on Windows.  Instead, we pass the file
         // handle through the `-handle` option.
-#if os(Windows)
-        if let index = CommandLine.arguments.firstIndex(of: "-handle") {
-            if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
-                dumpPackageAtExit(self, to: handle)
+        #if os(Windows)
+            if let index = CommandLine.arguments.firstIndex(of: "-handle") {
+                if let handle = Int(CommandLine.arguments[index + 1], radix: 16) {
+                    dumpPackageAtExit(self, to: handle)
+                }
             }
-        }
-#else
-        if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
-            if let jsonOutputFileDesc = Int32(CommandLine.arguments[optIdx + 1]) {
-                dumpPackageAtExit(self, to: jsonOutputFileDesc)
+        #else
+            if let optIdx = CommandLine.arguments.firstIndex(of: "-fileno") {
+                if let jsonOutputFileDesc = Int32(CommandLine.arguments[optIdx + 1]) {
+                    dumpPackageAtExit(self, to: jsonOutputFileDesc)
+                }
             }
-        }
-#endif
+        #endif
     }
 }
 
@@ -445,7 +444,7 @@ extension LanguageTag: RawRepresentable {
 
 /// ExpressibleByStringLiteral implementation.
 extension LanguageTag: ExpressibleByStringLiteral {
-    
+
     /// Creates an instance initialized to the given value.
     ///
     /// - Parameter value: The value of the new instance.
@@ -549,39 +548,39 @@ private func manifestToJSON(_ package: Package) -> String {
 var errors: [String] = []
 
 #if os(Windows)
-private var dumpInfo: (package: Package, handle: Int)?
-private func dumpPackageAtExit(_ package: Package, to handle: Int) {
-    let dump: @convention(c) () -> Void = {
-        guard let dumpInfo else { return }
+    private var dumpInfo: (package: Package, handle: Int)?
+    private func dumpPackageAtExit(_ package: Package, to handle: Int) {
+        let dump: @convention(c) () -> Void = {
+            guard let dumpInfo else { return }
 
-        let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
-        // NOTE: `_open_osfhandle` transfers ownership of the `HANDLE` to the file
-        // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
-        let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
-        // NOTE: `_fdopen` transfers ownership of the file descriptor to the
-        // `FILE *`.  DO NOT invoke `_close` on the `fd`.
-        guard let fp = _fdopen(fd, "w") else {
-            _close(fd)
-            return
+            let hFile: HANDLE = HANDLE(bitPattern: dumpInfo.handle)!
+            // NOTE: `_open_osfhandle` transfers ownership of the `HANDLE` to the file
+            // descriptor.  DO NOT invoke `CloseHandle` on `hFile`.
+            let fd: CInt = _open_osfhandle(Int(bitPattern: hFile), _O_APPEND)
+            // NOTE: `_fdopen` transfers ownership of the file descriptor to the
+            // `FILE *`.  DO NOT invoke `_close` on the `fd`.
+            guard let fp = _fdopen(fd, "w") else {
+                _close(fd)
+                return
+            }
+            defer { fclose(fp) }
+
+            fputs(manifestToJSON(dumpInfo.package), fp)
         }
-        defer { fclose(fp) }
 
-        fputs(manifestToJSON(dumpInfo.package), fp)
+        dumpInfo = (package, handle)
+        atexit(dump)
     }
-
-    dumpInfo = (package, handle)
-    atexit(dump)
-}
 #else
-private var dumpInfo: (package: Package, fileDesc: Int32)?
-private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
-    func dump() {
-        guard let dumpInfo else { return }
-        guard let fd = fdopen(dumpInfo.fileDesc, "w") else { return }
-        fputs(manifestToJSON(dumpInfo.package), fd)
-        fclose(fd)
+    private var dumpInfo: (package: Package, fileDesc: Int32)?
+    private func dumpPackageAtExit(_ package: Package, to fileDesc: Int32) {
+        func dump() {
+            guard let dumpInfo else { return }
+            guard let fd = fdopen(dumpInfo.fileDesc, "w") else { return }
+            fputs(manifestToJSON(dumpInfo.package), fd)
+            fclose(fd)
+        }
+        dumpInfo = (package, fileDesc)
+        atexit(dump)
     }
-    dumpInfo = (package, fileDesc)
-    atexit(dump)
-}
 #endif

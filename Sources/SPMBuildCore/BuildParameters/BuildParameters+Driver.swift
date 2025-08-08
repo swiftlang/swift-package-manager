@@ -12,7 +12,7 @@
 
 extension BuildParameters {
     /// A mode for explicit import checking
-    public enum TargetDependencyImportCheckingMode : Codable {
+    public enum TargetDependencyImportCheckingMode: Codable {
         case none
         case warn
         case error

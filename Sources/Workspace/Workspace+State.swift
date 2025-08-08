@@ -89,7 +89,7 @@ public actor WorkspaceState {
         self.artifacts = storedState.artifacts
         self.prebuilts = storedState.prebuilts
     }
-    
+
     public func add(dependency: Workspace.ManagedDependency) {
         dependencies = dependencies.add(dependency)
     }
@@ -293,21 +293,26 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
-                        return try self
+                        return
+                            try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(
-                            basedOn: basedOn.map { try .init($0) },
-                            unmanagedPath: path
-                        ))
+                        return try self.init(
+                            underlying: .edited(
+                                basedOn: basedOn.map { try .init($0) },
+                                unmanagedPath: path
+                            )
+                        )
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
-                        return try self.init(underlying: .custom(
-                            version: TSCUtility.Version(versionString: version),
-                            path: path
-                        ))
+                        return try self.init(
+                            underlying: .custom(
+                                version: TSCUtility.Version(versionString: version),
+                                path: path
+                            )
+                        )
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -691,21 +696,26 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
-                        return try self
+                        return
+                            try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(
-                            basedOn: basedOn.map { try .init($0) },
-                            unmanagedPath: path
-                        ))
+                        return try self.init(
+                            underlying: .edited(
+                                basedOn: basedOn.map { try .init($0) },
+                                unmanagedPath: path
+                            )
+                        )
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
-                        return try self.init(underlying: .custom(
-                            version: TSCUtility.Version(versionString: version),
-                            path: path
-                        ))
+                        return try self.init(
+                            underlying: .custom(
+                                version: TSCUtility.Version(versionString: version),
+                                path: path
+                            )
+                        )
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -1047,21 +1057,26 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "registryDownload":
                         let version = try container.decode(String.self, forKey: .version)
-                        return try self
+                        return
+                            try self
                             .init(underlying: .registryDownload(version: TSCUtility.Version(versionString: version)))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(
-                            basedOn: basedOn.map { try .init($0) },
-                            unmanagedPath: path
-                        ))
+                        return try self.init(
+                            underlying: .edited(
+                                basedOn: basedOn.map { try .init($0) },
+                                unmanagedPath: path
+                            )
+                        )
                     case "custom":
                         let version = try container.decode(String.self, forKey: .version)
                         let path = try container.decode(Basics.AbsolutePath.self, forKey: .path)
-                        return try self.init(underlying: .custom(
-                            version: TSCUtility.Version(versionString: version),
-                            path: path
-                        ))
+                        return try self.init(
+                            underlying: .custom(
+                                version: TSCUtility.Version(versionString: version),
+                                path: path
+                            )
+                        )
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }
@@ -1353,10 +1368,12 @@ extension WorkspaceStateStorage {
                         return try self.init(underlying: .sourceControlCheckout(.init(checkout)))
                     case "edited":
                         let path = try container.decode(Basics.AbsolutePath?.self, forKey: .path)
-                        return try self.init(underlying: .edited(
-                            basedOn: basedOn.map { try .init($0) },
-                            unmanagedPath: path
-                        ))
+                        return try self.init(
+                            underlying: .edited(
+                                basedOn: basedOn.map { try .init($0) },
+                                unmanagedPath: path
+                            )
+                        )
                     default:
                         throw StringError("unknown dependency state \(kind)")
                     }

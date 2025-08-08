@@ -38,7 +38,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
-            
+
             // `Package.resolved` file should not be created right now.
             XCTAssert(!fs.exists(packageResolvedFile))
             XCTAssert(store.resolvedPackages.isEmpty)
@@ -139,7 +139,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         // Test registry resolution.
 
         do {
-            let identity = PackageIdentity.plain("baz.baz") // FIXME: use scope identifier
+            let identity = PackageIdentity.plain("baz.baz")  // FIXME: use scope identifier
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
@@ -159,34 +159,36 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        try fs.writeFileContents(packageResolvedFile, string:
-            """
-            {
-              "version": 1,
-              "object": {
-                "pins": [
-                  {
-                    "package": "Clang_C",
-                    "repositoryURL": "https://github.com/something/Clang_C.git",
-                    "state": {
-                      "branch": null,
-                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
-                      "version": "1.0.2",
-                    }
-                  },
-                  {
-                    "package": "Commandant",
-                    "repositoryURL": "https://github.com/something/Commandant.git",
-                    "state": {
-                      "branch": null,
-                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
-                      "version": "0.12.0"
-                    }
+        try fs.writeFileContents(
+            packageResolvedFile,
+            string:
+                """
+                {
+                  "version": 1,
+                  "object": {
+                    "pins": [
+                      {
+                        "package": "Clang_C",
+                        "repositoryURL": "https://github.com/something/Clang_C.git",
+                        "state": {
+                          "branch": null,
+                          "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                          "version": "1.0.2",
+                        }
+                      },
+                      {
+                        "package": "Commandant",
+                        "repositoryURL": "https://github.com/something/Commandant.git",
+                        "state": {
+                          "branch": null,
+                          "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                          "version": "0.12.0"
+                        }
+                      }
+                    ]
                   }
-                ]
-              }
-            }
-            """
+                }
+                """
         )
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
@@ -197,40 +199,42 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         let fs = InMemoryFileSystem()
         let packageResolvedFile = AbsolutePath("/Package.resolved")
 
-        try fs.writeFileContents(packageResolvedFile, string:
-            """
-            {
-                "version": 2,
-                "pins": [
-                  {
-                    "identity": "clang_c",
-                    "kind": "remoteSourceControl",
-                    "location": "https://github.com/something/Clang_C.git",
-                    "state": {
-                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
-                      "version": "1.0.2",
-                    }
-                  },
-                  {
-                    "identity": "commandant",
-                    "kind": "remoteSourceControl",
-                    "location": "https://github.com/something/Commandant.git",
-                    "state": {
-                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
-                      "version": "0.12.0"
-                    }
-                  },
-                  {
-                    "identity": "scope.package",
-                    "kind": "registry",
-                    "location": "",
-                    "state": {
-                      "version": "0.12.0"
-                    }
-                  }
-                ]
-            }
-            """
+        try fs.writeFileContents(
+            packageResolvedFile,
+            string:
+                """
+                {
+                    "version": 2,
+                    "pins": [
+                      {
+                        "identity": "clang_c",
+                        "kind": "remoteSourceControl",
+                        "location": "https://github.com/something/Clang_C.git",
+                        "state": {
+                          "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                          "version": "1.0.2",
+                        }
+                      },
+                      {
+                        "identity": "commandant",
+                        "kind": "remoteSourceControl",
+                        "location": "https://github.com/something/Commandant.git",
+                        "state": {
+                          "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                          "version": "0.12.0"
+                        }
+                      },
+                      {
+                        "identity": "scope.package",
+                        "kind": "registry",
+                        "location": "",
+                        "state": {
+                          "version": "0.12.0"
+                        }
+                      }
+                    ]
+                }
+                """
         )
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
@@ -243,41 +247,43 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let originHash = UUID().uuidString
 
-        try fs.writeFileContents(packageResolvedFile, string:
-            """
-            {
-                "version": 3,
-                "originHash": "\(originHash)",
-                "pins": [
-                  {
-                    "identity": "clang_c",
-                    "kind": "remoteSourceControl",
-                    "location": "https://github.com/something/Clang_C.git",
-                    "state": {
-                      "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
-                      "version": "1.0.2",
-                    }
-                  },
-                  {
-                    "identity": "commandant",
-                    "kind": "remoteSourceControl",
-                    "location": "https://github.com/something/Commandant.git",
-                    "state": {
-                      "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
-                      "version": "0.12.0"
-                    }
-                  },
-                  {
-                    "identity": "scope.package",
-                    "kind": "registry",
-                    "location": "",
-                    "state": {
-                      "version": "0.12.0"
-                    }
-                  }
-                ]
-            }
-            """
+        try fs.writeFileContents(
+            packageResolvedFile,
+            string:
+                """
+                {
+                    "version": 3,
+                    "originHash": "\(originHash)",
+                    "pins": [
+                      {
+                        "identity": "clang_c",
+                        "kind": "remoteSourceControl",
+                        "location": "https://github.com/something/Clang_C.git",
+                        "state": {
+                          "revision": "90a9574276f0fd17f02f58979423c3fd4d73b59e",
+                          "version": "1.0.2",
+                        }
+                      },
+                      {
+                        "identity": "commandant",
+                        "kind": "remoteSourceControl",
+                        "location": "https://github.com/something/Commandant.git",
+                        "state": {
+                          "revision": "c281992c31c3f41c48b5036c5a38185eaec32626",
+                          "version": "0.12.0"
+                        }
+                      },
+                      {
+                        "identity": "scope.package",
+                        "kind": "registry",
+                        "location": "",
+                        "state": {
+                          "version": "0.12.0"
+                        }
+                      }
+                    ]
+                }
+                """
         )
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
@@ -292,9 +298,13 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         let version = -1
         try fs.writeFileContents(packageResolvedFile, string: "{ \"version\": \(version) }");
 
-        XCTAssertThrowsError(try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertEqual("\(error)", "\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: unknown 'Package.resolved' version '\(version)' at '\(packageResolvedFile)'.")
-        })
+        XCTAssertThrowsError(
+            try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()),
+            "error expected",
+            { error in
+                XCTAssertEqual("\(error)", "\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue: unknown 'Package.resolved' version '\(version)' at '\(packageResolvedFile)'.")
+            }
+        )
 
     }
 
@@ -304,9 +314,13 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         try fs.writeFileContents(packageResolvedFile, string: "boom")
 
-        XCTAssertThrowsError(try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()), "error expected", { error in
-            XCTAssertMatch("\(error)", .contains("\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue"))
-        })
+        XCTAssertThrowsError(
+            try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init()),
+            "error expected",
+            { error in
+                XCTAssertMatch("\(error)", .contains("\(packageResolvedFile) file is corrupted or malformed; fix or delete the file to continue"))
+            }
+        )
     }
 
     func testEmptyPackageResolved() throws {
@@ -355,12 +369,18 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
-        store.track(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
-                  state: .version(v1, revision: "foo-revision"))
-        store.track(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
-                  state: .version(v1, revision: "bar-revision"))
-        store.track(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
-                  state: .version(v1, revision: "baz-revision"))
+        store.track(
+            packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
+            state: .version(v1, revision: "foo-revision")
+        )
+        store.track(
+            packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
+            state: .version(v1, revision: "bar-revision")
+        )
+        store.track(
+            packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
+            state: .version(v1, revision: "baz-revision")
+        )
 
         XCTAssert(store.resolvedPackages.count == 3)
         XCTAssertEqual(store.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
@@ -447,7 +467,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
-                URL4.absoluteString: mirroredURL.absoluteString
+                URL4.absoluteString: mirroredURL.absoluteString,
             ])
 
             XCTAssertEqual(mirrors.mirror(for: URL2.absoluteString), mirroredURL.absoluteString)
@@ -460,7 +480,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
-                URL4.absoluteString: mirroredURL.absoluteString
+                URL4.absoluteString: mirroredURL.absoluteString,
             ])
 
             XCTAssertEqual(mirrors.mirror(for: URL3.absoluteString), mirroredURL.absoluteString)
@@ -473,7 +493,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
-                URL4.absoluteString: mirroredURL.absoluteString
+                URL4.absoluteString: mirroredURL.absoluteString,
             ])
 
             XCTAssertEqual(mirrors.mirror(for: URL2.absoluteString), mirroredURL.absoluteString)
@@ -487,7 +507,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
-                URL4.absoluteString: mirroredURL.absoluteString
+                URL4.absoluteString: mirroredURL.absoluteString,
             ])
 
             XCTAssertEqual(mirrors.mirror(for: URL3.absoluteString), mirroredURL.absoluteString)
@@ -501,7 +521,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
                 URL1.absoluteString: mirroredURL.absoluteString,
                 URL2.absoluteString: mirroredURL.absoluteString,
                 URL3.absoluteString: mirroredURL.absoluteString,
-                URL4.absoluteString: mirroredURL.absoluteString
+                URL4.absoluteString: mirroredURL.absoluteString,
             ])
 
             // reverse index is sorted by "visited", then alphabetically

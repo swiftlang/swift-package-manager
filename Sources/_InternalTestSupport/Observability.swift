@@ -98,7 +98,7 @@ public func XCTAssertNoDiagnostics(
 ) {
     let diagnostics = problemsOnly ? diagnostics.filter { $0.severity >= .warning } : diagnostics
     if diagnostics.isEmpty { return }
-    
+
     let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
@@ -166,7 +166,6 @@ public func expectDiagnostics(
     )
 }
 
-
 public func expectDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
@@ -180,9 +179,9 @@ public func expectDiagnostics(
 
     if !testResult.uncheckedDiagnostics.isEmpty {
         Issue.record("unchecked diagnostics \(testResult.uncheckedDiagnostics)", sourceLocation: sourceLocation)
-     }
+    }
 }
- 
+
 public func testPartialDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
@@ -265,9 +264,9 @@ public class DiagnosticsTestResult {
             //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
             self.uncheckedDiagnostics.remove(at: index)
             return diagnostic
-        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
-        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity /*&& diagnostic.metadata == metadata*/}) {
-        //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
+            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+        } else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity /*&& diagnostic.metadata == metadata*/ }) {
+            //} else if let index = self.uncheckedDiagnostics.firstIndex(where: { diagnostic in diagnostic.severity == severity && diagnostic.metadata?.droppingLegacyKeys() == metadata?.droppingLegacyKeys()}) {
             let diagnostic = self.uncheckedDiagnostics[index]
             self.uncheckedDiagnostics.remove(at: index)
             return diagnostic

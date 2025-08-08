@@ -151,13 +151,13 @@ public struct PackageManager {
 
     /// Runs all, or a specified subset, of the unit tests of the package, after
     /// an incremental build if necessary.
-    /// 
+    ///
     /// The is functionally the same as `swift test` on the command line.
-    /// 
+    ///
     /// The returned test result includes any test failures. This method throws an
     /// error if the input parameters are invalid, or if the test cannot be
     /// started.
-    /// 
+    ///
     /// The Swift package manager command-line interface, or any IDE,
     /// may show the progress of the tests as they happen.
     /// - Parameters:
@@ -193,7 +193,7 @@ public struct PackageManager {
     public struct TestParameters {
         /// Whether to collect code coverage information while running tests.
         public var enableCodeCoverage: Bool
-        
+
         /// Creates a new set of test parameters.
         /// - Parameter enableCodeCoverage: Whether to collect code coverage information while running tests.
         public init(enableCodeCoverage: Bool = false) {
@@ -261,7 +261,7 @@ public struct PackageManager {
 
     /// Return a directory containing symbol graph files for the given target
     /// and options.
-    /// 
+    ///
     /// If the symbol graphs need to be created or updated first, they will be.
     /// Swift package manager or an IDE may generate these symbol graph files
     /// in any way it sees fit.
@@ -304,7 +304,7 @@ public struct PackageManager {
 
         /// A Boolean value that indicates whether to emit symbols for extensions to external types.
         public var emitExtensionBlocks: Bool
-        
+
         /// Creates a new set of options for returning the symbol graph for a target.
         /// - Parameters:
         ///   - minimumAccessLevel: The minimum access level of symbols to return.

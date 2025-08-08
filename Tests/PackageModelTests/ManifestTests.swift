@@ -38,13 +38,16 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.targetsRequired(for: .everything).map(\.name).sorted(), [
-                "Bar",
-                "Baz",
-                "Foo",
-                "FooBar",
-                "MyPlugin",
-            ])
+            XCTAssertEqual(
+                manifest.targetsRequired(for: .everything).map(\.name).sorted(),
+                [
+                    "Bar",
+                    "Baz",
+                    "Foo",
+                    "FooBar",
+                    "MyPlugin",
+                ]
+            )
         }
 
         do {
@@ -56,12 +59,15 @@ class ManifestTests: XCTestCase {
                 targets: targets
             )
 
-            XCTAssertEqual(manifest.targetsRequired(for: .specific(["Foo", "Bar"])).map(\.name).sorted(), [
-                "Bar",
-                "Baz",
-                "Foo",
-                "MyPlugin",
-            ])
+            XCTAssertEqual(
+                manifest.targetsRequired(for: .specific(["Foo", "Bar"])).map(\.name).sorted(),
+                [
+                    "Bar",
+                    "Baz",
+                    "Foo",
+                    "MyPlugin",
+                ]
+            )
         }
     }
 
@@ -73,7 +79,7 @@ class ManifestTests: XCTestCase {
         ]
 
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
         ]
 
         let targets = try [
@@ -115,9 +121,9 @@ class ManifestTests: XCTestCase {
             XCTAssertEqual(
                 try manifest.dependenciesRequired(for: .specific(["Foo"])).map(\.identity.description).sorted(),
                 [
-                    "bar1", // Foo → Foo1 → Bar1
-                    "bar2", // Foo → Foo1 → Foo2 → Bar2
-                    "bar3", // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
+                    "bar1",  // Foo → Foo1 → Bar1
+                    "bar2",  // Foo → Foo1 → Foo2 → Bar2
+                    "bar3",  // Foo → Foo1 → Bar1 → could be from any package due to pre‐5.2 tools version.
                 ]
             )
         }
@@ -153,14 +159,14 @@ class ManifestTests: XCTestCase {
             )
 
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            XCTAssertEqual(
-                manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map(\.identity.description).sorted(),
-                [
-                    "bar1", // Foo → Foo1 → Bar1
-                    "bar2", // Foo → Foo1 → Foo2 → Bar2
-                    // (Bar3 is unreachable.)
-                ]
-            )
+                XCTAssertEqual(
+                    manifest.dependenciesRequired(for: .specific(["Foo"]), nil).map(\.identity.description).sorted(),
+                    [
+                        "bar1",  // Foo → Foo1 → Bar1
+                        "bar2",  // Foo → Foo1 → Foo2 → Bar2
+                        // (Bar3 is unreachable.)
+                    ]
+                )
             #endif
         }
     }
@@ -199,18 +205,21 @@ class ManifestTests: XCTestCase {
                 products: products,
                 targets: targets,
                 traits: [],
-                pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
+                pruneDependencies: true  // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
             let enabledTraits = EnabledTraits(traits.map(\.name), setBy: .traitConfiguration)
             for trait in traits.sorted(by: { $0.name < $1.name }) {
                 XCTAssertThrowsError(try manifest.isTraitEnabled(trait, enabledTraits)) { error in
-                    XCTAssertEqual("\(error)", """
-                    Trait '\(
+                    XCTAssertEqual(
+                        "\(error)",
+                        """
+                        Trait '\(
                         trait
                             .name
-                    )' is not declared by package 'foo' (Foo). There are no available traits declared by this package.
-                    """)
+                        )' is not declared by package 'foo' (Foo). There are no available traits declared by this package.
+                        """
+                    )
                 }
             }
         }
@@ -250,35 +259,47 @@ class ManifestTests: XCTestCase {
                 products: products,
                 targets: targets,
                 traits: traits,
-                pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
+                pruneDependencies: true  // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
             // Test `isTraitEnabled` when the trait we're querying for does not exist.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["default"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
+                XCTAssertEqual(
+                    "\(error)",
+                    """
+                    Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
+                    """
+                )
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "Trait1"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
+                XCTAssertEqual(
+                    "\(error)",
+                    """
+                    Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
+                    """
+                )
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is the same non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExist"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
+                XCTAssertEqual(
+                    "\(error)",
+                    """
+                    Trait 'IDontExist' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
+                    """
+                )
             }
 
             // Test `isTraitEnabled` when the set of enabled traits contains a trait that isn't defined in the package, and the queried trait is another non-existant trait.
             XCTAssertThrowsError(try manifest.isTraitEnabled(.init(stringLiteral: "IDontExistPart2"), ["IDontExist"])) { error in
-                XCTAssertEqual("\(error)", """
-                Trait 'IDontExistPart2' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
-                """)
+                XCTAssertEqual(
+                    "\(error)",
+                    """
+                    Trait 'IDontExistPart2' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2.
+                    """
+                )
             }
 
         }
@@ -313,23 +334,29 @@ class ManifestTests: XCTestCase {
                 products: products,
                 targets: targets,
                 traits: [],
-                pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
+                pruneDependencies: true  // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
             // Enabled Traits when passed a TraitConfiguration:
 
             // When passed .disableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .disableAllTraits)) { error in
-                XCTAssertEqual("\(error)", """
+                XCTAssertEqual(
+                    "\(error)",
+                    """
                     Disabled default traits by command-line trait configuration on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-                    """)
+                    """
+                )
             }
 
             // When passed .enableAllTraits configuration
             XCTAssertThrowsError(try manifest.enabledTraits(using: .enabledTraits(["Trait1"]))) { error in
-                XCTAssertEqual("\(error)", """
+                XCTAssertEqual(
+                    "\(error)",
+                    """
                     Traits [Trait1] have been enabled on package 'foo' (Foo) that declares no traits.
-                    """)
+                    """
+                )
             }
 
             XCTAssertNoThrow(try manifest.enabledTraits(using: .enableAllTraits))
@@ -339,16 +366,22 @@ class ManifestTests: XCTestCase {
 
             // If given a parent package, and the enabled traits being passed don't exist:
             XCTAssertThrowsError(try manifest.enabledTraits(using: [EnabledTrait(name: "Trait1", setBy: .package(.init(identity: "qux")))])) { error in
-                XCTAssertEqual("\(error)", """
+                XCTAssertEqual(
+                    "\(error)",
+                    """
                     Package 'qux' enables traits [Trait1] on package 'foo' (Foo) that declares no traits.
-                    """)
+                    """
+                )
             }
 
             // If given a parent package, and the default traits are disabled:
             XCTAssertThrowsError(try manifest.enabledTraits(using: .init([], setBy: .package("qux")))) { error in
-                XCTAssertEqual("\(error)", """
+                XCTAssertEqual(
+                    "\(error)",
+                    """
                     Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-                    """)
+                    """
+                )
             }
         }
     }
@@ -393,7 +426,7 @@ class ManifestTests: XCTestCase {
             XCTAssertEqual(
                 try manifest.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
-                    "buzz",
+                    "buzz"
                 ]
             )
 
@@ -418,7 +451,7 @@ class ManifestTests: XCTestCase {
             XCTAssertEqual(
                 try manifestPrunedDeps.dependenciesRequired(for: .everything).map(\.identity.description).sorted(),
                 [
-                    "buzz",
+                    "buzz"
                 ]
             )
 
@@ -493,7 +526,7 @@ class ManifestTests: XCTestCase {
         let traits: Set<TraitDescription> = [
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
-            TraitDescription(name: "Trait3")
+            TraitDescription(name: "Trait3"),
         ]
 
         do {
@@ -505,19 +538,21 @@ class ManifestTests: XCTestCase {
                 products: products,
                 targets: targets,
                 traits: traits,
-                pruneDependencies: true // Since all dependencies are used, this shouldn't affect the outcome.
+                pruneDependencies: true  // Since all dependencies are used, this shouldn't affect the outcome.
             )
 
-            XCTAssertNoThrow(try {
-                let enabledTraits = try XCTUnwrap(manifest.enabledTraits(using: .disableAllTraits))
-                XCTAssertEqual(enabledTraits, [])
-            }())
+            XCTAssertNoThrow(
+                try {
+                    let enabledTraits = try XCTUnwrap(manifest.enabledTraits(using: .disableAllTraits))
+                    XCTAssertEqual(enabledTraits, [])
+                }()
+            )
         }
     }
 
     func testEnabledTraits_WithOnlyDefaultTraitsEnabled() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -552,7 +587,7 @@ class ManifestTests: XCTestCase {
 
     func testEnabledTraits_WithExplicitTraitsEnabled() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -592,7 +627,7 @@ class ManifestTests: XCTestCase {
 
     func testEnabledTraits_WithAllTraitsEnabled() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -630,7 +665,7 @@ class ManifestTests: XCTestCase {
         ]
 
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -649,9 +684,9 @@ class ManifestTests: XCTestCase {
                     .product(
                         name: "Bar2",
                         package: "Bar"
-                    )
+                    ),
                 ]
-            ),
+            )
         ]
 
         let traits: Set<TraitDescription> = [
@@ -693,7 +728,7 @@ class ManifestTests: XCTestCase {
         ]
 
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let unguardedTargetDependency: TargetDescription.Dependency = .product(
@@ -731,7 +766,7 @@ class ManifestTests: XCTestCase {
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
                 enabledTargetDependencyWithSamePackage,
-                manyTraitsEnableTargetDependency
+                manyTraitsEnableTargetDependency,
             ]
         )
 
@@ -756,85 +791,109 @@ class ManifestTests: XCTestCase {
             )
 
             // Test if an unguarded target dependency is enabled; should be true.
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                unguardedTargetDependency,
-                enabledTraits: ["default"]
-            ))
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    unguardedTargetDependency,
+                    enabledTraits: ["default"]
+                )
+            )
 
             // Test if a trait-guarded dependency is enabled when passed a set of enabled traits that
             // unblock this target dependency; should be true.
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                trait3GuardedTargetDependency,
-                enabledTraits: ["Trait3"]
-            ))
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    trait3GuardedTargetDependency,
+                    enabledTraits: ["Trait3"]
+                )
+            )
 
             // Test if a trait-guarded dependency is enabled when passed all traits enabled;
             // should be true.
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                trait3GuardedTargetDependency,
-                enabledTraits: ["Trait1", "Trait2", "Trait3"]
-            ))
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    trait3GuardedTargetDependency,
+                    enabledTraits: ["Trait1", "Trait2", "Trait3"]
+                )
+            )
 
             // Test if a trait-guarded dependency is enabled when there are no enabled traits passsed.
-            XCTAssertFalse(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                trait3GuardedTargetDependency,
-                enabledTraits: ["default"]
-            ))
+            XCTAssertFalse(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    trait3GuardedTargetDependency,
+                    enabledTraits: ["default"]
+                )
+            )
 
             // Test if a target dependency guarded by default traits is enabled when passed no explicitly
             // enabled traits; should be true.
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                defaultTraitGuardedTargetDependency,
-                enabledTraits: ["default"]
-            ))
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    defaultTraitGuardedTargetDependency,
+                    enabledTraits: ["default"]
+                )
+            )
 
             // Test if a target dependency guarded by default traits is enabled when passed an empty set
             // of enabled traits, overriding the default traits; should be false.
-            XCTAssertFalse(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                defaultTraitGuardedTargetDependency,
-                enabledTraits: []
-            ))
+            XCTAssertFalse(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    defaultTraitGuardedTargetDependency,
+                    enabledTraits: []
+                )
+            )
 
             // Test if a target dependency that isn't guarded by traits wherein it uses a product
             // from the same package as another target dependency that is guarded by traits; should be true.
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                enabledTargetDependencyWithSamePackage,
-                enabledTraits: []
-            ))
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    enabledTargetDependencyWithSamePackage,
+                    enabledTraits: []
+                )
+            )
 
             // Test variations of traits that enable a target dependency that is unguarded by many traits.
-            XCTAssertFalse(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                manyTraitsEnableTargetDependency,
-                enabledTraits: []
-            ))
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                manyTraitsEnableTargetDependency,
-                enabledTraits: ["Space"]
-            ))
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                manyTraitsEnableTargetDependency,
-                enabledTraits: ["Music"]
-            ))
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                manyTraitsEnableTargetDependency,
-                enabledTraits: ["Music", "Space"]
-            ))
-            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
-                target: "Foo",
-                manyTraitsEnableTargetDependency,
-                enabledTraits: ["Trait3", "Music", "Space", "Trait1", "Trait2"]
-            ))
+            XCTAssertFalse(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    manyTraitsEnableTargetDependency,
+                    enabledTraits: []
+                )
+            )
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    manyTraitsEnableTargetDependency,
+                    enabledTraits: ["Space"]
+                )
+            )
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    manyTraitsEnableTargetDependency,
+                    enabledTraits: ["Music"]
+                )
+            )
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    manyTraitsEnableTargetDependency,
+                    enabledTraits: ["Music", "Space"]
+                )
+            )
+            XCTAssertTrue(
+                try manifest.isTargetDependencyEnabled(
+                    target: "Foo",
+                    manyTraitsEnableTargetDependency,
+                    enabledTraits: ["Trait3", "Music", "Space", "Trait1", "Trait2"]
+                )
+            )
         }
     }
 
@@ -852,7 +911,7 @@ class ManifestTests: XCTestCase {
         ]
 
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let unguardedTargetDependency: TargetDescription.Dependency = .product(
@@ -889,7 +948,7 @@ class ManifestTests: XCTestCase {
                 unguardedTargetDependency,
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
-                manyTraitsGuardingTargetDependency
+                manyTraitsGuardingTargetDependency,
             ]
         )
 
@@ -965,7 +1024,7 @@ class ManifestTests: XCTestCase {
                         name: "Bar",
                         package: "Bar",
                         condition: .init(traits: ["Trait1"])
-                    ),
+                    )
                 ]
             ),
             TargetDescription(name: "Bar", dependencies: ["Baz"]),
@@ -1015,7 +1074,7 @@ class ManifestTests: XCTestCase {
                         name: "Bar",
                         package: "Bar",
                         condition: .init(traits: ["Trait1"])
-                    ),
+                    )
                 ]
             ),
             TargetDescription(
@@ -1025,14 +1084,14 @@ class ManifestTests: XCTestCase {
                         name: "Baz",
                         package: "Baz",
                         condition: .init(traits: ["Trait2"])
-                    ),
+                    )
                 ]
             ),
             TargetDescription(
                 name: "Baz",
                 dependencies: [
                     "MyPlugin",
-                    "Bar", // Bar as a dependency is not trait-guarded here
+                    "Bar",  // Bar as a dependency is not trait-guarded here
                 ]
             ),
             TargetDescription(name: "FooBar", dependencies: []),
@@ -1107,7 +1166,7 @@ class ManifestTests: XCTestCase {
                         name: "Bar",
                         package: "Bar",
                         condition: .init(traits: ["Trait1"])
-                    ),
+                    )
                 ]
             ),
             TargetDescription(name: "Bar", dependencies: ["Baz"]),
@@ -1146,7 +1205,7 @@ class ManifestTests: XCTestCase {
 
     func testTargetDescriptionDependencyName_ForProduct() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -1156,9 +1215,9 @@ class ManifestTests: XCTestCase {
                     .product(
                         name: "Bar",
                         package: "Blah"
-                    ),
+                    )
                 ]
-            ),
+            )
         ]
 
         do {
@@ -1182,7 +1241,7 @@ class ManifestTests: XCTestCase {
 
     func testTargetDescriptionDependencyName_ForTarget() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
@@ -1191,9 +1250,9 @@ class ManifestTests: XCTestCase {
                 dependencies: [
                     .target(
                         name: "Baz"
-                    ),
+                    )
                 ]
-            ),
+            )
         ]
 
         do {
@@ -1217,16 +1276,16 @@ class ManifestTests: XCTestCase {
 
     func testTargetDescriptionDependencyName_ForByName() throws {
         let products = try [
-            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),
+            ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"])
         ]
 
         let targets = try [
             TargetDescription(
                 name: "Foo",
                 dependencies: [
-                    "Boo",
+                    "Boo"
                 ]
-            ),
+            )
         ]
 
         do {

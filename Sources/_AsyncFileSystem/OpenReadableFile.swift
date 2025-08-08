@@ -30,7 +30,7 @@ package struct OpenReadableFile: Sendable {
 
     /// Concrete instance of underlying file storage.
     let fileHandle: Storage
-    
+
     /// Creates a readable ``AsyncSequence`` that can be iterated on to read from this file handle.
     /// - Returns: `ReadableFileStream` value conforming to ``AsyncSequence``, ready for asynchronous iteration.
     package func read() async throws -> ReadableFileStream {
@@ -43,7 +43,7 @@ package struct OpenReadableFile: Sendable {
                     readChunkSize: self.chunkSize
                 )
             )
-            
+
         case .mock(let array):
             return ReadableFileStream.mock(.init(bytes: array, chunkSize: self.chunkSize))
         }

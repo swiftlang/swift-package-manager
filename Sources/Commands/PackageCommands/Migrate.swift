@@ -14,8 +14,7 @@ import ArgumentParser
 
 import Basics
 
-@_spi(SwiftPMInternal)
-import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 
 import Foundation
 
@@ -24,8 +23,7 @@ import OrderedCollections
 import PackageGraph
 import PackageModel
 
-@_spi(PackageRefactor)
-import enum SwiftRefactor.ManifestEditError
+@_spi(PackageRefactor) import enum SwiftRefactor.ManifestEditError
 
 import SPMBuildCore
 import SwiftFixIt
@@ -148,7 +146,7 @@ extension SwiftPackageCommand {
                     .units(
                         allowed: [.seconds],
                         width: .narrow,
-                        fractionalPart: .init(lengthLimits: 0 ... 3, roundingRule: .up)
+                        fractionalPart: .init(lengthLimits: 0...3, roundingRule: .up)
                     )
                 )
                 message += ")"
@@ -191,7 +189,8 @@ extension SwiftPackageCommand {
                 let feature = supportedFeatures.first { $0.name == name }
 
                 guard let feature else {
-                    let migratableCommaSeparatedFeatures = supportedFeatures
+                    let migratableCommaSeparatedFeatures =
+                        supportedFeatures
                         .filter(\.migratable)
                         .map(\.name)
                         .sorted()
@@ -285,23 +284,23 @@ extension SwiftPackageCommand {
                 if let error = error as? ManifestEditError {
                     switch error {
                     case .cannotFindPackage,
-                         .cannotAddSettingsToPluginTarget,
-                         .existingDependency,
-                         .malformedManifest:
+                        .cannotAddSettingsToPluginTarget,
+                        .existingDependency,
+                        .malformedManifest:
                         break
                     case .cannotFindArrayLiteralArgument,
-                         // This means the target could not be found
-                         // syntactically, not that it does not exist.
-                         .cannotFindTargets,
-                         .cannotFindTarget:
+                        // This means the target could not be found
+                        // syntactically, not that it does not exist.
+                        .cannotFindTargets,
+                        .cannotFindTarget:
                         let settings = try features.map {
                             try $0.swiftSettingDescription
                         }.joined(separator: ", ")
 
                         message += """
-                        . Please enable them manually by adding the following Swift settings to the target: \
-                        '\(settings)'
-                        """
+                            . Please enable them manually by adding the following Swift settings to the target: \
+                            '\(settings)'
+                            """
                     }
                 }
 

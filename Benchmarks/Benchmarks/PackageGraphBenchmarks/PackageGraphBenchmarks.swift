@@ -1,18 +1,17 @@
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import Basics
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import Basics
 import Benchmark
 import Foundation
 import PackageModel
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import Workspace
 
 let benchmarks = {
     let defaultMetrics: [BenchmarkMetric]
     if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_ALL_METRICS"],
-    envVar.lowercased() == "true" || envVar == "1" {
+        envVar.lowercased() == "true" || envVar == "1"
+    {
         defaultMetrics = .all
     } else {
         defaultMetrics = [
@@ -23,7 +22,8 @@ let benchmarks = {
 
     let modulesGraphDepth: Int
     if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_MODULES_GRAPH_DEPTH"],
-    let parsedValue = Int(envVar) {
+        let parsedValue = Int(envVar)
+    {
         modulesGraphDepth = parsedValue
     } else {
         modulesGraphDepth = 150
@@ -31,7 +31,8 @@ let benchmarks = {
 
     let modulesGraphWidth: Int
     if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_MODULES_GRAPH_WIDTH"],
-    let parsedValue = Int(envVar) {
+        let parsedValue = Int(envVar)
+    {
         modulesGraphWidth = parsedValue
     } else {
         modulesGraphWidth = 150
@@ -39,7 +40,8 @@ let benchmarks = {
 
     let packagesGraphDepth: Int
     if let envVar = ProcessInfo.processInfo.environment["SWIFTPM_BENCHMARK_PACKAGES_GRAPH_DEPTH"],
-    let parsedValue = Int(envVar) {
+        let parsedValue = Int(envVar)
+    {
         packagesGraphDepth = parsedValue
     } else {
         packagesGraphDepth = 10
@@ -103,8 +105,8 @@ let benchmarks = {
         )
     ) { benchmark in
         try syntheticModulesGraph(
-            benchmark, 
-            modulesGraphDepth: modulesGraphDepth, 
+            benchmark,
+            modulesGraphDepth: modulesGraphDepth,
             modulesGraphWidth: modulesGraphWidth,
             includeMacros: true
         )
@@ -112,9 +114,9 @@ let benchmarks = {
 }
 
 func syntheticModulesGraph(
-    _ benchmark: Benchmark, 
-    modulesGraphDepth: Int, 
-    modulesGraphWidth: Int, 
+    _ benchmark: Benchmark,
+    modulesGraphDepth: Int,
+    modulesGraphWidth: Int,
     includeMacros: Bool = false
 ) throws {
     // If macros are included, modules are split in three parts:
@@ -137,9 +139,12 @@ func syntheticModulesGraph(
     let macrosDependenciesModules: [TargetDescription]
     if includeMacros {
         macrosModules = try (0..<modulesGraphWidth / macrosDenominator).map { i in
-            try TargetDescription(name: "Macros\(i)", dependencies: (0..<min(i, modulesGraphDepth)).map {
-                .target(name: "MacrosDependency\($0)")
-            })
+            try TargetDescription(
+                name: "Macros\(i)",
+                dependencies: (0..<min(i, modulesGraphDepth)).map {
+                    .target(name: "MacrosDependency\($0)")
+                }
+            )
         }
         macrosDependenciesModules = try (0..<modulesGraphWidth / macrosDenominator).map { i in
             try TargetDescription(name: "MacrosDependency\(i)")

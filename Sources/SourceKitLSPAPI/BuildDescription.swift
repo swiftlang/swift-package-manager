@@ -122,7 +122,6 @@ private struct WrappedClangTargetBuildDescription: BuildTarget {
 
     var compiler: BuildTargetCompiler { .clang }
 
-
     public var destination: BuildDestination {
         return description.destination == .host ? .host : .target
     }
@@ -288,11 +287,12 @@ public struct BuildDescription {
         callback: (any BuildTarget, _ parent: (any BuildTarget)?) -> Void
     ) {
         self.buildPlan.traverseModules { module, parent in
-            let parentDescription: (any BuildTarget)? = if let parent {
-                getBuildTarget(for: parent.0, destination: parent.1)
-            } else {
-                nil
-            }
+            let parentDescription: (any BuildTarget)? =
+                if let parent {
+                    getBuildTarget(for: parent.0, destination: parent.1)
+                } else {
+                    nil
+                }
 
             if let description = getBuildTarget(for: module.0, destination: module.1) {
                 callback(description, parentDescription)

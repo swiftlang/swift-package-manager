@@ -121,13 +121,15 @@ private class MockRepositoryManagerDelegate: RepositoryManager.Delegate {
 
 private let v1: Version = "1.0.0"
 private let v2: Version = "2.0.0"
-private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
+private let v1Range: VersionSetSpecifier = .range("1.0.0"..<"2.0.0")
 
 final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
+        try XCTSkipOnWindows(
+            because: """
+                https://github.com/swiftlang/swift-package-manager/issues/8578
+                """
+        )
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -174,9 +176,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
+        try XCTSkipOnWindows(
+            because: """
+                https://github.com/swiftlang/swift-package-manager/issues/8578
+                """
+        )
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -274,9 +278,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testPreReleaseVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
+        try XCTSkipOnWindows(
+            because: """
+                https://github.com/swiftlang/swift-package-manager/issues/8578
+                """
+        )
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -325,9 +331,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testSimultaneousVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
+        try XCTSkipOnWindows(
+            because: """
+                https://github.com/swiftlang/swift-package-manager/issues/8578
+                """
+        )
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -380,10 +388,10 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testDependencyConstraints() throws {
-#if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-#else
-        try XCTSkipIf(true, "Target based dependency resolution is disabled")
-#endif
+        #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
+        #else
+            try XCTSkipIf(true, "Target based dependency resolution is disabled")
+        #endif
 
         let dependencies: [PackageDependency] = [
             .localSourceControl(path: "/Bar1", requirement: .upToNextMajor(from: "1.0.0")),
@@ -392,7 +400,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         ]
 
         let products = [
-            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"]),
+            try ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo1"])
         ]
 
         let targets = [
@@ -548,7 +556,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                 displayName: packageDir.basename,
                 path: packageDir,
                 targets: [
-                    try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
+                    try TargetDescription(name: packageDir.basename, path: packageDir.pathString)
                 ]
             )
             let containerProvider = try Workspace._init(
@@ -564,8 +572,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }
-            catch let error as SourceControlPackageContainer.GetDependenciesError {
+            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) } catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
                 XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
@@ -573,8 +580,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             }
 
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) }
-            catch let error as SourceControlPackageContainer.GetDependenciesError {
+            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) } catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message about the specific commit.
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
                 XCTAssertMatch(error.repository.description, .suffix("SomePackage"))
@@ -593,7 +599,6 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             try localFileSystem.writeFileContents(packageDirectory.appending(Manifest.filename), string: "")
             try ToolsVersionSpecificationWriter.rewriteSpecification(manifestDirectory: packageDirectory, toolsVersion: .current, fileSystem: localFileSystem)
-
 
             let repositoryProvider = GitRepositoryProvider()
             let repositoryManagerDelegate = MockRepositoryManagerDelegate()
@@ -614,7 +619,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                             displayName: packageDirectory.basename,
                             path: packageDirectory,
                             targets: [
-                                try TargetDescription(name: packageDirectory.basename, path: packageDirectory.pathString),
+                                try TargetDescription(name: packageDirectory.basename, path: packageDirectory.pathString)
                             ]
                         )
                     ]
@@ -713,7 +718,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                     try TargetDescription(
                         name: "Target",
                         dependencies: [.product(name: "DependencyProduct", package: "Dependency")]
-                    ),
+                    )
                 ]
             )
             let containerProvider = try Workspace._init(
@@ -732,8 +737,8 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]), ["default"])
             let forProduct = try await container.getDependencies(at: version, productFilter: .specific(["Product"]), ["default"])
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            // If the cache overlaps (incorrectly), these will be the same.
-            XCTAssertNotEqual(forNothing, forProduct)
+                // If the cache overlaps (incorrectly), these will be the same.
+                XCTAssertNotEqual(forNothing, forProduct)
             #endif
         }
     }
@@ -751,7 +756,7 @@ extension PackageContainerProvider {
                 observabilityScope: ObservabilitySystem.NOOP,
                 on: .global(),
                 completion: {
-                  continuation.resume(with: $0)
+                    continuation.resume(with: $0)
                 }
             )
         }
@@ -763,7 +768,7 @@ extension RepositoryManager {
         fileSystem: FileSystem,
         path: AbsolutePath,
         provider: RepositoryProvider,
-        cachePath: AbsolutePath? =  .none,
+        cachePath: AbsolutePath? = .none,
         cacheLocalPackages: Bool = false,
         delegate: RepositoryManagerDelegate? = .none
     ) {

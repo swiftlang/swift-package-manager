@@ -86,7 +86,7 @@ public struct EnabledTraitsMap {
         /// or when the `default` trait is explicitly requested.
         var _defaultSetters: [PackageIdentity: Set<EnabledTrait.Setter>] = [:]
 
-        init() { }
+        init() {}
 
         init(_ traits: [PackageIdentity: EnabledTraits]) {
             self.traits = traits
@@ -95,7 +95,7 @@ public struct EnabledTraitsMap {
 
     private var storage = ThreadSafeBox(Storage())
 
-    public init() { }
+    public init() {}
 
     public subscript(key: String) -> EnabledTraits {
         get { self[PackageIdentity(key)] }
@@ -351,15 +351,15 @@ extension EnabledTrait: Equatable {
     // When comparing two `EnabledTraits`, if the names are the same then
     // we know that these two objects are referring to the same trait of a package.
     // In this case, the two objects should be combined into one.
-    public static func ==(lhs: EnabledTrait, rhs: EnabledTrait) -> Bool {
+    public static func == (lhs: EnabledTrait, rhs: EnabledTrait) -> Bool {
         return lhs.name == rhs.name
     }
 
-    public static func ==(lhs: EnabledTrait, rhs: String) -> Bool {
+    public static func == (lhs: EnabledTrait, rhs: String) -> Bool {
         return lhs.name == rhs
     }
 
-    public static func ==(lhs: String, rhs: EnabledTrait) -> Bool {
+    public static func == (lhs: String, rhs: EnabledTrait) -> Bool {
         return lhs == rhs.name
     }
 }
@@ -367,7 +367,7 @@ extension EnabledTrait: Equatable {
 // MARK: EnabledTrait + Comparable
 
 extension EnabledTrait: Comparable {
-    public static func <(lhs: EnabledTrait, rhs: EnabledTrait) -> Bool {
+    public static func < (lhs: EnabledTrait, rhs: EnabledTrait) -> Bool {
         return lhs.name < rhs.name
     }
 }
@@ -458,7 +458,7 @@ public struct EnabledTraits: Hashable {
         self._traits = IdentifiableSet(traits)
     }
 
-    public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
+    public static func == (_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
         lhs._traits.names == rhs._traits.names
     }
 }
@@ -537,11 +537,11 @@ extension EnabledTraits: Collection {
         return EnabledTraits(transformedTraits)
     }
 
-    public static func ==<C: Collection>(_ lhs: EnabledTraits, _ rhs: C) -> Bool where C.Element == Element {
+    public static func == <C: Collection>(_ lhs: EnabledTraits, _ rhs: C) -> Bool where C.Element == Element {
         lhs._traits.names == rhs.names
     }
 
-    public static func ==<C: Collection>(_ lhs: C, _ rhs: EnabledTraits) -> Bool where C.Element == Element {
+    public static func == <C: Collection>(_ lhs: C, _ rhs: EnabledTraits) -> Bool where C.Element == Element {
         lhs.names == rhs._traits.names
     }
 }
@@ -583,7 +583,6 @@ extension Collection where Element == EnabledTrait {
     }
 }
 
-
 // MARK: - IdentifiableSet + EnabledTrait
 
 extension IdentifiableSet where Element == EnabledTrait {
@@ -603,4 +602,3 @@ extension IdentifiableSet where Element == EnabledTrait {
         return updatedContents
     }
 }
-

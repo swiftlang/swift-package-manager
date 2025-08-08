@@ -34,7 +34,7 @@ struct PluginTargetBuildDescription: BuildTarget {
 
     var sources: [SourceItem] {
         return target.sources.paths.map {
-          SourceItem(sourceFile: $0.asURL, outputFile: nil)
+            SourceItem(sourceFile: $0.asURL, outputFile: nil)
         }
     }
 
@@ -82,37 +82,37 @@ struct PluginTargetBuildDescription: BuildTarget {
 }
 
 fileprivate enum FilePathError: Error, CustomStringConvertible {
-  case noFileSystemRepresentation(URL)
-  case noFileURL(URL)
+    case noFileSystemRepresentation(URL)
+    case noFileURL(URL)
 
-  var description: String {
-    switch self {
-    case .noFileSystemRepresentation(let url):
-      return "\(url.description) cannot be represented as a file system path"
-    case .noFileURL(let url):
-      return "\(url.description) is not a file URL"
+    var description: String {
+        switch self {
+        case .noFileSystemRepresentation(let url):
+            return "\(url.description) cannot be represented as a file system path"
+        case .noFileURL(let url):
+            return "\(url.description) is not a file URL"
+        }
     }
-  }
 }
 
 fileprivate extension URL {
-  /// Assuming that this is a file URL, the path with which the file system refers to the file. This is similar to
-  /// `path` but has two differences:
-  /// - It uses backslashes as the path separator on Windows instead of forward slashes
-  /// - It throws an error when called on a non-file URL.
-  ///
-  /// `filePath` should generally be preferred over `path` when dealing with file URLs.
-  var filePath: String {
-    get throws {
-      guard self.isFileURL else {
-        throw FilePathError.noFileURL(self)
-      }
-      return try self.withUnsafeFileSystemRepresentation { buffer in
-        guard let buffer else {
-          throw FilePathError.noFileSystemRepresentation(self)
+    /// Assuming that this is a file URL, the path with which the file system refers to the file. This is similar to
+    /// `path` but has two differences:
+    /// - It uses backslashes as the path separator on Windows instead of forward slashes
+    /// - It throws an error when called on a non-file URL.
+    ///
+    /// `filePath` should generally be preferred over `path` when dealing with file URLs.
+    var filePath: String {
+        get throws {
+            guard self.isFileURL else {
+                throw FilePathError.noFileURL(self)
+            }
+            return try self.withUnsafeFileSystemRepresentation { buffer in
+                guard let buffer else {
+                    throw FilePathError.noFileSystemRepresentation(self)
+                }
+                return String(cString: buffer)
+            }
         }
-        return String(cString: buffer)
-      }
     }
-  }
 }

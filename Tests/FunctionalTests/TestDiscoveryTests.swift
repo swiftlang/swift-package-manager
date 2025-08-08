@@ -136,7 +136,7 @@ struct TestDiscoveryTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func discovery_whenNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
                 // in "swift test" build output goes to stderr
@@ -150,9 +150,9 @@ struct TestDiscoveryTests {
                 // in "swift test" test output goes to stdout
                 #expect(stdout.contains("Executed 0 tests"))
             }
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
     // FIXME: --build-system swiftbuild should support hand-authored entry points.
@@ -166,7 +166,8 @@ struct TestDiscoveryTests {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, SwiftModule.testEntryPointNames
+        arguments: SupportedBuildSystemOnAllPlatforms,
+        SwiftModule.testEntryPointNames
     )
     func entryPointOverride(
         _ buildSystem: BuildSystemProvider.Kind,
@@ -233,9 +234,9 @@ struct TestDiscoveryTests {
                 // in "swift test" test output goes to stdout
                 let delimiter: String
                 #if os(macOS)
-                delimiter = " "
+                    delimiter = " "
                 #else
-                delimiter = "."
+                    delimiter = "."
                 #endif
                 #expect(stdout.contains("SimpleTests1\(delimiter)testExample1"))
                 #expect(stdout.contains("SimpleTests1\(delimiter)testExample1_a"))
@@ -291,9 +292,9 @@ struct TestDiscoveryTests {
                 // in "swift test" test output goes to stdout
                 let delimiter: String
                 #if os(macOS)
-                delimiter = " "
+                    delimiter = " "
                 #else
-                delimiter = "."
+                    delimiter = "."
                 #endif
                 #expect(stdout.contains("Tests3\(delimiter)test11"))
                 #expect(stdout.contains("->Module1::Tests1::test11"))

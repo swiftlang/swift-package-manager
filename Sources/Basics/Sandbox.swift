@@ -57,17 +57,17 @@ public enum Sandbox {
         allowNetworkConnections: [SandboxNetworkPermission] = []
     ) throws -> [String] {
         #if os(macOS)
-        let profile = try macOSSandboxProfile(
-            fileSystem: fileSystem,
-            strictness: strictness,
-            writableDirectories: writableDirectories,
-            readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnections
-        )
-        return ["/usr/bin/sandbox-exec", "-p", profile] + command
+            let profile = try macOSSandboxProfile(
+                fileSystem: fileSystem,
+                strictness: strictness,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections
+            )
+            return ["/usr/bin/sandbox-exec", "-p", profile] + command
         #else
-        // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
-        return command
+            // rdar://40235432, rdar://75636874 tracks implementing sandboxes for other platforms.
+            return command
         #endif
     }
 
@@ -76,7 +76,7 @@ public enum Sandbox {
         /// Blocks network access and all file system modifications.
         case `default`
         /// More lenient restrictions than the default, for compatibility with SwiftPM manifests using a tools version older than 5.3.
-        case manifest_pre_53 // backwards compatibility for manifests
+        case manifest_pre_53  // backwards compatibility for manifests
         /// Like `default`, but also makes temporary-files directories (such as `/tmp`) on the platform writable.
         case writableTemporaryDirectory
     }
@@ -85,174 +85,175 @@ public enum Sandbox {
 // MARK: - macOS
 
 #if os(macOS)
-fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
-    func GetConfStr(_ name: CInt) -> AbsolutePath? {
-        let length: Int = confstr(name, nil, 0)
+    fileprivate let threadSafeDarwinCacheDirectories: [AbsolutePath] = {
+        func GetConfStr(_ name: CInt) -> AbsolutePath? {
+            let length: Int = confstr(name, nil, 0)
 
-        let buffer: UnsafeMutableBufferPointer<CChar> = .allocate(capacity: length)
-        defer { buffer.deallocate() }
+            let buffer: UnsafeMutableBufferPointer<CChar> = .allocate(capacity: length)
+            defer { buffer.deallocate() }
 
-        guard confstr(name, buffer.baseAddress, length) == length else { return nil }
+            guard confstr(name, buffer.baseAddress, length) == length else { return nil }
 
-        let value = String(cString: buffer.baseAddress!)
-        guard value.hasSuffix("/") else { return nil }
+            let value = String(cString: buffer.baseAddress!)
+            guard value.hasSuffix("/") else { return nil }
 
-        return try? resolveSymlinks(AbsolutePath(validating: value))
-    }
+            return try? resolveSymlinks(AbsolutePath(validating: value))
+        }
 
-    var directories: [AbsolutePath] = []
-    try? directories.append(AbsolutePath(validating: "/private/var/tmp"))
-    (try? TSCBasic.determineTempDirectory()).map { directories.append(AbsolutePath($0)) }
-    GetConfStr(_CS_DARWIN_USER_TEMP_DIR).map { directories.append($0) }
-    GetConfStr(_CS_DARWIN_USER_CACHE_DIR).map { directories.append($0) }
-    return directories
-}()
+        var directories: [AbsolutePath] = []
+        try? directories.append(AbsolutePath(validating: "/private/var/tmp"))
+        (try? TSCBasic.determineTempDirectory()).map { directories.append(AbsolutePath($0)) }
+        GetConfStr(_CS_DARWIN_USER_TEMP_DIR).map { directories.append($0) }
+        GetConfStr(_CS_DARWIN_USER_CACHE_DIR).map { directories.append($0) }
+        return directories
+    }()
 
-fileprivate func macOSSandboxProfile(
-    fileSystem: FileSystem,
-    strictness: Sandbox.Strictness,
-    writableDirectories: [AbsolutePath],
-    readOnlyDirectories: [AbsolutePath],
-    allowNetworkConnections: [SandboxNetworkPermission]
-) throws -> String {
-    var contents = "(version 1)\n"
+    fileprivate func macOSSandboxProfile(
+        fileSystem: FileSystem,
+        strictness: Sandbox.Strictness,
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission]
+    ) throws -> String {
+        var contents = "(version 1)\n"
 
-    // Deny everything by default.
-    contents += "(deny default)\n"
+        // Deny everything by default.
+        contents += "(deny default)\n"
 
-    // Import the system sandbox profile.
-    contents += "(import \"system.sb\")\n"
+        // Import the system sandbox profile.
+        contents += "(import \"system.sb\")\n"
 
-    // Allow reading all files; ideally we'd only allow the package directory and any dependencies,
-    // but all kinds of system locations need to be accessible.
-    contents += "(allow file-read*)\n"
+        // Allow reading all files; ideally we'd only allow the package directory and any dependencies,
+        // but all kinds of system locations need to be accessible.
+        contents += "(allow file-read*)\n"
 
-    // This is needed to launch any processes.
-    contents += "(allow process*)\n"
-    
-    // This is needed to use the UniformTypeIdentifiers API.
-    contents += "(allow mach-lookup (global-name \"com.apple.lsd.mapdb\"))\n"
+        // This is needed to launch any processes.
+        contents += "(allow process*)\n"
 
-    // For downloadable Metal toolchain lookups.
-    contents += "(allow mach-lookup (global-name \"com.apple.mobileassetd.v2\"))\n"
+        // This is needed to use the UniformTypeIdentifiers API.
+        contents += "(allow mach-lookup (global-name \"com.apple.lsd.mapdb\"))\n"
 
-    if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
-        // this is used by the system for caching purposes and will lead to log spew if not allowed
-        contents += "(allow file-write* (regex \"/Users/*/Library/Caches/*/Cache.db*\"))"
+        // For downloadable Metal toolchain lookups.
+        contents += "(allow mach-lookup (global-name \"com.apple.mobileassetd.v2\"))\n"
 
-        // this allows the specific network connections, as well as resolving DNS
-        contents += """
-        (system-network)
-        (allow network-outbound
-            (literal "/private/var/run/mDNSResponder")
-        """
+        if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
+            // this is used by the system for caching purposes and will lead to log spew if not allowed
+            contents += "(allow file-write* (regex \"/Users/*/Library/Caches/*/Cache.db*\"))"
 
-        allowNetworkConnections.forEach {
-            if let domain = $0.domain {
-                $0.ports.forEach { port in
-                    contents += "(remote ip \"\(domain):\(port)\")"
+            // this allows the specific network connections, as well as resolving DNS
+            contents += """
+                (system-network)
+                (allow network-outbound
+                    (literal "/private/var/run/mDNSResponder")
+                """
+
+            allowNetworkConnections.forEach {
+                if let domain = $0.domain {
+                    $0.ports.forEach { port in
+                        contents += "(remote ip \"\(domain):\(port)\")"
+                    }
+
+                    // empty list of ports means all are permitted
+                    if $0.ports.isEmpty {
+                        contents += "(remote ip \"\(domain):*\")"
+                    }
                 }
 
-                // empty list of ports means all are permitted
-                if $0.ports.isEmpty {
-                    contents += "(remote ip \"\(domain):*\")"
+                switch $0 {
+                case .docker:
+                    // specifically allow Docker by basename of the socket
+                    contents += "(remote unix-socket (regex \"*/docker.sock\"))"
+                case .unixDomainSocket:
+                    // this allows unix domain sockets
+                    contents += "(remote unix-socket)"
+                default:
+                    break
                 }
             }
 
-            switch $0 {
-            case .docker:
-                // specifically allow Docker by basename of the socket
-                contents += "(remote unix-socket (regex \"*/docker.sock\"))"
-            case .unixDomainSocket:
-                // this allows unix domain sockets
-                contents += "(remote unix-socket)"
-            default:
-                break
+            contents += "\n)\n"
+        }
+
+        // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
+        if strictness == .manifest_pre_53 {
+            // This is required by the Swift compiler.
+            contents += "(allow sysctl*)\n"
+        }
+
+        // Allow writing only to certain directories.
+        var writableDirectoriesExpression: [String] = []
+
+        // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
+        if strictness == .manifest_pre_53 {
+            writableDirectoriesExpression += threadSafeDarwinCacheDirectories.map {
+                ##"(regex #"^\##($0.pathString)/org\.llvm\.clang.*")"##
+            }
+        }
+        // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
+        else if strictness == .writableTemporaryDirectory {
+            var stableCacheDirectories: [AbsolutePath] = []
+            // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
+            for tmpDir in (["/tmp"] + threadSafeDarwinCacheDirectories.map(\.pathString)) {
+                let resolved = try resolveSymlinks(AbsolutePath(validating: tmpDir))
+                if !stableCacheDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                    stableCacheDirectories.append(resolved)
+                    writableDirectoriesExpression += [
+                        "(subpath \(resolved.quotedAsSubpathForSandboxProfile))"
+                    ]
+                }
             }
         }
 
-        contents += "\n)\n"
-    }
-
-    // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
-    if strictness == .manifest_pre_53 {
-        // This is required by the Swift compiler.
-        contents += "(allow sysctl*)\n"
-    }
-
-    // Allow writing only to certain directories.
-    var writableDirectoriesExpression: [String] = []
-
-    // The following accesses are only needed when interpreting the manifest (versus running a compiled version).
-    if strictness == .manifest_pre_53 {
-        writableDirectoriesExpression += threadSafeDarwinCacheDirectories.map {
-            ##"(regex #"^\##($0.pathString)/org\.llvm\.clang.*")"##
-        }
-    }
-    // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
-    else if strictness == .writableTemporaryDirectory {
-        var stableCacheDirectories: [AbsolutePath] = []
-        // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
-        for tmpDir in (["/tmp"] + threadSafeDarwinCacheDirectories.map(\.pathString)) {
-            let resolved = try resolveSymlinks(AbsolutePath(validating: tmpDir))
-            if !stableCacheDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
-                stableCacheDirectories.append(resolved)
-                writableDirectoriesExpression += [
-                    "(subpath \(resolved.quotedAsSubpathForSandboxProfile))",
-                ]
+        // Emit rules for paths under which writing is allowed. Some of these expressions may be regular expressions and others literal subpaths.
+        if writableDirectoriesExpression.count > 0 {
+            contents += "(allow file-write*\n"
+            for expression in writableDirectoriesExpression {
+                contents += "    \(expression)\n"
             }
+            contents += ")\n"
         }
-    }
 
-    // Emit rules for paths under which writing is allowed. Some of these expressions may be regular expressions and others literal subpaths.
-    if writableDirectoriesExpression.count > 0 {
-        contents += "(allow file-write*\n"
-        for expression in writableDirectoriesExpression {
-            contents += "    \(expression)\n"
+        // Emit rules for paths under which writing should be disallowed, even if they would be covered by a previous rule to allow writing to them. A classic case is a package which is located under the temporary directory, which should be read-only even though the temporary directory as a whole is writable.
+        if readOnlyDirectories.count > 0 {
+            contents += "(deny file-write*\n"
+            for path in readOnlyDirectories {
+                contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
+            }
+            contents += ")\n"
         }
-        contents += ")\n"
-    }
 
-    // Emit rules for paths under which writing should be disallowed, even if they would be covered by a previous rule to allow writing to them. A classic case is a package which is located under the temporary directory, which should be read-only even though the temporary directory as a whole is writable.
-    if readOnlyDirectories.count > 0 {
-        contents += "(deny file-write*\n"
-        for path in readOnlyDirectories {
-            contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
-        }
-        contents += ")\n"
-    }
+        // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
+        if writableDirectories.count > 0 {
+            contents += "(allow file-write*\n"
+            var stableItemReplacementDirectories: [AbsolutePath] = []
+            for path in writableDirectories {
+                contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
 
-    // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
-    if writableDirectories.count > 0 {
-        contents += "(allow file-write*\n"
-        var stableItemReplacementDirectories: [AbsolutePath] = []
-        for path in writableDirectories {
-            contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
-            
-            // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
-            if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
-                for directory in itemReplacementDirectories {
-                    let resolved = try resolveSymlinks(directory)
-                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
-                        stableItemReplacementDirectories.append(resolved)
-                        contents += "    (subpath \(resolved.quotedAsSubpathForSandboxProfile))\n"
+                // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
+                if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
+                    for directory in itemReplacementDirectories {
+                        let resolved = try resolveSymlinks(directory)
+                        if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                            stableItemReplacementDirectories.append(resolved)
+                            contents += "    (subpath \(resolved.quotedAsSubpathForSandboxProfile))\n"
+                        }
                     }
                 }
             }
+            contents += ")\n"
         }
-        contents += ")\n"
+
+        return contents
     }
 
-    return contents
-}
-
-extension AbsolutePath {
-    /// Private computed property that returns a version of the path as a string quoted for use as a subpath in a .sb sandbox profile.
-    fileprivate var quotedAsSubpathForSandboxProfile: String {
-        "\"" + self.pathString
-            .replacing("\\", with: "\\\\")
-            .replacing("\"", with: "\\\"")
-            + "\""
+    extension AbsolutePath {
+        /// Private computed property that returns a version of the path as a string quoted for use as a subpath in a .sb sandbox profile.
+        fileprivate var quotedAsSubpathForSandboxProfile: String {
+            "\""
+                + self.pathString
+                .replacing("\\", with: "\\\\")
+                .replacing("\"", with: "\\\"")
+                + "\""
+        }
     }
-}
 #endif

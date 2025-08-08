@@ -21,9 +21,9 @@ import protocol TSCBasic.Closable
 public struct PackageCollections: PackageCollectionsProtocol, Closable {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
     #if os(macOS) || os(Linux) || os(Windows) || os(Android)
-    static let isSupportedPlatform = true
+        static let isSupportedPlatform = true
     #else
-    static let isSupportedPlatform = false
+        static let isSupportedPlatform = false
     #endif
 
     let configuration: Configuration
@@ -50,7 +50,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             observabilityScope: observabilityScope
         )
     }
-    
+
     init(
         configuration: Configuration = .init(),
         customMetadataProvider: PackageMetadataProvider?,
@@ -75,13 +75,15 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             )
         ]
 
-        let metadataProvider = customMetadataProvider ?? GitHubPackageMetadataProvider(
-            configuration: .init(
-                authTokens: configuration.authTokens,
-                cacheDir: configuration.cacheDirectory?.appending(components: "package-metadata")
-            ),
-            observabilityScope: observabilityScope
-        )
+        let metadataProvider =
+            customMetadataProvider
+            ?? GitHubPackageMetadataProvider(
+                configuration: .init(
+                    authTokens: configuration.authTokens,
+                    cacheDir: configuration.cacheDirectory?.appending(components: "package-metadata")
+                ),
+                observabilityScope: observabilityScope
+            )
 
         self.configuration = configuration
         self.fileSystem = fileSystem
@@ -92,12 +94,13 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     }
 
     // internal initializer for testing
-    init(configuration: Configuration = .init(),
-         fileSystem: FileSystem,
-         observabilityScope: ObservabilityScope,
-         storage: Storage,
-         collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
-         metadataProvider: PackageMetadataProvider
+    init(
+        configuration: Configuration = .init(),
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        storage: Storage,
+        collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider],
+        metadataProvider: PackageMetadataProvider
     ) {
         self.configuration = configuration
         self.fileSystem = fileSystem
@@ -111,12 +114,12 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         if self.storageContainer.owned {
             try self.storageContainer.storage.close()
         }
-        
+
         if let metadataProvider = self.metadataProvider as? Closable {
             try metadataProvider.close()
         }
     }
-    
+
     public func close() throws {
         try self.shutdown()
     }
@@ -288,7 +291,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     public func findPackages(
         _ query: String,
         collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.PackageSearchResult{
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
         guard Self.isSupportedPlatform else {
             throw PackageCollectionError.unsupportedPlatform
         }
@@ -323,7 +326,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         return PackageCollectionsModel.PackageSearchResult(
             items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
                 .map { entry in
-                .init(package: entry.value.package, collections: Array(entry.value.collections))
+                    .init(package: entry.value.package, collections: Array(entry.value.collections))
                 }
         )
     }
@@ -427,7 +430,6 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
             return try await self.storage.collections.put(collection: collection)
         }
 
-
         // No user preference recorded, so we need to prompt if we can.
         guard let trustConfirmationProvider else {
             // Try to remove the untrusted collection (if previously saved) from storage before calling back
@@ -453,9 +455,10 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         return try await self.storage.collections.put(collection: collection)
     }
 
-    func findPackage(identity: PackageIdentity,
-                     location: String? = nil,
-                     collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    func findPackage(
+        identity: PackageIdentity,
+        location: String? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
     ) async throws -> PackageCollectionsModel.PackageSearchResult.Item {
         let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
 
@@ -484,8 +487,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         if let location {
             // A package identity can be associated with multiple repository URLs
             matches = packagesCollections.packages.filter { CanonicalPackageLocation($0.location) == CanonicalPackageLocation(location) }
-        }
-        else {
+        } else {
             matches = packagesCollections.packages
         }
         guard let package = matches.first else {
@@ -493,7 +495,8 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         }
         return PackageCollectionsModel.PackageSearchResult.Item(
             package: package,
-            collections: packagesCollections.collections)
+            collections: packagesCollections.collections
+        )
 
     }
 
@@ -534,33 +537,39 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
                             )
                         }
                     }
-                    return .init(identity: pair.package.identity,
-                                 location: pair.package.location,
-                                 summary: pair.package.summary,
-                                 versions: versions,
-                                 collections: Array(pair.collections))
+                    return .init(
+                        identity: pair.package.identity,
+                        location: pair.package.location,
+                        summary: pair.package.summary,
+                        versions: versions,
+                        collections: Array(pair.collections)
+                    )
                 }
 
             return Model.TargetListItem(target: pair.target, packages: targetPackages)
         }
     }
 
-    internal static func mergedPackageMetadata(package: Model.Package,
-                                               basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
+    internal static func mergedPackageMetadata(
+        package: Model.Package,
+        basicMetadata: Model.PackageBasicMetadata?
+    ) -> Model.Package {
         // This dictionary contains recent releases and might not contain everything that's in package.versions.
         let basicVersionMetadata = basicMetadata.map { Dictionary($0.versions.map { ($0.version, $0) }, uniquingKeysWith: { first, _ in first }) } ?? [:]
         var versions = package.versions.map { packageVersion -> Model.Package.Version in
             let versionMetadata = basicVersionMetadata[packageVersion.version]
-            return .init(version: packageVersion.version,
-                         title: versionMetadata?.title ?? packageVersion.title,
-                         summary: versionMetadata?.summary ?? packageVersion.summary,
-                         manifests: packageVersion.manifests,
-                         defaultToolsVersion: packageVersion.defaultToolsVersion,
-                         verifiedCompatibility: packageVersion.verifiedCompatibility,
-                         license: packageVersion.license,
-                         author: versionMetadata?.author ?? packageVersion.author,
-                         signer: packageVersion.signer,
-                         createdAt: versionMetadata?.createdAt ?? packageVersion.createdAt)
+            return .init(
+                version: packageVersion.version,
+                title: versionMetadata?.title ?? packageVersion.title,
+                summary: versionMetadata?.summary ?? packageVersion.summary,
+                manifests: packageVersion.manifests,
+                defaultToolsVersion: packageVersion.defaultToolsVersion,
+                verifiedCompatibility: packageVersion.verifiedCompatibility,
+                license: packageVersion.license,
+                author: versionMetadata?.author ?? packageVersion.author,
+                signer: packageVersion.signer,
+                createdAt: versionMetadata?.createdAt ?? packageVersion.createdAt
+            )
         }
         versions.sort(by: >)
 

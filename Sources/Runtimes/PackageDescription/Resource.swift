@@ -46,7 +46,7 @@ public struct Resource: Sendable {
 
     /// The rule for the resource.
     let rule: String
-	
+
     /// The path of the resource.
     let path: String
 

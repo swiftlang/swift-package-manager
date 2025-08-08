@@ -29,17 +29,17 @@ extension SwiftPackageCommand {
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
-        
+
         @Option(help: "Set the output format.")
         var type: DescribeMode = .text
-        
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
-            
+
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
-            
+
             let package = try await workspace.loadRootPackage(
                 at: packagePath,
                 observabilityScope: swiftCommandState.observabilityScope
@@ -47,7 +47,7 @@ extension SwiftPackageCommand {
 
             try self.describe(package, in: type)
         }
-        
+
         /// Emits a textual description of `package` to `stream`, in the format indicated by `mode`.
         func describe(_ package: Package, in mode: DescribeMode) throws {
             let desc = DescribedPackage(from: package)
@@ -66,7 +66,7 @@ extension SwiftPackageCommand {
             }
             print(String(decoding: data, as: UTF8.self))
         }
-        
+
         enum DescribeMode: String, ExpressibleByArgument, CaseIterable {
             /// JSON format (guaranteed to be parsable and stable across time).
             case json
