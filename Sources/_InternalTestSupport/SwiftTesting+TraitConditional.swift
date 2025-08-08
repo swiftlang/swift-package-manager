@@ -12,6 +12,7 @@
 import class Foundation.FileManager
 import class Foundation.ProcessInfo
 import class PackageModel.UserToolchain
+import DriverSupport
 import Basics
 import Testing
 
@@ -35,6 +36,35 @@ extension Trait where Self == Testing.ConditionTrait {
         enabled("skipping because test environment doesn't support concurrency") {
             (try? UserToolchain.default)!.supportsSwiftConcurrency()
         }
+    }
+
+    /// Enaled only if marcros are built as dylibs
+    public static var requiresBuildingMacrosAsDylibs: Self {
+        enabled("test is only supported if `BUILD_MACROS_AS_DYLIBS` is set") {
+            #if BUILD_MACROS_AS_DYLIBS
+                true
+            #else
+                false
+            #endif
+        }
+    }
+
+    /// Check for required compiler support
+    public static func requiresFrontEndFlags(flags: Set<String>) -> Self {
+        enabled("test requires \(flags.joined(separator: ", "))") {
+            try DriverSupport.checkSupportedFrontendFlags(flags: flags, toolchain: UserToolchain.default, fileSystem: localFileSystem)
+        }
+    }
+
+    private static func requiresHostLibrary(lib: String) -> Self {
+        enabled("test requires `\(lib)` to exist in the host toolchain") {
+            let libSwiftSyntaxMacrosPath = try UserToolchain.default.hostLibDir.appending("libSwiftSyntaxMacros.dylib")
+            return localFileSystem.exists(libSwiftSyntaxMacrosPath)
+        }
+    }
+
+    public static var requiresSwiftTestingMacros: Self {
+        requiresHostLibrary(lib: "libSwiftSyntaxMacros.dylib")
     }
 
     /// Skip test unconditionally
