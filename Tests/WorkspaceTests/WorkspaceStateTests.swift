@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,7 +14,11 @@ import Basics
 import Testing
 
 fileprivate struct WorkspaceStateTests {
-    @Test
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func v4Format() async throws {
         let fs = InMemoryFileSystem()
 
@@ -88,7 +92,11 @@ fileprivate struct WorkspaceStateTests {
         #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    @Test
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func v4FormatWithPath() async throws {
         let fs = InMemoryFileSystem()
 
@@ -162,7 +170,11 @@ fileprivate struct WorkspaceStateTests {
         #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    @Test
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func v5Format() async throws {
         let fs = InMemoryFileSystem()
 
@@ -236,7 +248,11 @@ fileprivate struct WorkspaceStateTests {
         #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    @Test
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
     func savedDependenciesAreSorted() async throws {
         let fs = InMemoryFileSystem()
 
@@ -301,7 +317,11 @@ fileprivate struct WorkspaceStateTests {
         #expect(argpRange.lowerBound < yamsRange.lowerBound)
     }
 
-    @Test
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func artifacts() async throws {
         let fs = InMemoryFileSystem()
 
@@ -372,8 +392,12 @@ fileprivate struct WorkspaceStateTests {
         #expect(artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
     }
 
-    // rdar://86857825
-    @Test
+    @Test(
+        .issue("rdar://86857825", relationship: .defect),
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func duplicateDependenciesDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 
@@ -433,8 +457,12 @@ fileprivate struct WorkspaceStateTests {
         #expect(dependencies.isEmpty)
     }
 
-    // rdar://86857825
-    @Test
+    @Test(
+        .issue("rdar://86857825", relationship: .defect),
+        .tags(
+            .TestSize.small,
+        ),
+    )
     func duplicateArtifactsDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 

@@ -15,6 +15,7 @@ import class PackageModel.UserToolchain
 import DriverSupport
 import Basics
 import Testing
+import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 extension Trait where Self == Testing.ConditionTrait {
     /// Skip test if the host operating system does not match the running OS.
@@ -65,6 +66,22 @@ extension Trait where Self == Testing.ConditionTrait {
 
     public static var requiresSwiftTestingMacros: Self {
         requiresHostLibrary(lib: "libSwiftSyntaxMacros.dylib")
+    }
+
+    /// Ensure platform support working directory
+    public static var requiresWorkingDirectorySupport: Self {
+        enabled("working directory not supported on this platform") {
+        #if !os(Windows)
+            // needed for archiving
+            if SPM_posix_spawn_file_actions_addchdir_np_supported() {
+                return true
+            } else {
+                return false
+            }
+        #else
+            return true
+        #endif
+        }
     }
 
     /// Skip test unconditionally

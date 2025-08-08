@@ -2,13 +2,14 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2024-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import class Basics.InMemoryFileSystem
 import class Basics.ObservabilitySystem
@@ -24,14 +25,20 @@ import func _InternalTestSupport.XCTAssertNoDiagnostics
 @testable
 import Commands
 
-import XCTest
+import Testing
+import _InternalTestSupport
 
-final class MermaidPackageSerializerTests: XCTestCase {
-    func testSimplePackage() throws {
+struct MermaidPackageSerializerTests {
+    @Test(
+        .tags(
+            .TestSize.medium, //?
+        ),
+    )
+    func simplePackage() throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
-            "/A/Sources/ATarget/main.swift",
+                "/A/Sources/ATarget/main.swift",
             "/A/Tests/ATargetTests/TestCases.swift"
         )
         let graph = try loadModulesGraph(
@@ -48,14 +55,12 @@ final class MermaidPackageSerializerTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(graph.packages.count, 1)
-        let package = try XCTUnwrap(graph.packages.first)
+        #expect(graph.packages.count == 1)
+        let package = try #require(graph.packages.first)
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        XCTAssertEqual(
-            serializer.renderedMarkdown,
-            """
+        #expect(serializer.renderedMarkdown == """
             ```mermaid
             flowchart TB
                 subgraph a
@@ -65,14 +70,18 @@ final class MermaidPackageSerializerTests: XCTestCase {
                 end
             ```
 
-            """
-        )
+            """)
     }
 
-    func testDependenciesOnProducts() throws {
+    @Test(
+        .tags(
+            .TestSize.medium, //?
+        ),
+    )
+    func dependenciesOnProducts() throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
-            "/A/Sources/ATarget/foo.swift",
+                "/A/Sources/ATarget/foo.swift",
             "/A/Tests/ATargetTests/foo.swift",
             "/B/Sources/BTarget/foo.swift",
             "/B/Tests/BTargetTests/foo.swift"
@@ -107,14 +116,12 @@ final class MermaidPackageSerializerTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(graph.packages.count, 2)
-        let package = try XCTUnwrap(graph.package(for: .plain("A")))
+        #expect(graph.packages.count == 2)
+        let package = try #require(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        XCTAssertEqual(
-            serializer.renderedMarkdown,
-            """
+        #expect(serializer.renderedMarkdown == """
             ```mermaid
             flowchart TB
                 subgraph a
@@ -124,14 +131,18 @@ final class MermaidPackageSerializerTests: XCTestCase {
                 end
             ```
 
-            """
-        )
+            """)
     }
 
-    func testDependenciesOnPackages() throws {
+    @Test(
+        .tags(
+            .TestSize.medium, //?
+        ),
+    )
+    func dependenciesOnPackages() throws {
         let fileSystem = InMemoryFileSystem(
             emptyFiles:
-            "/A/Sources/ATarget/foo.swift",
+                "/A/Sources/ATarget/foo.swift",
             "/A/Tests/ATargetTests/foo.swift",
             "/B/Sources/BTarget/foo.swift",
             "/B/Tests/BTargetTests/foo.swift"
@@ -166,14 +177,12 @@ final class MermaidPackageSerializerTests: XCTestCase {
             ],
             observabilityScope: observability.topScope
         )
-        XCTAssertNoDiagnostics(observability.diagnostics)
+        expectNoDiagnostics(observability.diagnostics)
 
-        XCTAssertEqual(graph.packages.count, 2)
-        let package = try XCTUnwrap(graph.package(for: .plain("A")))
+        #expect(graph.packages.count == 2)
+        let package = try #require(graph.package(for: .plain("A")))
         let serializer = MermaidPackageSerializer(package: package.underlying)
-        XCTAssertEqual(
-            serializer.renderedMarkdown,
-            """
+        #expect(serializer.renderedMarkdown == """
             ```mermaid
             flowchart TB
                 subgraph a
@@ -186,7 +195,6 @@ final class MermaidPackageSerializerTests: XCTestCase {
                 end
             ```
 
-            """
-        )
+            """)
     }
 }
