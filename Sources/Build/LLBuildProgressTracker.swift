@@ -279,6 +279,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         guard command.shouldShowStatus else { return }
         guard !self.swiftParsers.keys.contains(command.name) else { return }
 
+        let commandName = command.name
+        let commandDescription = command.description
+
         self.queue.async {
             if result == .cancelled {
                 self.cancelled = true
@@ -288,8 +291,8 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
 
             if !self.logLevel.isVerbose && !self.logLevel.isQuiet {
-                let targetName = self.swiftParsers[command.name]?.targetName
-                self.taskTracker.commandFinished(command, result: result, targetName: targetName)
+                let targetName = self.swiftParsers[commandName]?.targetName
+                self.taskTracker.commandFinished(commandDescription, result: result, targetName: targetName)
                 self.updateProgress()
             }
         }
@@ -539,8 +542,8 @@ private struct CommandTaskTracker {
         }
     }
 
-    mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
-        let progressTextValue = self.progressText(of: command, targetName: targetName)
+    mutating func commandFinished(_ commandDescription: String, result: CommandResult, targetName: String?) {
+        let progressTextValue = self.progressText(of: commandDescription, targetName: targetName)
         self.onTaskProgressUpdateText?(progressTextValue, targetName)
 
         self.latestFinishedText = progressTextValue
@@ -567,19 +570,19 @@ private struct CommandTaskTracker {
         }
     }
 
-    private func progressText(of command: SPMLLBuild.Command, targetName: String?) -> String {
+    private func progressText(of commandDescription: String, targetName: String?) -> String {
 #if os(Windows)
     let pathSep: Character = "\\"
 #else
     let pathSep: Character = "/"
 #endif
         // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
-        if let firstSpaceIndex = command.description.firstIndex(of: " "),
-           let lastDirectorySeparatorIndex = command.description.lastIndex(of: pathSep)
+        if let firstSpaceIndex = commandDescription.firstIndex(of: " "),
+           let lastDirectorySeparatorIndex = commandDescription.lastIndex(of: pathSep)
         {
-            let action = command.description[..<firstSpaceIndex]
-            let fileNameStartIndex = command.description.index(after: lastDirectorySeparatorIndex)
-            let fileName = command.description[fileNameStartIndex...]
+            let action = commandDescription[..<firstSpaceIndex]
+            let fileNameStartIndex = commandDescription.index(after: lastDirectorySeparatorIndex)
+            let fileName = commandDescription[fileNameStartIndex...]
 
             if let targetName {
                 return "\(action) \(targetName) \(fileName)"
@@ -587,7 +590,7 @@ private struct CommandTaskTracker {
                 return "\(action) \(fileName)"
             }
         } else {
-            return command.description
+            return commandDescription
         }
     }
 
