@@ -796,6 +796,7 @@ public final class SwiftCommandState {
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
+        progressOutputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
         observabilityScope: ObservabilityScope? = .none,
         delegate: BuildSystemDelegate? = nil
@@ -814,6 +815,7 @@ public final class SwiftCommandState {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
+            progressOutputStream: progressOutputStream,
             logLevel: logLevel ?? self.logLevel,
             observabilityScope: observabilityScope,
             delegate: delegate
