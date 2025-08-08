@@ -17,27 +17,22 @@ import SPMBuildCore
 import TSCBasic
 import TSCUtility
 
-/// A utility for building Swift packages using the SwiftPM build system.
+/// A utility for building Swift packages templates using the SwiftPM build system.
 ///
 /// `TemplateBuildSupport` encapsulates the logic needed to initialize the
 /// SwiftPM build system and perform a build operation based on a specific
 /// command configuration and workspace context.
 
 enum TemplateBuildSupport {
+
     /// Builds a Swift package using the given command state, options, and working directory.
     ///
-    /// This method performs the following steps:
-    /// 1. Initializes a temporary workspace, optionally switching to a user-specified package directory.
-    /// 2. Creates a build system with the specified configuration, including product, traits, and build parameters.
-    /// 3. Resolves the build subset (e.g., targets or products to build).
-    /// 4. Executes the build within the workspace.
-    ///
     /// - Parameters:
-    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and
-    /// diagnostics.
+    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and diagnostics.
     ///   - buildOptions: Options used to configure what and how to build, including the product and traits.
     ///   - globalOptions: Global configuration such as the package directory and logging verbosity.
     ///   - cwd: The current working directory to use if no package directory is explicitly provided.
+    ///   - transitiveFolder: Optional override for the package directory.
     ///
     /// - Throws:
     ///   - `ExitCode.failure` if no valid build subset can be resolved or if the build fails due to diagnostics.
@@ -49,77 +44,101 @@ enum TemplateBuildSupport {
         cwd: Basics.AbsolutePath,
         transitiveFolder: Basics.AbsolutePath? = nil
     ) async throws {
+        let packageRoot = transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd
 
-
-        let buildSystem = try await swiftCommandState.withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
-
-            try await swiftCommandState.createBuildSystem(
-                explicitProduct: buildOptions.product,
-                traitConfiguration: .init(traitOptions: buildOptions.traits),
-                shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
-                productsBuildParameters: swiftCommandState.productsBuildParameters,
-                toolsBuildParameters: swiftCommandState.toolsBuildParameters,
-                outputStream: TSCBasic.stdoutStream
-            )
-        }
+        let buildSystem = try await makeBuildSystem(
+            swiftCommandState: swiftCommandState,
+            folder: packageRoot,
+            buildOptions: buildOptions
+        )
 
         guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
 
-        try await swiftCommandState.withTemporaryWorkspace(switchingTo: transitiveFolder ?? globalOptions.locations.packageDirectory ?? cwd) { _, _ in
+        try await swiftCommandState.withTemporaryWorkspace(switchingTo: packageRoot) { _, _ in
             do {
                 try await buildSystem.build(subset: subset)
-            } catch _ as Diagnostics {
+            } catch let diagnostics as Diagnostics {
+                swiftCommandState.observabilityScope.emit(diagnostics)
                 throw ExitCode.failure
             }
         }
     }
 
+    /// Builds a Swift package for testing, applying code coverage and PIF graph options.
+    ///
+    /// - Parameters:
+    ///   - swiftCommandState: The current Swift command state.
+    ///   - buildOptions: Options used to configure the build.
+    ///   - testingFolder: The path to the folder containing the testable package.
+    ///
+    /// - Throws: Errors related to build preparation or diagnostics.
     static func buildForTesting(
         swiftCommandState: SwiftCommandState,
         buildOptions: BuildCommandOptions,
         testingFolder: Basics.AbsolutePath
     ) async throws {
-
-        var productsBuildParameters = try swiftCommandState.productsBuildParameters
-        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
-
-        if buildOptions.enableCodeCoverage {
-            productsBuildParameters.testingParameters.enableCodeCoverage = true
-            toolsBuildParameters.testingParameters.enableCodeCoverage = true
-        }
-
-        if buildOptions.printPIFManifestGraphviz {
-            productsBuildParameters.printPIFManifestGraphviz = true
-            toolsBuildParameters.printPIFManifestGraphviz = true
-        }
-
-
-        let buildSystem = try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
-                try await swiftCommandState.createBuildSystem(
-                    explicitProduct: buildOptions.product,
-                    traitConfiguration: .init(traitOptions: buildOptions.traits),
-                    shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
-                    productsBuildParameters: swiftCommandState.productsBuildParameters,
-                    toolsBuildParameters: swiftCommandState.toolsBuildParameters,
-                    outputStream: TSCBasic.stdoutStream
-                )
-            }
+        let buildSystem = try await makeBuildSystem(
+            swiftCommandState: swiftCommandState,
+            folder: testingFolder,
+            buildOptions: buildOptions,
+            forTesting: true
+        )
 
         guard let subset = buildOptions.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
             throw ExitCode.failure
         }
 
-        try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
-                do {
-                    try await buildSystem.build(subset: subset)
-                } catch _ as Diagnostics {
-                    throw ExitCode.failure
-                }
+        try await swiftCommandState.withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
+            do {
+                try await buildSystem.build(subset: subset)
+            } catch let diagnostics as Diagnostics {
+                swiftCommandState.observabilityScope.emit(diagnostics)
+                throw ExitCode.failure
             }
+        }
     }
 
+    /// Internal helper to create a `BuildSystem` with appropriate parameters.
+    ///
+    /// - Parameters:
+    ///   - swiftCommandState: The active command context.
+    ///   - folder: The directory to switch into for workspace operations.
+    ///   - buildOptions: Build configuration options.
+    ///   - forTesting: Whether to apply test-specific parameters (like code coverage).
+    ///
+    /// - Returns: A configured `BuildSystem` instance ready to build.
+    private static func makeBuildSystem(
+        swiftCommandState: SwiftCommandState,
+        folder: Basics.AbsolutePath,
+        buildOptions: BuildCommandOptions,
+        forTesting: Bool = false
+    ) async throws -> BuildSystem {
+        var productsParams = try swiftCommandState.productsBuildParameters
+        var toolsParams = try swiftCommandState.toolsBuildParameters
+
+        if forTesting {
+            if buildOptions.enableCodeCoverage {
+                productsParams.testingParameters.enableCodeCoverage = true
+                toolsParams.testingParameters.enableCodeCoverage = true
+            }
+
+            if buildOptions.printPIFManifestGraphviz {
+                productsParams.printPIFManifestGraphviz = true
+                toolsParams.printPIFManifestGraphviz = true
+            }
+        }
+
+        return try await swiftCommandState.withTemporaryWorkspace(switchingTo: folder) { _, _ in
+            try await swiftCommandState.createBuildSystem(
+                explicitProduct: buildOptions.product,
+                traitConfiguration: .init(traitOptions: buildOptions.traits),
+                shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
+                productsBuildParameters: productsParams,
+                toolsBuildParameters: toolsParams,
+                outputStream: TSCBasic.stdoutStream
+            )
+        }
+    }
 }

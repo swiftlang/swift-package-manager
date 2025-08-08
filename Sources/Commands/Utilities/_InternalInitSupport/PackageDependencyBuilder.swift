@@ -34,11 +34,7 @@ protocol PackageDependencyBuilder {
     ///
     /// - Throws: A `StringError` if required inputs (e.g., Git URL, Package ID) are missing or invalid for the selected
     /// source type.
-    func makePackageDependency(
-        sourceControlRequirement: PackageDependency.SourceControl.Requirement?,
-        registryRequirement: PackageDependency.Registry.Requirement?,
-        resolvedTemplatePath: Basics.AbsolutePath
-    ) throws -> MappablePackageDependency.Kind
+    func makePackageDependency() throws -> MappablePackageDependency.Kind
 }
 
 /// Default implementation of `PackageDependencyBuilder` that builds a package dependency
@@ -58,6 +54,12 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// The registry package identifier, if the template source is registry-based.
     let templatePackageID: String?
 
+
+    let sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+    let registryRequirement: PackageDependency.Registry.Requirement?
+    let resolvedTemplatePath: Basics.AbsolutePath
+
+
     /// Constructs a package dependency kind based on the selected template source.
     ///
     /// - Parameters:
@@ -68,11 +70,7 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// - Returns: A `MappablePackageDependency.Kind` representing the dependency.
     ///
     /// - Throws: A `StringError` if necessary information is missing or mismatched for the selected template source.
-    func makePackageDependency(
-        sourceControlRequirement: PackageDependency.SourceControl.Requirement? = nil,
-        registryRequirement: PackageDependency.Registry.Requirement? = nil,
-        resolvedTemplatePath: Basics.AbsolutePath
-    ) throws -> MappablePackageDependency.Kind {
+    func makePackageDependency() throws -> MappablePackageDependency.Kind {
         switch self.templateSource {
         case .local:
             return .fileSystem(name: self.packageName, path: resolvedTemplatePath.asURL.path)

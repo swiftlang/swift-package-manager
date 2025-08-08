@@ -14,16 +14,13 @@ import PackageModel
 import TSCBasic
 import TSCUtility
 
-/// A protocol defining an interface for resolving package dependency requirements
-/// based on a user’s input (such as version, branch, or revision).
+/// A protocol defining interfaces for resolving package dependency requirements
+/// based on versioning input (e.g., version, branch, or revision).
 protocol DependencyRequirementResolving {
-    /// Resolves the requirement for the specified dependency type.
-    ///
-    /// - Parameter type: The type of dependency (`.sourceControl` or `.registry`) to resolve.
-    /// - Returns: A resolved requirement (`SourceControl.Requirement` or `Registry.Requirement`) as `Any`.
-    /// - Throws: `StringError` if resolution fails due to invalid or conflicting input.
-    func resolve(for type: DependencyType) throws -> Any
+    func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement
+    func resolveRegistry() throws -> PackageDependency.Registry.Requirement
 }
+
 
 /// A utility for resolving a single, well-formed package dependency requirement
 /// from mutually exclusive versioning inputs, such as:
@@ -55,28 +52,12 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// An optional manual upper bound for the version range. Must be used with `from` or `upToNextMinorFrom`.
     let to: Version?
 
-    /// Resolves a concrete requirement based on the provided fields and target dependency type.
-    ///
-    /// - Parameter type: The dependency type to resolve (`.sourceControl` or `.registry`).
-    /// - Returns: A resolved requirement object (`PackageDependency.SourceControl.Requirement` or
-    /// `PackageDependency.Registry.Requirement`).
-    /// - Throws: `StringError` if the inputs are invalid, ambiguous, or incomplete.
-
-    func resolve(for type: DependencyType) throws -> Any {
-        switch type {
-        case .sourceControl:
-            try self.resolveSourceControlRequirement()
-        case .registry:
-            try self.resolveRegistryRequirement()
-        }
-    }
-
     /// Internal helper for resolving a source control (Git) requirement.
     ///
     /// - Returns: A valid `PackageDependency.SourceControl.Requirement`.
     /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
     /// `upToNextMinorFrom`.
-    private func resolveSourceControlRequirement() throws -> PackageDependency.SourceControl.Requirement {
+    func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement {
         var requirements: [PackageDependency.SourceControl.Requirement] = []
         if let v = exact { requirements.append(.exact(v)) }
         if let b = branch { requirements.append(.branch(b)) }
@@ -102,7 +83,7 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.Registry.Requirement`.
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
-    private func resolveRegistryRequirement() throws -> PackageDependency.Registry.Requirement {
+    func resolveRegistry() throws -> PackageDependency.Registry.Requirement {
         var requirements: [PackageDependency.Registry.Requirement] = []
 
         if let v = exact { requirements.append(.exact(v)) }

@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+//TODO: needs review
 import ArgumentParser
 import Basics
 import CoreCommands
@@ -142,42 +143,35 @@ struct GitTemplateFetcher: TemplateFetcher {
 
     /// Fetches a bare clone of the Git repository to the specified path.
     func fetch() async throws -> Basics.AbsolutePath {
-        let fetchStandalonePackageByURL = { () async throws -> Basics.AbsolutePath in
-            try withTemporaryDirectory(removeTreeOnDeinit: false) { (tempDir: Basics.AbsolutePath) in
+        try withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
+            
+            let url = SourceControlURL(source)
+            let repositorySpecifier = RepositorySpecifier(url: url)
+            let repositoryProvider = GitRepositoryProvider()
 
-                let url = SourceControlURL(source)
-                let repositorySpecifier = RepositorySpecifier(url: url)
-                let repositoryProvider = GitRepositoryProvider()
+            let bareCopyPath = tempDir.appending(component: "bare-copy")
+            let workingCopyPath = tempDir.appending(component: "working-copy")
 
-                let bareCopyPath = tempDir.appending(component: "bare-copy")
+            try repositoryProvider.fetch(repository: repositorySpecifier, to: bareCopyPath)
+            try self.validateDirectory(provider: repositoryProvider, at: bareCopyPath)
 
-                let workingCopyPath = tempDir.appending(component: "working-copy")
+            try FileManager.default.createDirectory(
+                atPath: workingCopyPath.pathString,
+                withIntermediateDirectories: true
+            )
 
-                try repositoryProvider.fetch(repository: repositorySpecifier, to: bareCopyPath)
+            let repository = try repositoryProvider.createWorkingCopyFromBare(
+                repository: repositorySpecifier,
+                sourcePath: bareCopyPath,
+                at: workingCopyPath,
+                editable: true
+            )
 
-                try self.validateDirectory(provider: repositoryProvider, at: bareCopyPath)
+            try FileManager.default.removeItem(at: bareCopyPath.asURL)
+            try self.checkout(repository: repository)
 
-                try FileManager.default.createDirectory(
-                    atPath: workingCopyPath.pathString,
-                    withIntermediateDirectories: true
-                )
-
-                let repository = try repositoryProvider.createWorkingCopyFromBare(
-                    repository: repositorySpecifier,
-                    sourcePath: bareCopyPath,
-                    at: workingCopyPath,
-                    editable: true
-                )
-
-                try FileManager.default.removeItem(at: bareCopyPath.asURL)
-
-                try self.checkout(repository: repository)
-
-                return workingCopyPath
-            }
+            return workingCopyPath
         }
-
-        return try await fetchStandalonePackageByURL()
     }
 
     /// Validates that the directory contains a valid Git repository.

@@ -73,8 +73,6 @@ struct ShowTemplates: AsyncSwiftCommand {
     var to: Version?
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
-        let packagePath: Basics.AbsolutePath
-        var shouldDeleteAfter = false
 
         let requirementResolver = DependencyRequirementResolver(
             exact: exact,
@@ -86,10 +84,10 @@ struct ShowTemplates: AsyncSwiftCommand {
         )
 
         let registryRequirement: PackageDependency.Registry.Requirement? =
-            try? requirementResolver.resolve(for: .registry) as? PackageDependency.Registry.Requirement
+            try? requirementResolver.resolveRegistry()
 
         let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
-            try? requirementResolver.resolve(for: .sourceControl) as? PackageDependency.SourceControl.Requirement
+            try? requirementResolver.resolveSourceControl()
 
         var resolvedTemplatePath: Basics.AbsolutePath
 
