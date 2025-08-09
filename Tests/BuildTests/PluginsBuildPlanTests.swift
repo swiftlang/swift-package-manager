@@ -89,4 +89,23 @@ final class PluginsBuildPlanTests: XCTestCase {
             )
         }
     }
+    
+    func testDocCPluginForBinaryDependency() async throws {
+        #if !os(macOS)
+        // binaryTarget/xcframework is only supported on Darwin platform
+        throw XCTSkip("Test requires macOS")
+        #endif
+        
+        try await fixture(name: "Miscellaneous/Plugins/SymbolGraphForBinaryDependency") { fixturePath in
+            let result = try await AsyncProcess.popen(arguments: [
+                fixturePath.appending(RelativePath("FooKit/Scripts/archive_xcframework.sh")).pathString,
+                "FooKit"
+            ])
+            try print(result.utf8Output())
+            try print(result.utf8stderrOutput())
+            XCTAssertEqual(result.exitStatus, .terminated(code: 0))
+            // Before we add -F support for xcframework, this call will throw since the command will abort with a non-zero exit code
+            let _ = try await executeSwiftPackage(fixturePath, extraArgs: ["generate-symbol-graph"])
+        }
+    }
 }
