@@ -233,7 +233,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
-        try XCTSkipOnWindows()
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8602: TSCBasic/Path.swift:969: Assertion failed")
 
         let manifestContents = """
             // swift-tools-version:5.3
