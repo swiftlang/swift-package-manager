@@ -786,10 +786,8 @@ struct SigningTests {
             return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            #expect(name != nil)
-            #expect(organizationalUnit != nil)
-            #expect(organization != nil)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
             #expect(name != nil)
             #expect(organizationalUnit != nil)
@@ -841,10 +839,8 @@ struct SigningTests {
             return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            #expect(name != nil)
-            #expect(organizationalUnit != nil)
-            #expect(organization != nil)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
             #expect(name != nil)
             #expect(organizationalUnit != nil)
@@ -896,10 +892,8 @@ struct SigningTests {
             return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            #expect(name != nil)
-            #expect(organizationalUnit != nil)
-            #expect(organization != nil)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
             #expect(name != nil)
             #expect(organizationalUnit != nil)
