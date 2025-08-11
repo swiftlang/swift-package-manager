@@ -2341,8 +2341,8 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                     error.stderr,
                     .contains(
                         """
-                        error: Could not update manifest to enable requested features for target 'A' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
-                        error: Could not update manifest to enable requested features for target 'B' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
+                        error: Could not update manifest to enable requested features for target 'A' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer)
+                        error: Could not update manifest to enable requested features for target 'B' (package manifest version 5.8.0 is too old: please update to manifest version 6.2.0 or newer)
                         error: Could not update manifest to enable requested features for target 'CannotFindSettings' (unable to find array literal for 'swiftSettings' argument). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
                         error: Could not update manifest to enable requested features for target 'CannotFindTarget' (unable to find target named 'CannotFindTarget' in package). Please enable them manually by adding the following Swift settings to the target: '.enableUpcomingFeature("ExistentialAny"), .enableUpcomingFeature("InferIsolatedConformances"), .strictMemorySafety()'
                         """
