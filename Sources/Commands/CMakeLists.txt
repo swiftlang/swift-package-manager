@@ -53,11 +53,13 @@ add_library(Commands
   Utilities/MultiRootSupport.swift
   Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
+  Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
+  SwiftSyntax::SwiftRefactor
   ArgumentParser
   Basics
   BinarySymbols
