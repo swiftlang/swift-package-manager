@@ -23,7 +23,9 @@ import OrderedCollections
 
 import PackageGraph
 import PackageModel
-import enum PackageModelSyntax.ManifestEditError
+
+@_spi(PackageRefactor)
+import enum SwiftRefactor.ManifestEditError
 
 import SPMBuildCore
 import SwiftFixIt
@@ -283,16 +285,14 @@ extension SwiftPackageCommand {
                     switch error {
                     case .cannotFindPackage,
                          .cannotAddSettingsToPluginTarget,
-                         .existingDependency:
+                         .existingDependency,
+                         .malformedManifest:
                         break
                     case .cannotFindArrayLiteralArgument,
                          // This means the target could not be found
                          // syntactically, not that it does not exist.
                          .cannotFindTargets,
-                         .cannotFindTarget,
-                         // This means the swift-tools-version is lower than
-                         // the version where one of the setting was introduced.
-                         .oldManifest:
+                         .cannotFindTarget:
                         let settings = try features.map {
                             try $0.swiftSettingDescription
                         }.joined(separator: ", ")
