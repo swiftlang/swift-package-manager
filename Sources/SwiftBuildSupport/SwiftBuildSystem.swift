@@ -686,8 +686,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["OTHER_LDFLAGS"] = (
             verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
                 ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.linkerFlags.map { $0.shellEscaped() }
+                + buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+                + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
         ).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
