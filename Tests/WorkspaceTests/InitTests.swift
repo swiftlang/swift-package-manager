@@ -106,7 +106,7 @@ struct InitTests {
             let manifestContents: String = try fs.readFileContents(manifest)
             let version = InitPackage.newPackageToolsVersion
             let versionSpecifier = "\(version.major).\(version.minor)"
-            expectMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
+            #expect(manifestContents.hasPrefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             // Run custom verification if provided
             try customVerification?(path, packageName)
@@ -168,16 +168,16 @@ struct InitTests {
         let testFileContents: String = try localFileSystem.readFileContents(testFile)
 
         if hasSwiftTesting {
-            expectMatch(testFileContents, .contains(#"import Testing"#))
-            expectMatch(testFileContents, .contains(#"@Test func example() async throws"#))
+            #expect(testFileContents.contains(#"import Testing"#))
+            #expect(testFileContents.contains(#"@Test func example() async throws"#))
         } else {
-            expectNoMatch(testFileContents, .contains(#"import Testing"#))
-            expectNoMatch(testFileContents, .contains(#"@Test func example() async throws"#))
+            #expect(!testFileContents.contains(#"import Testing"#))
+            #expect(!testFileContents.contains(#"@Test func example() async throws"#))
         }
 
         if hasXCTest {
-            expectMatch(testFileContents, .contains(#"import XCTest"#))
-            expectMatch(testFileContents, .contains("func testExample() throws"))
+            #expect(testFileContents.contains(#"import XCTest"#))
+            #expect(testFileContents.contains("func testExample() throws"))
 
             if hasSwiftTesting {
                 // When both are present, ensure XCTest content is properly formatted
@@ -190,8 +190,8 @@ struct InitTests {
                     """)
             }
         } else {
-            expectNoMatch(testFileContents, .contains(#"import XCTest"#))
-            expectNoMatch(testFileContents, .contains("func testExample() throws"))
+            #expect(!testFileContents.contains(#"import XCTest"#))
+            #expect(!testFileContents.contains("func testExample() throws"))
         }
     }
 
@@ -210,13 +210,14 @@ struct InitTests {
         let manifestContents: String = try localFileSystem.readFileContents(manifest)
 
         // Verify manifest contents
-        expectMatch(manifestContents, .and(.contains(".plugin("), .contains("targets: [\"\(name)\"]")))
+        #expect(manifestContents.contains(".plugin(") && manifestContents.contains("targets: [\"\(name)\"]"))
 
         if isCommandPlugin {
-            expectMatch(manifestContents, .and(.contains(".plugin("),
-                                              .and(.contains("capability: .command(intent: .custom("), .contains("verb: \"\(name)\""))))
+            #expect(manifestContents.contains(".plugin(") &&
+                   manifestContents.contains("capability: .command(intent: .custom(") &&
+                   manifestContents.contains("verb: \"\(name)\""))
         } else {
-            expectMatch(manifestContents, .and(.contains(".plugin("), .contains("capability: .buildTool()")))
+            #expect(manifestContents.contains(".plugin(") && manifestContents.contains("capability: .buildTool()"))
         }
 
         // Verify source file
@@ -225,21 +226,21 @@ struct InitTests {
         let sourceContents: String = try localFileSystem.readFileContents(source)
 
         if isCommandPlugin {
-            expectMatch(sourceContents, .contains("struct \(name): CommandPlugin"))
-            expectMatch(sourceContents, .contains("performCommand(context: PluginContext"))
+            #expect(sourceContents.contains("struct \(name): CommandPlugin"))
+            #expect(sourceContents.contains("performCommand(context: PluginContext"))
         } else {
-            expectMatch(sourceContents, .contains("struct \(name): BuildToolPlugin"))
-            expectMatch(sourceContents, .contains("createBuildCommands(context: PluginContext"))
+            #expect(sourceContents.contains("struct \(name): BuildToolPlugin"))
+            #expect(sourceContents.contains("createBuildCommands(context: PluginContext"))
         }
 
         // Both plugin types should have Xcode extensions
-        expectMatch(sourceContents, .contains("import XcodeProjectPlugin"))
+        #expect(sourceContents.contains("import XcodeProjectPlugin"))
         if isCommandPlugin {
-            expectMatch(sourceContents, .contains("extension \(name): XcodeCommandPlugin"))
-            expectMatch(sourceContents, .contains("performCommand(context: XcodePluginContext"))
+            #expect(sourceContents.contains("extension \(name): XcodeCommandPlugin"))
+            #expect(sourceContents.contains("performCommand(context: XcodePluginContext"))
         } else {
-            expectMatch(sourceContents, .contains("extension \(name): XcodeBuildToolPlugin"))
-            expectMatch(sourceContents, .contains("createBuildCommands(context: XcodePluginContext"))
+            #expect(sourceContents.contains("extension \(name): XcodeBuildToolPlugin"))
+            #expect(sourceContents.contains("createBuildCommands(context: XcodePluginContext"))
         }
     }
 
@@ -253,7 +254,7 @@ struct InitTests {
             supportedTestingLibraries: [],
             customVerification: { path, name in
                 let manifestContents: String = try localFileSystem.readFileContents(path.appending("Package.swift"))
-                expectMatch(manifestContents, .contains(packageWithNameOnly(named: name)))
+                #expect(manifestContents.contains(packageWithNameOnly(named: name)))
             }
             )
         }
@@ -351,7 +352,7 @@ struct InitTests {
             buildSystem: buildSystem,
             customVerification: { path, name in
                 let manifestContents: String = try localFileSystem.readFileContents(path.appending("Package.swift"))
-                expectNoMatch(manifestContents, .contains(#".testTarget"#))
+                #expect(!manifestContents.contains(#".testTarget"#))
 
                 expectNoSuchPath(path.appending("Tests"))
 
@@ -475,7 +476,7 @@ struct InitTests {
 
             // Verify platform requirements are correctly included in the manifest
             let contents: String = try localFileSystem.readFileContents(packageRoot.appending("Package.swift"))
-            expectMatch(contents, .contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
+            #expect(contents.contains(#"platforms: [.macOS(.v10_15), .iOS(.v12), .watchOS("2.1"), .tvOS("999.0")],"#))
         }
     }
 

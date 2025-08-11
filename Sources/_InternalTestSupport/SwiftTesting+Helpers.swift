@@ -109,25 +109,3 @@ public func expectAsyncThrowsError<T>(
     }
 }
 
-// MARK: String Pattern Matching Helpers
-
-/// Verifies that a string matches a pattern.
-///
-/// - Parameters:
-///   - value: The string to test.
-///   - pattern: The pattern to match against.
-///   - sourceLocation: The source location where the expectation is made.
-public func expectMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
-    #expect(pattern ~= value, "Expected match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
-}
-
-/// Verifies that a string does not match a pattern.
-///
-/// - Parameters:
-///   - value: The string to test.
-///   - pattern: The pattern to match against.
-///   - sourceLocation: The source location where the expectation is made.
-public func expectNoMatch(_ value: String, _ pattern: StringPattern, sourceLocation: SourceLocation = #_sourceLocation) {
-    #expect(!(pattern ~= value), "Expected no match for '\(value)' with pattern '\(pattern)'", sourceLocation: sourceLocation)
-}
-
