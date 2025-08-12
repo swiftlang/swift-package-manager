@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.Triple
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 import class PackageModel.UserToolchain
@@ -43,25 +44,24 @@ extension BuildSystemProvider.Kind {
         triple: String? = nil,
     ) throws -> [String] {
         let suffix: String
-
-        #if os(Linux)
-            suffix = "-linux"
-        #elseif os(Windows)
-            suffix = "-windows"
-        #else
-            suffix = ""
-        #endif
-
         let tripleString: String
+        let targetTriple: Triple
         if let triple {
+            targetTriple = try Triple(triple)
             tripleString = triple
         } else {
-            do {
-                tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            } catch {
-                tripleString = ""
-            }
+            targetTriple = try UserToolchain.default.targetTriple
+            tripleString = targetTriple.platformBuildPathComponent
         }
+
+        if targetTriple.isLinux() {
+            suffix = "-linux"
+        } else if targetTriple.isWindows() {
+            suffix = "-windows"
+        } else {
+            suffix = ""
+        }
+
         switch self {
         case .native:
             return scratchPath + [tripleString, "\(config)".lowercased()]
