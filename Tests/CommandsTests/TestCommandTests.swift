@@ -41,8 +41,8 @@ struct TestCommandTests {
             packagePath,
             configuration: configuration,
             extraArgs: args,
-            throwIfCommandFails: throwIfCommandFails,
             buildSystem: buildSystem,
+            throwIfCommandFails: throwIfCommandFails,
         )
     }
 
@@ -361,8 +361,8 @@ struct TestCommandTests {
                         fixturePath,
                         configuration: configuration,
                         extraArgs: [],
-                        throwIfCommandFails: true,
                         buildSystem: buildSystem,
+                        throwIfCommandFails: true,
                     )
                 }
                 guard case SwiftPMError.executionFailure(_, let stdout, _) = try #require(error) else {
