@@ -2,25 +2,25 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
 @testable import Build
 @testable import Commands
 @testable import CoreCommands
 
-@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import func PackageGraph.loadModulesGraph
 
 import _InternalTestSupport
 @testable import PackageModel
-import XCTest
+import Testing
 
 import ArgumentParser
 import class TSCBasic.BufferedOutputByteStream
@@ -28,9 +28,17 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
-final class SwiftCommandStateTests: CommandsTestCase {
-    func testSeverityEnum() async throws {
-        try fixtureXCTest(name: "Miscellaneous/Simple") { _ in
+@Suite(
+    .serialized,
+)
+struct SwiftCommandStateTests {
+    @Test(
+        .tags(
+            .TestSize.small,
+        )
+    )
+    func severityEnum() async throws {
+        try fixture(name: "Miscellaneous/Simple") { _ in
 
             do {
                 let info = Diagnostic(severity: .info, message: "info-string", metadata: nil)
@@ -38,33 +46,34 @@ final class SwiftCommandStateTests: CommandsTestCase {
                 let warning = Diagnostic(severity: .warning, message: "warning-string", metadata: nil)
                 let error = Diagnostic(severity: .error, message: "error-string", metadata: nil)
                 // testing color
-                XCTAssertEqual(info.severity.color, .white)
-                XCTAssertEqual(debug.severity.color, .white)
-                XCTAssertEqual(warning.severity.color, .yellow)
-                XCTAssertEqual(error.severity.color, .red)
+                #expect(info.severity.color == .white)
+                #expect(debug.severity.color == .white)
+                #expect(warning.severity.color == .yellow)
+                #expect(error.severity.color == .red)
 
                 // testing prefix
-                XCTAssertEqual(info.severity.logLabel, "info: ")
-                XCTAssertEqual(debug.severity.logLabel, "debug: ")
-                XCTAssertEqual(warning.severity.logLabel, "warning: ")
-                XCTAssertEqual(error.severity.logLabel, "error: ")
+                #expect(info.severity.logLabel == "info: ")
+                #expect(debug.severity.logLabel == "debug: ")
+                #expect(warning.severity.logLabel == "warning: ")
+                #expect(error.severity.logLabel == "error: ")
 
                 // testing boldness
-                XCTAssertTrue(info.severity.isBold)
-                XCTAssertTrue(debug.severity.isBold)
-                XCTAssertTrue(warning.severity.isBold)
-                XCTAssertTrue(error.severity.isBold)
+                #expect(info.severity.isBold)
+                #expect(debug.severity.isBold)
+                #expect(warning.severity.isBold)
+                #expect(error.severity.isBold)
             }
         }
     }
 
-    func testVerbosityLogLevel() async throws {
-        try fixtureXCTest(name: "Miscellaneous/Simple") { fixturePath in
+    @Test
+    func verbosityLogLevel() async throws {
+        try fixture(name: "Miscellaneous/Simple") { fixturePath in
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .warning)
+                #expect(tool.logLevel == .warning)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -73,17 +82,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(description.contains("warning: warning"))
+                #expect(!description.contains("info: info"))
+                #expect(!description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--verbose"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .info)
+                #expect(tool.logLevel == .info)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -92,17 +102,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(description.contains("warning: warning"))
+                #expect(description.contains("info: info"))
+                #expect(!description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "-v"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .info)
+                #expect(tool.logLevel == .info)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -111,17 +122,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(description.contains("warning: warning"))
+                #expect(description.contains("info: info"))
+                #expect(!description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--very-verbose"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .debug)
+                #expect(tool.logLevel == .debug)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -130,17 +142,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(description.contains("warning: warning"))
+                #expect(description.contains("info: info"))
+                #expect(description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--vv"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .debug)
+                #expect(tool.logLevel == .debug)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -149,17 +162,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(description.contains("warning: warning"))
+                #expect(description.contains("info: info"))
+                #expect(description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--quiet"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .error)
+                #expect(tool.logLevel == .error)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -168,17 +182,18 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(!description.contains("warning: warning"))
+                #expect(!description.contains("info: info"))
+                #expect(!description.contains("debug: debug"))
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "-q"])
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
-                XCTAssertEqual(tool.logLevel, .error)
+                #expect(tool.logLevel == .error)
 
                 tool.observabilityScope.emit(error: "error")
                 tool.observabilityScope.emit(warning: "warning")
@@ -187,42 +202,46 @@ final class SwiftCommandStateTests: CommandsTestCase {
 
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
 
-                XCTAssertMatch(outputStream.bytes.validDescription, .contains("error: error"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("warning: warning"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("info: info"))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("debug: debug"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(description.contains("error: error"))
+                #expect(!description.contains("warning: warning"))
+                #expect(!description.contains("info: info"))
+                #expect(!description.contains("debug: debug"))
             }
         }
     }
 
-    func testAuthorizationProviders() async throws {
-        try fixtureXCTest(name: "DependencyResolution/External/XCFramework") { fixturePath in
+    @Test
+    func authorizationProviders() async throws {
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
             // custom .netrc file
             do {
-                let customPath = try fs.tempDirectory.appending(component: UUID().uuidString)
+                let netrcFile = try fs.tempDirectory.appending(component: UUID().uuidString)
                 try fs.writeFileContents(
-                    customPath,
+                    netrcFile,
                     string: "machine mymachine.labkey.org login custom@labkey.org password custom"
                 )
 
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", netrcFile.pathString])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
-                let authorizationProvider = try tool.getAuthorizationProvider() as? CompositeAuthorizationProvider
-                let netrcProviders = authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider } ?? []
-                XCTAssertEqual(netrcProviders.count, 1)
-                XCTAssertEqual(try netrcProviders.first.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+                let authorizationProvider = try #require(tool.getAuthorizationProvider() as? CompositeAuthorizationProvider)
+                let netrcProviders = authorizationProvider.providers.compactMap { $0 as? NetrcAuthorizationProvider }
+                try #require(netrcProviders.count == 1)
+                let expectedPath = try resolveSymlinks(netrcFile)
+                let actualPath = try netrcProviders.first.map { try resolveSymlinks($0.path) }
+                #expect(actualPath == expectedPath)
 
-                let auth = try tool.getAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
-                XCTAssertEqual(auth?.user, "custom@labkey.org")
-                XCTAssertEqual(auth?.password, "custom")
+                let auth = try #require(tool.getAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org"))
+                #expect(auth.user == "custom@labkey.org")
+                #expect(auth.password == "custom")
 
                 // delete it
-                try localFileSystem.removeFileTree(customPath)
-                XCTAssertThrowsError(try tool.getAuthorizationProvider(), "error expected") { error in
-                    XCTAssertEqual(error as? StringError, StringError("Did not find netrc file at \(customPath)."))
+                try localFileSystem.removeFileTree(netrcFile)
+                #expect(throws: StringError("Did not find netrc file at \(netrcFile).")) {
+                    try tool.getAuthorizationProvider()
                 }
             }
 
@@ -230,143 +249,52 @@ final class SwiftCommandStateTests: CommandsTestCase {
         }
     }
 
-    func testRegistryAuthorizationProviders() async throws {
-        try fixtureXCTest(name: "DependencyResolution/External/XCFramework") { fixturePath in
+    @Test
+    func registryAuthorizationProviders() async throws {
+        try fixture(name: "DependencyResolution/External/XCFramework") { fixturePath in
             let fs = localFileSystem
 
             // custom .netrc file
             do {
-                let customPath = try fs.tempDirectory.appending(component: UUID().uuidString)
+                let netrcFile = try fs.tempDirectory.appending(component: UUID().uuidString)
                 try fs.writeFileContents(
-                    customPath,
+                    netrcFile,
                     string: "machine mymachine.labkey.org login custom@labkey.org password custom"
                 )
 
-                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", customPath.pathString])
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString, "--netrc-file", netrcFile.pathString])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
                 // There is only one AuthorizationProvider depending on platform
-#if canImport(Security)
-                let keychainProvider = try tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider
-                XCTAssertNotNil(keychainProvider)
-#else
-                let netrcProvider = try tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider
-                XCTAssertNotNil(netrcProvider)
-                XCTAssertEqual(try netrcProvider.map { try resolveSymlinks($0.path) }, try resolveSymlinks(customPath))
+                #if canImport(Security)
+                    let _ = try #require(tool.getRegistryAuthorizationProvider() as? KeychainAuthorizationProvider)
+                #else
+                    let netrcProvider = try #require(tool.getRegistryAuthorizationProvider() as? NetrcAuthorizationProvider)
+                    let expectedPath = try resolveSymlinks(netrcFile)
+                    #expect(try netrcProvider.map { try resolveSymlinks($0.path) } == expectedPath)
 
-                let auth = try tool.getRegistryAuthorizationProvider()?.authentication(for: "https://mymachine.labkey.org")
-                XCTAssertEqual(auth?.user, "custom@labkey.org")
-                XCTAssertEqual(auth?.password, "custom")
+                    let authorizationProvider = try #require(tool.getRegistryAuthorizationProvider())
+                    let auth = authorizationProvider.authentication(for: "https://mymachine.labkey.org")
+                    #expect(auth.user == "custom@labkey.org")
+                    #expect(auth.password == "custom")
 
-                // delete it
-                try localFileSystem.removeFileTree(customPath)
-                XCTAssertThrowsError(try tool.getRegistryAuthorizationProvider(), "error expected") { error in
-                    XCTAssertEqual(error as? StringError, StringError("did not find netrc file at \(customPath)"))
-                }
-#endif
+                    // delete it
+                    try localFileSystem.removeFileTree(netrcFile)
+                    #expect(throws: (any Error).self, "error expected") { error in
+                        #expect(error as? StringError == StringError("did not find netrc file at \(netrcFile)"))
+                    }
+                #endif
             }
 
             // Tests should not modify user's home dir .netrc so leaving that out intentionally
         }
     }
 
-    func testDebugFormatFlags() async throws {
+    @Test
+    func debugFormatFlags() async throws {
         let fs = InMemoryFileSystem(emptyFiles: [
-            "/Pkg/Sources/exe/main.swift",
+            "/Pkg/Sources/exe/main.swift"
         ])
-
-        let observer = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(fileSystem: fs, manifests: [
-            Manifest.createRootManifest(displayName: "Pkg",
-                                        path: "/Pkg",
-                                        targets: [TargetDescription(name: "exe")])
-        ], observabilityScope: observer.topScope)
-
-        var plan: BuildPlan
-
-        /* -debug-info-format dwarf */
-        let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
-        let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
-        plan = try await BuildPlan(
-            destinationBuildParameters: explicitDwarf.productsBuildParameters,
-            toolsBuildParameters: explicitDwarf.toolsBuildParameters,
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observer.topScope
-        )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
-
-        /* -debug-info-format codeview */
-        let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
-        let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
-
-        plan = try await BuildPlan(
-            destinationBuildParameters: explicitCodeView.productsBuildParameters,
-            toolsBuildParameters: explicitCodeView.productsBuildParameters,
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observer.topScope
-        )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"])
-
-        // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
-        // Windows, this would fail otherwise as CodeView is supported on the
-        // native host.
-        let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
-        let unsupportedCodeView = try SwiftCommandState.makeMockState(options: unsupportedCodeViewOptions)
-
-        XCTAssertThrowsError(try unsupportedCodeView.productsBuildParameters) {
-            XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
-        }
-
-        /* <<null>> */
-        let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
-        let implicitDwarf = try SwiftCommandState.makeMockState(options: implicitDwarfOptions)
-        plan = try await BuildPlan(
-            destinationBuildParameters: implicitDwarf.productsBuildParameters,
-            toolsBuildParameters: implicitDwarf.toolsBuildParameters,
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observer.topScope
-        )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"])
-
-        /* -debug-info-format none */
-        let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
-        let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
-        plan = try await BuildPlan(
-            destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
-            toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
-            graph: graph,
-            fileSystem: fs,
-            observabilityScope: observer.topScope
-        )
-        try XCTAssertMatch(plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
-                           [.anySequence, "-gnone", .anySequence])
-    }
-
-    func testToolchainOption() async throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
-        let customTargetToolchain = AbsolutePath("/path/to/toolchain")
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin", "swiftc"])
-        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
-
-        let fs = InMemoryFileSystem(emptyFiles: [
-            "/Pkg/Sources/exe/main.swift",
-            hostSwiftcPath.pathString,
-            hostArPath.pathString,
-            targetSwiftcPath.pathString,
-            targetArPath.pathString
-        ])
-
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
-            try fs.updatePermissions(path, isExecutable: true)
-        }
 
         let observer = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -381,158 +309,286 @@ final class SwiftCommandStateTests: CommandsTestCase {
             observabilityScope: observer.topScope
         )
 
-        let options = try GlobalOptions.parse([
-            "--toolchain", customTargetToolchain.pathString,
-            "--triple", "x86_64-unknown-linux-gnu",
-        ])
-        let swiftCommandState = try SwiftCommandState.makeMockState(
-            options: options,
-            fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
-        )
+        var plan: BuildPlan
 
-        XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
-        XCTAssertEqual(
-            try swiftCommandState.getTargetToolchain().swiftCompilerPath,
-            targetSwiftcPath
-        )
-        XCTAssertEqual(
-            try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
-            nil
-        )
-
-        let plan = try await BuildPlan(
-            destinationBuildParameters: swiftCommandState.productsBuildParameters,
-            toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+        /* -debug-info-format dwarf */
+        let explicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "dwarf"])
+        let explicitDwarf = try SwiftCommandState.makeMockState(options: explicitDwarfOptions)
+        plan = try await BuildPlan(
+            destinationBuildParameters: explicitDwarf.productsBuildParameters,
+            toolsBuildParameters: explicitDwarf.toolsBuildParameters,
             graph: graph,
             fileSystem: fs,
             observabilityScope: observer.topScope
         )
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
+        )
 
-        let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
+        /* -debug-info-format codeview */
+        let explicitCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "codeview"])
+        let explicitCodeView = try SwiftCommandState.makeMockState(options: explicitCodeViewOptions)
 
-        XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
-    }
-
-    func testToolsetOption() throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660. threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
-        let targetToolchainPath = "/path/to/toolchain"
-        let customTargetToolchain = AbsolutePath(targetToolchainPath)
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["swiftc"])
-        let targetArPath = customTargetToolchain.appending(components: ["llvm-ar"])
-
-        let fs = InMemoryFileSystem(emptyFiles: [
-            hostSwiftcPath.pathString,
-            hostArPath.pathString,
-            targetSwiftcPath.pathString,
-            targetArPath.pathString
-        ])
-
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath,] {
-            try fs.updatePermissions(path, isExecutable: true)
-        }
-
-        try fs.writeFileContents("/toolset.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath)"
-        }
-        """)
-
-        let options = try GlobalOptions.parse(["--toolset", "/toolset.json"])
-        let swiftCommandState = try SwiftCommandState.makeMockState(
-            options: options,
+        plan = try await BuildPlan(
+            destinationBuildParameters: explicitCodeView.productsBuildParameters,
+            toolsBuildParameters: explicitCodeView.productsBuildParameters,
+            graph: graph,
             fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
+            observabilityScope: observer.topScope
+        )
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-debug-info-format=codeview", "-Xlinker", "-debug"]
         )
 
-        let hostToolchain = try swiftCommandState.getHostToolchain()
-        let targetToolchain = try swiftCommandState.getTargetToolchain()
+        // Explicitly pass Linux as when the `SwiftCommandState` tests are enabled on
+        // Windows, this would fail otherwise as CodeView is supported on the
+        // native host.
+        let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
+        let unsupportedCodeView = try SwiftCommandState.makeMockState(options: unsupportedCodeViewOptions)
 
-        XCTAssertEqual(
-            targetToolchain.swiftSDK.toolset.rootPaths,
-            [customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths
-        )
-        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
-        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
-    }
-
-    func testMultipleToolsets() throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
-        let targetToolchainPath1 = "/path/to/toolchain1"
-        let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
-        let targetToolchainPath2 = "/path/to/toolchain2"
-        let customTargetToolchain2 = AbsolutePath(targetToolchainPath2)
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain1.appending(components: ["swiftc"])
-        let targetArPath = customTargetToolchain1.appending(components: ["llvm-ar"])
-        let targetClangPath = customTargetToolchain2.appending(components: ["clang"])
-
-        let fs = InMemoryFileSystem(emptyFiles: [
-            hostSwiftcPath.pathString,
-            hostArPath.pathString,
-            targetSwiftcPath.pathString,
-            targetArPath.pathString,
-            targetClangPath.pathString
-        ])
-
-        for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath,] {
-            try fs.updatePermissions(path, isExecutable: true)
+        #expect(throws: StringError("CodeView debug information is currently not supported on linux")) {
+            try unsupportedCodeView.productsBuildParameters
         }
 
-        try fs.writeFileContents("/toolset1.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath1)"
-        }
-        """)
-
-        try fs.writeFileContents("/toolset2.json", string: """
-        {
-            "schemaVersion": "1.0",
-            "rootPath": "\(targetToolchainPath2)"
-        }
-        """)
-
-        let options = try GlobalOptions.parse([
-            "--toolset", "/toolset1.json", "--toolset", "/toolset2.json"
-        ])
-        let swiftCommandState = try SwiftCommandState.makeMockState(
-            options: options,
+        /* <<null>> */
+        let implicitDwarfOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc"])
+        let implicitDwarf = try SwiftCommandState.makeMockState(options: implicitDwarfOptions)
+        plan = try await BuildPlan(
+            destinationBuildParameters: implicitDwarf.productsBuildParameters,
+            toolsBuildParameters: implicitDwarf.toolsBuildParameters,
+            graph: graph,
             fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
+            observabilityScope: observer.topScope
+        )
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf"]
         )
 
-        let hostToolchain = try swiftCommandState.getHostToolchain()
-        let targetToolchain = try swiftCommandState.getTargetToolchain()
-
-        XCTAssertEqual(
-            targetToolchain.swiftSDK.toolset.rootPaths,
-            [customTargetToolchain2, customTargetToolchain1] + hostToolchain.swiftSDK.toolset.rootPaths
+        /* -debug-info-format none */
+        let explicitNoDebugInfoOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-windows-msvc", "-debug-info-format", "none"])
+        let explicitNoDebugInfo = try SwiftCommandState.makeMockState(options: explicitNoDebugInfoOptions)
+        plan = try await BuildPlan(
+            destinationBuildParameters: explicitNoDebugInfo.productsBuildParameters,
+            toolsBuildParameters: explicitNoDebugInfo.toolsBuildParameters,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observer.topScope
         )
-        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
-        XCTAssertEqual(try targetToolchain.getClangCompiler(), targetClangPath)
-        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
+        try XCTAssertMatch(
+            plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? [],
+            [.anySequence, "-gnone", .anySequence]
+        )
     }
 
-    func testPackagePathWithMissingFolder() async throws {
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8660", relationship: .defect), // threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation
+    )
+    func toolchainOption() async throws {
+        try await withKnownIssue {
+            let customTargetToolchain = AbsolutePath("/path/to/toolchain")
+            let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+            let hostArPath = AbsolutePath("/usr/bin/ar")
+            let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin", "swiftc"])
+            let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+
+            let fs = InMemoryFileSystem(emptyFiles: [
+                "/Pkg/Sources/exe/main.swift",
+                hostSwiftcPath.pathString,
+                hostArPath.pathString,
+                targetSwiftcPath.pathString,
+                targetArPath.pathString,
+            ])
+
+            for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
+                try fs.updatePermissions(path, isExecutable: true)
+            }
+
+            let observer = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "Pkg",
+                        path: "/Pkg",
+                        targets: [TargetDescription(name: "exe")]
+                    )
+                ],
+                observabilityScope: observer.topScope
+            )
+
+            let options = try GlobalOptions.parse([
+                "--toolchain", customTargetToolchain.pathString,
+                "--triple", "x86_64-unknown-linux-gnu",
+            ])
+            let swiftCommandState = try SwiftCommandState.makeMockState(
+                options: options,
+                fileSystem: fs,
+                environment: ["PATH": "/usr/bin"]
+            )
+
+            #expect(swiftCommandState.originalWorkingDirectory == fs.currentWorkingDirectory)
+            #expect(try swiftCommandState.getTargetToolchain().swiftCompilerPath == targetSwiftcPath)
+            let compilerToolProperties = try #require(try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler])
+            #expect(compilerToolProperties.path == nil)
+
+            let plan = try await BuildPlan(
+                destinationBuildParameters: swiftCommandState.productsBuildParameters,
+                toolsBuildParameters: swiftCommandState.toolsBuildParameters,
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observer.topScope
+            )
+
+            let buildProduct = try #require(try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first)
+            let arguments = try buildProduct.linkArguments()
+
+            #expect(arguments.contains("/path/to/toolchain"))
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8660", relationship: .defect), // threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation
+    )
+    func toolsetOption() async throws {
+        try withKnownIssue {
+            let targetToolchainPath = "/path/to/toolchain"
+            let customTargetToolchain = AbsolutePath(targetToolchainPath)
+            let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+            let hostArPath = AbsolutePath("/usr/bin/ar")
+            let targetSwiftcPath = customTargetToolchain.appending(components: ["swiftc"])
+            let targetArPath = customTargetToolchain.appending(components: ["llvm-ar"])
+
+            let fs = InMemoryFileSystem(emptyFiles: [
+                hostSwiftcPath.pathString,
+                hostArPath.pathString,
+                targetSwiftcPath.pathString,
+                targetArPath.pathString,
+            ])
+
+            for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath] {
+                try fs.updatePermissions(path, isExecutable: true)
+            }
+
+            try fs.writeFileContents(
+                "/toolset.json",
+                string: """
+                    {
+                        "schemaVersion": "1.0",
+                        "rootPath": "\(targetToolchainPath)"
+                    }
+                    """
+            )
+
+            let options = try GlobalOptions.parse(["--toolset", "/toolset.json"])
+            let swiftCommandState = try SwiftCommandState.makeMockState(
+                options: options,
+                fileSystem: fs,
+                environment: ["PATH": "/usr/bin"]
+            )
+
+            let hostToolchain = try swiftCommandState.getHostToolchain()
+            let targetToolchain = try swiftCommandState.getTargetToolchain()
+
+            #expect(targetToolchain.swiftSDK.toolset.rootPaths == [customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths)
+            #expect(targetToolchain.swiftCompilerPath == targetSwiftcPath)
+            #expect(targetToolchain.librarianPath == targetArPath)
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8660", relationship: .defect), // threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation
+    )
+    func multipleToolsets() async throws {
+        try withKnownIssue {
+            let targetToolchainPath1 = "/path/to/toolchain1"
+            let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
+            let targetToolchainPath2 = "/path/to/toolchain2"
+            let customTargetToolchain2 = AbsolutePath(targetToolchainPath2)
+            let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
+            let hostArPath = AbsolutePath("/usr/bin/ar")
+            let targetSwiftcPath = customTargetToolchain1.appending(components: ["swiftc"])
+            let targetArPath = customTargetToolchain1.appending(components: ["llvm-ar"])
+            let targetClangPath = customTargetToolchain2.appending(components: ["clang"])
+
+            let fs = InMemoryFileSystem(emptyFiles: [
+                hostSwiftcPath.pathString,
+                hostArPath.pathString,
+                targetSwiftcPath.pathString,
+                targetArPath.pathString,
+                targetClangPath.pathString,
+            ])
+
+            for path in [hostSwiftcPath, hostArPath, targetSwiftcPath, targetArPath, targetClangPath] {
+                try fs.updatePermissions(path, isExecutable: true)
+            }
+
+            try fs.writeFileContents(
+                "/toolset1.json",
+                string: """
+                    {
+                        "schemaVersion": "1.0",
+                        "rootPath": "\(targetToolchainPath1)"
+                    }
+                    """
+            )
+
+            try fs.writeFileContents(
+                "/toolset2.json",
+                string: """
+                    {
+                        "schemaVersion": "1.0",
+                        "rootPath": "\(targetToolchainPath2)"
+                    }
+                    """
+            )
+
+            let options = try GlobalOptions.parse([
+                "--toolset", "/toolset1.json", "--toolset", "/toolset2.json",
+            ])
+            let swiftCommandState = try SwiftCommandState.makeMockState(
+                options: options,
+                fileSystem: fs,
+                environment: ["PATH": "/usr/bin"]
+            )
+
+            let hostToolchain = try swiftCommandState.getHostToolchain()
+            let targetToolchain = try swiftCommandState.getTargetToolchain()
+
+            #expect(targetToolchain.swiftSDK.toolset.rootPaths == [customTargetToolchain2, customTargetToolchain1] + hostToolchain.swiftSDK.toolset.rootPaths)
+            #expect(targetToolchain.swiftCompilerPath == targetSwiftcPath)
+            try #expect(targetToolchain.getClangCompiler() == targetClangPath)
+            #expect(targetToolchain.librarianPath == targetArPath)
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    @Test
+    func packagePathWithMissingFolder() async throws {
         try withTemporaryDirectory { fixturePath in
             let packagePath = fixturePath.appending(component: "Foo")
             let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
 
             do {
                 let outputStream = BufferedOutputByteStream()
-                XCTAssertThrowsError(try SwiftCommandState.makeMockState(outputStream: outputStream, options: options), "error expected")
+                #expect(throws: (any Error).self) {
+                    try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+                }
             }
 
             do {
                 let outputStream = BufferedOutputByteStream()
                 let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options, createPackagePath: true)
                 tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
-                XCTAssertNoMatch(outputStream.bytes.validDescription, .contains("error:"))
+                let description = try #require(outputStream.bytes.validDescription)
+                #expect(!description.contains("error:"))
             }
         }
     }
