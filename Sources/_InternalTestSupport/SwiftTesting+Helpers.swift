@@ -13,18 +13,6 @@ import Testing
 
 public func expectFileExists(
     at path: AbsolutePath,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
-
-    #expect(
-        localFileSystem.exists(path),
-        "Files '\(path)' does not exist.",
-        sourceLocation: sourceLocation,
-    )
-}
-
-public func expectFileDoesNotExists(
-    at fixturePath: AbsolutePath,
     _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
@@ -34,9 +22,39 @@ public func expectFileDoesNotExists(
         } else {
             ""
         }
+    let msgSuffix: String
+    do {
+        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path.parentDirectory))"
+    } catch {
+        msgSuffix = ""
+    }
     #expect(
-        !localFileSystem.exists(fixturePath),
-        "\(commentPrefix)\(fixturePath) does not exist",
+        localFileSystem.exists(path),
+        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func expectFileDoesNotExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    let commentPrefix =
+        if let comment {
+            "\(comment): "
+        } else {
+            ""
+        }
+    let msgSuffix: String
+    do {
+        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path.parentDirectory))"
+    } catch {
+        msgSuffix = ""
+    }
+    #expect(
+        !localFileSystem.exists(path),
+        "\(commentPrefix)File: '\(path)' was not expected to exist, but does.\(msgSuffix))",
         sourceLocation: sourceLocation,
     )
 }
@@ -54,7 +72,7 @@ public func expectFileIsExecutable(
         }
     #expect(
         localFileSystem.isExecutableFile(fixturePath),
-        "\(commentPrefix)\(fixturePath) does not exist",
+        "\(commentPrefix)File '\(fixturePath)' expected to be executable, but is not.",
         sourceLocation: sourceLocation,
     )
 }
@@ -63,9 +81,15 @@ public func expectDirectoryExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
+let msgSuffix: String
+    do {
+        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
+    } catch {
+        msgSuffix = ""
+    }
     #expect(
         localFileSystem.isDirectory(path),
-        "Expected directory doesn't exist: \(path)",
+        "Expected directory doesn't exist: '\(path)'. \(msgSuffix)",
         sourceLocation: sourceLocation,
     )
 }
@@ -74,9 +98,15 @@ public func expectDirectoryDoesNotExist(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
+    let msgSuffix: String
+    do {
+        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
+    } catch {
+        msgSuffix = ""
+    }
     #expect(
         !localFileSystem.isDirectory(path),
-        "Directory exists unexpectedly: \(path)",
+        "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
         sourceLocation: sourceLocation,
     )
 }
