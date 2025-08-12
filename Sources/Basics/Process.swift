@@ -30,6 +30,8 @@ extension ProcessInfo {
         .windows
         #elseif os(FreeBSD)
         .freebsd
+        #elseif os(Android)
+        .android
         #else
         .unknown
         #endif
