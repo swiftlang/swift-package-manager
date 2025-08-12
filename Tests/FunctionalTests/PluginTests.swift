@@ -1347,25 +1347,17 @@ final class PluginTests {
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .requiresSwiftConcurrencySupport,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
-    func testSnippetSupport() async throws {
+    func testSnippetSupport(
+        buildData: BuildData,
+    ) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { path in
             let (stdout, stderr) = try await executeSwiftPackage(
                 path.appending("PluginsAndSnippets"),
-                configuration: .debug,
-                extraArgs: ["do-something"],
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
-        }
-
-        // Try again with the Swift Build build system
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                path.appending("PluginsAndSnippets"),
-                configuration: .debug,
-                extraArgs: ["--build-system", "swiftbuild", "do-something"],
-                buildSystem: .native,
+                configuration: buildData.config,
+                extraArgs: ["do-something", "--skip-dump"],
+                buildSystem: buildData.buildSystem,
             )
             #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
         }
