@@ -62,7 +62,6 @@ let swiftPMDataModelProduct = (
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
-        "PackageModelSyntax",
         "SourceControl",
         "Workspace",
     ]
@@ -369,20 +368,6 @@ let package = Package(
         ),
 
         .target(
-            /** Primary Package model objects relationship to SwiftSyntax */
-            name: "PackageModelSyntax",
-            dependencies: [
-                "Basics",
-                "PackageLoading",
-                "PackageModel",
-            ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
-        ),
-
-        .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: [
@@ -623,7 +608,6 @@ let package = Package(
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
-                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
@@ -929,13 +913,6 @@ let package = Package(
             dependencies: ["PackageModel", "_InternalTestSupport"]
         ),
         .testTarget(
-            name: "PackageModelSyntaxTests",
-            dependencies: [
-                "PackageModelSyntax",
-                "_InternalTestSupport",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils"])
-        ),
-        .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "_InternalTestSupport"],
             swiftSettings: commonExperimentalFeatures
@@ -1064,7 +1041,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
-                "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
                 "_InternalTestSupport",
