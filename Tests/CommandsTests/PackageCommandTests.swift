@@ -538,9 +538,11 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         let enumerator = try XCTUnwrap(FileManager.default.enumerator(at: URL(fileURLWithPath: path.pathString), includingPropertiesForKeys: nil), file: file, line: line)
 
         var symbolGraphURL: URL?
-        for case let url as URL in enumerator where url.lastPathComponent == "Bar.symbols.json" {
-            symbolGraphURL = url
-            break
+        while let object = enumerator.nextObject() {
+            if let url = object as? URL, url.lastPathComponent == "Bar.symbols.json" {
+                symbolGraphURL = url
+                break
+            }
         }
 
         let symbolGraphData: Data

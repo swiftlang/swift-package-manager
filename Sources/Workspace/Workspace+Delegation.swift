@@ -216,7 +216,7 @@ extension WorkspaceDelegate {
     }
 }
 
-struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
+struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate, @unchecked Sendable {
     private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
@@ -279,7 +279,7 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate {
     }
 }
 
-struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
+struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate, @unchecked Sendable {
     private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {
@@ -335,7 +335,7 @@ struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate {
     }
 }
 
-struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate {
+struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate, @unchecked Sendable {
     private weak var workspaceDelegate: Workspace.Delegate?
 
     init(workspaceDelegate: Workspace.Delegate) {

@@ -32,12 +32,12 @@ import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
 
+import class TSCBasic.Process
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
-@_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
 
 @available(*, deprecated, message: "Use CiEnvironment.runningInSmokeTestPipeline")
@@ -193,7 +193,6 @@ public enum TestError: Error {
     case platformNotSupported
 }
 
-@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
@@ -305,7 +304,7 @@ fileprivate func setup(
         #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
         #else
-        try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+        try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
         
         // Ensure we get a clean test fixture.
@@ -361,17 +360,17 @@ public func initGitRepo(
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
-        try systemQuietly([Git.tool, "-C", dir.pathString, "init"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "init")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false")
         let repo = GitRepository(path: dir)
         try repo.stageEverything()
         try repo.commit(message: "msg")
         for tag in tags {
             try repo.tag(name: tag)
         }
-        try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
         XCTFail("\(error.interpolationDescription)", file: file, line: line)
     }
