@@ -785,6 +785,9 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Workspace",
+            ],
+            exclude: [
+                "build.sh"
             ]
         ),
 
