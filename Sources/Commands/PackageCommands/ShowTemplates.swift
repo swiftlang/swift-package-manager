@@ -74,6 +74,31 @@ struct ShowTemplates: AsyncSwiftCommand {
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
 
+        // precheck() needed, extremely similar to the Init precheck, can refactor possibly
+
+        let cwd = swiftCommandState.fileSystem.currentWorkingDirectory
+        let source = try resolveSource(cwd: cwd)
+        let resolvedPath = try await resolveTemplatePath(using: swiftCommandState, source: source)
+        let templates = try await loadTemplates(from: resolvedPath, swiftCommandState: swiftCommandState)
+        try await displayTemplates(templates, at: resolvedPath, using: swiftCommandState)
+        try cleanupTemplate(source: source, path: resolvedPath, fileSystem: swiftCommandState.fileSystem)
+    }
+
+    private func resolveSource(cwd: AbsolutePath?) throws -> InitTemplatePackage.TemplateSource {
+        guard let source = DefaultTemplateSourceResolver().resolveSource(
+            directory: cwd,
+            url: self.templateURL,
+            packageID: self.templatePackageID
+        ) else {
+            throw ValidationError("No template source specified. Provide --url or run in a valid package directory.")
+        }
+        return source
+    }
+
+
+
+    private func resolveTemplatePath(using swiftCommandState: SwiftCommandState, source: InitTemplatePackage.TemplateSource) async throws -> Basics.AbsolutePath {
+
         let requirementResolver = DependencyRequirementResolver(
             exact: exact,
             revision: revision,
@@ -83,112 +108,32 @@ struct ShowTemplates: AsyncSwiftCommand {
             to: to
         )
 
-        let registryRequirement: PackageDependency.Registry.Requirement? =
-            try? requirementResolver.resolveRegistry()
+        let registryRequirement = try? requirementResolver.resolveRegistry()
+        let sourceControlRequirement = try? requirementResolver.resolveSourceControl()
 
-        let sourceControlRequirement: PackageDependency.SourceControl.Requirement? =
-            try? requirementResolver.resolveSourceControl()
+        return try await TemplatePathResolver(
+            source: source,
+            templateDirectory: swiftCommandState.fileSystem.currentWorkingDirectory,
+            templateURL: self.templateURL,
+            sourceControlRequirement: sourceControlRequirement,
+            registryRequirement: registryRequirement,
+            packageIdentity: self.templatePackageID,
+            swiftCommandState: swiftCommandState
+        ).resolve()
+    }
 
-        var resolvedTemplatePath: Basics.AbsolutePath
-
-        var templateSource: InitTemplatePackage.TemplateSource
-        if let templateURL = self.templateURL {
-            // Download and resolve the Git-based template.
-            resolvedTemplatePath = try await TemplatePathResolver(
-                source: .git,
-                templateDirectory: nil,
-                templateURL: templateURL,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                packageIdentity: self.templatePackageID,
-                swiftCommandState: swiftCommandState
-            ).resolve()
-
-            templateSource = .git
-
-        } else if let _ = self.templatePackageID {
-            // Download and resolve the Git-based template.
-            resolvedTemplatePath = try await TemplatePathResolver(
-                source: .registry,
-                templateDirectory: nil,
-                templateURL: nil,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                packageIdentity: self.templatePackageID,
-                swiftCommandState: swiftCommandState
-            ).resolve()
-
-            templateSource = .registry
-
-        } else {
-            // Use the current working directory.
-            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw InternalError("No template URL provided and no current directory")
-            }
-
-            resolvedTemplatePath = try await TemplatePathResolver(
-                source: .local,
-                templateDirectory: cwd,
-                templateURL: nil,
-                sourceControlRequirement: sourceControlRequirement,
-                registryRequirement: registryRequirement,
-                packageIdentity: nil,
-                swiftCommandState: swiftCommandState
-            ).resolve()
-
-            templateSource = .local
+    private func loadTemplates(from path: AbsolutePath, swiftCommandState: SwiftCommandState) async throws -> [Template] {
+        let graph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: path) { _, _ in
+            try await swiftCommandState.loadPackageGraph()
         }
 
-        // Clean up downloaded package after execution.
-        defer {
-            if templateSource == .git {
-                try? FileManager.default.removeItem(at: resolvedTemplatePath.asURL)
-            } else if templateSource == .registry {
-                let parentDirectoryURL = resolvedTemplatePath.parentDirectory.asURL
-                try? FileManager.default.removeItem(at: parentDirectoryURL)
-            }
-        }
+        let rootPackages = graph.rootPackages.map(\.identity)
 
-
-        // Load the package graph.
-        let packageGraph = try await swiftCommandState
-            .withTemporaryWorkspace(switchingTo: resolvedTemplatePath) { _, _ in
-                try await swiftCommandState.loadPackageGraph()
-        }
-
-        let rootPackages = packageGraph.rootPackages.map(\.identity)
-
-        // Extract executable modules marked as templates.
-        let templates = packageGraph.allModules.filter(\.underlying.template).map { module -> Template in
-            if !rootPackages.contains(module.packageIdentity) {
-                return Template(package: module.packageIdentity.description, name: module.name)
-            } else {
-                return Template(package: String?.none, name: module.name)
-            }
-        }
-
-        // Display templates in the requested format.
-        switch self.format {
-        case .flatlist:
-            for template in templates.sorted(by: { $0.name < $1.name }) {
-                let description = try await swiftCommandState.withTemporaryWorkspace(switchingTo: resolvedTemplatePath) {_,  _ in
-                    try await getDescription(swiftCommandState, template: template.name)
-                }
-                if let package = template.package {
-                    print("\(template.name) (\(package)) : \(description)")
-                } else {
-                    print("\(template.name) : \(description)")
-                }
-            }
-
-        case .json:
-            let encoder = JSONEncoder()
-            let data = try encoder.encode(templates)
-            if let output = String(data: data, encoding: .utf8) {
-                print(output)
-            }
+        return graph.allModules.filter(\.underlying.template).map {
+            Template(package: rootPackages.contains($0.packageIdentity) ? nil : $0.packageIdentity.description, name: $0.name)
         }
     }
+
 
     private func getDescription(_ swiftCommandState: SwiftCommandState, template: String) async throws -> String {
         let workspace = try swiftCommandState.getActiveWorkspace()
@@ -205,19 +150,53 @@ struct ShowTemplates: AsyncSwiftCommand {
         let products = rootManifest.products
         let targets = rootManifest.targets
 
-        for _ in products {
-            if let target: TargetDescription = targets.first(where: { $0.name == template }) {
-                if let options = target.templateInitializationOptions {
-                    if case .packageInit(_, _, let description) = options {
-                            return description
-                    }
-                }
-            }
+        if let target = targets.first(where: { $0.name == template }),
+           let options = target.templateInitializationOptions,
+           case .packageInit(_, _, let description) = options {
+            return description
         }
+
         throw InternalError(
             "Could not find template \(template)"
         )
     }
+
+    private func displayTemplates(
+        _ templates: [Template],
+        at path: AbsolutePath,
+        using swiftCommandState: SwiftCommandState
+    ) async throws {
+        switch self.format {
+        case .flatlist:
+            for template in templates.sorted(by: { $0.name < $1.name }) {
+                let description = try await swiftCommandState.withTemporaryWorkspace(switchingTo: path) { _, _ in
+                    try await getDescription(swiftCommandState, template: template.name)
+                }
+                if let package = template.package {
+                    print("\(template.name) (\(package)) : \(description)")
+                } else {
+                    print("\(template.name) : \(description)")
+                }
+            }
+
+        case .json:
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(templates)
+            if let output = String(data: data, encoding: .utf8) {
+                print(output)
+            }
+        }
+    }
+
+    private func cleanupTemplate(source: InitTemplatePackage.TemplateSource, path: AbsolutePath, fileSystem: FileSystem) throws {
+        try TemplateInitializationDirectoryManager(fileSystem: fileSystem)
+            .cleanupTemporary(templateSource: source, path: path, temporaryDirectory: nil)
+    }
+
+
+
+
 
     /// Represents a discovered template.
     struct Template: Codable {

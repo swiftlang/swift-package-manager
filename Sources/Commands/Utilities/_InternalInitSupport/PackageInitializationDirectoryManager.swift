@@ -7,7 +7,7 @@ import Foundation
 import CoreCommands
 
 
-struct TemplateInitializationDirectoryManager {
+public struct TemplateInitializationDirectoryManager {
     let fileSystem: FileSystem
 
     func createTemporaryDirectories() throws -> (stagingPath: Basics.AbsolutePath, cleanUpPath: Basics.AbsolutePath, tempDir: Basics.AbsolutePath) {
@@ -42,7 +42,7 @@ struct TemplateInitializationDirectoryManager {
         }
     }
 
-    func cleanupTemporary(templateSource: InitTemplatePackage.TemplateSource, path: Basics.AbsolutePath, tempDir: Basics.AbsolutePath) throws {
+    public func cleanupTemporary(templateSource: InitTemplatePackage.TemplateSource, path: Basics.AbsolutePath, temporaryDirectory: Basics.AbsolutePath?) throws {
         do {
             switch templateSource {
             case .git:
@@ -56,18 +56,23 @@ struct TemplateInitializationDirectoryManager {
             case .local:
                 break
             }
-            try fileSystem.removeFileTree(tempDir)
+
+            if let tempDir = temporaryDirectory {
+                try fileSystem.removeFileTree(tempDir)
+            }
+
         } catch {
-            throw CleanupError.failedToCleanup(tempDir: tempDir, underlying: error)
+            throw CleanupError.failedToCleanup(temporaryDirectory: temporaryDirectory, underlying: error)
         }
     }
 
     enum CleanupError: Error, CustomStringConvertible {
-        case failedToCleanup(tempDir: Basics.AbsolutePath, underlying: Error)
+        case failedToCleanup(temporaryDirectory: Basics.AbsolutePath?, underlying: Error)
 
         var description: String {
             switch self {
-            case .failedToCleanup(let tempDir, let error):
+            case .failedToCleanup(let temporaryDirectory, let error):
+                let tempDir = temporaryDirectory?.pathString ?? "<no temporary directory initialized>"
                 return "Failed to clean up temporary directory at \(tempDir): \(error.localizedDescription)"
             }
         }
