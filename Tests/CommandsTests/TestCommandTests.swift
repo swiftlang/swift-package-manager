@@ -115,7 +115,7 @@ struct TestCommandTests {
     }
 
     @Test(
-        .SWBINTTODO("Windows: Driver threw unable to load output file map"),
+        .SWBINTTODO("Custom runners should disable entrypoint generation when appropriate"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func toolsetRunner(
@@ -145,22 +145,12 @@ struct TestCommandTests {
                 #expect(stdout.contains("\(fixturePath)"))
 
                 // swift-build-tool output should go to stderr.
-                withKnownIssue {
-                    #expect(stderr.contains("Compiling"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
-                }
+                #expect(stderr.contains("Compiling"))
 
-                withKnownIssue {
-                    #expect(stderr.contains("Linking"))
-                } when: {
-                    buildSystem == .swiftbuild // && ProcessInfo.hostOperatingSystem != .macOS
-                }
+                #expect(stderr.contains("Linking"))
             }
         } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline)
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline) // error: SwiftCompile normal x86_64 /tmp/Miscellaneous_EchoExecutable.sxkNTX/Miscellaneous_EchoExecutable/.build/x86_64-unknown-linux-gnu/Intermediates.noindex/EchoExecutable.build/Debug-linux/TestSuite-test-runner.build/DerivedSources/test_entry_point.swift failed with a nonzero exit code
+            buildSystem == .swiftbuild
         }
     }
 
@@ -242,9 +232,7 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
-            // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
+            buildSystem == .swiftbuild
         }
     }
 
@@ -278,7 +266,7 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+            buildSystem == .swiftbuild
         }
     }
 
@@ -300,8 +288,7 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-            || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+            buildSystem == .swiftbuild
         }
     }
 
@@ -667,7 +654,6 @@ struct TestCommandTests {
         } when: {
             (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
                 || ProcessInfo.hostOperatingSystem == .windows
-                || (buildSystem == .swiftbuild && .macOS == ProcessInfo.hostOperatingSystem && tcdata.testRunner == .SwiftTesting)
         }
     }
 
@@ -994,29 +980,23 @@ struct TestCommandTests {
     }
 
     @Test(
-        .SWBINTTODO("Fails to find test executable"),
-        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func basicSwiftTestingIntegration(
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("Fails to find the test executable") {
-            try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--enable-swift-testing", "--disable-xctest"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
-                #expect(
-                    stdout.contains(#"Test "SOME TEST FUNCTION" started"#),
-                    "Expectation not met.  got '\(stdout)'\nstderr: '\(stderr)'"
-                )
-            }
-        } when: {
-            buildSystem == .swiftbuild
+        try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["--enable-swift-testing", "--disable-xctest"],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stdout.contains(#"Test "SOME TEST FUNCTION" started"#),
+                "Expectation not met.  got '\(stdout)'\nstderr: '\(stderr)'"
+            )
         }
     }
 
