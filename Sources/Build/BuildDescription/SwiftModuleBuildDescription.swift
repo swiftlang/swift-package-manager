@@ -1126,10 +1126,22 @@ extension SwiftModuleBuildDescription {
 
 extension SwiftModuleBuildDescription {
     package var diagnosticFiles: [AbsolutePath] {
-        self.sources.compactMap { self.diagnosticFile(sourceFile: $0) }
+        // WMO builds have a single frontend invocation and produce a single
+        // diagnostic file named after the module.
+        if self.useWholeModuleOptimization {
+            return [
+                self.diagnosticFile(name: self.target.name)
+            ]
+        }
+
+        return self.sources.map(self.diagnosticFile(sourceFile:))
+    }
+
+    private func diagnosticFile(name: String) -> AbsolutePath {
+        self.tempsPath.appending(component: "\(name).dia")
     }
 
     private func diagnosticFile(sourceFile: AbsolutePath) -> AbsolutePath {
-        self.tempsPath.appending(component: "\(sourceFile.basenameWithoutExt).dia")
+        self.diagnosticFile(name: sourceFile.basenameWithoutExt)
     }
 }
