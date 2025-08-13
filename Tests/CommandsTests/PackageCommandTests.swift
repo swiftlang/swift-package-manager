@@ -2158,7 +2158,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-    func testMigrateCommand() async throws {
+    func _testMigrateCommand(configuration: BuildConfiguration) async throws {
         try XCTSkipIf(
             !UserToolchain.default.supportesSupportedFeatures,
             "skipping because test environment compiler doesn't support `-print-supported-features`"
@@ -2186,7 +2186,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 }
 
                 let (stdout, _) = try await self.execute(
-                    ["migrate", "--to-feature", featureName],
+                    ["migrate", "-c", configuration.rawValue, "--to-feature", featureName],
                     packagePath: fixturePath
                 )
 
@@ -2208,6 +2208,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 5 fix-its in 1 file")
         try await doMigration(featureName: "StrictMemorySafety", expectedSummary: "Applied 1 fix-it in 1 file")
         try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 3 fix-its in 2 files")
+    }
+
+    func testMigrateCommandDebug() async throws {
+        try await _testMigrateCommand(configuration: .debug)
+    }
+
+    func testMigrateCommandRelease() async throws {
+        try await _testMigrateCommand(configuration: .release)
     }
 
     func testMigrateCommandWithBuildToolPlugins() async throws {
@@ -4288,7 +4296,11 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
         throw XCTSkip("SWBINTTODO: Test fails as plugins are not currenty supported")
     }
 
-    override func testMigrateCommand() async throws {
+    override func testMigrateCommandDebug() async throws {
+        throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
+    }
+
+    override func testMigrateCommandRelease() async throws {
         throw XCTSkip("SWBINTTODO: Build plan is not currently supported")
     }
 
