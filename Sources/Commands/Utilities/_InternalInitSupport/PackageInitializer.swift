@@ -34,9 +34,9 @@ struct TemplatePackageInitializer: PackageInitializer {
     let swiftCommandState: SwiftCommandState
 
     func run() async throws {
-        let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem)
         try precheck()
 
+        // Resolve version requirements
         let sourceControlRequirement = try? versionResolver.resolveSourceControl()
         let registryRequirement = try? versionResolver.resolveRegistry()
 
@@ -50,9 +50,10 @@ struct TemplatePackageInitializer: PackageInitializer {
             swiftCommandState: swiftCommandState
         ).resolve()
 
+        let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem)
         let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
 
-        let initType = try await inferPackageType(from: resolvedTemplatePath)
+        let packageType = try await inferPackageType(from: resolvedTemplatePath)
 
         let builder = DefaultPackageDependencyBuilder(
             templateSource: templateSource,
@@ -64,7 +65,10 @@ struct TemplatePackageInitializer: PackageInitializer {
             resolvedTemplatePath: resolvedTemplatePath
         )
 
-        let templatePackage = try setUpPackage(builder: builder, packageType: initType, stagingPath: stagingPath)
+        
+        let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
+
+        swiftCommandState.observabilityScope.emit(debug: "Set up initial package: \(templatePackage.packageName)")
 
         try await TemplateBuildSupport.build(
             swiftCommandState: swiftCommandState,
@@ -74,12 +78,12 @@ struct TemplatePackageInitializer: PackageInitializer {
             transitiveFolder: stagingPath
         )
 
-        try await TemplatePluginManager(
+        try await TemplateInitializationPluginManager(
             swiftCommandState: swiftCommandState,
             template: templateName,
             scratchDirectory: stagingPath,
             args: args
-        ).run(templatePackage)
+        ).run()
 
         try await directoryManager.finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: swiftCommandState)
 
@@ -102,7 +106,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
 
         if let dir = templateDirectory, !swiftCommandState.fileSystem.exists(dir) {
-            throw ValidationError("The specified template path does not exist: \(dir.pathString)")
+            throw TemplatePackageInitializerError.templateDirectoryNotFound(dir.pathString)
         }
     }
 
@@ -117,7 +121,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             )
 
             guard let manifest = rootManifests.values.first else {
-                throw InternalError("Invalid manifest in template at \(root.packages)")
+                throw TemplatePackageInitializerError.invalidManifestInTemplate(root.packages.description)
             }
 
             for target in manifest.targets {
@@ -130,7 +134,7 @@ struct TemplatePackageInitializer: PackageInitializer {
                 }
             }
 
-            throw ValidationError("Could not find template \(templateName ?? "<unspecified>")")
+            throw TemplatePackageInitializerError.templateNotFound(templateName ?? "<unspecified>")
         }
     }
 
@@ -153,6 +157,24 @@ struct TemplatePackageInitializer: PackageInitializer {
         try templatePackage.setupTemplateManifest()
         return templatePackage
     }
+
+    enum TemplatePackageInitializerError: Error, CustomStringConvertible {
+        case templateDirectoryNotFound(String)
+        case invalidManifestInTemplate(String)
+        case templateNotFound(String)
+
+        var description: String {
+            switch self {
+            case .templateDirectoryNotFound(let path):
+                return "The specified template path does not exist: \(path)"
+            case .invalidManifestInTemplate(let path):
+                return "Invalid manifest found in template at \(path)."
+            case .templateNotFound(let templateName):
+                return "Could not find template \(templateName)."
+            }
+        }
+    }
+
 }
 
 
@@ -167,10 +189,10 @@ struct StandardPackageInitializer: PackageInitializer {
     func run() async throws {
 
         guard let initModeString = self.initMode else {
-            throw ValidationError("Specify a package type using the --type option.")
+            throw StandardPackageInitializerError.missingInitMode
         }
         guard let knownType = InitPackage.PackageType(rawValue: initModeString) else {
-            throw ValidationError("Package type \(initModeString) not supported")
+            throw StandardPackageInitializerError.unsupportedPackageType(initModeString)
         }
         // Configure testing libraries
         var supportedTestingLibraries = Set<TestingLibrary>()
@@ -194,5 +216,20 @@ struct StandardPackageInitializer: PackageInitializer {
         initPackage.progressReporter = { message in print(message) }
         try initPackage.writePackageStructure()
     }
+
+    enum StandardPackageInitializerError: Error, CustomStringConvertible {
+        case missingInitMode
+        case unsupportedPackageType(String)
+
+        var description: String {
+            switch self {
+            case .missingInitMode:
+                return "Specify a package type using the --type option."
+            case .unsupportedPackageType(let type):
+                return "Package type '\(type)' is not supported."
+            }
+        }
+    }
+
 }
 

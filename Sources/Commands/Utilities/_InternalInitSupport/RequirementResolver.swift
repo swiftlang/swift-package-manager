@@ -58,24 +58,28 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
     /// `upToNextMinorFrom`.
     func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement {
-        var requirements: [PackageDependency.SourceControl.Requirement] = []
-        if let v = exact { requirements.append(.exact(v)) }
-        if let b = branch { requirements.append(.branch(b)) }
-        if let r = revision { requirements.append(.revision(r)) }
-        if let f = from { requirements.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { requirements.append(.range(.upToNextMinor(from: u))) }
+        var specifiedRequirements: [PackageDependency.SourceControl.Requirement] = []
+        if let v = exact { specifiedRequirements.append(.exact(v)) }
+        if let b = branch { specifiedRequirements.append(.branch(b)) }
+        if let r = revision { specifiedRequirements.append(.revision(r)) }
+        if let f = from { specifiedRequirements.append(.range(.upToNextMajor(from: f))) }
+        if let u = upToNextMinorFrom { specifiedRequirements.append(.range(.upToNextMinor(from: u))) }
 
-        guard requirements.count == 1, let requirement = requirements.first else {
-            throw StringError("Specify exactly one source control version requirement.")
+        guard !specifiedRequirements.isEmpty else {
+            throw DependencyRequirementError.noRequirementSpecified
         }
 
-        if case .range(let range) = requirement, let upper = to {
+        guard specifiedRequirements.count == 1, let specifiedRequirements = specifiedRequirements.first else {
+            throw DependencyRequirementError.multipleRequirementsSpecified
+        }
+
+        if case .range(let range) = specifiedRequirements, let upper = to {
             return .range(range.lowerBound ..< upper)
         } else if self.to != nil {
-            throw StringError("--to requires --from or --up-to-next-minor-from")
+            throw DependencyRequirementError.invalidToParameterWithoutFrom
         }
 
-        return requirement
+        return specifiedRequirements
     }
 
     /// Internal helper for resolving a registry-based requirement.
@@ -84,23 +88,28 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
     func resolveRegistry() throws -> PackageDependency.Registry.Requirement {
-        var requirements: [PackageDependency.Registry.Requirement] = []
 
-        if let v = exact { requirements.append(.exact(v)) }
-        if let f = from { requirements.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { requirements.append(.range(.upToNextMinor(from: u))) }
+        var specifiedRequirements: [PackageDependency.Registry.Requirement] = []
 
-        guard requirements.count == 1, let requirement = requirements.first else {
-            throw StringError("Specify exactly one source control version requirement.")
+        if let v = exact { specifiedRequirements.append(.exact(v)) }
+        if let f = from { specifiedRequirements.append(.range(.upToNextMajor(from: f))) }
+        if let u = upToNextMinorFrom { specifiedRequirements.append(.range(.upToNextMinor(from: u))) }
+
+        guard !specifiedRequirements.isEmpty else {
+            throw DependencyRequirementError.noRequirementSpecified
         }
 
-        if case .range(let range) = requirement, let upper = to {
+        guard specifiedRequirements.count == 1, let specifiedRequirements = specifiedRequirements.first else {
+            throw DependencyRequirementError.multipleRequirementsSpecified
+        }
+
+        if case .range(let range) = specifiedRequirements, let upper = to {
             return .range(range.lowerBound ..< upper)
         } else if self.to != nil {
-            throw StringError("--to requires --from or --up-to-next-minor-from")
+            throw DependencyRequirementError.invalidToParameterWithoutFrom
         }
 
-        return requirement
+        return specifiedRequirements
     }
 }
 
@@ -111,3 +120,21 @@ enum DependencyType {
     /// A registry dependency, typically resolved from a package registry.
     case registry
 }
+
+enum DependencyRequirementError: Error, CustomStringConvertible {
+    case multipleRequirementsSpecified
+    case noRequirementSpecified
+    case invalidToParameterWithoutFrom
+
+    var description: String {
+        switch self {
+        case .multipleRequirementsSpecified:
+            return "Specify exactly one source control version requirement."
+        case .noRequirementSpecified:
+            return "No source control version requirement specified."
+        case .invalidToParameterWithoutFrom:
+            return "--to requires --from or --up-to-next-minor-from"
+        }
+    }
+}
+
