@@ -454,7 +454,7 @@ struct TraitTests {
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case .dictionary(let contents) = json else { Issue.record("unexpected result"); return }
             guard case .array(let traits)? = contents["traits"] else { Issue.record("unexpected result"); return }
-            #expect(traits.count == 12)
+            #expect(traits.count == 13)
         }
     }
 
@@ -651,6 +651,58 @@ struct TraitTests {
             } when: {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
             }
+        }
+    }
+
+    @Test(
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func traits_whenManyTraitsEnableTargetDependency(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withKnownIssue(
+            """
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
+        try await fixture(name: "Traits") { fixturePath in
+            // Test various combinations of traits that would
+            // enable the dependency on Package10Library2
+            let traitCombinations = ["ExtraTrait", "Package10", "ExtraTrait,Package10"]
+            // We expect no warnings to be produced. Specifically no unused dependency warnings.
+            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+
+            for traits in traitCombinations {
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: configuration,
+                    extraArgs: ["--traits", traits],
+                    buildSystem: buildSystem,
+                )
+
+                var prefix = traits.contains("Package10") ? "Package10Library1 trait1 disabled\nPackage10Library1 trait2 enabled\nPackage10Library2 has been included.\n" : ""
+                prefix += traits.contains("ExtraTrait") ? "Package10Library2 has been included.\n" : ""
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(stdout == """
+                \(prefix)DEFINE1 disabled
+                DEFINE2 disabled
+                DEFINE3 disabled
+                
+                """)
+            }
+        }
+        } when: {
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 }
