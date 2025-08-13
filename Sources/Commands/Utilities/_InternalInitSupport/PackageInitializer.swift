@@ -96,9 +96,10 @@ struct TemplatePackageInitializer: PackageInitializer {
             )
         }
 
-        try directoryManager.cleanupTemporary(templateSource: templateSource, path: resolvedTemplatePath, tempDir: tempDir)
+        try directoryManager.cleanupTemporary(templateSource: templateSource, path: resolvedTemplatePath, temporaryDirectory: tempDir)
     }
 
+    //Will have to add checking for git + registry too
     private func precheck() throws {
         let manifest = cwd.appending(component: Manifest.filename)
         guard !swiftCommandState.fileSystem.exists(manifest) else {
@@ -124,19 +125,43 @@ struct TemplatePackageInitializer: PackageInitializer {
                 throw TemplatePackageInitializerError.invalidManifestInTemplate(root.packages.description)
             }
 
+            var targetName = templateName
+
+            if targetName == nil {
+                targetName = try findTemplateName(from: manifest)
+            }
+
             for target in manifest.targets {
-                if templateName == nil || target.name == templateName {
-                    if let options = target.templateInitializationOptions {
-                        if case .packageInit(let type, _, _) = options {
-                            return try .init(from: type)
-                        }
-                    }
+                if target.name == targetName,
+                    let options = target.templateInitializationOptions,
+                    case .packageInit(let type, _, _) = options {
+                    return try .init(from: type)
                 }
             }
 
             throw TemplatePackageInitializerError.templateNotFound(templateName ?? "<unspecified>")
         }
     }
+
+    private func findTemplateName(from manifest: Manifest) throws -> String {
+        let templateTargets = manifest.targets.compactMap { target -> String? in
+            if let options = target.templateInitializationOptions,
+               case .packageInit = options {
+                return target.name
+            }
+            return nil
+        }
+
+        switch templateTargets.count {
+        case 0:
+            throw TemplatePackageInitializerError.noTemplatesInManifest
+        case 1:
+            return templateTargets[0]
+        default:
+            throw TemplatePackageInitializerError.multipleTemplatesFound(templateTargets)
+        }
+    }
+
 
     private func setUpPackage(
         builder: DefaultPackageDependencyBuilder,
@@ -162,6 +187,8 @@ struct TemplatePackageInitializer: PackageInitializer {
         case templateDirectoryNotFound(String)
         case invalidManifestInTemplate(String)
         case templateNotFound(String)
+        case noTemplatesInManifest
+        case multipleTemplatesFound([String])
 
         var description: String {
             switch self {
@@ -171,6 +198,11 @@ struct TemplatePackageInitializer: PackageInitializer {
                 return "Invalid manifest found in template at \(path)."
             case .templateNotFound(let templateName):
                 return "Could not find template \(templateName)."
+            case .noTemplatesInManifest:
+                return "No templates with packageInit options were found in the manifest."
+            case .multipleTemplatesFound(let templates):
+                return "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template."
+
             }
         }
     }

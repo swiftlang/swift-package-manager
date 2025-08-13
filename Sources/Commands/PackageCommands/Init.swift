@@ -189,6 +189,9 @@ struct PackageInitConfiguration {
     let validatePackage: Bool?
     let args: [String]
     let versionResolver: DependencyRequirementResolver?
+    let directory: Basics.AbsolutePath?
+    let url: String?
+    let packageID: String?
 
     init(
         swiftCommandState: SwiftCommandState,
@@ -217,6 +220,9 @@ struct PackageInitConfiguration {
         self.globalOptions = globalOptions
         self.validatePackage = validatePackage
         self.args = args
+        self.directory = directory
+        self.url = url
+        self.packageID = packageID
 
         let sourceResolver = DefaultTemplateSourceResolver()
         self.templateSource = sourceResolver.resolveSource(
@@ -251,9 +257,9 @@ struct PackageInitConfiguration {
                 cwd: cwd,
                 templateSource: templateSource,
                 templateName: initMode,
-                templateDirectory: nil,
-                templateURL: nil,
-                templatePackageID: nil,
+                templateDirectory: self.directory,
+                templateURL: self.url,
+                templatePackageID: self.packageID,
                 versionResolver: versionResolver,
                 buildOptions: buildOptions,
                 globalOptions: globalOptions,
@@ -274,7 +280,7 @@ struct PackageInitConfiguration {
 }
 
 
-struct VersionFlags {
+public struct VersionFlags {
     let exact: Version?
     let revision: String?
     let branch: String?
@@ -292,15 +298,15 @@ protocol TemplateSourceResolver {
     ) -> InitTemplatePackage.TemplateSource?
 }
 
-struct DefaultTemplateSourceResolver: TemplateSourceResolver {
+public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
     func resolveSource(
         directory: Basics.AbsolutePath?,
         url: String?,
         packageID: String?
     ) -> InitTemplatePackage.TemplateSource? {
-        if directory != nil { return .local }
         if url != nil { return .git }
         if packageID != nil { return .registry }
+        if directory != nil { return .local }
         return nil
     }
 }
