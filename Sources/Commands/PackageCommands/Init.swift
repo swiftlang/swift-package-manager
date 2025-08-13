@@ -121,66 +121,34 @@ extension SwiftPackageCommand {
         var createPackagePath = true
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            
-            guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw InternalError("Could not find the current working directory")
-            } //Should this be refactored?
-            
-            let name = packageName ?? cwd.basename
-            
-
-            var templateSourceResolver: TemplateSourceResolver = DefaultTemplateSourceResolver()
-
-            let templateSource = templateSourceResolver.resolveSource(
-                directory: templateDirectory,
-                url: templateURL,
-                packageID: templatePackageID
+            let versionFlags = VersionFlags(
+                exact: exact,
+                revision: revision,
+                branch: branch,
+                from: from,
+                upToNextMinorFrom: upToNextMinorFrom,
+                to: to
             )
 
-            if templateSource == nil, let initMode {
-                guard let _ = InitPackage.PackageType(rawValue: initMode) else {
-                    throw ValidationError("Unknown package type: '\(initMode)'")
-                }
-            }
+            let state = try PackageInitConfiguration(
+                swiftCommandState: swiftCommandState,
+                name: packageName,
+                initMode: initMode,
+                testLibraryOptions: testLibraryOptions,
+                buildOptions: buildOptions,
+                globalOptions: globalOptions,
+                validatePackage: validatePackage,
+                args: args,
+                directory: templateDirectory,
+                url: templateURL,
+                packageID: templatePackageID,
+                versionFlags: versionFlags
+            )
 
-            if let source = templateSource {
-                let versionResolver = DependencyRequirementResolver(
-                    exact: exact,
-                    revision: revision,
-                    branch: branch,
-                    from: from,
-                    upToNextMinorFrom: upToNextMinorFrom,
-                    to: to
-                )
-
-                let initializer = TemplatePackageInitializer(
-                    packageName: name,
-                    cwd: cwd,
-                    templateSource: source,
-                    templateName: initMode,
-                    templateDirectory: templateDirectory,
-                    templateURL: templateURL,
-                    templatePackageID: templatePackageID,
-                    versionResolver: versionResolver,
-                    buildOptions: buildOptions,
-                    globalOptions: globalOptions,
-                    validatePackage: validatePackage,
-                    args: args,
-                    swiftCommandState: swiftCommandState
-                )
-                try await initializer.run()
-            } else {
-                let initializer = StandardPackageInitializer(
-                    packageName: name,
-                    initMode: initMode,
-                    testLibraryOptions: testLibraryOptions,
-                    cwd: cwd,
-                    swiftCommandState: swiftCommandState
-                )
-                try await initializer.run()
-            }
+            let initializer = try state.makeInitializer()
+            try await initializer.run()
         }
-        
+
         init() {
         }
 
@@ -207,6 +175,114 @@ extension InitPackage.PackageType {
         }
     }
 }
+
+
+struct PackageInitConfiguration {
+    let packageName: String
+    let cwd: Basics.AbsolutePath
+    let swiftCommandState: SwiftCommandState
+    let initMode: String?
+    let templateSource: InitTemplatePackage.TemplateSource?
+    let testLibraryOptions: TestLibraryOptions
+    let buildOptions: BuildCommandOptions?
+    let globalOptions: GlobalOptions?
+    let validatePackage: Bool?
+    let args: [String]
+    let versionResolver: DependencyRequirementResolver?
+
+    init(
+        swiftCommandState: SwiftCommandState,
+        name: String?,
+        initMode: String?,
+        testLibraryOptions: TestLibraryOptions,
+        buildOptions: BuildCommandOptions,
+        globalOptions: GlobalOptions,
+        validatePackage: Bool,
+        args: [String],
+        directory: Basics.AbsolutePath?,
+        url: String?,
+        packageID: String?,
+        versionFlags: VersionFlags
+    ) throws {
+        guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
+            throw InternalError("Could not find the current working directory")
+        }
+
+        self.cwd = cwd
+        self.packageName = name ?? cwd.basename
+        self.swiftCommandState = swiftCommandState
+        self.initMode = initMode
+        self.testLibraryOptions = testLibraryOptions
+        self.buildOptions = buildOptions
+        self.globalOptions = globalOptions
+        self.validatePackage = validatePackage
+        self.args = args
+
+        let sourceResolver = DefaultTemplateSourceResolver()
+        self.templateSource = sourceResolver.resolveSource(
+            directory: directory,
+            url: url,
+            packageID: packageID
+        )
+
+        if templateSource != nil {
+            self.versionResolver = DependencyRequirementResolver(
+                exact: versionFlags.exact,
+                revision: versionFlags.revision,
+                branch: versionFlags.branch,
+                from: versionFlags.from,
+                upToNextMinorFrom: versionFlags.upToNextMinorFrom,
+                to: versionFlags.to
+            )
+        } else {
+            self.versionResolver = nil
+        }
+    }
+
+    func makeInitializer() throws -> PackageInitializer {
+        if let templateSource = templateSource,
+           let versionResolver = versionResolver,
+           let buildOptions = buildOptions,
+           let globalOptions = globalOptions,
+           let validatePackage = validatePackage {
+
+            return TemplatePackageInitializer(
+                packageName: packageName,
+                cwd: cwd,
+                templateSource: templateSource,
+                templateName: initMode,
+                templateDirectory: nil,
+                templateURL: nil,
+                templatePackageID: nil,
+                versionResolver: versionResolver,
+                buildOptions: buildOptions,
+                globalOptions: globalOptions,
+                validatePackage: validatePackage,
+                args: args,
+                swiftCommandState: swiftCommandState
+            )
+        } else {
+            return StandardPackageInitializer(
+                packageName: packageName,
+                initMode: initMode,
+                testLibraryOptions: testLibraryOptions,
+                cwd: cwd,
+                swiftCommandState: swiftCommandState
+            )
+        }
+    }
+}
+
+
+struct VersionFlags {
+    let exact: Version?
+    let revision: String?
+    let branch: String?
+    let from: Version?
+    let upToNextMinorFrom: Version?
+    let to: Version?
+}
+
 
 protocol TemplateSourceResolver {
     func resolveSource(

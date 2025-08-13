@@ -714,7 +714,7 @@ final class ArgumentTreeNode {
     let command: CommandInfoV0
     var children: [ArgumentTreeNode] = []
 
-    var arguments: [String: InitTemplatePackage.ArgumentResponse] = [:]
+    var arguments: [String: TemplatePromptingSystem.ArgumentResponse] = [:]
 
     init(command: CommandInfoV0) {
         self.command = command
@@ -748,18 +748,18 @@ final class ArgumentTreeNode {
 
     static func promptForUniqueArguments(
         uniqueArguments: [String: ArgumentInfoV0]
-    ) -> [String: InitTemplatePackage.ArgumentResponse] {
-        var collected: [String: InitTemplatePackage.ArgumentResponse] = [:]
+    ) -> [String: TemplatePromptingSystem.ArgumentResponse] {
+        var collected: [String: TemplatePromptingSystem.ArgumentResponse] = [:]
         let argsToPrompt = Array(uniqueArguments.values)
 
         // Prompt for all unique arguments at once
-        _ = InitTemplatePackage.UserPrompter.prompt(for: argsToPrompt, collected: &collected)
+        _ = TemplatePromptingSystem.UserPrompter.prompt(for: argsToPrompt, collected: &collected)
 
         return collected
     }
 
     //Fill node arguments by assigning the prompted values for keys it requires
-    func fillArguments(with responses: [String: InitTemplatePackage.ArgumentResponse]) {
+    func fillArguments(with responses: [String: TemplatePromptingSystem.ArgumentResponse]) {
         if let args = command.arguments {
             for arg in args {
                 if let resp = responses[arg.valueName ?? ""] {
@@ -808,8 +808,8 @@ extension ArgumentTreeNode {
     /// Traverses all command paths and returns CLI paths along with their arguments
     func collectCommandPaths(
         currentPath: [String] = [],
-        currentArguments: [String: InitTemplatePackage.ArgumentResponse] = [:]
-    ) -> [([String], [String: InitTemplatePackage.ArgumentResponse])] {
+        currentArguments: [String: TemplatePromptingSystem.ArgumentResponse] = [:]
+    ) -> [([String], [String: TemplatePromptingSystem.ArgumentResponse])] {
         let newPath = currentPath + [command.commandName]
 
         var combinedArguments = currentArguments
@@ -821,7 +821,7 @@ extension ArgumentTreeNode {
             return [(newPath, combinedArguments)]
         }
 
-        var results: [([String], [String: InitTemplatePackage.ArgumentResponse])] = []
+        var results: [([String], [String: TemplatePromptingSystem.ArgumentResponse])] = []
         for child in children {
             results += child.collectCommandPaths(
                 currentPath: newPath,
@@ -932,7 +932,7 @@ extension SwiftTestCommand {
                     return intent.invocationVerb
                 }
                 throw ValidationError(
-                    "More than one template was found in the package. Please use `--type` along with one of the available templates: \(templateNames.joined(separator: ", "))"
+                    "More than one template was found in the package. Please use `--template-name` along with one of the available templates: \(templateNames.joined(separator: ", "))"
                 )
             }
 

@@ -106,7 +106,7 @@ struct ShowTemplates: AsyncSwiftCommand {
 
             templateSource = .git
 
-        } else if let packageID = self.templatePackageID {
+        } else if let _ = self.templatePackageID {
             // Download and resolve the Git-based template.
             resolvedTemplatePath = try await TemplatePathResolver(
                 source: .registry,

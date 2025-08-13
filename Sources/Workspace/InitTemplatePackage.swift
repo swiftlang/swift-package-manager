@@ -46,7 +46,7 @@ public final class InitTemplatePackage {
     let installedSwiftPMConfiguration: InstalledSwiftPMConfiguration
     /// The name of the package to create.
 
-    var packageName: String
+    public var packageName: String
 
     /// The path to the template files.
     var templatePath: Basics.AbsolutePath
@@ -191,7 +191,14 @@ public final class InitTemplatePackage {
             verbose: false
         )
     }
+}
 
+
+
+public final class TemplatePromptingSystem {
+
+
+    public init() {}
     /// Prompts the user for input based on the given command definition and arguments.
     ///
     /// This method collects responses for a command's arguments by first validating any user-provided
@@ -588,6 +595,7 @@ public final class InitTemplatePackage {
             }
         }
     }
+
 }
 
 /// An error enum representing various template-related errors.

@@ -94,4 +94,27 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
             return .registry(id: id, requirement: requirement)
         }
     }
+
+
+    /// Errors thrown by `TemplatePathResolver` during initialization.
+    enum PackageDependencyBuilderError: LocalizedError, Equatable {
+        case missingGitURL
+        case missingGitRequirement
+        case missingRegistryIdentity
+        case missingRegistryRequirement
+
+        var errorDescription: String? {
+            switch self {
+            case .missingGitURL:
+                return "Missing Git URL for git template."
+            case .missingGitRequirement:
+                return "Missing version requirement for template in git."
+            case .missingRegistryIdentity:
+                return "Missing registry package identity for template in registry."
+            case .missingRegistryRequirement:
+                return "Missing version requirement for template in registry ."
+            }
+        }
+    }
+
 }

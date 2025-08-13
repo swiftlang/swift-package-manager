@@ -74,19 +74,19 @@ struct TemplatePathResolver {
         switch source {
         case .local:
             guard let path = templateDirectory else {
-                throw StringError("Template path must be specified for local templates.")
+                throw TemplatePathResolverError.missingLocalTemplatePath
             }
             self.fetcher = LocalTemplateFetcher(path: path)
 
         case .git:
             guard let url = templateURL, let requirement = sourceControlRequirement else {
-                throw StringError("Missing Git URL or requirement for git template.")
+                throw TemplatePathResolverError.missingGitURLOrRequirement
             }
             self.fetcher = GitTemplateFetcher(source: url, requirement: requirement)
 
         case .registry:
             guard let identity = packageIdentity, let requirement = registryRequirement else {
-                throw StringError("Missing registry package identity or requirement.")
+                throw TemplatePathResolverError.missingRegistryIdentityOrRequirement
             }
             self.fetcher = RegistryTemplateFetcher(
                 swiftCommandState: swiftCommandState,
@@ -95,7 +95,7 @@ struct TemplatePathResolver {
             )
 
         case .none:
-            throw StringError("Missing --template-type.")
+            throw TemplatePathResolverError.missingTemplateType
         }
     }
 
@@ -105,6 +105,27 @@ struct TemplatePathResolver {
     /// - Throws: Any error encountered during fetch.
     func resolve() async throws -> Basics.AbsolutePath {
         try await self.fetcher.fetch()
+    }
+
+    /// Errors thrown by `TemplatePathResolver` during initialization.
+    enum TemplatePathResolverError: LocalizedError, Equatable {
+        case missingLocalTemplatePath
+        case missingGitURLOrRequirement
+        case missingRegistryIdentityOrRequirement
+        case missingTemplateType
+
+        var errorDescription: String? {
+            switch self {
+            case .missingLocalTemplatePath:
+                return "Template path must be specified for local templates."
+            case .missingGitURLOrRequirement:
+                return "Missing Git URL or requirement for git template."
+            case .missingRegistryIdentityOrRequirement:
+                return "Missing registry package identity or requirement."
+            case .missingTemplateType:
+                return "Missing --template-type."
+            }
+        }
     }
 }
 
@@ -144,42 +165,68 @@ struct GitTemplateFetcher: TemplateFetcher {
     /// Fetches a bare clone of the Git repository to the specified path.
     func fetch() async throws -> Basics.AbsolutePath {
         try withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
-            
-            let url = SourceControlURL(source)
-            let repositorySpecifier = RepositorySpecifier(url: url)
-            let repositoryProvider = GitRepositoryProvider()
-
             let bareCopyPath = tempDir.appending(component: "bare-copy")
             let workingCopyPath = tempDir.appending(component: "working-copy")
 
-            try repositoryProvider.fetch(repository: repositorySpecifier, to: bareCopyPath)
-            try self.validateDirectory(provider: repositoryProvider, at: bareCopyPath)
+
+            try cloneBareRepository(into: bareCopyPath)
+            try validateBareRepository(at: bareCopyPath)
 
             try FileManager.default.createDirectory(
                 atPath: workingCopyPath.pathString,
                 withIntermediateDirectories: true
             )
 
-            let repository = try repositoryProvider.createWorkingCopyFromBare(
-                repository: repositorySpecifier,
-                sourcePath: bareCopyPath,
-                at: workingCopyPath,
-                editable: true
-            )
-
+            let repository = try createWorkingCopy(fromBare: bareCopyPath, at: workingCopyPath)
             try FileManager.default.removeItem(at: bareCopyPath.asURL)
-            try self.checkout(repository: repository)
+
+            try checkout(repository: repository)
 
             return workingCopyPath
         }
     }
 
-    /// Validates that the directory contains a valid Git repository.
-    private func validateDirectory(provider: GitRepositoryProvider, at path: Basics.AbsolutePath) throws {
-        guard try provider.isValidDirectory(path) else {
-            throw InternalError("Invalid directory at \(path)")
+    /// Clones a bare git repository.
+    ///
+    /// - Throws: An error is thrown if fetching fails.
+    private func cloneBareRepository(into path: Basics.AbsolutePath) throws {
+        let url = SourceControlURL(source)
+        let repositorySpecifier = RepositorySpecifier(url: url)
+        let provider = GitRepositoryProvider()
+        do {
+            try provider.fetch(repository: repositorySpecifier, to: path)
+        } catch {
+            throw GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error)
         }
     }
+
+    /// Validates that the directory contains a valid Git repository.
+    private func validateBareRepository(at path: Basics.AbsolutePath) throws {
+        let provider = GitRepositoryProvider()
+        guard try provider.isValidDirectory(path) else {
+            throw GitTemplateFetcherError.invalidRepositoryDirectory(path: path)
+        }
+    }
+
+    /// Creates a working copy from a bare directory.
+    ///
+    /// - Throws: An error.
+    private func createWorkingCopy(fromBare barePath: Basics.AbsolutePath, at workingCopyPath: Basics.AbsolutePath) throws -> WorkingCheckout {
+        let url = SourceControlURL(source)
+        let repositorySpecifier = RepositorySpecifier(url: url)
+        let provider = GitRepositoryProvider()
+        do {
+            return try provider.createWorkingCopyFromBare(
+                repository: repositorySpecifier,
+                sourcePath: barePath,
+                at: workingCopyPath,
+                editable: true
+            )
+        } catch {
+            throw GitTemplateFetcherError.createWorkingCopyFailed(path: workingCopyPath, underlyingError: error)
+        }
+    }
+
 
     /// Checks out the desired state (branch, tag, revision) in the working copy based on the requirement.
     ///
@@ -200,11 +247,35 @@ struct GitTemplateFetcher: TemplateFetcher {
             let versions = tags.compactMap { Version($0) }
             let filteredVersions = versions.filter { range.contains($0) }
             guard let latestVersion = filteredVersions.max() else {
-                throw InternalError("No tags found within the specified version range \(range)")
+                throw GitTemplateFetcherError.noMatchingTagInRange(range)
             }
             try repository.checkout(tag: latestVersion.description)
         }
     }
+
+    enum GitTemplateFetcherError: Error, LocalizedError {
+            case cloneFailed(source: String, underlyingError: Error)
+            case invalidRepositoryDirectory(path: Basics.AbsolutePath)
+            case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
+            case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
+            case noMatchingTagInRange(Range<Version>)
+
+            var errorDescription: String? {
+                switch self {
+                case .cloneFailed(let source, let error):
+                    return "Failed to clone repository from '\(source)': \(error.localizedDescription)"
+                case .invalidRepositoryDirectory(let path):
+                    return "Invalid Git repository at path: \(path.pathString)"
+                case .createWorkingCopyFailed(let path, let error):
+                    return "Failed to create working copy at '\(path)': \(error.localizedDescription)"
+                case .checkoutFailed(let requirement, let error):
+                    return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
+                case .noMatchingTagInRange(let range):
+                    return "No Git tags found within version range \(range)"
+                }
+            }
+        }
+
 }
 
 /// Fetches a Swift package template from a package registry.
@@ -249,11 +320,6 @@ struct RegistryTemplateFetcher: TemplateFetcher {
 
             let identity = PackageIdentity.plain(self.packageIdentity)
 
-            let version: Version = switch self.requirement {
-            case .exact(let ver): ver
-            case .range(let range): range.upperBound
-            }
-
             let dest = tempDir.appending(component: self.packageIdentity)
             try await registryClient.downloadSourceArchive(
                 package: identity,
@@ -269,19 +335,48 @@ struct RegistryTemplateFetcher: TemplateFetcher {
         }
     }
 
+    /// Extract the version from the registry requirements
+    private var version: Version {
+        switch requirement {
+        case .exact(let v): return v
+        case .range(let r): return r.upperBound
+        }
+    }
+
+
     /// Resolves the registry configuration from shared SwiftPM configuration.
     ///
     /// - Returns: Registry configuration to use for fetching packages.
-    /// - Throws: If configuration files are missing or unreadable.
+    /// - Throws: If configurations  are missing or unreadable.
     private static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace
-        .Configuration.Registries
-    {
+        .Configuration.Registries {
         let sharedFile = Workspace.DefaultLocations
             .registriesConfigurationFile(at: swiftCommandState.sharedConfigurationDirectory)
-        return try .init(
-            fileSystem: swiftCommandState.fileSystem,
-            localRegistriesFile: .none,
-            sharedRegistriesFile: sharedFile
-        )
+        do {
+            return try .init(
+                fileSystem: swiftCommandState.fileSystem,
+                localRegistriesFile: .none,
+                sharedRegistriesFile: sharedFile
+            )
+        } catch {
+            throw RegistryConfigError.failedToLoadConfiguration(file: sharedFile, underlyingError: error)
+        }
     }
+
+    /// Errors that can occur while loading Swift package registry configuration.
+    enum RegistryConfigError: Error, LocalizedError {
+        /// Indicates the configuration file could not be loaded.
+        case failedToLoadConfiguration(file: Basics.AbsolutePath, underlyingError: Error)
+
+        var errorDescription: String? {
+            switch self {
+            case .failedToLoadConfiguration(let file, let underlyingError):
+                return """
+                Failed to load registry configuration from '\(file.pathString)': \
+                \(underlyingError.localizedDescription)
+                """
+            }
+        }
+    }
+
 }
