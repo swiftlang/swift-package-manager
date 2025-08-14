@@ -686,7 +686,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission") || stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
             }
             XCTAssertNoSuchPath(customCachePath)
         }
@@ -721,7 +721,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission") || stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
             }
             XCTAssertNoSuchPath(customConfigPath)
         }
@@ -756,7 +756,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission") || stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("invalid access"), "expected permissions error. stderr: '\(stderr)'")
             }
         }
         #endif
