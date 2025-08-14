@@ -13,6 +13,7 @@
 import SourceControl
 
 import class Basics.AsyncProcess
+import class TSCBasic.Process
 
 import enum TSCUtility.Git
 
@@ -21,7 +22,7 @@ import enum TSCUtility.Git
 package extension GitRepository {
     /// Create the repository using git init.
     func create() throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "init"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "init")
     }
 
     /// Returns current branch name. If HEAD is on a detached state, this returns HEAD.
@@ -38,36 +39,36 @@ package extension GitRepository {
 
     /// Stage a file.
     func stage(file: String) throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "add", file])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "add", file)
     }
 
     /// Stage multiple files.
     func stage(files: String...) throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "add"] + files)
+        try Process.checkNonZeroExit(arguments: [Git.tool, "-C", self.path.pathString, "add"] + files)
     }
 
     /// Stage entire unstaged changes.
     func stageEverything() throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "add", "."])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "add", ".")
     }
 
     /// Commit the staged changes. If the message is not provided a dummy message will be used for the commit.
     func commit(message: String? = nil) throws {
         // FIXME: We don't need to set these every time but we usually only commit once or twice for a test repo.
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "commit.gpgsign", "false"])
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "config", "tag.gpgsign", "false"])
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "commit", "-m", message ?? "Add some files."])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "user.email", "example@example.com")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "user.name", "Example Example")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "commit.gpgsign", "false")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "tag.gpgsign", "false")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "commit", "-m", message ?? "Add some files.")
     }
 
     /// Tag the git repo.
     func tag(name: String) throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "tag", name])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "tag", name)
     }
 
     /// Push the changes to specified remote and branch.
     func push(remote: String, branch: String) throws {
-        try systemQuietly([Git.tool, "-C", self.path.pathString, "push", remote, branch])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "push", remote, branch)
     }
 }

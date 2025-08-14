@@ -423,8 +423,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             func lookupDescription(
                 for moduleName: String,
                 destination: BuildParameters.Destination
-            ) throws -> ModuleBuildDescription? {
-                try buildPlan.buildModules.first {
+            ) -> ModuleBuildDescription? {
+                buildPlan.buildModules.first {
                     $0.module.name == moduleName && $0.buildParameters.destination == destination
                 }
             }
@@ -434,9 +434,9 @@ final class PluginDelegate: PluginInvocationDelegate {
             // historically how this was setup. Ideally we should be building for both "host"
             // and "target" if module is configured for them but that would require changing
             // `PluginInvocationSymbolGraphResult` to carry multiple directories.
-            let description = if let targetDescription = try lookupDescription(for: targetName, destination: .target) {
+            let description = if let targetDescription = lookupDescription(for: targetName, destination: .target) {
                 targetDescription
-            } else if let hostDescription = try lookupDescription(for: targetName, destination: .host) {
+            } else if let hostDescription = lookupDescription(for: targetName, destination: .host) {
                 hostDescription
             } else {
                 throw InternalError("could not find a target named: \(targetName)")
