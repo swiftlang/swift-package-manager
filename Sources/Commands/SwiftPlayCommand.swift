@@ -91,6 +91,14 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
             productsBuildParameters.flags = flags
         }
 
+        // Add all runtimeLibraryPaths as rpaths for the Playground executable so that
+        // it can find $TOOLCHAIN/usr/lib/swift/macosx/libPlaygrounds.dylib at runtime.
+        let toolchain = try swiftCommandState.getHostToolchain()
+        let runtimeLibraryPaths = toolchain.runtimeLibraryPaths.map { $0.pathString }
+        productsBuildParameters.flags.linkerFlags.append(contentsOf: runtimeLibraryPaths.flatMap {
+            ["-rpath", $0]
+        })
+
         var buildAndPlayAgain: Bool = false
 
         repeat {
