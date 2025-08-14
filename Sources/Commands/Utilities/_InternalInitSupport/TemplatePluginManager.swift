@@ -16,9 +16,9 @@ import Foundation
 import PackageGraph
 
 public protocol TemplatePluginManager {
-    func run() async throws
+
     func loadTemplatePlugin() throws -> ResolvedModule
-    func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [[String]]
+    //func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [[String]]
     func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data
 
     var swiftCommandState: SwiftCommandState { get }
@@ -199,7 +199,3 @@ private extension PluginCapability {
         return intent.invocationVerb
     }
 }
-
-
-
-//struct TemplateTestingPluginManager: TemplatePluginManager
