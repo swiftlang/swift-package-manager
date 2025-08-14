@@ -46,43 +46,6 @@ extension DispatchTimeInterval {
 }
 
 
-//DEAL WITH THIS LATER
-public struct TemplateTestingDirectoryManager {
-    let fileSystem: FileSystem
-
-    //revisit
-    func createTemporaryDirectories(directories: Set<String>) throws -> [Basics.AbsolutePath] {
-
-        var result: [Basics.AbsolutePath] = []
-        for directory in directories {
-            let dirPath = try fileSystem.tempDirectory.appending(component: directory)
-            try fileSystem.createDirectory(dirPath)
-            result.append(dirPath)
-        }
-
-        return result
-    }
-
-    func createOutputDirectory(outputDirectoryPath: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) throws {
-        let manifest = outputDirectoryPath.appending(component: Manifest.filename)
-        let fileSystem = swiftCommandState.fileSystem
-        let directoryExists = fileSystem.exists(outputDirectoryPath)
-
-        if !directoryExists {
-            try FileManager.default.createDirectory(
-                at: outputDirectoryPath.asURL,
-                withIntermediateDirectories: true
-            )
-        } else {
-            if fileSystem.exists(manifest) {
-                throw ValidationError("Package.swift was found in \(outputDirectoryPath).")
-            }
-        }
-
-    }
-}
-
-
 extension SwiftTestCommand {
     struct Template: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
@@ -130,7 +93,7 @@ extension SwiftTestCommand {
                 throw ValidationError("Could not determine current working directory.")
             }
 
-            let directoryManager = TemplateTestingDirectoryManager(fileSystem: swiftCommandState.fileSystem)
+            let directoryManager = TemplateTestingDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
             try directoryManager.createOutputDirectory(outputDirectoryPath: outputDirectory, swiftCommandState: swiftCommandState)
 
             let pluginManager = try await TemplateTesterPluginManager(
