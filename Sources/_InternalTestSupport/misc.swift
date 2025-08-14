@@ -193,6 +193,7 @@ public enum TestError: Error {
     case platformNotSupported
 }
 
+@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
