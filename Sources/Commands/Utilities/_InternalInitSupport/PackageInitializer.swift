@@ -50,7 +50,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             swiftCommandState: swiftCommandState
         ).resolve()
 
-        let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem)
+        let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
         let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
 
         let packageType = try await inferPackageType(from: resolvedTemplatePath)

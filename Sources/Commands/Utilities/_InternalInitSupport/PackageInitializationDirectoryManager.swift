@@ -1,39 +1,51 @@
-
 import Basics
-
-
 import Workspace
 import Foundation
 import CoreCommands
 
 
-public struct TemplateInitializationDirectoryManager {
-    let fileSystem: FileSystem
+import Basics
+import CoreCommands
+import Foundation
+import PackageModel
 
-    func createTemporaryDirectories() throws -> (stagingPath: Basics.AbsolutePath, cleanUpPath: Basics.AbsolutePath, tempDir: Basics.AbsolutePath) {
-        let tempDir = try fileSystem.tempDirectory.appending(component: UUID().uuidString)
-        let stagingPath = tempDir.appending(component: "generated-package")
-        let cleanupPath = tempDir.appending(component: "clean-up")
-        try fileSystem.createDirectory(tempDir)
-        return (stagingPath, cleanupPath, tempDir)
+public struct TemplateInitializationDirectoryManager {
+    let observabilityScope: ObservabilityScope
+    let fileSystem: FileSystem
+    let helper: TemporaryDirectoryHelper
+
+    public init(fileSystem: FileSystem, observabilityScope: ObservabilityScope) {
+        self.fileSystem = fileSystem
+        self.helper = TemporaryDirectoryHelper(fileSystem: fileSystem)
+        self.observabilityScope = observabilityScope
     }
 
-    func finalize(
+    public func createTemporaryDirectories() throws -> (stagingPath: Basics.AbsolutePath, cleanupPath: Basics.AbsolutePath, tempDir: Basics.AbsolutePath) {
+        let tempDir = try helper.createTemporaryDirectory()
+        let dirs = try helper.createSubdirectories(in: tempDir, names: ["generated-package", "clean-up"])
+
+        return (dirs[0], dirs[1], tempDir)
+    }
+
+    public func finalize(
         cwd: Basics.AbsolutePath,
         stagingPath: Basics.AbsolutePath,
         cleanupPath: Basics.AbsolutePath,
         swiftCommandState: SwiftCommandState
     ) async throws {
-        if fileSystem.exists(cwd) {
-            do {
-                try fileSystem.removeFileTree(cwd)
-            } catch {
-                throw FileOperationError.failedToRemoveExistingDirectory(path: cwd, underlying: error)
-            }
+        do {
+            try helper.removeDirectoryIfExists(cwd)
+        } catch {
+            observabilityScope.emit(
+                error: DirectoryManagerError.failedToRemoveDirectory(path: cwd, underlying: error),
+                underlyingError: error
+            )
+            throw DirectoryManagerError.failedToRemoveDirectory(path: cwd, underlying: error)
         }
-        try fileSystem.copy(from: stagingPath, to: cleanupPath)
+
+        try helper.copyDirectory(from: stagingPath, to: cleanupPath)
         try await cleanBuildArtifacts(at: cleanupPath, swiftCommandState: swiftCommandState)
-        try fileSystem.copy(from: cleanupPath, to: cwd)
+        try helper.copyDirectory(from: cleanupPath, to: cwd)
     }
 
     func cleanBuildArtifacts(at path: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) async throws {
@@ -45,11 +57,7 @@ public struct TemplateInitializationDirectoryManager {
     public func cleanupTemporary(templateSource: InitTemplatePackage.TemplateSource, path: Basics.AbsolutePath, temporaryDirectory: Basics.AbsolutePath?) throws {
         do {
             switch templateSource {
-            case .git:
-                if FileManager.default.fileExists(atPath: path.pathString) {
-                    try FileManager.default.removeItem(at: path.asURL)
-                }
-            case .registry:
+            case .git, .registry:
                 if FileManager.default.fileExists(atPath: path.pathString) {
                     try FileManager.default.removeItem(at: path.asURL)
                 }
@@ -58,35 +66,15 @@ public struct TemplateInitializationDirectoryManager {
             }
 
             if let tempDir = temporaryDirectory {
-                try fileSystem.removeFileTree(tempDir)
+                try helper.removeDirectoryIfExists(tempDir)
             }
 
         } catch {
-            throw CleanupError.failedToCleanup(temporaryDirectory: temporaryDirectory, underlying: error)
+            observabilityScope.emit(
+                error: DirectoryManagerError.cleanupFailed(path: temporaryDirectory, underlying: error),
+                underlyingError: error
+            )
+            throw DirectoryManagerError.cleanupFailed(path: temporaryDirectory, underlying: error)
         }
     }
-
-    enum CleanupError: Error, CustomStringConvertible {
-        case failedToCleanup(temporaryDirectory: Basics.AbsolutePath?, underlying: Error)
-
-        var description: String {
-            switch self {
-            case .failedToCleanup(let temporaryDirectory, let error):
-                let tempDir = temporaryDirectory?.pathString ?? "<no temporary directory initialized>"
-                return "Failed to clean up temporary directory at \(tempDir): \(error.localizedDescription)"
-            }
-        }
-    }
-
-    enum FileOperationError: Error, CustomStringConvertible {
-        case failedToRemoveExistingDirectory(path: Basics.AbsolutePath, underlying: Error)
-
-        var description: String {
-            switch self {
-            case .failedToRemoveExistingDirectory(let path, let underlying):
-                return "Failed to remove existing directory at \(path): \(underlying.localizedDescription)"
-            }
-        }
-    }
-
 }
