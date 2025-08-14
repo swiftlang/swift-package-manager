@@ -29,18 +29,43 @@ extension Trait where Self == Testing.Bug {
     ) -> Self {
         bug(nil, id: 0, "\(relationship): \(issue)")
     }
+
+    public static var IssueWindowsRelativePathAssert: Self {
+        // TSCBasic/Path.swift:969: Assertion failed
+        issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8602",
+            relationship: .defect,
+        )
+    }
+
+    public static var IssueWindowsPathLastConponent: Self {
+        // $0.path.lastComponent in test code returns fullpaths on Windows
+        issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8554",
+            relationship: .defect,
+        )
+    }
 }
 
 extension Trait where Self == Testing.Bug {
     public static var IssueWindowsLongPath: Self {
-        .issue("https://github.com/swiftlang/swift-tools-support-core/pull/521", relationship: .fixedBy)
+        .issue(
+            "https://github.com/swiftlang/swift-tools-support-core/pull/521",
+            relationship: .fixedBy,
+        )
     }
 
     public static var IssueProductTypeForObjectLibraries: Self {
-        .issue("https://github.com/swiftlang/swift-build/issues/609", relationship: .defect)
+        .issue(
+            "https://github.com/swiftlang/swift-build/issues/609",
+            relationship: .defect,
+        )
     }
 
     public static var IssueSwiftBuildLinuxRunnable: Self {
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8416", relationship: .defect)
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8416",
+            relationship: .defect,
+        )
     }
 }
