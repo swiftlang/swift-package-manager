@@ -1,17 +1,10 @@
-
-import ArgumentParser
 import ArgumentParserToolInfo
 
 import Basics
 
-@_spi(SwiftPMInternal)
 import CoreCommands
 
-import PackageModel
 import Workspace
-import SPMBuildCore
-import TSCBasic
-import TSCUtility
 import Foundation
 import PackageGraph
 
@@ -22,98 +15,47 @@ import PackageGraph
 public struct TemplateTesterPluginManager: TemplatePluginManager {
     public let swiftCommandState: SwiftCommandState
     public let template: String?
-
-    public let packageGraph: ModulesGraph
-
     public let scratchDirectory: Basics.AbsolutePath
-
     public let args: [String]
+    public let packageGraph: ModulesGraph
+    let coordinator: TemplatePluginCoordinator
 
-    public let EXPERIMENTAL_DUMP_HELP: [String] = ["--", "--experimental-dump-help"]
-
-    var rootPackage: ResolvedPackage {
+    public var rootPackage: ResolvedPackage {
         guard let root = packageGraph.rootPackages.first else {
-            fatalError("No root package found in the package graph.")
+            fatalError("No root package found.")
         }
         return root
     }
 
     init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String]) async throws {
+        let coordinator = TemplatePluginCoordinator(
+            swiftCommandState: swiftCommandState,
+            scratchDirectory: scratchDirectory,
+            template: template,
+            args: args
+        )
+
+        self.packageGraph = try await coordinator.loadPackageGraph()
         self.swiftCommandState = swiftCommandState
         self.template = template
         self.scratchDirectory = scratchDirectory
         self.args = args
-
-        self.packageGraph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: scratchDirectory) { _, _ in
-                try await swiftCommandState.loadPackageGraph()
-        }
+        self.coordinator = coordinator
     }
 
-    /// Manages the logic of running a template and executing on the information provided by the JSON representation of a template's arguments.
-    ///
-    /// - Throws:
-    ///   - `TemplatePluginError.executionFailed(underlying: error)` If there was an error during the execution of a template's plugin.
-    ///   - `TemplatePluginError.failedToDecodeToolInfo(underlying: error)` If there is a change in representation between the JSON and the current version of the ToolInfoV0 struct
-    ///   - `TemplatePluginError.execute`
-
     func run() async throws -> [CommandPath] {
-        //Load the plugin corresponding to the template
+        let plugin = try coordinator.loadTemplatePlugin(from: packageGraph)
+        let toolInfo = try await coordinator.dumpToolInfo(using: plugin, from: packageGraph, rootPackage: rootPackage)
 
-        let commandLinePlugin = try loadTemplatePlugin()
-
-        // Execute experimental-dump-help to get the JSON representing the template's decision tree
-        let output: Data
-
-        do {
-            output = try await executeTemplatePlugin(commandLinePlugin, with: EXPERIMENTAL_DUMP_HELP)
-        } catch {
-            throw TemplatePluginError.executionFailed(underlying: error)
-        }
-
-        //Decode the JSON into ArgumentParserToolInfo ToolInfoV0 struct
-        let toolInfo: ToolInfoV0
-
-        do {
-            toolInfo = try JSONDecoder().decode(ToolInfoV0.self, from: output)
-        } catch {
-            throw TemplatePluginError.failedToDecodeToolInfo(underlying: error)
-        }
-
-        // Prompt the user for any information needed by the template
         return try promptUserForTemplateArguments(using: toolInfo)
     }
 
-
-
-
-
-    /// Utilizes the prompting system defined by the struct to prompt user.
-    ///
-    /// - Parameters:
-    ///   - toolInfo: The JSON representation of the template's decision tree.
-    ///
-    /// - Throws:
-    ///   - Any other errors thrown during the prompting of the user.
-    ///
-    /// - Returns: A 2D array of the arguments given by the user, that will be consumed by the template during the project generation phase.
     func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
-        return try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command)
+        try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command)
     }
 
-
-    /// Runs the plugin of a template given a set of arguments.
-    ///
-    /// - Parameters:
-    ///   - plugin: The resolved module that corresponds to the plugin tied with the template executable.
-    ///   - arguments: A 2D array of arguments that will be passed to the plugin
-    ///
-    /// - Throws:
-    ///   - Any Errors thrown during the execution of the template's plugin given a 2D of arguments.
-    ///
-    /// - Returns: A data representation of the result of the execution of the template's plugin.
-
     public func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
-        return try await TemplatePluginRunner.run(
+        try await TemplatePluginRunner.run(
             plugin: plugin,
             package: rootPackage,
             packageGraph: packageGraph,
@@ -122,58 +64,10 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         )
     }
 
-    /// Loads the plugin that corresponds to the template's name.
-    ///
-    /// - Throws:
-    ///   - `TempaltePluginError.noMatchingTemplate(name: String?)` if there are no plugins corresponding to the desired template.
-    ///   - `TemplatePluginError.multipleMatchingTemplates(names: [String]` if the search returns more than one plugin given a desired template
-    ///
-    /// - Returns: A data representation of the result of the execution of the template's plugin.
-
     public func loadTemplatePlugin() throws -> ResolvedModule {
-
-        let matchingPlugins = PluginCommand.findPlugins(matching: self.template, in: self.packageGraph, limitedTo: nil)
-
-        switch matchingPlugins.count {
-        case 0:
-            throw TemplatePluginError.noMatchingTemplate(name: self.template)
-        case 1:
-            return matchingPlugins[0]
-        default:
-            let names = matchingPlugins.compactMap { plugin in
-                (plugin.underlying as? PluginModule)?.capability.commandInvocationVerb
-            }
-            throw TemplatePluginError.multipleMatchingTemplates(names: names)
-        }
-    }
-
-    enum TemplatePluginError: Error, CustomStringConvertible {
-        case noRootPackage
-        case noMatchingTemplate(name: String?)
-        case multipleMatchingTemplates(names: [String])
-        case failedToDecodeToolInfo(underlying: Error)
-        case executionFailed(underlying: Error)
-
-        var description: String {
-            switch self {
-            case .noRootPackage:
-                return "No root package found in the package graph."
-            case let .noMatchingTemplate(name):
-                let templateName = name ?? "<none>"
-                return "No templates found matching '\(templateName)"
-            case let .multipleMatchingTemplates(names):
-                return """
-                Multiple templates matched. Use `--type` to specify one of the following: \(names.joined(separator: ", "))
-                """
-            case let .failedToDecodeToolInfo(underlying):
-                return "Failed to decode template tool info: \(underlying.localizedDescription)"
-            case let .executionFailed(underlying):
-                return "Plugin execution failed: \(underlying.localizedDescription)"
-            }
-        }
+        try coordinator.loadTemplatePlugin(from: packageGraph)
     }
 }
-
 
 
 public struct CommandPath {
@@ -476,13 +370,3 @@ extension TemplateError: CustomStringConvertible {
         }
     }
 }
-
-
-
-private extension PluginCapability {
-    var commandInvocationVerb: String? {
-        guard case .command(let intent, _) = self else { return nil }
-        return intent.invocationVerb
-    }
-}
-
