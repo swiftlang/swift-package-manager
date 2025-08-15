@@ -81,7 +81,7 @@ struct ShowTemplates: AsyncSwiftCommand {
         let resolvedPath = try await resolveTemplatePath(using: swiftCommandState, source: source)
         let templates = try await loadTemplates(from: resolvedPath, swiftCommandState: swiftCommandState)
         try await displayTemplates(templates, at: resolvedPath, using: swiftCommandState)
-        try cleanupTemplate(source: source, path: resolvedPath, fileSystem: swiftCommandState.fileSystem)
+        try cleanupTemplate(source: source, path: resolvedPath, fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
     }
 
     private func resolveSource(cwd: AbsolutePath?) throws -> InitTemplatePackage.TemplateSource {
@@ -127,9 +127,9 @@ struct ShowTemplates: AsyncSwiftCommand {
             try await swiftCommandState.loadPackageGraph()
         }
 
-        let rootPackages = graph.rootPackages.map(\.identity)
+        let rootPackages = graph.rootPackages.map{ $0.identity }
 
-        return graph.allModules.filter(\.underlying.template).map {
+        return graph.allModules.filter({$0.underlying.template}).map {
             Template(package: rootPackages.contains($0.packageIdentity) ? nil : $0.packageIdentity.description, name: $0.name)
         }
     }
@@ -189,8 +189,8 @@ struct ShowTemplates: AsyncSwiftCommand {
         }
     }
 
-    private func cleanupTemplate(source: InitTemplatePackage.TemplateSource, path: AbsolutePath, fileSystem: FileSystem) throws {
-        try TemplateInitializationDirectoryManager(fileSystem: fileSystem)
+    private func cleanupTemplate(source: InitTemplatePackage.TemplateSource, path: AbsolutePath, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws {
+        try TemplateInitializationDirectoryManager(fileSystem: fileSystem, observabilityScope: observabilityScope)
             .cleanupTemporary(templateSource: source, path: path, temporaryDirectory: nil)
     }
 
