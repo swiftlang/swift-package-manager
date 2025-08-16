@@ -825,6 +825,7 @@ let package = Package(
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
+                "DriverSupport",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
