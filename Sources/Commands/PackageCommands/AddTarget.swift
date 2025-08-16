@@ -16,17 +16,17 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
-import PackageModelSyntax
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
 import Workspace
 
-extension AddTarget.TestHarness: ExpressibleByArgument { }
+extension AddPackageTarget.TestHarness: @retroactive ExpressibleByArgument { }
 
 extension SwiftPackageCommand {
-    struct AddTarget: SwiftCommand {
+    struct AddTarget: AsyncSwiftCommand {
         /// The type of target that can be specified on the command line.
         enum TargetType: String, Codable, ExpressibleByArgument, CaseIterable {
             case library
@@ -63,9 +63,9 @@ extension SwiftPackageCommand {
         var checksum: String?
 
         @Option(help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'.")
-        var testingLibrary: PackageModelSyntax.AddTarget.TestHarness = .default
+        var testingLibrary: AddPackageTarget.TestHarness = .default
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
@@ -92,43 +92,39 @@ extension SwiftPackageCommand {
             }
 
             // Move sources into their own folder if they're directly in `./Sources`.
-            try PackageModelSyntax.AddTarget.moveSingleTargetSources(
+            try await moveSingleTargetSources(
+                workspace: workspace,
                 packagePath: packagePath,
-                manifest: manifestSyntax,
-                fileSystem: fileSystem,
-                verbose: !globalOptions.logging.quiet
+                verbose: !globalOptions.logging.quiet,
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             // Map the target type.
-            let type: TargetDescription.TargetKind = switch self.type {
-                case .library: .regular
+            let type: PackageTarget.TargetKind = switch self.type {
+                case .library: .library
                 case .executable: .executable
                 case .test: .test
                 case .macro: .macro
             }
 
             // Map dependencies
-            let dependencies: [TargetDescription.Dependency] =
-                self.dependencies.map {
-                    .byName(name: $0, condition: nil)
-                }
+            let dependencies: [PackageTarget.Dependency] = self.dependencies.map {
+                .byName(name: $0)
+            }
 
-            let target = try TargetDescription(
-                name: name,
-                dependencies: dependencies,
-                path: path,
-                url: url,
-                type: type,
-                checksum: checksum
-            )
-
-            let editResult = try PackageModelSyntax.AddTarget.addTarget(
-                target,
-                to: manifestSyntax,
-                configuration: .init(testHarness: testingLibrary),
-                installedSwiftPMConfiguration: swiftCommandState
-                  .getHostToolchain()
-                  .installedSwiftPMConfiguration
+            let editResult = try AddPackageTarget.manifestRefactor(
+                syntax: manifestSyntax,
+                in: .init(
+                    target: .init(
+                        name: name,
+                        type: type,
+                        dependencies: dependencies,
+                        path: path,
+                        url: url,
+                        checksum: checksum
+                    ),
+                    testHarness: testingLibrary
+                )
             )
 
             try editResult.applyEdits(
@@ -137,6 +133,57 @@ extension SwiftPackageCommand {
                 manifestPath: manifestPath,
                 verbose: !globalOptions.logging.quiet
             )
+        }
+
+        // Check if the package has a single target with that target's sources located
+        // directly in `./Sources`. If so, move the sources into a folder named after
+        // the target before adding a new target.
+        private func moveSingleTargetSources(
+            workspace: Workspace,
+            packagePath: Basics.AbsolutePath,
+            verbose: Bool = false,
+            observabilityScope: ObservabilityScope
+        ) async throws {
+            let manifest = try await workspace.loadRootManifest(
+                at: packagePath,
+                observabilityScope: observabilityScope
+            )
+
+            guard let target = manifest.targets.first, manifest.targets.count == 1 else {
+                return
+            }
+
+            let sourcesFolder = packagePath.appending("Sources")
+            let expectedTargetFolder = sourcesFolder.appending(target.name)
+
+            let fileSystem = workspace.fileSystem
+            // If there is one target then pull its name out and use that to look for a folder in `Sources/TargetName`.
+            // If the folder doesn't exist then we know we have a single target package and we need to migrate files
+            // into this folder before we can add a new target.
+            if !fileSystem.isDirectory(expectedTargetFolder) {
+                if verbose {
+                    print(
+                        """
+                        Moving existing files from \(
+                            sourcesFolder.relative(to: packagePath)
+                        ) to \(
+                            expectedTargetFolder.relative(to: packagePath)
+                        )...
+                        """,
+                        terminator: ""
+                    )
+                }
+                let contentsToMove = try fileSystem.getDirectoryContents(sourcesFolder)
+                try fileSystem.createDirectory(expectedTargetFolder)
+                for file in contentsToMove {
+                    let source = sourcesFolder.appending(file)
+                    let destination = expectedTargetFolder.appending(file)
+                    try fileSystem.move(from: source, to: destination)
+                }
+                if verbose {
+                    print(" done.")
+                }
+            }
         }
     }
 }

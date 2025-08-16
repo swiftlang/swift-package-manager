@@ -15,9 +15,8 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
-import PackageModel
-import PackageModelSyntax
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
@@ -80,7 +79,7 @@ extension SwiftPackageCommand {
             }
 
             // Map the product type.
-            let type: ProductType = switch self.type {
+            let type: ProductDescription.ProductType = switch self.type {
             case .executable: .executable
             case .library: .library(.automatic)
             case .dynamicLibrary: .library(.dynamic)
@@ -88,15 +87,15 @@ extension SwiftPackageCommand {
             case .plugin: .plugin
             }
 
-            let product = try ProductDescription(
+            let product = ProductDescription(
                 name: name,
                 type: type,
                 targets: targets
             )
 
-            let editResult = try PackageModelSyntax.AddProduct.addProduct(
-                product,
-                to: manifestSyntax
+            let editResult = try SwiftRefactor.AddProduct.manifestRefactor(
+                syntax: manifestSyntax,
+                in: .init(product: product)
             )
 
             try editResult.applyEdits(

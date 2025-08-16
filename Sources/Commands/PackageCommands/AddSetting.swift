@@ -15,9 +15,11 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
+import PackageLoading
 import PackageModel
-import PackageModelSyntax
 import SwiftParser
+import SwiftSyntax
+@_spi(PackageRefactor) import SwiftRefactor
 import TSCBasic
 import TSCUtility
 import Workspace
@@ -124,32 +126,40 @@ extension SwiftPackageCommand {
                     }
                 }
 
-                let editResult: PackageEditResult
+                let editResult: PackageEdit
 
                 switch setting {
                 case .experimentalFeature:
+                    try manifestSyntax.checkManifestAtLeast(.v5_8)
+
                     editResult = try AddSwiftSetting.experimentalFeature(
                         to: target,
                         name: value,
                         manifest: manifestSyntax
                     )
                 case .upcomingFeature:
+                    try manifestSyntax.checkManifestAtLeast(.v5_8)
+
                     editResult = try AddSwiftSetting.upcomingFeature(
                         to: target,
                         name: value,
                         manifest: manifestSyntax
                     )
                 case .languageMode:
+                    try manifestSyntax.checkManifestAtLeast(.v6_0)
+
                     guard let mode = SwiftLanguageVersion(string: value) else {
                         throw ValidationError("Unknown Swift language mode: \(value)")
                     }
 
                     editResult = try AddSwiftSetting.languageMode(
                         to: target,
-                        mode: mode,
+                        mode: mode.rawValue,
                         manifest: manifestSyntax
                     )
                 case .strictMemorySafety:
+                    try manifestSyntax.checkManifestAtLeast(.v6_2)
+
                     guard value.isEmpty || value == SwiftSetting.strictMemorySafety.rawValue else {
                         throw ValidationError("'strictMemorySafety' does not support argument '\(value)'")
                     }
@@ -167,6 +177,15 @@ extension SwiftPackageCommand {
                     verbose: verbose
                 )
             }
+        }
+    }
+}
+
+fileprivate extension SourceFileSyntax {
+    func checkManifestAtLeast(_ version: ToolsVersion) throws {
+        let toolsVersion = try ToolsVersionParser.parse(utf8String: description)
+        if toolsVersion < version {
+            throw StringError("package manifest version \(toolsVersion) is too old: please update to manifest version \(version) or newer")
         }
     }
 }
