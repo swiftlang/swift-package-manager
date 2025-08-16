@@ -769,6 +769,7 @@ extension PackagePIFProjectBuilder {
         //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
         //
         // An imparted build setting on C will propagate back to both B and A.
+        // FIXME: -rpath should not be given if -static is
         impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
             ["$(RPATH_ORIGIN)"] +
             (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
