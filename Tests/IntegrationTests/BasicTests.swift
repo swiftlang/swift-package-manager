@@ -160,27 +160,23 @@ private struct BasicTests {
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
             try localFileSystem.createDirectory(packagePath)
-            await withKnownIssue("error: no tests found; create a target in the 'Tests' directory") {
-                try await executeSwiftPackage(
-                    packagePath,
-                    extraArgs: ["init", "--type", "executable"],
-                    buildSystem: .native,
-                )
-                let packageOutput = try await executeSwiftTest(
-                    packagePath,
-                    extraArgs: ["--vv"],
-                    buildSystem: .native,
-                )
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable"],
+                buildSystem: .native,
+            )
+            let packageOutput = try await executeSwiftTest(
+                packagePath,
+                extraArgs: ["--vv"],
+                buildSystem: .native,
+            )
 
-                // Check the test log.
-                let compilingRegex = try Regex("Compiling .*ProjectTests.*")
-                #expect(packageOutput.stdout.contains(compilingRegex), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
-                #expect(packageOutput.stdout.contains("Executed 1 test"), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
+            // Check the test log.
+            #expect(packageOutput.stdout.contains("Test run with 1 test"), "stdout: '\(packageOutput.stdout)'\n stderr:'\(packageOutput.stderr)'")
 
-                // Check there were no compile errors or warnings.
-                #expect(packageOutput.stdout.contains("error") == false)
-                #expect(packageOutput.stdout.contains("warning") == false)
-            }
+            // Check there were no compile errors or warnings.
+            #expect(packageOutput.stdout.contains("error") == false)
+            #expect(packageOutput.stdout.contains("warning") == false)
         }
     }
 
