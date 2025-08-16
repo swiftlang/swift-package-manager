@@ -2168,7 +2168,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-    func testMigrateCommand() async throws {
+    func _testMigrateCommand(configuration: BuildConfiguration) async throws {
         try XCTSkipIf(
             !UserToolchain.default.supportesSupportedFeatures,
             "skipping because test environment compiler doesn't support `-print-supported-features`"
@@ -2196,7 +2196,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
                 }
 
                 let (stdout, _) = try await self.execute(
-                    ["migrate", "--to-feature", featureName],
+                    ["migrate", "-c", configuration.rawValue, "--to-feature", featureName],
                     packagePath: fixturePath
                 )
 
@@ -2218,6 +2218,14 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         try await doMigration(featureName: "ExistentialAny", expectedSummary: "Applied 5 fix-its in 1 file")
         try await doMigration(featureName: "StrictMemorySafety", expectedSummary: "Applied 1 fix-it in 1 file")
         try await doMigration(featureName: "InferIsolatedConformances", expectedSummary: "Applied 3 fix-its in 2 files")
+    }
+
+    func testMigrateCommandDebug() async throws {
+        try await _testMigrateCommand(configuration: .debug)
+    }
+
+    func testMigrateCommandRelease() async throws {
+        try await _testMigrateCommand(configuration: .release)
     }
 
     func testMigrateCommandWithBuildToolPlugins() async throws {
@@ -4432,7 +4440,7 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
         try await super.testNoParameters()
     }
 
-    override func testMigrateCommand() async throws {
+    override func testMigrateCommandDebug() async throws {
         try XCTSkipOnWindows(
             because: """
             Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
@@ -4441,7 +4449,19 @@ class PackageCommandSwiftBuildTests: PackageCommandTestCase {
             skipPlatformCi: true,
         )
 
-        try await super.testMigrateCommand()
+        try await super.testMigrateCommandDebug()
+    }
+
+    override func testMigrateCommandRelease() async throws {
+        try XCTSkipOnWindows(
+            because: """
+            Possibly https://github.com/swiftlang/swift-package-manager/issues/8602:
+            error: Could not choose a single platform for target 'AllIncludingTests' from the supported platforms 'android qnx webassembly'. Specialization parameters imposed by workspace: platform 'nil' sdkVariant 'nil' supportedPlatforms: 'nil' toolchain: 'nil'
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await super.testMigrateCommandRelease()
     }
 
     override func testMigrateCommandUpdateManifest2Targets() async throws {
