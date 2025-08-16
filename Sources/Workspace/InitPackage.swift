@@ -660,10 +660,16 @@ public final class InitPackage {
             return
         }
 
+        // Intentionally exhaustive switch without `default` case - forces compilation failure when new
+        // `PackageType`` cases are added, ensuring explicit consideration of case behavior.
+        // Using `default` would silently group future cases, hiding new cases and introducing potential bugs.
         switch packageType {
-        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
-            default: break
+        case .empty, .buildToolPlugin, .commandPlugin:
+            return
+        case .library, .executable, .tool, .macro:
+            break
         }
+
         let tests = destinationPath.appending("Tests")
         guard self.fileSystem.exists(tests) == false else {
             return
@@ -873,9 +879,11 @@ public final class InitPackage {
         try makeDirectories(testModule)
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
+
         switch packageType {
-        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
-        case .library:
+        case .empty, .buildToolPlugin, .commandPlugin:
+            break
+        case .library, .executable, .tool: // Added .executable and .tool here
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)
