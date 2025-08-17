@@ -45,6 +45,7 @@ struct ShowConfiguration: ConfigurationSubcommand {
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
+        print("\nswiftSDK: \(targetTriple)")
         print(swiftSDK.pathsConfiguration)
     }
 }
