@@ -597,6 +597,7 @@ let package = Package(
             name: "CoreCommands",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 "Basics",
                 "Build",
                 "PackageLoading",
@@ -618,10 +619,12 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 "Basics",
                 "BinarySymbols",
                 "Build",
                 "CoreCommands",
+                "LLBuildManifest",
                 "PackageGraph",
                 "PackageModelSyntax",
                 "SourceControl",
@@ -708,7 +711,7 @@ let package = Package(
         .executableTarget(
             /** The main executable provided by SwiftPM */
             name: "swift-package",
-            dependencies: ["Basics", "Commands"],
+            dependencies: ["Commands"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(

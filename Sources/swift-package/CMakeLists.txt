@@ -9,8 +9,7 @@
 add_executable(swift-package
   Entrypoint.swift)
 target_link_libraries(swift-package PRIVATE
-  Commands
-  TSCBasic)
+  Commands)
 
 target_compile_options(swift-package PRIVATE
   -parse-as-library)

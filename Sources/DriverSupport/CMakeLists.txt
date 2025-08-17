@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(DriverSupport
+add_library(DriverSupport STATIC
   DriverSupportUtils.swift
   SPMSwiftDriverExecutor.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
@@ -16,9 +16,3 @@ target_link_libraries(DriverSupport PUBLIC
   Basics
   PackageModel
   SwiftDriver)
-
-install(TARGETS DriverSupport
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
-set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS DriverSupport)

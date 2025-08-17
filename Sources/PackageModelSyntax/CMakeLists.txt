@@ -6,7 +6,7 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(PackageModelSyntax
+add_library(PackageModelSyntax STATIC
   AddPackageDependency.swift
   AddProduct.swift
   AddSwiftSetting.swift
@@ -38,8 +38,4 @@ target_link_libraries(PackageModelSyntax PUBLIC
 set_target_properties(PackageModelSyntax PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
-install(TARGETS PackageModelSyntax
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin)
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModelSyntax)
