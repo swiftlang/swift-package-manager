@@ -1,4 +1,3 @@
-
 /*
  This source file is part of the Swift.org open source project
 
@@ -15,7 +14,7 @@ import class PackageModel.UserToolchain
 import DriverSupport
 import Basics
 import Testing
-import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
+import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 extension Trait where Self == Testing.ConditionTrait {
     /// Skip test if the host operating system does not match the running OS.
@@ -37,6 +36,72 @@ extension Trait where Self == Testing.ConditionTrait {
         enabled("skipping because test environment doesn't support concurrency") {
             (try? UserToolchain.default)!.supportsSwiftConcurrency()
         }
+    }
+
+    /// Enabled only if 'llvm-profdata' is available
+    public static var requiresLLVMProfData: Self {
+        disabled("skipping test because the `llvm-profdata` tool isn't available") {
+            let toolPath = try (try? UserToolchain.default)!.getLLVMProf()
+            return toolPath == nil
+        }
+    }
+
+    /// Enabled only if 'llvm-cov' is available
+    public static var requiresLLVMCov: Self {
+        disabled("skipping test because the `llvm-cov` tool isn't available") {
+            let toolPath = try (try? UserToolchain.default)!.getLLVMCov()
+            return toolPath == nil
+        }
+    }
+
+    /// Enabled only if 'swift-symbolgraph-extract' is available
+    public static var requiresSymbolgraphExtract: Self {
+        disabled("skipping test because the `swift-symbolgraph-extract` tools isn't available") {
+            let toolPath = try (try? UserToolchain.default)!.getSymbolGraphExtract()
+            return toolPath == nil
+        }
+    }
+
+    /// Enabled only is stdlib is supported by the toolchain
+    public static var requiresStdlibSupport: Self {
+        enabled("skipping because static stdlib is not supported by the toolchain") {
+            let args = try [
+                UserToolchain.default.swiftCompilerPath.pathString,
+                "-static-stdlib", "-emit-executable", "-o", "/dev/null", "-",
+            ]
+            let process = AsyncProcess(arguments: args)
+            let stdin = try process.launch()
+            stdin.write(sequence: "".utf8)
+            try stdin.close()
+            let result = try await process.waitUntilExit()
+
+            return result.exitStatus == .terminated(code: 0)
+        }
+    }
+
+    // Enabled if the toolchain has supported features
+    public static var supportsSupportedFeatures: Self {
+        enabled("skipping because test environment compiler doesn't support `-print-supported-features`") {
+            (try? UserToolchain.default)!.supportsSupportedFeatures
+        }
+    }
+
+    /// Skip of the executable is not available
+    public static func requires(executable: String) -> Self {
+        let message: Comment?
+        let isToolAvailable: Bool
+        do {
+            try _requiresTools(executable)
+            isToolAvailable = true
+            message = nil
+        } catch (let AsyncProcessResult.Error.nonZeroExit(result)) {
+            isToolAvailable = false
+            message = "Skipping as tool \(executable) is not found in the path. (\(result.description))"
+        } catch {
+            isToolAvailable = false
+            message = "Skipping. Unable to determine if tool exists. Error: \(error) "
+        }
+        return enabled(if: isToolAvailable, message)
     }
 
     /// Enaled only if marcros are built as dylibs
@@ -71,16 +136,16 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Ensure platform support working directory
     public static var requiresWorkingDirectorySupport: Self {
         enabled("working directory not supported on this platform") {
-        #if !os(Windows)
-            // needed for archiving
-            if SPM_posix_spawn_file_actions_addchdir_np_supported() {
+            #if !os(Windows)
+                // needed for archiving
+                if SPM_posix_spawn_file_actions_addchdir_np_supported() {
+                    return true
+                } else {
+                    return false
+                }
+            #else
                 return true
-            } else {
-                return false
-            }
-        #else
-            return true
-        #endif
+            #endif
         }
     }
 
@@ -118,9 +183,9 @@ extension Trait where Self == Testing.ConditionTrait {
     public static func skipIfXcodeBuilt() -> Self {
         disabled("Tests built by Xcode") {
             #if Xcode
-            true
+                true
             #else
-            false
+                false
             #endif
         }
     }
@@ -129,9 +194,9 @@ extension Trait where Self == Testing.ConditionTrait {
     public static var requireSwift6_2: Self {
         enabled("This test requires Swift 6.2, or newer.") {
             #if compiler(>=6.2)
-            true
+                true
             #else
-            false
+                false
             #endif
         }
     }
