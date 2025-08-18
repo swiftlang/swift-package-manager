@@ -23,6 +23,63 @@ public func expectFileExists(
     )
 }
 
+public func expectFileDoesNotExists(
+    at fixturePath: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    let commentPrefix =
+        if let comment {
+            "\(comment): "
+        } else {
+            ""
+        }
+    #expect(
+        !localFileSystem.exists(fixturePath),
+        "\(commentPrefix)\(fixturePath) does not exist",
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func expectFileIsExecutable(
+    at fixturePath: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    let commentPrefix =
+        if let comment {
+            "\(comment): "
+        } else {
+            ""
+        }
+    #expect(
+        localFileSystem.isExecutableFile(fixturePath),
+        "\(commentPrefix)\(fixturePath) does not exist",
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func expectDirectoryExists(
+    at path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    #expect(
+        localFileSystem.isDirectory(path),
+        "Expected directory doesn't exist: \(path)",
+        sourceLocation: sourceLocation,
+    )
+}
+
+public func expectDirectoryDoesNotExist(
+    at path: AbsolutePath,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    #expect(
+        !localFileSystem.isDirectory(path),
+        "Directory exists unexpectedly: \(path)",
+        sourceLocation: sourceLocation,
+    )
+}
 
 public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
@@ -32,8 +89,9 @@ public func expectThrowsCommandExecutionError<T>(
 ) async {
     await expectAsyncThrowsError(try await expression(), message(), sourceLocation: sourceLocation) { error in
         guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-              case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-              processResult.exitStatus != .terminated(code: 0) else {
+            case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
+            processResult.exitStatus != .terminated(code: 0)
+        else {
             Issue.record("Unexpected error type: \(error.interpolationDescription)", sourceLocation: sourceLocation)
             return
         }
@@ -50,7 +108,10 @@ public func expectAsyncThrowsError<T>(
 ) async {
     do {
         _ = try await expression()
-        Issue.record(message() ?? "Expected an error, which did not not.", sourceLocation: sourceLocation)
+        Issue.record(
+            message() ?? "Expected an error, which did not occur.",
+            sourceLocation: sourceLocation,
+        )
     } catch {
         errorHandler(error)
     }

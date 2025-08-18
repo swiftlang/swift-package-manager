@@ -70,7 +70,7 @@ public enum SwiftCompilerFeature {
 }
 
 extension Toolchain {
-    public var supportesSupportedFeatures: Bool {
+    public var supportsSupportedFeatures: Bool {
         guard let features = try? swiftCompilerSupportedFeatures else {
             return false
         }

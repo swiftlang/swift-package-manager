@@ -223,7 +223,7 @@ struct BuildCommandTestCases {
                         buildSystem: buildSystem,
                     )
                 }
-                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
                     Issue.record("Incorrect error was raised.")
                     return
                 }
