@@ -53,7 +53,7 @@ extension SwiftPM {
     }
 
     public var xctestBinaryPath: AbsolutePath {
-        Self.xctestBinaryPath(for: RelativePath("swift-package-manager"))
+        Self.xctestBinaryPath(for: RelativePath(self.executableName))
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
@@ -127,13 +127,12 @@ extension SwiftPM {
 
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
-        environment["SWIFTPM_EXEC_NAME"] = self.executableName
 
         for (key, value) in env ?? [:] {
             environment[key] = value
         }
 
-        var completeArgs = [xctestBinaryPath.pathString]
+        var completeArgs = [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }
