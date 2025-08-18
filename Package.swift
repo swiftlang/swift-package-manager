@@ -101,14 +101,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
+let shouldUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
 
 let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
 let swiftTSCTestSupportDeps: [Target.Dependency]
 
-if shoudUseSwiftBuildFramework {
+if shouldUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
@@ -1167,7 +1167,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if !shoudUseSwiftBuildFramework {
+if !shouldUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [
