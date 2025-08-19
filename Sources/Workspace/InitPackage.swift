@@ -300,13 +300,36 @@ public final class InitPackage {
 
                 """
                 if packageType == .executable {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)"
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .tool {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)",
@@ -314,6 +337,7 @@ public final class InitPackage {
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .buildToolPlugin {
@@ -337,22 +361,8 @@ public final class InitPackage {
                     """
                 } else if packageType == .macro {
                     let testTarget: String
-                    if options.supportedTestingLibraries.contains(.swiftTesting) {
+                    if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
-
-                                // A test target used to develop the macro implementation.
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: [
-                                        "\(pkgname)Macros",
-                                        .product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax"),
-                                        .product(name: "Testing", package: "swift-testing"),
-                                    ]
-                                ),
-                        """
-                    } else if options.supportedTestingLibraries.contains(.xctest) {
-                        testTarget = """
-
                                 // A test target used to develop the macro implementation.
                                 .testTarget(
                                     name: "\(pkgname)Tests",
@@ -661,7 +671,7 @@ public final class InitPackage {
         }
 
         switch packageType {
-        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
+        case .empty, .buildToolPlugin, .commandPlugin: return
             default: break
         }
         let tests = destinationPath.appending("Tests")
@@ -874,8 +884,8 @@ public final class InitPackage {
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
         switch packageType {
-        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
-        case .library:
+        case .empty, .buildToolPlugin, .commandPlugin: break
+        case .library, .executable, .tool:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)
