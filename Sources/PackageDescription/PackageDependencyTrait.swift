@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 extension Package.Dependency {
-    /// A struct that represents an enabled trait of a dependency.
+    /// An enabled trait of a dependency.
     @available(_PackageDescription, introduced: 6.1)
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
-        /// Enables all default traits of the dependency..
+        /// Enables all default traits of the dependency.
         public static let defaults = Self.init(name: "default")
 
-        /// A condition that limits the application of a trait for a dependency..
+        /// A condition that limits the application of a trait for a dependency.
         public struct Condition: Hashable, Sendable {
             /// The set of traits that enable the dependencies trait.
             let traits: Set<String>?

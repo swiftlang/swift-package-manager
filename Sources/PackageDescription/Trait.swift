@@ -10,9 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A struct that represents a package's trait.
+/// A package trait.
 ///
-/// Use traits to represent and expose extended API for a package.
+/// A trait is a package feature to express conditional compilation and potentially optional dependencies, typically used to expose additional extended API for the package.
+///
 /// When you define a trait on a package, the package manager exposes the name of that trait as a conditional block to conditionally enable imports or code paths.
 /// For example, a trait with the canonical name `MyTrait` allows you to use the name as a conditional block:
 ///
