@@ -222,6 +222,90 @@ struct InMemoryFileSystemTests {
             #expect(actualContents == expectedContents, "Actual is not as expected")
         }
 
+        @Suite(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        struct ChangeCurrentWorkingDirectoryTests {
+            func errorOccursWhenChangingDirectoryToAFile() async throws {
+                // GIVEN we have a file
+                let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
+
+                // AND filesytstem
+                let fs = InMemoryFileSystem(
+                    emptyFiles: [
+                        fileUnderTest.pathString
+                    ]
+                )
+
+                // WHEN We change directory to this file
+                // THEN An error occurs
+                #expect(throws: FileSystemError(.notDirectory, fileUnderTest)) {
+                    try fs.changeCurrentWorkingDirectory(to: fileUnderTest)
+                }
+            }
+
+            func errorOccursWhenChangingDirectoryDoesNotExists() async throws {
+
+                // GIVEN we have a filesytstem
+                let fs = InMemoryFileSystem(
+                )
+                let nonExistingDirectory = AbsolutePath.root.appending(components: "does-not-exists")
+
+                // WHEN We change directory to this file
+                // THEN An error occurs
+                #expect(throws: FileSystemError(.noEntry, nonExistingDirectory)) {
+                    try fs.changeCurrentWorkingDirectory(to: nonExistingDirectory)
+                }
+            }
+
+            func changinDirectoryToTheParentOfAnExistingFileIsSuccessful() async throws {
+                // GIVEN we have a file
+                let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
+
+                // AND filesytstem
+                let fs = InMemoryFileSystem(
+                    emptyFiles: [
+                        fileUnderTest.pathString
+                    ]
+                )
+
+                // WHEN We change directory to this file
+                // THEN do not expect any errors
+                #expect(throws: Never.self) {
+                    try fs.changeCurrentWorkingDirectory(to: fileUnderTest.parentDirectory)
+                }
+            }
+        }
+
+        @Suite(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        struct GetDirectoryContentsTests {
+            func returnsExpectedItemsWhenDirectoryHasASingleFile() async throws {
+                // GIVEN we have a file
+                let fileUnderTest = AbsolutePath.root.appending(components: "Foo", "Bar", "baz.txt")
+
+                // AND filesytstem
+                let fs = InMemoryFileSystem(
+                    emptyFiles: [
+                        fileUnderTest.pathString
+                    ]
+                )
+
+                // WHEN We change directory to this file
+                // AND we retrieve the directory contents
+                try fs.changeCurrentWorkingDirectory(to: fileUnderTest.parentDirectory)
+                let contents = try fs.getDirectoryContents(fileUnderTest.parentDirectory)
+
+                // THEN we expect the correct list of items
+                #expect(["baz.txt"] == contents)
+            }
+        }
+
         @Test
         func readingADirectoryFailsWithAnError() async throws {
             // GIVEN we have a filesytstem

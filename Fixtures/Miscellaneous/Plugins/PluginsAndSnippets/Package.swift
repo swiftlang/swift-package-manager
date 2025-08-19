@@ -8,7 +8,13 @@ let package = Package(
             name: "PluginScriptProduct",
             targets: [
                 "PluginScriptTarget"
-            ]
+            ],
+        ),
+        .library(
+            name: "MyLib",
+            targets: [
+                "MyLib",
+            ],
         ),
     ],
     targets: [
@@ -17,9 +23,10 @@ let package = Package(
             capability: .command(
                 intent: .custom(
                     verb: "do-something",
-                    description: "Do something"
-                )
-            )
+                    description: "Do something",
+                ),
+            ),
         ),
+        .target(name: "MyLib"),
     ]
 )

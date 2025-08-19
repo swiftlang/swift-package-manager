@@ -534,6 +534,7 @@ let package = Package(
         .target(
             name: "SwiftBuildSupport",
             dependencies: [
+                "Build",
                 "SPMBuildCore",
                 "PackageGraph",
             ],

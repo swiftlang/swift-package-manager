@@ -79,14 +79,14 @@ extension SwiftPackageCommand {
             case .listExecutables:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.products.filter { $0.type == .executable }
+                let executables = package.products.filter { $0.type == .executable }.sorted()
                 for executable in executables {
                     print(executable.name)
                 }
             case .listSnippets:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.modules.filter { $0.type == .snippet }
+                let executables = package.modules.filter { $0.type == .snippet }.sorted()
                 for executable in executables {
                     print(executable.name)
                 }
