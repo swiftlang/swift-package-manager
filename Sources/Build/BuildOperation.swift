@@ -52,6 +52,7 @@ package struct LLBuildSystemConfiguration {
 
     let logLevel: Basics.Diagnostic.Severity
     let outputStream: OutputByteStream
+    let progressOutputStream: OutputByteStream
 
     let observabilityScope: ObservabilityScope
 
@@ -66,6 +67,7 @@ package struct LLBuildSystemConfiguration {
         fileSystem: any Basics.FileSystem,
         logLevel: Basics.Diagnostic.Severity,
         outputStream: OutputByteStream,
+        progressOutputStream: OutputByteStream,
         observabilityScope: ObservabilityScope
     ) {
         self.toolsBuildParameters = toolsBuildParameters
@@ -78,6 +80,7 @@ package struct LLBuildSystemConfiguration {
         self.fileSystem = fileSystem
         self.logLevel = logLevel
         self.outputStream = outputStream
+        self.progressOutputStream = progressOutputStream
         self.observabilityScope = observabilityScope
     }
 
@@ -210,6 +213,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         outputStream: OutputByteStream,
+        progressOutputStream: OutputByteStream? = nil,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope
@@ -225,6 +229,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             additionalFileRules: additionalFileRules,
             pkgConfigDirectories: pkgConfigDirectories,
             outputStream: outputStream,
+            progressOutputStream: progressOutputStream ?? outputStream,
             logLevel: logLevel,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
@@ -243,6 +248,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         additionalFileRules: [FileRuleDescription],
         pkgConfigDirectories: [AbsolutePath],
         outputStream: OutputByteStream,
+        progressOutputStream: OutputByteStream? = nil,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
         observabilityScope: ObservabilityScope,
@@ -265,6 +271,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             fileSystem: fileSystem,
             logLevel: logLevel,
             outputStream: outputStream,
+            progressOutputStream: progressOutputStream ?? outputStream,
             observabilityScope: observabilityScope.makeChildScope(description: "Build Operation")
         )
 
@@ -832,7 +839,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     ) throws -> (buildSystem: SPMLLBuild.BuildSystem, tracker: LLBuildProgressTracker) {
         // Figure out which progress bar we have to use during the build.
         let progressAnimation = ProgressAnimation.ninja(
-            stream: config.outputStream,
+            stream: config.progressOutputStream,
             verbose: config.logLevel.isVerbose
         )
         let buildExecutionContext = BuildExecutionContext(

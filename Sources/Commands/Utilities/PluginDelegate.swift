@@ -167,6 +167,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         if parameters.echoLogs {
             outputStream.addStream(swiftCommandState.outputStream)
         }
+        let progressOutputStream = parameters.progressToConsole ? swiftCommandState.outputStream : outputStream
 
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
@@ -174,6 +175,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
             outputStream: outputStream,
+            progressOutputStream: progressOutputStream,
             logLevel: logLevel
         )
 
