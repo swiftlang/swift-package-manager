@@ -292,6 +292,12 @@ extension Module: Hashable {
     }
 }
 
+extension Module: Comparable {
+    public static func < (lhs: Module, rhs: Module) -> Bool {
+        return lhs.name < rhs.name
+    }
+}
+
 extension Module: CustomStringConvertible {
     public var description: String {
         return "<\(Swift.type(of: self)): \(name)>"

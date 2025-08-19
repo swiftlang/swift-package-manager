@@ -226,12 +226,24 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Virtualized current working directory.
+    private var _currentWorkingDirectory: TSCBasic.AbsolutePath = try! .init(validating: "/")
+
     public var currentWorkingDirectory: TSCBasic.AbsolutePath? {
-        return try? .init(validating: "/")
+        return _currentWorkingDirectory
     }
 
     public func changeCurrentWorkingDirectory(to path: TSCBasic.AbsolutePath) throws {
-        throw FileSystemError(.unsupported, path)
+        return try lock.withLock {
+            // Verify the path exists and is a directory
+            guard let node = try getNode(path) else {
+                throw FileSystemError(.noEntry, path)
+            }
+
+            guard case .directory = node.contents else {
+                throw FileSystemError(.notDirectory, path)
+            }
+            _currentWorkingDirectory = path
+        }
     }
 
     public var homeDirectory: TSCBasic.AbsolutePath {

@@ -1134,7 +1134,7 @@ struct PackageCommandTests {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(result.stdout == "MySnippet\n")
+                #expect(result.stdout == "ContainsMain\nImportsProductTarget\nMySnippet\nmain\n")
             }
         }
 
