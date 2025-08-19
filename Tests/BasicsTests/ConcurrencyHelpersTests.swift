@@ -18,38 +18,38 @@ import Testing
 struct ConcurrencyHelpersTest {
     @Suite
     struct ThreadSafeKeyValueStoreTests {
-        let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
 
         @Test(
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
         )
-        func threadSafeKeyValueStore() throws {
-            for _ in 0 ..< 100 {
-                let sync = DispatchGroup()
-
+        func threadSafeKeyValueStore() async throws {
+            for num in 0 ..< 100 {
                 var expected = [Int: Int]()
                 let lock = NSLock()
 
                 let cache = ThreadSafeKeyValueStore<Int, Int>()
-                for index in 0 ..< 1000 {
-                    self.queue.async(group: sync) {
-                        Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
-                        let value = Int.random(in: Int.min ..< Int.max)
-                        lock.withLock {
-                            expected[index] = value
-                        }
-                        cache.memoize(index) {
-                            value
-                        }
-                        cache.memoize(index) {
-                            Int.random(in: Int.min ..< Int.max)
+
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for index in 0 ..< 1000 {
+                        group.addTask {
+                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
+                            let value = Int.random(in: Int.min ..< Int.max)
+                            lock.withLock {
+                                expected[index] = value
+                            }
+                            cache.memoize(index) {
+                                value
+                            }
+                            cache.memoize(index) {
+                                Int.random(in: Int.min ..< Int.max)
+                            }
                         }
                     }
+                    try await group.waitForAll()
                 }
 
-                try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
                 expected.forEach { key, value in
-                    #expect(cache[key] == value)
+                    #expect(cache[key] == value, "Iteration \(num) failed")
                 }
             }
         }
@@ -57,30 +57,30 @@ struct ConcurrencyHelpersTest {
         @Test(
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
         )
-        func threadSafeArrayStore() throws {
-            for _ in 0 ..< 100 {
-                let sync = DispatchGroup()
-
+        func threadSafeArrayStore() async throws {
+            for num in 0 ..< 100 {
                 var expected = [Int]()
                 let lock = NSLock()
 
                 let cache = ThreadSafeArrayStore<Int>()
-                for _ in 0 ..< 1000 {
-                    self.queue.async(group: sync) {
-                        Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
-                        let value = Int.random(in: Int.min ..< Int.max)
-                        lock.withLock {
-                            expected.append(value)
+
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    for _ in 0 ..< 1000 {
+                        group.addTask {
+                            try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
+                            let value = Int.random(in: Int.min ..< Int.max)
+                            lock.withLock {
+                                expected.append(value)
+                            }
+                            cache.append(value)
                         }
-                        cache.append(value)
                     }
+                    try await group.waitForAll()
                 }
 
-
-                try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
                 let expectedSorted = expected.sorted()
                 let resultsSorted = cache.get().sorted()
-                #expect(expectedSorted == resultsSorted)
+                #expect(expectedSorted == resultsSorted, "Iteration \(num) failed")
             }
        }
     }
@@ -88,35 +88,39 @@ struct ConcurrencyHelpersTest {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8770"),
     )
-    func threadSafeBox() throws {
-        let queue = DispatchQueue(label: "ConcurrencyHelpersTest", attributes: .concurrent)
-        for _ in 0 ..< 100 {
-            let sync = DispatchGroup()
-
-            var winner: Int?
-            let lock = NSLock()
-
-            let serial = DispatchQueue(label: "testThreadSafeBoxSerial")
-
-            let cache = ThreadSafeBox<Int>()
-            for index in 0 ..< 1000 {
-                queue.async(group: sync) {
-                    Thread.sleep(forTimeInterval: Double.random(in: 100 ... 300) * 1.0e-6)
-                    serial.async(group: sync) {
-                        lock.withLock {
-                            if winner == nil {
-                                winner = index
-                            }
-                        }
-                        cache.memoize {
-                            index
-                        }
-                    }
+    func threadSafeBox() async throws {
+        // Actor to serialize the critical section that was previously handled by the serial queue
+        actor SerialCoordinator {
+            func processTask(_ index: Int, winner: inout Int?, cache: ThreadSafeBox<Int>) {
+                // This simulates the serial queue behavior - both winner determination
+                // and cache memoization happen atomically in the same serial context
+                if winner == nil {
+                    winner = index
+                }
+                cache.memoize {
+                    index
                 }
             }
+        }
 
-            try #require(sync.wait(timeout: .now() + .seconds(300)) == .success)
-            #expect(cache.get() == winner)
+        for num in 0 ..< 100 {
+            var winner: Int?
+            let cache = ThreadSafeBox<Int>()
+            let coordinator = SerialCoordinator()
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for index in 0 ..< 1000 {
+                    group.addTask {
+                        // Random sleep to simulate concurrent access timing
+                        try await Task.sleep(nanoseconds: UInt64(Double.random(in: 100 ... 300) * 1000))
+
+                        // Process both winner determination and cache memoization serially
+                        await coordinator.processTask(index, winner: &winner, cache: cache)
+                    }
+                }
+                try await group.waitForAll()
+            }
+            #expect(cache.get() == winner, "Iteration \(num) failed")
         }
     }
 
