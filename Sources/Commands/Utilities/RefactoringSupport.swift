@@ -42,46 +42,5 @@ package extension PackageEdit {
         if verbose {
             print(" done.")
         }
-
-        // Write all of the auxiliary files.
-        for (auxiliaryFileRelPath, auxiliaryFileSyntax) in auxiliaryFiles {
-            // If the file already exists, skip it.
-            let filePath = try rootPath.appending(RelativePath(validating: auxiliaryFileRelPath))
-            if filesystem.exists(filePath) {
-                if verbose {
-                    print("Skipping \(filePath.relative(to: rootPath)) because it already exists.")
-                }
-
-                continue
-            }
-
-            // If the directory does not exist yet, create it.
-            let fileDir = filePath.parentDirectory
-            if !filesystem.exists(fileDir) {
-                if verbose {
-                    print("Creating directory \(fileDir.relative(to: rootPath))...", terminator: "")
-                }
-
-                try filesystem.createDirectory(fileDir, recursive: true)
-
-                if verbose {
-                    print(" done.")
-                }
-            }
-
-            // Write the file.
-            if verbose {
-                print("Writing \(filePath.relative(to: rootPath))...", terminator: "")
-            }
-
-            try filesystem.writeFileContents(
-                filePath,
-                string: auxiliaryFileSyntax.description
-            )
-
-            if verbose {
-                print(" done.")
-            }
-        }
     }
 }
