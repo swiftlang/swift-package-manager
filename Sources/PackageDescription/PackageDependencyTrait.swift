@@ -11,21 +11,22 @@
 //===----------------------------------------------------------------------===//
 
 extension Package.Dependency {
-    /// A struct representing an enabled trait of a dependency.
+    /// A struct that represents an enabled trait of a dependency.
     @available(_PackageDescription, introduced: 6.1)
     public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
-        /// Enables all default traits of a package.
+        /// Enables all default traits of the dependency..
         public static let defaults = Self.init(name: "default")
 
-        /// A condition that limits the application of a dependencies trait.
+        /// A condition that limits the application of a trait for a dependency..
         public struct Condition: Hashable, Sendable {
-            /// The set of traits of this package that enable the dependencie's trait.
+            /// The set of traits that enable the dependencies trait.
             let traits: Set<String>?
 
             /// Creates a package dependency trait condition.
             ///
-            /// - Parameter traits: The set of traits that enable the dependencies trait. If any of the traits are enabled on this package
-            /// the dependencies trait will be enabled.
+            /// If any of the traits you provide are enabled on this package, the package manager enables the dependency to which the condition applies.
+            ///
+            /// - Parameter traits: The set of traits that enable the dependencies trait.
             public static func when(
                 traits: Set<String>
             ) -> Self? {
@@ -39,7 +40,7 @@ extension Package.Dependency {
         /// The condition under which the trait is enabled.
         public var condition: Condition?
 
-        /// Initializes a new enabled trait.
+        /// Creates a new enabled trait.
         ///
         /// - Parameters:
         ///   - name: The name of the enabled trait.
@@ -56,7 +57,7 @@ extension Package.Dependency {
             self.init(name: value)
         }
 
-        /// Initializes a new enabled trait.
+        /// Creates a new enabled trait.
         ///
         /// - Parameters:
         ///   - name: The name of the enabled trait.
