@@ -2283,7 +2283,7 @@ struct ModulesGraphTests {
         let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_1)
 
         #expect(observability.diagnostics.count == 3)
-        try testDiagnostics(observability.diagnostics) { result in
+        testDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
             expectedMetadata.moduleName = "Foo2"
             let diagnostic1 = try #require(result.checkUnordered(

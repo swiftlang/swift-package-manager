@@ -277,8 +277,8 @@ final class MiscellaneousTestCase: XCTestCase {
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let triple = try UserToolchain.default.targetTriple
-            let output =  systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
-            try systemQuietly([executableName("clang"), "-shared", input.pathString, "-o", output.pathString])
+            let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
+            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 

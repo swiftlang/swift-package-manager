@@ -30,7 +30,7 @@ final class ModuleMapsTestCase: XCTestCase {
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
-            try systemQuietly([executableName("clang"), "-shared", input.pathString, "-o", output.pathString])
+            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             var Xld = ["-L", outdir.pathString]
         #if os(Linux) || os(Android)

@@ -24,7 +24,7 @@ struct StaticBinaryLibraryTests {
 
         try await withKnownIssue {
             try await fixture(name: "BinaryLibraries") { fixturePath in
-                let (stdout, stderr) = try await executeSwiftRun(
+                let (stdout, _) = try await executeSwiftRun(
                     fixturePath.appending("Static").appending("Package1"),
                     "Example",
                     extraArgs: ["--experimental-prune-unused-dependencies"],
