@@ -155,6 +155,7 @@ public func testWithTemporaryDirectory<Result>(
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) throws -> T
 ) throws -> T {
@@ -164,12 +165,17 @@ public func testWithTemporaryDirectory<Result>(
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit,
+        ) { tmpDirPath in
 
             defer {
-                // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
             }
 
             let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
@@ -235,6 +241,7 @@ public enum TestError: Error {
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) async throws -> T
 ) async throws -> T {
@@ -244,12 +251,17 @@ public enum TestError: Error {
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try await withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit
+        ) { tmpDirPath in
 
             defer {
-                // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
             }
 
             let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
