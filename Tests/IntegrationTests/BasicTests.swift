@@ -441,7 +441,8 @@ private struct BasicTests {
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
-                extraArgs: ["init", "--type", "library", "--name", packageName]
+                extraArgs: ["init", "--type", "library", "--name", packageName],
+                buildSystem: .native
             )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "Package.swift"),
@@ -521,7 +522,11 @@ private struct BasicTests {
         try withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftPlayExecute")
             try localFileSystem.createDirectory(packagePath)
-            try await executeSwiftPackage(packagePath, extraArgs: ["init", "--type", "library"])
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library"],
+                buildSystem: .native
+            )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "Package.swift"),
                 bytes: ByteString(
