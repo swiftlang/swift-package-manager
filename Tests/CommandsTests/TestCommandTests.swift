@@ -221,7 +221,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8955", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func enableDisableTestabilityDefaultShouldRunWithTestability(
@@ -274,7 +273,7 @@ struct TestCommandTests {
                 }
 
                 #expect(
-                    stderr.contains("was not compiled for testing"),
+                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
@@ -668,7 +667,6 @@ struct TestCommandTests {
         } when: {
             (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
                 || ProcessInfo.hostOperatingSystem == .windows
-                || (buildSystem == .swiftbuild && .macOS == ProcessInfo.hostOperatingSystem && tcdata.testRunner == .SwiftTesting)
         }
     }
 
@@ -995,8 +993,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .SWBINTTODO("Fails to find test executable"),
-        .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func basicSwiftTestingIntegration(
@@ -1017,7 +1013,7 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
         }
     }
 
