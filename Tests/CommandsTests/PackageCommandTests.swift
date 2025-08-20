@@ -660,6 +660,30 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    func testShowDependenciesWithTraits() async throws {
+        // swift test --filter CommandsTests.PackageCommandNativeTests/testShowDependenciesWithTraits # this specific test
+        try await fixtureXCTest(name: "Traits") { fixturePath in
+
+            let packageRoot = fixturePath.appending("Example")
+            let (textOutput, _) = try await self.execute(["show-dependencies", "--format=text"], packagePath: packageRoot)
+            XCTAssert(textOutput.contains("(traits: Package3Trait3)"))
+
+            let (jsonOutput, _) = try await self.execute(["show-dependencies", "--format=json"], packagePath: packageRoot)
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case let .dictionary(contents) = json else { XCTFail("unexpected result"); return }
+            guard case let .string(name)? = contents["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(name, "TraitsExample")
+
+            // verify the traits JSON entry lists each of the traits in the fixture
+            guard case let .string(traitsProperty)? = contents["traits"] else { XCTFail("unexpected result"); return }
+            XCTAssert(traitsProperty.contains("Package1"))
+            XCTAssert(traitsProperty.contains("Package2"))
+            XCTAssert(traitsProperty.contains("Package3"))
+            XCTAssert(traitsProperty.contains("Package4"))
+            XCTAssert(traitsProperty.contains("BuildCondition1"))
+        }
+    }
+
     func testShowDependencies_dotFormat_sr12016() throws {
         // Confirm that SR-12016 is resolved.
         // See https://bugs.swift.org/browse/SR-12016
