@@ -660,9 +660,6 @@ public final class InitPackage {
             return
         }
 
-        // Intentionally exhaustive switch without `default` case - forces compilation failure when new
-        // `PackageType`` cases are added, ensuring explicit consideration of case behavior.
-        // Using `default` would silently group future cases, hiding new cases and introducing potential bugs.
         switch packageType {
         case .empty, .buildToolPlugin, .commandPlugin:
             return
@@ -883,7 +880,7 @@ public final class InitPackage {
         switch packageType {
         case .empty, .buildToolPlugin, .commandPlugin:
             break
-        case .library, .executable, .tool: // Added .executable and .tool here
+        case .library, .executable, .tool:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)
