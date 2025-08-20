@@ -521,7 +521,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -703,6 +703,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+        }
+
+        // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
+        if buildParameters.triple.isMacOSX {
+            settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
         }
 
         func reportConflict(_ a: String, _ b: String) throws -> String {
