@@ -295,7 +295,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "cyclic dependency between packages Foo -> Bar -> Baz -> Bar requires tools-version 6.0 or later",
                 severity: .error
@@ -327,7 +327,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "cyclic dependency declaration found: Bar -> Foo -> Bar",
                 severity: .error
@@ -381,7 +381,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "cyclic dependency between packages Foo -> Bar -> Foo requires tools-version 6.0 or later",
                 severity: .error
@@ -449,7 +449,7 @@ struct ModulesGraphTests {
             return observability.diagnostics
         }
 
-        try testDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v5)) { result in
+        try expectDiagnostics(testDependencyCycleDetection(rootToolsVersion: .v5)) { result in
             result.check(
                 diagnostic: "cyclic dependency between packages A -> B -> C -> A requires tools-version 6.0 or later",
                 severity: .error
@@ -541,7 +541,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
                 severity: .error
@@ -575,7 +575,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
                 severity: .error
@@ -614,7 +614,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
                 severity: .error
@@ -652,7 +652,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "Invalid dependency: 'Foo' cannot depend on test target dependency 'FooTest'. Only test targets can depend on other test targets",
                 severity: .error
@@ -832,7 +832,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "multiple packages ('bar', 'foo') declare targets with a conflicting name: 'Bar’; target names need to be unique across the package graph",
                 severity: .error
@@ -900,7 +900,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "multiple packages ('first', 'fourth', 'second', 'third') declare targets with a conflicting name: 'First’; target names need to be unique across the package graph",
                 severity: .error
@@ -979,7 +979,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.checkUnordered(
                 diagnostic: "multiple packages ('fourth', 'third') declare targets with a conflicting name: 'Bar’; target names need to be unique across the package graph",
                 severity: .error
@@ -1060,7 +1060,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "multiple packages ('first', 'fourth') declare targets with a conflicting name: 'First’; target names need to be unique across the package graph",
                 severity: .error
@@ -1111,7 +1111,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: .contains("multiple similar targets 'Bar', 'Foo' appear in package 'first' and 'second'"),
                 severity: .error
@@ -1182,7 +1182,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: .contains(
                     "multiple similar targets 'Bar', 'Baz', 'Foo' and 2 others appear in package 'first' and 'second'"
@@ -1236,7 +1236,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: .contains(
                     "multiple similar targets 'Bar', 'Foo' appear in registry package 'test.second' and source control package 'first'"
@@ -1284,7 +1284,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: .contains("Source files for target Bar should be located under 'Sources/Bar'"),
                 severity: .warning
@@ -1350,7 +1350,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.",
                 severity: .error
@@ -1382,7 +1382,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Spoke' required by package 'railroad' target 'Rail' not found. Did you mean 'Spike'?",
                 severity: .error
@@ -1424,7 +1424,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Rail' required by package 'forecast' target 'Forecast' not found. Did you mean '.product(name: \"Rain\", package: \"weather\")'?",
                 severity: .error
@@ -1478,7 +1478,7 @@ struct ModulesGraphTests {
 
         // We should expect matching to work only within the package we want even
         // though there are lexically closer candidates in other packages.
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Biter' required by package 'grocery' target 'Grocery' not found in package 'farm'. Did you mean '.product(name: \"Butter\", package: \"farm\")'?",
                 severity: .error
@@ -1526,7 +1526,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Bread' required by package 'lunch' target 'Lunch' not found in package 'sandwich'.",
                 severity: .error
@@ -1572,7 +1572,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Valv' required by package 'gauges' target 'Chart' not found. Did you mean 'Value'?",
                 severity: .error
@@ -1610,7 +1610,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Qux' required by package 'foo' target 'Foo' not found.",
                 severity: .error
@@ -1645,7 +1645,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Foo' is declared in the same package 'foo' and can't be used as a dependency for target 'FooTests'.",
                 severity: .error
@@ -1675,7 +1675,7 @@ struct ModulesGraphTests {
             ],
             observabilityScope: observability.topScope
         )
-        testDiagnostics(observability.diagnostics) { _ in }
+        try expectDiagnostics(observability.diagnostics) { _ in }
     }
 
     @Test
@@ -1704,7 +1704,7 @@ struct ModulesGraphTests {
             ],
             observabilityScope: observability.topScope
         )
-        testDiagnostics(observability.diagnostics) { _ in }
+        try expectDiagnostics(observability.diagnostics) { _ in }
     }
 
     @Test
@@ -1730,7 +1730,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found in package 'Bar'.",
                 severity: .error
@@ -1762,7 +1762,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'Barx' required by package 'foo' target 'FooTarget' not found.",
                 severity: .error
@@ -1833,7 +1833,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.checkUnordered(
                 diagnostic: """
                 dependency 'BarLib' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "BarLib", package: "Bar")'
@@ -1893,7 +1893,7 @@ struct ModulesGraphTests {
         )
 
         // Expect no diagnostics.
-        testDiagnostics(observability.diagnostics) { _ in }
+        try expectDiagnostics(observability.diagnostics) { _ in }
     }
 
     @Test
@@ -1956,7 +1956,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             let diagnostic = try #require(result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning))
             let metadata = try #require(diagnostic.metadata)
             #expect(metadata.packageIdentity == "foo")
@@ -1999,7 +1999,7 @@ struct ModulesGraphTests {
         )
 
         // We don't expect any unused dependency diagnostics from a system module package.
-        testDiagnostics(observability.diagnostics) { _ in }
+        try expectDiagnostics(observability.diagnostics) { _ in }
     }
 
     @Test
@@ -2130,7 +2130,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "multiple packages ('dep2', 'start') declare targets with a conflicting name: 'Foo’; target names need to be unique across the package graph",
                 severity: .error
@@ -2283,7 +2283,7 @@ struct ModulesGraphTests {
         let observability = try loadUnsafeModulesGraph(toolsVersion: .v6_1)
 
         #expect(observability.diagnostics.count == 3)
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             var expectedMetadata = ObservabilityMetadata()
             expectedMetadata.moduleName = "Foo2"
             let diagnostic1 = try #require(result.checkUnordered(
@@ -2618,7 +2618,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "dependency 'b' is not used by any target", severity: .warning)
             result.check(diagnostic: "dependency 'c' is not used by any target", severity: .warning)
             result.check(diagnostic: "dependency 'd' is not used by any target", severity: .warning)
@@ -2706,7 +2706,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
                 product 'Unknown' required by package 'foo' target 'Foo' not found.
@@ -2795,7 +2795,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: """
                 product 'Unknown' required by package 'foo' target 'Foo' not found.
@@ -2841,7 +2841,7 @@ struct ModulesGraphTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                     dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
@@ -2912,7 +2912,7 @@ struct ModulesGraphTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                     dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
@@ -2978,7 +2978,7 @@ struct ModulesGraphTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 result.check(
                     diagnostic: """
                     dependency 'Bar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "Bar", package: "Some-Bar")'
@@ -3044,7 +3044,7 @@ struct ModulesGraphTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
                     dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Some-Bar")'
@@ -3161,7 +3161,7 @@ struct ModulesGraphTests {
         do {
             let observability = ObservabilitySystem.makeForTesting()
             _ = try loadModulesGraph(fileSystem: fs, manifests: manifests, observabilityScope: observability.topScope)
-            testDiagnostics(observability.diagnostics) { result in
+            try expectDiagnostics(observability.diagnostics) { result in
                 let diagnostic = result.check(
                     diagnostic: """
                     dependency 'ProductBar' in target 'Foo' requires explicit declaration; reference the package in the target dependency with '.product(name: "ProductBar", package: "Bar")'
@@ -3785,7 +3785,7 @@ struct ModulesGraphTests {
             observabilityScope: observability.topScope
         )
 
-        testDiagnostics(observability.diagnostics) { result in
+        try expectDiagnostics(observability.diagnostics) { result in
             result.check(
                 diagnostic: "product 'mmm' required by package 'aaa' target 'aaa' not found.",
                 severity: .error
