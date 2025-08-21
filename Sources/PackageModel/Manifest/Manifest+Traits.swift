@@ -95,7 +95,7 @@ extension Manifest {
         _ parentPackage: PackageIdentifier? = nil
     ) throws {
         guard supportsTraits else {
-            if explicitlyEnabledTraits != ["default"] /*!explicitlyEnabledTraits.contains("default")*/ {
+            if explicitlyEnabledTraits != ["default"] {
                 throw TraitError.traitsNotSupported(
                     parent: parentPackage,
                     package: .init(self),
@@ -116,7 +116,7 @@ extension Manifest {
         let areDefaultsEnabled = enabledTraits.contains("default")
 
         // Ensure that disabling default traits is disallowed for packages that don't define any traits.
-        if !(explicitlyEnabledTraits == nil || areDefaultsEnabled) && !self.supportsTraits {
+        if !areDefaultsEnabled && !self.supportsTraits {
             // We throw an error when default traits are disabled for a package without any traits
             // This allows packages to initially move new API behind traits once.
             throw TraitError.traitsNotSupported(
@@ -313,7 +313,7 @@ extension Manifest {
         let areDefaultsEnabled = enabledTraits.remove("default") != nil
 
         // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        if /*explictlyEnabledTraits == nil*//*enabledTraits.isEmpty && */explictlyEnabledTraits == ["default"] || areDefaultsEnabled {
+        if explictlyEnabledTraits == ["default"] || areDefaultsEnabled {
             if let defaultTraits {
                 enabledTraits.formUnion(defaultTraits.flatMap(\.enabledTraits))
             }
@@ -449,15 +449,18 @@ extension Manifest {
 
         let traitsToEnable = self.traitGuardedTargetDependencies(for: target)[dependency] ?? []
 
-        let isEnabled = try traitsToEnable.allSatisfy { try self.isTraitEnabled(
+        // Check if any of the traits guarding this dependency is enabled;
+        // if so, the condition is met and the target dependency is considered
+        // to be in an enabled state.
+        let isEnabled = try traitsToEnable.contains(where: { try self.isTraitEnabled(
             .init(stringLiteral: $0),
             enabledTraits,
-        ) }
+        ) })
 
         return traitsToEnable.isEmpty || isEnabled
     }
     /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
-    public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>/* = ["default"]*/) throws -> Bool {
+    public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: Set<String>) throws -> Bool {
         if self.pruneDependencies {
             let usedDependencies = try self.usedDependencies(withTraits: enabledTraits)
             let foundKnownPackage = usedDependencies.knownPackage.contains(where: {
@@ -478,8 +481,8 @@ extension Manifest {
 
             // if target deps is empty, default to returning true here.
             let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.compactMap({ $0.condition?.traits }).allSatisfy({
-                let condition = $0.subtracting(enabledTraits)
-                return !condition.isEmpty
+                let isGuarded = $0.intersection(enabledTraits).isEmpty
+                return isGuarded
             })
 
             let isUsedWithoutTraitGuarding = !targetDependenciesForPackageDependency.filter({ $0.condition?.traits == nil }).isEmpty

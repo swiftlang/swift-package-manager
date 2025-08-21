@@ -111,6 +111,7 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 disabled
             DEFINE3 disabled
@@ -362,6 +363,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -421,6 +424,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -454,7 +459,7 @@ struct TraitTests {
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case .dictionary(let contents) = json else { Issue.record("unexpected result"); return }
             guard case .array(let traits)? = contents["traits"] else { Issue.record("unexpected result"); return }
-            #expect(traits.count == 12)
+            #expect(traits.count == 13)
         }
     }
 
@@ -651,6 +656,80 @@ struct TraitTests {
             } when: {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
             }
+        }
+    }
+
+    @Test(
+        .IssueSwiftBuildLinuxRunnable,
+        .IssueProductTypeForObjectLibraries,
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments:
+        getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        getTraitCombinations(
+            ("ExtraTrait",
+            """
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("ExtraTrait,Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            )
+        )
+    )
+    func traits_whenManyTraitsEnableTargetDependency(
+        data: BuildData,
+        traits: TraitArgumentData
+    ) async throws {
+        try await withKnownIssue(
+            """
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
+            try await fixture(name: "Traits") { fixturePath in
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    configuration: data.config,
+                    extraArgs: ["--traits", traits.traitsArgument],
+                    buildSystem: data.buildSystem,
+                )
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(stdout == traits.expectedOutput)
+            }
+        } when: {
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || data.buildSystem == .swiftbuild))
+            || (data.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 }

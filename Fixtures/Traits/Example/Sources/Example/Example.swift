@@ -21,6 +21,10 @@ import Package9Library1
 #endif
 #if Package10
 import Package10Library1
+import Package10Library2
+#endif
+#if ExtraTrait
+import Package10Library2
 #endif
 
 @main
@@ -49,6 +53,10 @@ struct Example {
         #endif
         #if Package10
         Package10Library1.hello()
+        Package10Library2.hello()
+        #endif
+        #if ExtraTrait
+        Package10Library2.hello()
         #endif
         #if DEFINE1
         print("DEFINE1 enabled")
