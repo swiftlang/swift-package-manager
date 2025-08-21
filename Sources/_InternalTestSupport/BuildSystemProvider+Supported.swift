@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct SPMBuildCore.BuildSystemProvider
-
+import enum PackageModel.BuildConfiguration
 
 public var SupportedBuildSystemOnAllPlatforms: [BuildSystemProvider.Kind] = BuildSystemProvider.Kind.allCases.filter { $0 != .xcode }
 
@@ -21,4 +21,17 @@ public var SupportedBuildSystemOnPlatform: [BuildSystemProvider.Kind] {
     #else
         SupportedBuildSystemOnAllPlatforms
     #endif
+}
+
+public struct BuildData {
+    public let buildSystem: BuildSystemProvider.Kind
+    public let config: BuildConfiguration
+}
+
+public func getBuildData(for buildSystems: [BuildSystemProvider.Kind]) -> [BuildData] {
+    buildSystems.flatMap { buildSystem in
+        BuildConfiguration.allCases.compactMap { config in
+            return BuildData(buildSystem: buildSystem, config: config)
+        }
+    }
 }
