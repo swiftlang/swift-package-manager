@@ -25,6 +25,7 @@ let package = Package(
         "BuildCondition1",
         "BuildCondition2",
         "BuildCondition3",
+        "ExtraTrait",
     ],
     dependencies: [
         .package(
@@ -101,6 +102,11 @@ let package = Package(
                     package: "Package10",
                     condition: .when(traits: ["Package10"])
                 ),
+                .product(
+                    name: "Package10Library2",
+                    package: "Package10",
+                    condition: .when(traits: ["Package10", "ExtraTrait"])
+                )
             ],
             swiftSettings: [
                 .define("DEFINE1", .when(traits: ["BuildCondition1"])),
