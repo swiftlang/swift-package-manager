@@ -44,8 +44,8 @@ fileprivate func execute(
         try localFileSystem.writeFileContents(packagePath.appending("Package.swift"), string: manifest)
     }
 
-    // don't ignore local packages when caching
-    environment["SWIFTPM_TESTS_PACKAGECACHE"] = "1"
+    environment["SWIFTPM_TESTS_LLDB"] = "1"
+
     return try await executeSwiftPackage(
         packagePath,
         configuration: configuration,
