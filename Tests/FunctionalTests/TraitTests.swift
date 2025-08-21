@@ -111,6 +111,7 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 disabled
             DEFINE3 disabled
@@ -362,6 +363,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -421,6 +424,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -699,7 +704,7 @@ struct TraitTests {
     )
     func traits_whenManyTraitsEnableTargetDependency(
         data: BuildData,
-        traits: TraitCombination
+        traits: TraitArgumentData
     ) async throws {
         try await withKnownIssue(
             """
