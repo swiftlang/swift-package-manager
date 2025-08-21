@@ -277,8 +277,8 @@ final class MiscellaneousTestCase: XCTestCase {
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
             let triple = try UserToolchain.default.targetTriple
-            let output =  systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
-            try systemQuietly([executableName("clang"), "-shared", input.pathString, "-o", output.pathString])
+            let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
+            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             let pcFile = fixturePath.appending("libSystemModule.pc")
 
@@ -686,7 +686,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("error: invalid access to "), "expected permissions error. stderr: '\(stderr)'")
             }
             XCTAssertNoSuchPath(customCachePath)
         }
@@ -721,7 +721,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("error: invalid access to "), "expected permissions error. stderr: '\(stderr)'")
             }
             XCTAssertNoSuchPath(customConfigPath)
         }
@@ -756,7 +756,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
                     return XCTFail("invalid error \(error)")
                 }
-                XCTAssert(stderr.contains("error: You don’t have permission"), "expected permissions error. stderr: '\(stderr)'")
+                XCTAssert(stderr.contains("error: invalid access to "), "expected permissions error. stderr: '\(stderr)'")
             }
         }
         #endif

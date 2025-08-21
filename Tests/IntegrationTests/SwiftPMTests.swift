@@ -20,7 +20,7 @@ import struct SPMBuildCore.BuildSystemProvider
 private struct SwiftPMTests {
     @Test(.requireHostOS(.macOS))
     func binaryTargets() async throws {
-        try await withKnownIssue("error: the path does not point to a valid framework:") {
+        await withKnownIssue("error: the path does not point to a valid framework:") {
             try await binaryTargetsFixture { fixturePath in
                 do {
                     await withKnownIssue("error: local binary target ... does not contain a binary artifact") {

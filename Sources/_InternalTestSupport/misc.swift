@@ -32,12 +32,12 @@ import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
 
+import class TSCBasic.Process
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
-@_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
 
 @available(*, deprecated, message: "Use CiEnvironment.runningInSmokeTestPipeline")
@@ -155,6 +155,7 @@ public func testWithTemporaryDirectory<Result>(
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) throws -> T
 ) throws -> T {
@@ -164,12 +165,17 @@ public func testWithTemporaryDirectory<Result>(
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit,
+        ) { tmpDirPath in
 
             defer {
-                // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
             }
 
             let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
@@ -235,6 +241,7 @@ public enum TestError: Error {
 @discardableResult public func fixture<T>(
     name: String,
     createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) async throws -> T
 ) async throws -> T {
@@ -244,12 +251,17 @@ public enum TestError: Error {
         let copyName = fixtureSubpath.components.joined(separator: "_")
 
         // Create a temporary directory for the duration of the block.
-        return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
+        return try await withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit
+        ) { tmpDirPath in
 
             defer {
-                // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
             }
 
             let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
@@ -305,7 +317,7 @@ fileprivate func setup(
         #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
         #else
-        try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+        try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
         
         // Ensure we get a clean test fixture.
@@ -361,17 +373,17 @@ public func initGitRepo(
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
-        try systemQuietly([Git.tool, "-C", dir.pathString, "init"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "init")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false")
         let repo = GitRepository(path: dir)
         try repo.stageEverything()
         try repo.commit(message: "msg")
         for tag in tags {
             try repo.tag(name: tag)
         }
-        try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
         XCTFail("\(error.interpolationDescription)", file: file, line: line)
     }

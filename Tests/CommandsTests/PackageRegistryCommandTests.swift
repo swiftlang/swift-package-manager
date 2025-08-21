@@ -30,6 +30,11 @@ import struct Basics.AsyncProcessResult
 let defaultRegistryBaseURL = URL("https://packages.example.com")
 let customRegistryBaseURL = URL("https://custom.packages.example.com")
 
+@Suite(
+    .tags(
+        .Feature.Command.PackageRegistry.General,
+    ),
+)
 struct PackageRegistryCommandTests {
     @discardableResult
     private func execute(

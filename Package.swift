@@ -62,7 +62,6 @@ let swiftPMDataModelProduct = (
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
-        "PackageModelSyntax",
         "SourceControl",
         "Workspace",
     ]
@@ -369,20 +368,6 @@ let package = Package(
         ),
 
         .target(
-            /** Primary Package model objects relationship to SwiftSyntax */
-            name: "PackageModelSyntax",
-            dependencies: [
-                "Basics",
-                "PackageLoading",
-                "PackageModel",
-            ] + swiftSyntaxDependencies(["SwiftBasicFormat", "SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax", "SwiftSyntaxBuilder"]),
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-static"]),
-            ]
-        ),
-
-        .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: [
@@ -623,13 +608,12 @@ let package = Package(
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
-                "PackageModelSyntax",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
                 "SwiftFixIt",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -786,6 +770,9 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
                 "Workspace",
+            ],
+            exclude: [
+                "build.sh"
             ]
         ),
 
@@ -822,6 +809,7 @@ let package = Package(
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
+                "DriverSupport",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
@@ -924,13 +912,6 @@ let package = Package(
         .testTarget(
             name: "PackageModelTests",
             dependencies: ["PackageModel", "_InternalTestSupport"]
-        ),
-        .testTarget(
-            name: "PackageModelSyntaxTests",
-            dependencies: [
-                "PackageModelSyntax",
-                "_InternalTestSupport",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils"])
         ),
         .testTarget(
             name: "PackageGraphTests",
@@ -1061,7 +1042,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "Build",
                 "Commands",
                 "PackageModel",
-                "PackageModelSyntax",
                 "PackageRegistryCommand",
                 "SourceControl",
                 "_InternalTestSupport",

@@ -396,7 +396,7 @@ extension InMemoryGitRepository: WorkingCheckout {
 extension InMemoryGitRepository: @unchecked Sendable {}
 
 /// This class implement provider for in memory git repository.
-public final class InMemoryGitRepositoryProvider: RepositoryProvider {
+public final class InMemoryGitRepositoryProvider: RepositoryProvider, @unchecked Sendable {
     /// Contains the repository added to this provider.
     public var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
 

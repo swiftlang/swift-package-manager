@@ -532,7 +532,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             try packageRepo.tag(name: "1.0.0")
 
             // Rename the `master` branch to `main`.
-            try systemQuietly([Git.tool, "-C", packageDir.pathString, "branch", "-m", "main"])
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", packageDir.pathString, "branch", "-m", "main")
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()

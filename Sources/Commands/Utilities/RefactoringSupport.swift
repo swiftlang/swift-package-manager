@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,22 +12,13 @@
 
 import Basics
 @_spi(FixItApplier) import SwiftIDEUtils
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 
-/// The result of editing a package, including any edits to the package
-/// manifest and any new files that are introduced.
-public struct PackageEditResult {
-    /// Edits to perform to the package manifest.
-    public var manifestEdits: [SourceEdit] = []
-
-    /// Auxiliary files to write.
-    public var auxiliaryFiles: [(RelativePath, SourceFileSyntax)] = []
-}
-
-extension PackageEditResult {
+package extension PackageEdit {
     /// Apply the edits for the given manifest to the specified file system,
     /// updating the manifest to the given manifest
-    public func applyEdits(
+    func applyEdits(
         to filesystem: any FileSystem,
         manifest: SourceFileSyntax,
         manifestPath: AbsolutePath,
@@ -55,7 +46,7 @@ extension PackageEditResult {
         // Write all of the auxiliary files.
         for (auxiliaryFileRelPath, auxiliaryFileSyntax) in auxiliaryFiles {
             // If the file already exists, skip it.
-            let filePath = rootPath.appending(auxiliaryFileRelPath)
+            let filePath = try rootPath.appending(RelativePath(validating: auxiliaryFileRelPath))
             if filesystem.exists(filePath) {
                 if verbose {
                     print("Skipping \(filePath.relative(to: rootPath)) because it already exists.")
@@ -93,5 +84,4 @@ extension PackageEditResult {
             }
         }
     }
-
 }
