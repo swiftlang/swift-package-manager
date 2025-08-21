@@ -660,11 +660,46 @@ struct TraitTests {
         .tags(
             Tag.Feature.Command.Run,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments:
+        getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        getTraitCombinations(
+            ("ExtraTrait",
+            """
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("ExtraTrait,Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            )
+        )
     )
     func traits_whenManyTraitsEnableTargetDependency(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData,
+        traits: TraitCombination
     ) async throws {
         try await withKnownIssue(
             """
@@ -673,36 +708,23 @@ struct TraitTests {
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
         ) {
-        try await fixture(name: "Traits") { fixturePath in
-            // Test various combinations of traits that would
-            // enable the dependency on Package10Library2
-            let traitCombinations = ["ExtraTrait", "Package10", "ExtraTrait,Package10"]
-            // We expect no warnings to be produced. Specifically no unused dependency warnings.
-            let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+            try await fixture(name: "Traits") { fixturePath in
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
 
-            for traits in traitCombinations {
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath.appending("Example"),
                     "Example",
-                    configuration: configuration,
-                    extraArgs: ["--traits", traits],
-                    buildSystem: buildSystem,
+                    configuration: data.config,
+                    extraArgs: ["--traits", traits.traitsArgument],
+                    buildSystem: data.buildSystem,
                 )
-
-                var prefix = traits.contains("Package10") ? "Package10Library1 trait1 disabled\nPackage10Library1 trait2 enabled\nPackage10Library2 has been included.\n" : ""
-                prefix += traits.contains("ExtraTrait") ? "Package10Library2 has been included.\n" : ""
                 #expect(!stderr.contains(unusedDependencyRegex))
-                #expect(stdout == """
-                \(prefix)DEFINE1 disabled
-                DEFINE2 disabled
-                DEFINE3 disabled
-                
-                """)
+                #expect(stdout == traits.expectedOutput)
             }
-        }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
-            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || data.buildSystem == .swiftbuild))
+            || (data.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 }
