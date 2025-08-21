@@ -566,10 +566,16 @@ extension Workspace {
                     return condition.isSatisfied(by: parentEnabledTraits)
                 }).map(\.name)
 
-                let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
-                let enabledTraits = enabledTraitsSet?.union(self.enabledTraitsMap[dep.identity]) ?? self.enabledTraitsMap[dep.identity]
-
-                self.enabledTraitsMap[dep.identity] = enabledTraits
+                var enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
+                let precomputedTraits = self.enabledTraitsMap[dep.identity]
+                if precomputedTraits == ["default"], let enabledTraitsSet {
+                    self.enabledTraitsMap[dep.identity] = enabledTraitsSet
+                } else {
+                    enabledTraitsSet?.formUnion(self.enabledTraitsMap[dep.identity])
+                    if let enabledTraitsSet {
+                        self.enabledTraitsMap[dep.identity] = enabledTraitsSet
+                    }
+                }
 
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
                 return isDepUsed
@@ -612,10 +618,16 @@ extension Workspace {
                     return condition.isSatisfied(by: parentEnabledTraits)
                 }).map(\.name)
 
-                let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
-                let enabledTraits = enabledTraitsSet?.union(self.enabledTraitsMap[dep.identity]) ?? self.enabledTraitsMap[dep.identity]
-
-                self.enabledTraitsMap[dep.identity] = enabledTraits
+                var enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
+                let precomputedTraits = self.enabledTraitsMap[dep.identity]
+                if precomputedTraits == ["default"], let enabledTraitsSet {
+                    self.enabledTraitsMap[dep.identity] = enabledTraitsSet
+                } else {
+                    enabledTraitsSet?.formUnion(self.enabledTraitsMap[dep.identity])
+                    if let enabledTraitsSet {
+                        self.enabledTraitsMap[dep.identity] = enabledTraitsSet
+                    }
+                }
 
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
                 return isDepUsed
