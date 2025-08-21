@@ -6,11 +6,11 @@ Provide a package manifest for a specific version of Swift.
 
 The package manager supports packages that work with a variety of versions, both the versions of the language and versions of the Swift toolchain, which provides the package manager.
 
-For language spcific version checks, use the language-specific version checks available in the source code.
-However, in some circumstances this may become unmanageable, specifically when the package manifest cannot be version agnostic.
+For language-specific version checks, use the language-specific version checks available in the source code.
+However, in some circumstances, this may become unmanageable, specifically when the package manifest cannot be version-agnostic.
 An example being when you adopt new features in the package manifest that aren't present in older versions.
 
-The package manager supports for a mechanism to allow version-specific manifests to be used alongside a current manifest to support older versions of Swift.
+The package manager supports a mechanism to allow version-specific manifests to be used alongside a current manifest to support older versions of Swift.
 
 ### Version-specific Manifest Selection
 
@@ -30,14 +30,14 @@ For example, if there are three manifests:
 - `Package@swift-5.10.swift` (tools version 5.10)
 - `Package@swift-5.9.swift` (tools version 5.9)
 
-The package manager picks `Package.swift` on Swift 6 and above, because its tools version is most compatible with future version of the package manager.
-When using Swift 5.10, it picka `Package@swift-5.10.swift`.
-Otherwise, when using Swift 5.9 it picks `Package@swift-5.9.swift`, and this is the minimum tools version this package may be used with.
+The package manager picks `Package.swift` on Swift 6 and above, because its tools version is most compatible with future versions of the package manager.
+When using Swift 5.10, it picks `Package@swift-5.10.swift`.
+Otherwise, when using Swift 5.9, it picks `Package@swift-5.9.swift`, and this is the minimum tools version this package may be used with.
 
 A package may have versioned manifest files which specify newer tools versions than its unversioned `Package.swift` file.
 In this scenario, the package manager uses the manifest corresponding to the newest-compatible tools version.
 
-> Note: Support for having a versioned manifest file with a _newer_ tools version was required when the feature was first introduced, because prior versions of the package manager were not aware of the concept and only knew to look for the unversioned `Package.swift`. This is still supported, but there have been many Swift releases since the feature was introduced. It is a best practice to have `Package.swift` declare the newest-supported tools version and for versioned manifest files to only specifer older versions.
+> Note: Support for having a versioned manifest file with a _newer_ tools version was required when the feature was first introduced because prior versions of the package manager were not aware of the concept and only knew to look for the unversioned `Package.swift`. This is still supported, but there have been many Swift releases since the feature was introduced. It is a best practice to have `Package.swift` declare the newest-supported tools version and for versioned manifest files to only specify older versions.
 
 ### Version-specific tags when resolving remote dependencies
 
