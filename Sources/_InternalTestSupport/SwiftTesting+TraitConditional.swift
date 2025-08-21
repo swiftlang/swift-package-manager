@@ -79,6 +79,13 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    /// Enabled if toolsupm suported SDK Dependent Tests
+    public static var requiresSDKDependentTestsSupport: Self {
+        enabled("skipping because test environment doesn't support this test") {
+            (try? UserToolchain.default)!.supportsSDKDependentTests()
+        }
+    }
+
     // Enabled if the toolchain has supported features
     public static var supportsSupportedFeatures: Self {
         enabled("skipping because test environment compiler doesn't support `-print-supported-features`") {
