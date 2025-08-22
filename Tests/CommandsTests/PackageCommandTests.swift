@@ -911,6 +911,28 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
+    func testInitLocalTemplate() async throws {
+
+        try await fixture(name: "Miscellaneous/InitTemplates") { fixturePath in
+            let packageRoot = fixturePath.appending("ExecutableTemplate")
+            let destinationPath = fixturePath.appending("Foo")
+            try localFileSystem.createDirectory(destinationPath)
+
+            _ = try await execute([
+                "--package-path", destinationPath.pathString,
+                "init", "--type", "ExecutableTemplate",
+                "--path", packageRoot.pathString,
+                "--", "--name", "foo", "--include-readme"
+            ])
+
+            let manifest = destinationPath.appending("Package.swift")
+            let readMe = destinationPath.appending("README.md")
+            XCTAssertFileExists(manifest)
+            XCTAssertFileExists(readMe)
+            XCTAssertTrue(localFileSystem.exists(destinationPath.appending("Sources").appending("foo")))
+        }
+    }
+
     // Helper function to arbitrarily assert on manifest content
     func assertManifest(_ packagePath: AbsolutePath, _ callback: (String) throws -> Void) throws {
         let manifestPath = packagePath.appending("Package.swift")

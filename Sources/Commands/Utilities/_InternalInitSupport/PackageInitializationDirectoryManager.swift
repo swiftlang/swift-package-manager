@@ -33,19 +33,9 @@ public struct TemplateInitializationDirectoryManager {
         cleanupPath: Basics.AbsolutePath,
         swiftCommandState: SwiftCommandState
     ) async throws {
-        do {
-            try helper.removeDirectoryIfExists(cwd)
-        } catch {
-            observabilityScope.emit(
-                error: DirectoryManagerError.failedToRemoveDirectory(path: cwd, underlying: error),
-                underlyingError: error
-            )
-            throw DirectoryManagerError.failedToRemoveDirectory(path: cwd, underlying: error)
-        }
-
-        try helper.copyDirectory(from: stagingPath, to: cleanupPath)
+        try helper.copyDirectoryContents(from: stagingPath, to: cleanupPath)
         try await cleanBuildArtifacts(at: cleanupPath, swiftCommandState: swiftCommandState)
-        try helper.copyDirectory(from: cleanupPath, to: cwd)
+        try helper.copyDirectoryContents(from: cleanupPath, to: cwd)
     }
 
     func cleanBuildArtifacts(at path: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) async throws {
