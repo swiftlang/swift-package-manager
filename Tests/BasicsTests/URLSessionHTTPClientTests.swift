@@ -805,6 +805,78 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
+    func testAsyncDownloadAuthenticateWithRedirectedSuccess() async throws {
+        #if !os(macOS)
+        // URLSession Download tests can only run on macOS
+        // as re-libs-foundation's URLSessionTask implementation which expects the temporaryFileURL property to be on the request.
+        // and there is no way to set it in a mock
+        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address the latter part
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let netrcContent = "machine async-protected.downloader-tests.com login anonymous password qwerty"
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
+        let authData = Data("anonymous:qwerty".utf8)
+        let testAuthHeader = "Basic \(authData.base64EncodedString())"
+
+        let configuration = URLSessionConfiguration.default
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
+
+        try await testWithTemporaryDirectory { temporaryDirectory in
+            let url = URL("https://async-protected.downloader-tests.com/testBasics.zip")
+            let redirectURL = URL("https://cdn-async.downloader-tests.com/testBasics.zip")
+            let destination = temporaryDirectory.appending("download")
+            var options = HTTPClientRequest.Options()
+            options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
+            let request = HTTPClient.Request.download(
+                url: url,
+                options: options,
+                fileSystem: localFileSystem,
+                destination: destination
+            )
+            let redirectRequest = HTTPClient.Request.download(
+                url: redirectURL,
+                options: options,
+                fileSystem: localFileSystem,
+                destination: destination
+            )
+
+            MockURLProtocol.onRequest(request) { request in
+                XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
+                MockURLProtocol.sendResponse(statusCode: 302, headers: ["Location": redirectURL.absoluteString], for: request)
+                MockURLProtocol.sendRedirect(for: request, to: URLRequest(url: redirectURL))
+            }
+            MockURLProtocol.onRequest(redirectRequest) { request in
+                XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], nil)
+                MockURLProtocol.sendResponse(statusCode: 200, headers: ["Content-Length": "1024"], for: request)
+                MockURLProtocol.sendData(Data(repeating: 0xBE, count: 512), for: request)
+                MockURLProtocol.sendData(Data(repeating: 0xEF, count: 512), for: request)
+                MockURLProtocol.sendCompletion(for: request)
+            }
+
+            let response = try await httpClient.execute(
+                request,
+                progress: { bytesDownloaded, totalBytesToDownload in
+                    switch (bytesDownloaded, totalBytesToDownload) {
+                    case (512, 1024):
+                        break
+                    case (1024, 1024):
+                        break
+                    default:
+                        XCTFail("unexpected progress")
+                    }
+                }
+            )
+
+            XCTAssertEqual(response.statusCode, 200)
+            XCTAssertFileExists(destination)
+
+            let bytes = ByteString(Array(repeating: 0xBE, count: 512) + Array(repeating: 0xEF, count: 512))
+            XCTAssertEqual(try! localFileSystem.readFileContents(destination), bytes)
+        }
+    }
+
     func testAsyncDownloadDefaultAuthenticationSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
@@ -1053,6 +1125,19 @@ private class MockURLProtocol: URLProtocol {
             return XCTFail("url did not start loading")
         }
         request.client?.urlProtocol(request, didFailWithError: error)
+    }
+
+    static func sendRedirect(for request: URLRequest, to newRequest: URLRequest) {
+        let key = Key(request.httpMethod!, request.url!)
+        self.sendRedirect(newRequest: newRequest, for: key)
+    }
+
+    private static func sendRedirect(newRequest: URLRequest, for key: Key) {
+        guard let request = self.requests[key] else {
+            return XCTFail("url did not start loading")
+        }
+        let response = HTTPURLResponse(url: key.url, statusCode: 302, httpVersion: "1.1", headerFields: nil)!
+        request.client?.urlProtocol(request, wasRedirectedTo: newRequest, redirectResponse: response)
     }
 
     private struct Key: Hashable {
