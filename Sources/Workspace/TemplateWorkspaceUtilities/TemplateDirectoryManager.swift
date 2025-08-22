@@ -33,8 +33,13 @@ public struct TemporaryDirectoryHelper {
         }
     }
 
-    public func copyDirectory(from: Basics.AbsolutePath, to: Basics.AbsolutePath) throws {
-        try fileSystem.copy(from: from, to: to)
+    public func copyDirectoryContents(from sourceDir: AbsolutePath, to destinationDir: AbsolutePath) throws {
+        let contents = try fileSystem.getDirectoryContents(sourceDir)
+        for entry in contents {
+            let source = sourceDir.appending(component: entry)
+            let destination = destinationDir.appending(component: entry)
+            try fileSystem.copy(from: source, to: destination)
+        }
     }
 }
 
