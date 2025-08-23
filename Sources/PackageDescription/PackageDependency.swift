@@ -201,7 +201,9 @@ extension Package {
 // MARK: - file system
 
 extension Package.Dependency {
-    /// Adds a dependency to a package located at the given path.
+    /// Adds a dependency to a package located at the path you provide.
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
@@ -217,7 +219,7 @@ extension Package.Dependency {
         return .init(name: nil, path: path, traits: nil)
     }
 
-    /// Adds a dependency to a package located at the given path.
+    /// Adds a dependency to a package located at the path and with an optional set of traits you provide.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
@@ -225,7 +227,7 @@ extension Package.Dependency {
     /// on multiple tightly coupled packages.
     ///
     /// - Parameter path: The file system path to the package.
-    /// - Parameter traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    /// - Parameter traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 6.1)
@@ -236,7 +238,9 @@ extension Package.Dependency {
         return .init(name: nil, path: path, traits: traits)
     }
 
-    /// Adds a dependency to a package located at the given path on the filesystem.
+    /// Adds a dependency to a named package located at the path you provide.
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during
@@ -256,7 +260,7 @@ extension Package.Dependency {
         return .init(name: name, path: path, traits: nil)
     }
 
-    /// Adds a dependency to a package located at the given path on the filesystem.
+    /// Adds a dependency to a named package located at the path and with an optional set of traits you provide.
     ///
     /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during
@@ -266,7 +270,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - name: The name of the Swift package.
     ///   - path: The file system path to the package.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A package dependency.
     @available(_PackageDescription, introduced: 6.1)
@@ -298,6 +302,8 @@ extension Package.Dependency {
     ///```swift
     ///.package(url: "https://example.com/example-package.git", from: "1.2.3"),
     ///```
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///    - url: The valid Git URL of the package.
@@ -331,7 +337,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///    - url: The valid Git URL of the package.
     ///    - version: The minimum version requirement.
-    ///    - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///    - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -384,6 +390,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", branch: "main"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - branch: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
@@ -406,7 +414,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - branch: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -445,6 +453,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - revision: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
@@ -467,7 +477,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - revision: A dependency requirement. See static methods on ``Requirement-swift.enum`` for available options.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -510,6 +520,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - range: The custom version range requirement.
@@ -535,7 +547,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - range: The custom version range requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -556,6 +568,8 @@ extension Package.Dependency {
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
     /// ```
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
@@ -582,6 +596,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - range: The closed version range requirement.
@@ -607,7 +623,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - range: The closed version range requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -643,6 +659,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
@@ -667,6 +685,8 @@ extension Package.Dependency {
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
     /// ```
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
@@ -702,7 +722,7 @@ extension Package.Dependency {
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
     ///   - url: The valid Git URL of the package.
     ///   - range: The closed version range requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     private static func package(
@@ -740,6 +760,8 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - version: The exact version of the dependency for this requirement.
@@ -769,7 +791,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
     ///   - version: The exact version of the dependency for this requirement.
-    ///   - traits: The trait configuration of this dependency.  Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -855,6 +877,8 @@ extension Package.Dependency {
     /// .package(id: "scope.name", from: "1.2.3"),
     /// ```
     ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    ///
     /// - Parameters:
     ///   - id: The identity of the package.
     ///   - version: The minimum version requirement.
@@ -888,7 +912,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - id: The identity of the package.
     ///   - version: The minimum version requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -912,6 +936,8 @@ extension Package.Dependency {
     /// ```swift
     /// .package(id: "scope.name", exact: "1.2.3"),
     /// ```
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -942,7 +968,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - id: The identity of the package.
     ///   - version: The exact version of the dependency for this requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -977,6 +1003,8 @@ extension Package.Dependency {
     /// ```swift
     /// .package(id: "scope.name", .upToNextMinor(from: "1.0.0"),
     /// ```
+    ///
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -1018,7 +1046,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - id: The identity of the package.
     ///   - range: The custom version range requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)
@@ -1039,6 +1067,8 @@ extension Package.Dependency {
     /// ```swift
     /// .package(id: "scope.name", "1.2.3"..."1.2.6"),
     /// ```
+    /// 
+    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -1072,7 +1102,7 @@ extension Package.Dependency {
     /// - Parameters:
     ///   - id: The identity of the package.
     ///   - range: The closed version range requirement.
-    ///   - traits: The trait configuration of this dependency. Defaults to enabling the default traits.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
     ///
     /// - Returns: A `Package.Dependency` instance.
     @available(_PackageDescription, introduced: 6.1)

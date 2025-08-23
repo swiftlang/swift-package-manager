@@ -97,7 +97,7 @@ public final class Package {
     /// The list of products that this package vends and that clients can use.
     public var products: [Product]
 
-    /// The set of traits of this package.
+    /// The set of traits this package provides.
     @available(_PackageDescription, introduced: 6.1)
     public var traits: Set<Trait>
 
@@ -344,7 +344,7 @@ public final class Package {
     ///   `<name>.pc` file to get the additional flags required for a system target.
     ///   - providers: The package providers for a system target.
     ///   - products: The list of products that this package makes available for clients to use.
-    ///   - traits: The set of traits of this package.
+    ///   - traits: The set of traits this package provides.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
