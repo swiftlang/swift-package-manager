@@ -150,4 +150,31 @@ extension [SwiftSDKBundle] {
     public var sortedArtifactIDs: [String] {
         self.flatMap(\.artifacts.keys).sorted()
     }
+
+    /// List all Swift SDKs matching a given host triple from a `self` array of available Swift SDKs.
+    /// - Parameters:
+    ///   - hostTriple: triple of the host building with these Swift SDKs.
+    /// - Returns: a dictionary of installed ``SwiftSDK`` artifact IDs, each with an array of target triples, or an empty dictionary.
+    public func listSwiftSDKs(hostTriple: Triple) -> [String : [Triple]] {
+        var sdkTargets: [String: [Triple]] = [:]
+        for bundle in self {
+            for (artifactID, variants) in bundle.artifacts {
+                var triples : [Triple] = []
+                for variant in variants {
+                    guard variant.isSupporting(hostTriple: hostTriple) else {
+                        continue
+                    }
+                    for sdk in variant.swiftSDKs {
+                        if let triple = sdk.targetTriple {
+                           triples.append(triple)
+                        }
+                    }
+                }
+                if !triples.isEmpty {
+                    sdkTargets[artifactID] = triples.sorted(by: { $0.tripleString < $1.tripleString })
+                }
+            }
+        }
+        return sdkTargets
+    }
 }
