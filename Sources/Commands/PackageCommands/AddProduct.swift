@@ -93,7 +93,7 @@ extension SwiftPackageCommand {
                 targets: targets
             )
 
-            let editResult = try SwiftRefactor.AddProduct.manifestRefactor(
+            let editResult = try SwiftRefactor.AddProduct.textRefactor(
                 syntax: manifestSyntax,
                 in: .init(product: product)
             )
