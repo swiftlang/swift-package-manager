@@ -1316,6 +1316,55 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.ShowDependencies,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func showDependenciesWithTraits(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Traits") { fixturePath in
+                let packageRoot = fixturePath.appending("Example")
+                let (textOutput, _) = try await execute(
+                    ["show-dependencies", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutput.contains("(traits: Package3Trait3)"))
+
+                let (jsonOutput, _) = try await execute(
+                    ["show-dependencies", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+                guard case .dictionary(let contents) = json else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "TraitsExample")
+
+                // verify the traits JSON entry lists each of the traits in the fixture
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("Package1")))
+                #expect(traitsProperty.contains(.string("Package2")))
+                #expect(traitsProperty.contains(.string("Package3")))
+                #expect(traitsProperty.contains(.string("Package4")))
+                #expect(traitsProperty.contains(.string("BuildCondition1")))
+            }
+        }
+
+        @Test(
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func showDependencies_dotFormat_sr12016(
