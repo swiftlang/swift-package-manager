@@ -666,6 +666,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
+        // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
+        if buildParameters.triple.os == .noneOS {
+            settings["ARCHS"] = buildParameters.triple.archName
+            settings["VALID_ARCHS"] = buildParameters.triple.archName
+            settings["LLVM_TARGET_TRIPLE_VENDOR"] = buildParameters.triple.vendorName
+            if !buildParameters.triple.environmentName.isEmpty {
+                settings["LLVM_TARGET_TRIPLE_SUFFIX"] = "-" + buildParameters.triple.environmentName
+            }
+        }
+
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
@@ -686,8 +696,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["OTHER_LDFLAGS"] = (
             verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
                 ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.shellEscaped() }
-                + buildParameters.flags.linkerFlags.map { $0.shellEscaped() }
+                + buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
+                + buildParameters.flags.linkerFlags.asSwiftcLinkerFlags().map { $0.shellEscaped() }
         ).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.

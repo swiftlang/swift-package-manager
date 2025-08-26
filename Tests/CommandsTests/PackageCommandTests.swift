@@ -2053,23 +2053,87 @@ struct PackageCommandTests {
                         """
                 )
 
-                _ = try await execute(
-                    ["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"],
-                    packagePath: path,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-
                 let manifest = path.appending("Package.swift")
                 expectFileExists(at: manifest)
-                let contents: String = try fs.readFileContents(manifest)
 
-                #expect(contents.contains(#"targets:"#))
-                #expect(contents.contains(#".executableTarget"#))
-                #expect(contents.contains(#"name: "client""#))
-                #expect(contents.contains(#"dependencies:"#))
-                #expect(contents.contains(#""MyLib""#))
-                #expect(contents.contains(#""OtherLib""#))
+                // executable
+                do {
+                    _ = try await execute(
+                      ["add-target", "client", "--dependencies", "MyLib", "OtherLib", "--type", "executable"],
+                      packagePath: path,
+                      configuration: data.config,
+                      buildSystem: data.buildSystem,
+                    )
+
+                    let contents: String = try fs.readFileContents(manifest)
+
+                    #expect(contents.contains(#"targets:"#))
+                    #expect(contents.contains(#".executableTarget"#))
+                    #expect(contents.contains(#"name: "client""#))
+                    #expect(contents.contains(#"dependencies:"#))
+                    #expect(contents.contains(#""MyLib""#))
+                    #expect(contents.contains(#""OtherLib""#))
+                }
+
+                // library
+                do {
+                    _ = try await execute(
+                      ["add-target", "MyLib", "--type", "library"],
+                      packagePath: path,
+                      configuration: data.config,
+                      buildSystem: data.buildSystem,
+                    )
+
+                    let contents: String = try fs.readFileContents(manifest)
+
+                    #expect(contents.contains(#"targets:"#))
+                    #expect(contents.contains(#".target"#))
+                    #expect(contents.contains(#"name: "MyLib""#))
+
+                    expectFileExists(at: path.appending(components: ["Sources", "MyLib", "MyLib.swift"]))
+                }
+
+                // test
+                do {
+                    _ = try await execute(
+                      ["add-target", "MyTest", "--type", "test"],
+                      packagePath: path,
+                      configuration: data.config,
+                      buildSystem: data.buildSystem,
+                    )
+
+                    let contents: String = try fs.readFileContents(manifest)
+
+                    #expect(contents.contains(#"targets:"#))
+                    #expect(contents.contains(#".test"#))
+                    #expect(contents.contains(#"name: "MyTest""#))
+
+                    expectFileExists(at: path.appending(components: ["Tests", "MyTest", "MyTest.swift"]))
+                }
+
+                // macro + swift-syntax dependency
+                do {
+                    _ = try await execute(
+                      ["add-target", "MyMacro", "--type", "macro"],
+                      packagePath: path,
+                      configuration: data.config,
+                      buildSystem: data.buildSystem,
+                    )
+
+                    let contents: String = try fs.readFileContents(manifest)
+
+                    #expect(contents.contains(#"dependencies:"#))
+                    #expect(contents.contains(#".package(url: "https://github.com/swiftlang/swift-syntax.git"#))
+                    #expect(contents.contains(#"targets:"#))
+                    #expect(contents.contains(#".macro"#))
+                    #expect(contents.contains(#"name: "MyMacro""#))
+                    #expect(contents.contains(#"dependencies:"#))
+                    #expect(contents.contains(#""SwiftCompilerPlugin""#))
+                    #expect(contents.contains(#""SwiftSyntaxMacros""#))
+
+                    expectFileExists(at: path.appending(components: ["Sources", "MyMacro", "MyMacro.swift"]))
+                    expectFileExists(at: path.appending(components: ["Sources", "MyMacro", "ProvidedMacros.swift"]))
+                }
             }
         }
 
@@ -6781,7 +6845,7 @@ struct PackageCommandTests {
         func commandPluginCompilationErrorSwiftBuild(
             data: BuildData,
         ) async throws {
-            // Once this is fix, merge data iunto commandPluginCompilationError 
+            // Once this is fix, merge data iunto commandPluginCompilationError
             await withKnownIssue {
                 try await Self.commandPluginCompilationErrorImplementation(data: data)
             }

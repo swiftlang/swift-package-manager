@@ -19,11 +19,17 @@ import PackageModel
 import SwiftParser
 @_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
-import TSCBasic
-import TSCUtility
+import SwiftSyntaxBuilder
 import Workspace
 
-extension AddPackageTarget.TestHarness: @retroactive ExpressibleByArgument { }
+import struct TSCBasic.ByteString
+import struct TSCBasic.StringError
+
+extension AddPackageTarget.TestHarness: @retroactive ExpressibleByArgument {}
+
+/// The array of auxiliary files that can be added by a package editing
+/// operation.
+private typealias AuxiliaryFiles = [(RelativePath, SourceFileSyntax)]
 
 extension SwiftPackageCommand {
     struct AddTarget: AsyncSwiftCommand {
@@ -36,7 +42,8 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target to the manifest.")
+            abstract: "Add a new target to the manifest."
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -62,7 +69,9 @@ extension SwiftPackageCommand {
         @Option(help: "The checksum for a remote binary target.")
         var checksum: String?
 
-        @Option(help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'.")
+        @Option(
+            help: "The testing library to use when generating test targets, which can be one of 'xctest', 'swift-testing', or 'none'."
+        )
         var testingLibrary: AddPackageTarget.TestHarness = .default
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -92,19 +101,19 @@ extension SwiftPackageCommand {
             }
 
             // Move sources into their own folder if they're directly in `./Sources`.
-            try await moveSingleTargetSources(
+            try await self.moveSingleTargetSources(
                 workspace: workspace,
                 packagePath: packagePath,
-                verbose: !globalOptions.logging.quiet,
+                verbose: !self.globalOptions.logging.quiet,
                 observabilityScope: swiftCommandState.observabilityScope
             )
 
             // Map the target type.
             let type: PackageTarget.TargetKind = switch self.type {
-                case .library: .library
-                case .executable: .executable
-                case .test: .test
-                case .macro: .macro
+            case .library: .library
+            case .executable: .executable
+            case .test: .test
+            case .macro: .macro
             }
 
             // Map dependencies
@@ -112,18 +121,19 @@ extension SwiftPackageCommand {
                 .byName(name: $0)
             }
 
+            let target = PackageTarget(
+                name: name,
+                type: type,
+                dependencies: dependencies,
+                path: path,
+                url: url,
+                checksum: checksum
+            )
             let editResult = try AddPackageTarget.manifestRefactor(
                 syntax: manifestSyntax,
                 in: .init(
-                    target: .init(
-                        name: name,
-                        type: type,
-                        dependencies: dependencies,
-                        path: path,
-                        url: url,
-                        checksum: checksum
-                    ),
-                    testHarness: testingLibrary
+                    target: target,
+                    testHarness: self.testingLibrary
                 )
             )
 
@@ -131,7 +141,15 @@ extension SwiftPackageCommand {
                 to: fileSystem,
                 manifest: manifestSyntax,
                 manifestPath: manifestPath,
-                verbose: !globalOptions.logging.quiet
+                verbose: !self.globalOptions.logging.quiet
+            )
+
+            // Once edits are applied, it's time to create new files for the target.
+            try self.addAuxiliaryFiles(
+                target: target,
+                testHarness: self.testingLibrary,
+                fileSystem: fileSystem,
+                rootPath: manifestPath.parentDirectory
             )
         }
 
@@ -140,7 +158,7 @@ extension SwiftPackageCommand {
         // the target before adding a new target.
         private func moveSingleTargetSources(
             workspace: Workspace,
-            packagePath: Basics.AbsolutePath,
+            packagePath: AbsolutePath,
             verbose: Bool = false,
             observabilityScope: ObservabilityScope
         ) async throws {
@@ -185,6 +203,218 @@ extension SwiftPackageCommand {
                 }
             }
         }
+
+        private func createAuxiliaryFile(
+            fileSystem: any FileSystem,
+            rootPath: AbsolutePath,
+            filePath: RelativePath,
+            contents: SourceFileSyntax,
+            verbose: Bool = false
+        ) throws {
+            // If the file already exists, skip it.
+            let filePath = rootPath.appending(filePath)
+            if fileSystem.exists(filePath) {
+                if verbose {
+                    print("Skipping \(filePath.relative(to: rootPath)) because it already exists.")
+                }
+
+                return
+            }
+
+            // If the directory does not exist yet, create it.
+            let fileDir = filePath.parentDirectory
+            if !fileSystem.exists(fileDir) {
+                if verbose {
+                    print("Creating directory \(fileDir.relative(to: rootPath))...", terminator: "")
+                }
+
+                try fileSystem.createDirectory(fileDir, recursive: true)
+
+                if verbose {
+                    print(" done.")
+                }
+            }
+
+            // Write the file.
+            if verbose {
+                print("Writing \(filePath.relative(to: rootPath))...", terminator: "")
+            }
+
+            try fileSystem.writeFileContents(
+                filePath,
+                string: contents.description
+            )
+
+            if verbose {
+                print(" done.")
+            }
+        }
+
+        private func addAuxiliaryFiles(
+            target: PackageTarget,
+            testHarness: AddPackageTarget.TestHarness,
+            fileSystem: any FileSystem,
+            rootPath: AbsolutePath
+        ) throws {
+            let outerDirectory: String? = switch target.type {
+            case .binary, .plugin, .system: nil
+            case .executable, .library, .macro: "Sources"
+            case .test: "Tests"
+            }
+
+            guard let outerDirectory else {
+                return
+            }
+
+            let targetDir = try RelativePath(validating: outerDirectory).appending(component: target.name)
+            let sourceFilePath = targetDir.appending(component: "\(target.name).swift")
+
+            // Introduce imports for each of the dependencies that were specified.
+            var importModuleNames = target.dependencies.map {
+                switch $0 {
+                case .byName(let name),
+                     .target(let name),
+                     .product(let name, package: _):
+                    name
+                }
+            }
+
+            // Add appropriate test module dependencies.
+            if target.type == .test {
+                switch testHarness {
+                case .none:
+                    break
+
+                case .xctest:
+                    importModuleNames.append("XCTest")
+
+                case .swiftTesting:
+                    importModuleNames.append("Testing")
+                }
+            }
+
+            let importDecls = importModuleNames.lazy.sorted().map { name in
+                DeclSyntax("import \(raw: name)\n")
+            }
+
+            let imports = CodeBlockItemListSyntax {
+                for importDecl in importDecls {
+                    importDecl
+                }
+            }
+
+            var files: AuxiliaryFiles = []
+            switch target.type {
+            case .binary, .plugin, .system:
+                break
+
+            case .macro:
+                files.addSourceFile(
+                    path: sourceFilePath,
+                    sourceCode: """
+                    \(imports)
+                    struct \(raw: target.sanitizedName): Macro {
+                        /// TODO: Implement one or more of the protocols that inherit
+                        /// from Macro. The appropriate macro protocol is determined
+                        /// by the "macro" declaration that \(raw: target.sanitizedName) implements.
+                        /// Examples include:
+                        ///     @freestanding(expression) macro --> ExpressionMacro
+                        ///     @attached(member) macro         --> MemberMacro
+                    }
+                    """
+                )
+
+                // Add a file that introduces the main entrypoint and provided macros
+                // for a macro target.
+                files.addSourceFile(
+                    path: targetDir.appending(component: "ProvidedMacros.swift"),
+                    sourceCode: """
+                    import SwiftCompilerPlugin
+
+                    @main
+                    struct \(raw: target.sanitizedName)Macros: CompilerPlugin {
+                        let providingMacros: [Macro.Type] = [
+                            \(raw: target.sanitizedName).self,
+                        ]
+                    }
+                    """
+                )
+
+            case .test:
+                let sourceCode: SourceFileSyntax = switch testHarness {
+                case .none:
+                    """
+                    \(imports)
+                    // Test code here
+                    """
+
+                case .xctest:
+                    """
+                    \(imports)
+                    class \(raw: target.sanitizedName)Tests: XCTestCase {
+                        func test\(raw: target.sanitizedName)() {
+                            XCTAssertEqual(42, 17 + 25)
+                        }
+                    }
+                    """
+
+                case .swiftTesting:
+                    """
+                    \(imports)
+                    @Suite
+                    struct \(raw: target.sanitizedName)Tests {
+                        @Test("\(raw: target.sanitizedName) tests")
+                        func example() {
+                            #expect(42 == 17 + 25)
+                        }
+                    }
+                    """
+                }
+
+                files.addSourceFile(path: sourceFilePath, sourceCode: sourceCode)
+
+            case .library:
+                files.addSourceFile(
+                    path: sourceFilePath,
+                    sourceCode: """
+                    \(imports)
+                    """
+                )
+
+            case .executable:
+                files.addSourceFile(
+                    path: sourceFilePath,
+                    sourceCode: """
+                    \(imports)
+                    @main
+                    struct \(raw: target.sanitizedName)Main {
+                        static func main() {
+                            print("Hello, world")
+                        }
+                    }
+                    """
+                )
+            }
+
+            for (file, sourceCode) in files {
+                try self.createAuxiliaryFile(
+                    fileSystem: fileSystem,
+                    rootPath: rootPath,
+                    filePath: file,
+                    contents: sourceCode,
+                    verbose: !self.globalOptions.logging.quiet
+                )
+            }
+        }
     }
 }
 
+extension AuxiliaryFiles {
+    /// Add a source file to the list of auxiliary files.
+    fileprivate mutating func addSourceFile(
+        path: RelativePath,
+        sourceCode: SourceFileSyntax
+    ) {
+        self.append((path, sourceCode))
+    }
+}
