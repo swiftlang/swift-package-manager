@@ -1,1 +1,1 @@
-../PackageDescription/PackageDescriptionSerialization.swift
+../Runtime/PackageDescription/PackageDescriptionSerialization.swift
