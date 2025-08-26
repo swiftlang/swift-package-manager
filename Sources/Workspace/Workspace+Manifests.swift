@@ -207,6 +207,7 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
+                let result = workspace.enabledTraitsMap[package.reference.identity]
 
                 let node = try GraphLoadingNode(
                     identity: identity,
@@ -566,15 +567,8 @@ extension Workspace {
                     return condition.isSatisfied(by: parentEnabledTraits)
                 }).map(\.name)
 
-                var enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
-                let precomputedTraits = self.enabledTraitsMap[dep.identity]
-                if precomputedTraits == ["default"], let enabledTraitsSet {
+                if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
                     self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-                } else {
-                    enabledTraitsSet?.formUnion(self.enabledTraitsMap[dep.identity])
-                    if let enabledTraitsSet {
-                        self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-                    }
                 }
 
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
@@ -618,15 +612,8 @@ extension Workspace {
                     return condition.isSatisfied(by: parentEnabledTraits)
                 }).map(\.name)
 
-                var enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) })
-                let precomputedTraits = self.enabledTraitsMap[dep.identity]
-                if precomputedTraits == ["default"], let enabledTraitsSet {
+                if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
                     self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-                } else {
-                    enabledTraitsSet?.formUnion(self.enabledTraitsMap[dep.identity])
-                    if let enabledTraitsSet {
-                        self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-                    }
                 }
 
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
@@ -669,26 +656,13 @@ extension Workspace {
                         return condition.isSatisfied(by: node.item.enabledTraits)
                     }.map(\.name)
 
-                    var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-                    let precomputedTraits = self.enabledTraitsMap[dependency.identity]
-                    // Shouldn't union here if enabledTraitsMap returns "default" and we DO have explicitly enabled traits, since we're meant to flatten the default traits.
-                    if precomputedTraits == ["default"],
-                       let enabledTraitsSet {
-                        self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                    } else {
-                        // Unify traits
-                        enabledTraitsSet?.formUnion(precomputedTraits)
-                        if let enabledTraitsSet {
-                            self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                        }
+                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+                        let calculatedTraits = try manifest.enabledTraits(
+                            using: enabledTraitsSet,
+                            .init(node.item.manifest)
+                        )
+                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
                     }
-
-                    let calculatedTraits = try manifest.enabledTraits(
-                        using: self.enabledTraitsMap[dependency.identity],
-                        .init(node.item.manifest)
-                    )
-
-                    self.enabledTraitsMap[dependency.identity] = calculatedTraits
 
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
@@ -700,7 +674,7 @@ extension Workspace {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: calculatedTraits
+                                enabledTraits: self.enabledTraitsMap[dependency.identity]
                             ),
                             key: dependency.identity
                         ) :
@@ -795,26 +769,14 @@ extension Workspace {
                         return condition.isSatisfied(by: parentTraits)
                     }.map(\.name)
 
-                    var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-                    let precomputedTraits = self.enabledTraitsMap[dependency.identity]
-                    // Shouldn't union here if enabledTraitsMap returns "default" and we DO have explicitly enabled traits, since we're meant to flatten the default traits.
-                    if precomputedTraits == ["default"],
-                       let enabledTraitsSet {
-                        self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                    } else {
-                        // Unify traits
-                        enabledTraitsSet?.formUnion(precomputedTraits)
-                        if let enabledTraitsSet {
-                            self.enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                        }
+                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+                        let calculatedTraits = try manifest.enabledTraits(
+                            using: enabledTraitsSet,
+                            .init(parent)
+                        )
+                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
                     }
 
-                    let calculatedTraits = try manifest.enabledTraits(
-                        using: self.enabledTraitsMap[dependency.identity],
-                        .init(parent)
-                    )
-
-                    self.enabledTraitsMap[dependency.identity] = calculatedTraits
                     let result = visited.insert(dependency.identity)
                     if result.inserted {
                         try dependencies(of: manifest, dependency.productFilter)

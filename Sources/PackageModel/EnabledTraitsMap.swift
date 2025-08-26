@@ -31,7 +31,17 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
 
     public subscript(key: PackageIdentity) -> Set<String> {
         get { storage[key] ?? ["default"] }
-        set { storage[key] = newValue }
+        set {
+            if storage[key] == nil {
+                storage[key] = newValue
+            } else {
+                storage[key]?.formUnion(newValue)
+            }
+        }
+    }
+
+    public subscript(explicitlyEnabledTraitsFor key: PackageIdentity) -> Set<String>? {
+        get { storage[key] }
     }
 
     public var dictionaryLiteral: [PackageIdentity: Set<String>] {
