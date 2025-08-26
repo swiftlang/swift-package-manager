@@ -363,7 +363,7 @@ struct PluginCommand: AsyncSwiftCommand {
         let allowNetworkConnectionsCopy = allowNetworkConnections
 
         let buildEnvironment = buildParameters.buildEnvironment
-        _ = try await pluginTarget.invoke(
+        let _ = try await pluginTarget.invoke(
             action: .performCommand(package: package, arguments: arguments),
             buildEnvironment: buildEnvironment,
             scriptRunner: pluginScriptRunner,

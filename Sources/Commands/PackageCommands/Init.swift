@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import ArgumentParserToolInfo
 
 import Basics
 
@@ -21,10 +20,7 @@ import CoreCommands
 import PackageModel
 import Workspace
 import SPMBuildCore
-import TSCBasic
 import TSCUtility
-import Foundation
-import PackageGraph
 
 
 extension SwiftPackageCommand {
@@ -53,11 +49,6 @@ extension SwiftPackageCommand {
                                     package or location.
                 """))
         var initMode: String?
-
-        //if --type is mentioned with one of the seven above, then normal initialization
-        // if --type is mentioned along with a templateSource, its a template (no matter what)
-        // if-type is not mentioned with no templatesoURCE, then defaults to library
-        // if --type is not mentioned and templateSource is not nil, then there is only one template in package
 
         /// Which testing libraries to use (and any related options.)
         @OptionGroup(visibility: .hidden)

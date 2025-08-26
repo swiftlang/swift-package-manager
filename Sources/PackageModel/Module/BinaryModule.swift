@@ -50,7 +50,7 @@ public final class BinaryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            template: false // TODO: determine whether binary modules can be templates or not
+            template: false
         )
     }
 

@@ -147,7 +147,6 @@ struct ShowTemplates: AsyncSwiftCommand {
             throw InternalError("invalid manifests at \(root.packages)")
         }
 
-        let products = rootManifest.products
         let targets = rootManifest.targets
 
         if let target = targets.first(where: { $0.name == template }),
