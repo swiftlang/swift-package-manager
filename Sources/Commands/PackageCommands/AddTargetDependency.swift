@@ -73,7 +73,7 @@ extension SwiftPackageCommand {
                 dependency = .target(name: dependencyName)
             }
 
-            let editResult = try SwiftRefactor.AddTargetDependency.manifestRefactor(
+            let editResult = try SwiftRefactor.AddTargetDependency.textRefactor(
                 syntax: manifestSyntax,
                 in: .init(
                     dependency: dependency,

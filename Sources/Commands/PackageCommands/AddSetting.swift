@@ -126,7 +126,7 @@ extension SwiftPackageCommand {
                     }
                 }
 
-                let editResult: PackageEdit
+                let editResult: [SourceEdit]
 
                 switch setting {
                 case .experimentalFeature:
