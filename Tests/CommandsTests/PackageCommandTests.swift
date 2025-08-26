@@ -608,6 +608,7 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
             let (textOutput, _) = try await self.execute(["show-executables", "--format=flatlist"], packagePath: packageRoot)
             XCTAssert(textOutput.contains("dealer\n"))
             XCTAssert(textOutput.contains("deck (deck-of-playing-cards)\n"))
+            XCTAssertFalse(textOutput.contains("TemplateExample"))
 
             let (jsonOutput, _) = try await self.execute(["show-executables", "--format=json"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
