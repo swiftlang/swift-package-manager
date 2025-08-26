@@ -56,7 +56,7 @@ extension Package {
         public let kind: Kind
 
         /// The dependencies traits configuration.
-        @available(_PackageDescription, introduced: 999.0)
+        @available(_PackageDescription, introduced: 6.1)
         public let traits: Set<Trait>
 
         /// The name of the dependency.

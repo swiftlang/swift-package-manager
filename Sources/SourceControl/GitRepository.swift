@@ -87,7 +87,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
     private let git: GitShellHelper
 
-    private var repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
+    private let repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
 
     public init() {
         // helper to cancel outstanding processes
@@ -184,7 +184,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         repository: RepositorySpecifier,
         to path: Basics.AbsolutePath,
         progressHandler: FetchProgress.Handler? = nil
-    ) throws {
+    ) async throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -229,7 +229,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         sourcePath: Basics.AbsolutePath,
         at destinationPath: Basics.AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
+    ) async throws -> WorkingCheckout {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally

@@ -83,7 +83,7 @@ struct PackageSigningEntityTOFU {
         version: Version,
         signingEntity: SigningEntity?,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.validate(

@@ -2,22 +2,42 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import SourceControl
 import _InternalTestSupport
-import XCTest
+import Testing
+import struct SPMBuildCore.BuildSystemProvider
+import enum PackageModel.BuildConfiguration
 
-final class VersionSpecificTests: XCTestCase {
+@Suite(
+    .tags(
+        .TestSize.large,
+    ),
+)
+struct VersionSpecificTests {
     /// Functional tests of end-to-end support for version specific dependency resolution.
-    func testEndToEndResolution() async throws {
+    @Test(
+        .issue("https://github.com/swiftlang/swift-tools-support-core/pull/521", relationship: .fixedBy), // long file path issue
+        .tags(
+            .Feature.Command.Build,
+            .Feature.Command.Package.Reset,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+    )
+    func endToEndResolution(
+        buildSystem: BuildSystemProvider.Kind,
+        configuration: BuildConfiguration,
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem
 
@@ -90,7 +110,13 @@ final class VersionSpecificTests: XCTestCase {
                     """
             )
             // This build should fail, because of the invalid package.
-            await XCTAssertBuildFails(primaryPath)
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftBuild(
+                    primaryPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
 
             // Create a file which requires a version 1.1.0 resolution.
             try fs.writeFileContents(
@@ -123,8 +149,20 @@ final class VersionSpecificTests: XCTestCase {
             try repo.tag(name: "1.1.0@swift-\(SwiftVersion.current.major)")
 
             // The build should work now.
-            _ = try await SwiftPM.Package.execute(["reset"], packagePath: primaryPath)
-            await XCTAssertBuilds(primaryPath)
+            _ = try await executeSwiftPackage(
+                primaryPath,
+                configuration: configuration,
+                extraArgs: ["reset"],
+                buildSystem: buildSystem,
+            )
+            try await executeSwiftBuild(
+                primaryPath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+        }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
         }
     }
 }

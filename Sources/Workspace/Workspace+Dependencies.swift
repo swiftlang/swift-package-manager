@@ -72,7 +72,6 @@ extension Workspace {
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
@@ -86,7 +85,8 @@ extension Workspace {
             input: root,
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
@@ -105,7 +105,7 @@ extension Workspace {
         var updateConstraints = currentManifests.editedPackagesConstraints
 
         // Create constraints based on root manifest and `Package.resolved` for the update resolution.
-        updateConstraints += try graphRoot.constraints()
+        updateConstraints += try graphRoot.constraints(self.enabledTraitsMap)
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
         if packages.isEmpty {
@@ -345,7 +345,6 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
-        // FIXME: this should not block
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
@@ -355,18 +354,20 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         // Load the `Package.resolved` store or abort now.
         guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }),
               !observabilityScope.errorsReported
         else {
-            return try await (
-                self.loadDependencyManifests(
-                    root: graphRoot,
-                    observabilityScope: observabilityScope
-                ),
+            let dependencyManifests = try await self.loadDependencyManifests(
+                root: graphRoot,
+                observabilityScope: observabilityScope
+                )
+
+            return (dependencyManifests,
                 .notRequired
             )
         }
@@ -403,8 +404,7 @@ extension Workspace {
                     _ = try await self.packageContainerProvider.getContainer(
                         for: resolvedPackage.packageRef,
                         updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                 }
             }
@@ -465,7 +465,7 @@ extension Workspace {
             automaticallyAddManagedDependencies: true,
             observabilityScope: observabilityScope
         )
-
+        
         try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
@@ -521,7 +521,8 @@ extension Workspace {
             manifests: rootManifests,
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         // Of the enabled dependencies of targets, only consider these for dependency resolution
@@ -529,6 +530,7 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
@@ -594,7 +596,7 @@ extension Workspace {
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
-        computedConstraints += try graphRoot.constraints() + constraints
+        computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
@@ -747,12 +749,10 @@ extension Workspace {
     ) async throws -> AbsolutePath {
         switch requirement {
         case .version(let version):
-            // FIXME: this should not block
             let container = try await packageContainerProvider.getContainer(
                 for: package,
                 updateStrategy: ContainerUpdateStrategy.never,
-                observabilityScope: observabilityScope,
-                on: .sharedConcurrent
+                observabilityScope: observabilityScope
             )
 
             if let container = container as? SourceControlPackageContainer {
@@ -859,9 +859,9 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> ResolutionPrecomputationResult {
         let computedConstraints =
-        try root.constraints() +
+        try root.constraints(self.enabledTraitsMap) +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, nil) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -1066,8 +1066,7 @@ extension Workspace {
                     packageContainerProvider.getContainer(
                         for: binding.package,
                         updateStrategy: .never,
-                        observabilityScope: observabilityScope,
-                        on: .sharedConcurrent
+                        observabilityScope: observabilityScope
                     )
                  as? SourceControlPackageContainer else {
                     throw InternalError(
@@ -1173,7 +1172,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [DependencyResolverBinding] {
         os_signpost(.begin, name: SignpostName.pubgrub)
-        let result = await resolver.solve(constraints: constraints, traitConfiguration: configuration.traitConfiguration)
+        let result = await resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.

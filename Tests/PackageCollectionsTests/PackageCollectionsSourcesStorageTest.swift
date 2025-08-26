@@ -24,7 +24,6 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
         let buffer = try mockFileSystem.readFileContents(storage.path)
         XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
-        print(buffer)
     }
 
     func testRealFile() async throws {
@@ -37,7 +36,6 @@ final class PackageCollectionsSourcesStorageTest: XCTestCase {
 
             let buffer = try fileSystem.readFileContents(storage.path)
             XCTAssertNotEqual(buffer.count, 0, "expected file to be written")
-            print(buffer)
         }
     }
 

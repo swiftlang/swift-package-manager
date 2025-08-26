@@ -86,7 +86,10 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(manifestContents, .prefix("// swift-tools-version:\(version < .v5_4 ? "" : " ")\(versionSpecifier)\n"))
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("Foo")), ["Foo.swift"])
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
 #if os(Windows)
@@ -115,7 +118,10 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             XCTAssertEqual(try fs.getDirectoryContents(path.appending("Sources").appending("main")), ["MainEntrypoint.swift"])
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
         }
     }
 
@@ -165,7 +171,10 @@ final class InitTests: XCTestCase {
             XCTAssertMatch(testFileContents, .contains("func testExample() throws"))
 
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
@@ -201,7 +210,10 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
@@ -238,7 +250,10 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
@@ -272,7 +287,10 @@ final class InitTests: XCTestCase {
 
 #if canImport(TestingDisabled)
             // Try building it
-            await XCTAssertBuilds(path)
+            await XCTAssertBuilds(
+                path,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
@@ -371,7 +389,10 @@ final class InitTests: XCTestCase {
             try initPackage.writePackageStructure()
 
             // Try building it.
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(
+                packageRoot,
+                buildSystem: .native,
+            )
             let triple = try UserToolchain.default.targetTriple
             XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
         }
@@ -394,7 +415,10 @@ final class InitTests: XCTestCase {
             )
             try initPackage.writePackageStructure()
             
-            await XCTAssertBuilds(packageRoot)
+            await XCTAssertBuilds(
+                packageRoot,
+                buildSystem: .native,
+            )
         }
     }
 

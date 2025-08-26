@@ -94,8 +94,9 @@ public final class PackagePIFBuilder {
         /// Returns all *device family* IDs for all SDK variants.
         func deviceFamilyIDs() -> Set<Int>
 
-        /// Have packages referenced by this workspace build for arm64e when building for iOS devices.
-        var shouldiOSPackagesBuildForARM64e: Bool { get }
+        /// Have packages referenced by this workspace build for *arm64e*
+        /// when building for iOS devices, macOS, and visionOS.
+        func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool
 
         /// Is the sandbox disabled for plug-in execution? It should be `false` by default.
         var isPluginExecutionSandboxingDisabled: Bool { get }
@@ -159,7 +160,7 @@ public final class PackagePIFBuilder {
     }
 
     /// Records the results of applying build tool plugins to modules in the package.
-    let buildToolPluginResultsByTargetName: [String: PackagePIFBuilder.BuildToolPluginInvocationResult]
+    let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
     /// Whether to create dynamic libraries for dynamic products.
     ///
@@ -192,7 +193,7 @@ public final class PackagePIFBuilder {
         resolvedPackage: ResolvedPackage,
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
-        buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
@@ -203,6 +204,28 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
+        self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.packageDisplayVersion = packageDisplayVersion
+        self.fileSystem = fileSystem
+        self.observabilityScope = observabilityScope
+    }
+
+    public init(
+        modulesGraph: ModulesGraph,
+        resolvedPackage: ResolvedPackage,
+        packageManifest: PackageModel.Manifest,
+        delegate: PackagePIFBuilder.BuildDelegate,
+        buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        createDylibForDynamicProducts: Bool = false,
+        packageDisplayVersion: String?,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) {
+        self.package = resolvedPackage
+        self.packageManifest = packageManifest
+        self.modulesGraph = modulesGraph
+        self.delegate = delegate
+        self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
@@ -340,6 +363,7 @@ public final class PackagePIFBuilder {
         case framework
         case executable
         case unitTest
+        case unitTestRunner
         case bundle
         case resourceBundle
         case packageProduct
@@ -363,6 +387,7 @@ public final class PackagePIFBuilder {
             case .framework: .framework
             case .executable: .executable
             case .unitTest: .unitTest
+            case .swiftpmTestRunner: .unitTestRunner
             case .bundle: .bundle
             case .packageProduct: .packageProduct
             case .hostBuildTool: fatalError("Unexpected hostBuildTool type")
@@ -498,7 +523,11 @@ public final class PackagePIFBuilder {
         settings[.WATCHOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.watchOS] ?? nil
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
         settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
-        settings[.DYLIB_INSTALL_NAME_BASE] = "@rpath"
+
+        for machoPlatform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
+            settings.platformSpecificSettings[machoPlatform]![.DYLIB_INSTALL_NAME_BASE]! = ["@rpath"]
+        }
+
         settings[.USE_HEADERMAP] = "NO"
         settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("-DXcode") }
 
@@ -551,9 +580,18 @@ public final class PackagePIFBuilder {
         settings[.CODE_SIGNING_REQUIRED] = "NO"
         settings[.CODE_SIGN_IDENTITY] = ""
 
-        // If in a workspace that's set to build packages for arm64e, pass that along to Swift Build.
-        if self.delegate.shouldiOSPackagesBuildForARM64e {
-            settings.platformSpecificSettings[._iOSDevice]![.ARCHS] = ["arm64e"]
+        // If in a workspace that's set to build packages for _arm64e_, pass that along to Swift Build.
+        let arm64ePlatforms: [PackageModel.Platform] = [.iOS, .macOS, .visionOS]
+        for arm64ePlatform in arm64ePlatforms {
+            if self.delegate.shouldPackagesBuildForARM64e(platform: arm64ePlatform) {
+                let pifPlatform: ProjectModel.BuildSettings.Platform = switch arm64ePlatform {
+                case .iOS:
+                    ._iOSDevice
+                default:
+                    .init(from: arm64ePlatform)
+                }
+                settings.platformSpecificSettings[pifPlatform]![.ARCHS, default: []].append(contentsOf: ["arm64e"])
+            }
         }
 
         // Add the build settings that are specific to debug builds, and set those as the "Debug" configuration.

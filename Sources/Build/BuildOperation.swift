@@ -37,8 +37,8 @@ import SwiftDriver
 #endif
 
 package struct LLBuildSystemConfiguration {
-    let toolsBuildParameters: BuildParameters
-    let destinationBuildParameters: BuildParameters
+    fileprivate let toolsBuildParameters: BuildParameters
+    fileprivate let destinationBuildParameters: BuildParameters
 
     let scratchDirectory: AbsolutePath
 
@@ -198,6 +198,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     /// Alternative path to search for pkg-config `.pc` files.
     private let pkgConfigDirectories: [AbsolutePath]
 
+    public var hasIntegratedAPIDigesterSupport: Bool { false }
+
     public convenience init(
         productsBuildParameters: BuildParameters,
         toolsBuildParameters: BuildParameters,
@@ -225,7 +227,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             outputStream: outputStream,
             logLevel: logLevel,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: nil
         )
     }
 
@@ -242,7 +245,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         fileSystem: Basics.FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        delegate: SPMBuildCore.BuildSystemDelegate?
     ) {
         /// Checks if stdout stream is tty.
         var productsBuildParameters = productsBuildParameters
@@ -269,6 +273,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         self.additionalFileRules = additionalFileRules
         self.pluginConfiguration = pluginConfiguration
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.delegate = delegate
     }
 
     public func getPackageGraph() async throws -> ModulesGraph {
@@ -391,9 +396,14 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
     }
 
     /// Perform a build using the given build description and subset.
-    public func build(subset: BuildSubset) async throws {
+    public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
+        var result = BuildResult(
+            serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
+            replArguments: nil,
+        )
+
         guard !self.config.shouldSkipBuilding(for: .target) else {
-            return
+            return result
         }
 
         let buildStartTime = DispatchTime.now()
@@ -417,7 +427,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // any errors up-front. Returns true if we should proceed with the build
         // or false if not. It will already have thrown any appropriate error.
         guard try await self.compilePlugins(in: subset) else {
-            return
+            result.serializedDiagnosticPathsByTargetName = .failure(StringError("Plugin compilation failed"))
+            return result
         }
 
         let configuration = self.config.configuration(for: .target)
@@ -447,6 +458,25 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         )
         guard success else { throw Diagnostics.fatalError }
 
+        let buildResultBuildPlan = buildOutputs.contains(.buildPlan) ? try buildPlan : nil
+        let buildResultReplArgs = buildOutputs.contains(.replArguments) ? try buildPlan.createREPLArguments() : nil
+
+        result = BuildResult(
+            serializedDiagnosticPathsByTargetName: result.serializedDiagnosticPathsByTargetName,
+            symbolGraph: result.symbolGraph,
+            buildPlan: buildResultBuildPlan,
+            replArguments: buildResultReplArgs,
+        )
+        var serializedDiagnosticPaths: [String: [AbsolutePath]] = [:]
+        do {
+            for module in try buildPlan.buildModules {
+                serializedDiagnosticPaths[module.module.name, default: []].append(contentsOf: module.diagnosticFiles)
+            }
+            result.serializedDiagnosticPathsByTargetName = .success(serializedDiagnosticPaths)
+        } catch {
+            result.serializedDiagnosticPathsByTargetName = .failure(error)
+        }
+
         // Create backwards-compatibility symlink to old build path.
         let oldBuildPath = self.config.dataPath(for: .target).parentDirectory.appending(
             component: configuration.dirname
@@ -458,7 +488,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     warning: "unable to delete \(oldBuildPath), skip creating symbolic link",
                     underlyingError: error
                 )
-                return
+
+                return result
             }
         }
 
@@ -474,6 +505,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 underlyingError: error
             )
         }
+
+        return result
     }
 
     /// Compiles any plugins specified or implied by the build subset, returning
@@ -676,7 +709,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // Create the build plan based on the modules graph and any information from plugins.
         return try await BuildPlan(
-            destinationBuildParameters: self.config.destinationBuildParameters,
+            destinationBuildParameters: self.config.buildParameters(for: .target),
             toolsBuildParameters: self.config.buildParameters(for: .host),
             graph: graph,
             pluginConfiguration: self.pluginConfiguration,
@@ -1042,11 +1075,5 @@ extension BuildSubset {
             }
             return try target.recursiveModuleDependencies()
         }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    var isVerbose: Bool {
-        return self <= .info
     }
 }

@@ -157,7 +157,7 @@ class SignatureTests: XCTestCase {
     private func readTestCertData(path: (AbsolutePath) -> AbsolutePath) async throws -> Data {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
                     let certPath = path(fixturePath)
                     let certData: Data = try localFileSystem.readFileContents(certPath)
                     continuation.resume(returning: certData)

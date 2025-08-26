@@ -24,10 +24,15 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependency's trait.
-            package let traits: Set<String>?
+            private let traits: Set<String>?
 
             public init(traits: Set<String>?) {
                 self.traits = traits
+            }
+
+            public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
+                guard let traits else { return true }
+                return !traits.intersection(enabledTraits).isEmpty
             }
         }
 

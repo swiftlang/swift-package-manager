@@ -39,7 +39,7 @@ extension PackagePIFProjectBuilder {
         let pluginTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
                 id: pluginModule.pifTargetGUID,
-                productType: .executable,
+                productType: .hostBuildTool,
                 name: pluginModule.name,
                 productName: pluginModule.name
             )
@@ -225,7 +225,7 @@ extension PackagePIFProjectBuilder {
         case macro
     }
 
-    /// Constructs a *PIF target* for building a *module* target as a particular type.
+    /// Constructs a *PIF target* for building a *module* as a particular type.
     /// An optional target identifier suffix is passed when building variants of a target.
     @discardableResult
     private mutating func buildSourceModule(
@@ -243,7 +243,8 @@ extension PackagePIFProjectBuilder {
 
         switch desiredModuleType {
         case .dynamicLibrary:
-            if pifBuilder.createDylibForDynamicProducts { // We are re-using this default for dynamic targets as well.
+            // We are re-using this default for dynamic targets as well.
+            if pifBuilder.createDylibForDynamicProducts {
                 pifProductName = "lib\(sourceModule.name).dylib"
                 executableName = pifProductName
                 productType = .dynamicLibrary
@@ -449,7 +450,7 @@ extension PackagePIFProjectBuilder {
                 }
 
                 // We have to give each target a unique name.
-                settings[.TARGET_NAME] = sourceModule.name + targetSuffix.description(forName: sourceModule.name)
+                settings[.TARGET_NAME] = sourceModule.name + targetSuffix.uniqueDescription(forName: sourceModule.name)
 
                 // Redirect the built executable into a separate directory so it won't conflict with the real one.
                 settings[.TARGET_BUILD_DIR] = "$(TARGET_BUILD_DIR)/ExecutableModules"
@@ -729,6 +730,8 @@ extension PackagePIFProjectBuilder {
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
 
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -760,18 +763,25 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        // Set the imparted settings, which are ones that clients (both direct and indirect ones) use.
-        var debugImpartedSettings = impartedSettings
-        debugImpartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
-            ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"] +
-            (debugImpartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
+        // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
+        // For instance, given targets A, B, C with the following dependency graph:
+        //
+        //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
+        //
+        // An imparted build setting on C will propagate back to both B and A.
+        impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
+            ["$(RPATH_ORIGIN)"] +
+            (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])
+
+        var impartedDebugSettings = impartedSettings
+        impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS]! += ["$(BUILT_PRODUCTS_DIR)/PackageFrameworks"]
 
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Debug",
                 settings: debugSettings,
-                impartedBuildSettings: debugImpartedSettings
+                impartedBuildSettings: impartedDebugSettings
             )
         }
         self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in

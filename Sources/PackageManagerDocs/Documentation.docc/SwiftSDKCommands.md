@@ -4,6 +4,7 @@ Perform operations on Swift SDKs.
 
 @Metadata {
     @PageImage(purpose: icon, source: command-icon)
+    @Available("Swift", introduced: "6.1")
 }
 
 ## Overview
@@ -28,6 +29,6 @@ Overview of package manager commands here...
 
 ### Deprecated Commands
 - <doc:SDKConfigurationSet>
-- <doc:SDKConfigurationReset>
 - <doc:SDKConfigurationShow>
+- <doc:SDKConfigurationReset>
 

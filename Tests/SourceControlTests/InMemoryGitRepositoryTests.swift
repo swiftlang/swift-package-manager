@@ -74,7 +74,7 @@ struct InMemoryGitRepositoryTests {
     }
 
     @Test
-    func provider() throws {
+    func provider() async throws {
         let v1 = "1.0.0"
         let v2 = "2.0.0"
         let repo = InMemoryGitRepository(path: .root, fs: InMemoryFileSystem())
@@ -93,7 +93,7 @@ struct InMemoryGitRepositoryTests {
         provider.add(specifier: specifier, repository: repo)
 
         let fooRepoPath = AbsolutePath("/fooRepo")
-        try provider.fetch(repository: specifier, to: fooRepoPath)
+        try await provider.fetch(repository: specifier, to: fooRepoPath)
         let fooRepo = try provider.open(repository: specifier, at: fooRepoPath)
 
         // Adding a new tag in original repo shouldn't show up in fetched repo.
@@ -103,9 +103,9 @@ struct InMemoryGitRepositoryTests {
 
         let fooCheckoutPath = AbsolutePath("/fooCheckout")
         #expect(!(try provider.workingCopyExists(at: fooCheckoutPath)))
-        _ = try provider.createWorkingCopy(repository: specifier, sourcePath: fooRepoPath, at: fooCheckoutPath, editable: false)
+        _ = try await provider.createWorkingCopy(repository: specifier, sourcePath: fooRepoPath, at: fooCheckoutPath, editable: false)
         #expect(try provider.workingCopyExists(at: fooCheckoutPath))
-        let fooCheckout = try provider.openWorkingCopy(at: fooCheckoutPath)
+        let fooCheckout = try await provider.openWorkingCopy(at: fooCheckoutPath)
 
         #expect(try fooCheckout.getTags().sorted() == [v1, v2])
         #expect(fooCheckout.exists(revision: try fooCheckout.getCurrentRevision()))

@@ -25,14 +25,12 @@ extension BuildParameters {
             enableParseableModuleInterfaces: Bool = false,
             explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
             useIntegratedSwiftDriver: Bool = false,
-            useExplicitModuleBuild: Bool = false,
             isPackageAccessModifierSupported: Bool = false
         ) {
             self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
             self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
             self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
             self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
-            self.useExplicitModuleBuild = useExplicitModuleBuild
             self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         }
 
@@ -50,9 +48,6 @@ extension BuildParameters {
         /// Whether to use the integrated Swift Driver rather than shelling out
         /// to a separate process.
         public var useIntegratedSwiftDriver: Bool
-
-        /// Whether to use the explicit module build flow (with the integrated driver).
-        public var useExplicitModuleBuild: Bool
 
         /// Whether the version of Swift Driver used in the currently selected toolchain
         /// supports `-package-name` options.

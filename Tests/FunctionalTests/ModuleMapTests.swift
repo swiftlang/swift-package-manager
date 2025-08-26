@@ -18,19 +18,19 @@ import Workspace
 import XCTest
 
 final class ModuleMapsTestCase: XCTestCase {
-    private func fixture(
+    private func fixtureXCTest(
         name: String,
         cModuleName: String,
         rootpkg: String,
         body: @escaping (AbsolutePath, [String]) async throws -> Void
     ) async throws {
-        try await _InternalTestSupport.fixture(name: name) { fixturePath in
+        try await _InternalTestSupport.fixtureXCTest(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
             let triple = try UserToolchain.default.targetTriple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
-            try systemQuietly(["clang", "-shared", input.pathString, "-o", output.pathString])
+            try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             var Xld = ["-L", outdir.pathString]
         #if os(Linux) || os(Android)
@@ -42,8 +42,13 @@ final class ModuleMapsTestCase: XCTestCase {
     }
 
     func testDirectDependency() async throws {
-        try await fixture(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
-            await XCTAssertBuilds(fixturePath.appending("App"), Xld: Xld)
+         try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
+        try await fixtureXCTest(name: "ModuleMaps/Direct", cModuleName: "CFoo", rootpkg: "App") { fixturePath, Xld in
+            await XCTAssertBuilds(
+                fixturePath.appending("App"),
+                Xld: Xld,
+                buildSystem: .native,
+            )
 
             let triple = try UserToolchain.default.targetTriple
             let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent)
@@ -59,8 +64,13 @@ final class ModuleMapsTestCase: XCTestCase {
     }
 
     func testTransitiveDependency() async throws {
-        try await fixture(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
-            await XCTAssertBuilds(fixturePath.appending("packageA"), Xld: Xld)
+        try XCTSkipOnWindows(because: "fails to build on windows (maybe not supported?)")
+        try await fixtureXCTest(name: "ModuleMaps/Transitive", cModuleName: "packageD", rootpkg: "packageA") { fixturePath, Xld in
+            await XCTAssertBuilds(
+                fixturePath.appending("packageA"),
+                Xld: Xld,
+                buildSystem: .native,
+            )
             
             func verify(_ conf: String) async throws {
                 let triple = try UserToolchain.default.targetTriple

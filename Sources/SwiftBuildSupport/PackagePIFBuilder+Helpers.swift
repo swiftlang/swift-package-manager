@@ -55,12 +55,6 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
-// TODO: Move this back to `PackagePIFBuilder` once we get rid of `#if canImport(SwiftBuild)`.
-func targetName(forProductName name: String, suffix: String? = nil) -> String {
-    let suffix = suffix ?? ""
-    return "\(name)\(suffix)-product"
-}
-
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -74,7 +68,7 @@ enum TargetSuffix: String {
 }
 
 extension TargetSuffix? {
-    func description(forName name: String) -> String {
+    func uniqueDescription(forName name: String) -> String {
         switch self {
         case .some(let suffix):
             "-\(String(name.hash, radix: 16, uppercase: true))-\(suffix.rawValue)"
@@ -132,7 +126,7 @@ extension PackagePIFBuilder {
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
     static func targetGUID(forModuleName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.description(forName: name)
+        let suffixDescription = suffix.uniqueDescription(forName: name)
         return "PACKAGE-TARGET:\(name)\(suffixDescription)"
     }
 
@@ -141,15 +135,17 @@ extension PackagePIFBuilder {
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
     static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.description(forName: name)
+        let suffixDescription = suffix.uniqueDescription(forName: name)
         return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
     }
     
     /// Helper function to consistently generate a target name string for a product in a package.
-    /// This format helps make sure that targets and products with the same name (as they often have) have different
-    /// target names in the PIF.
+    ///
+    /// This format helps make sure that modules and products with the same name (as they often have)
+    /// have different target names in the PIF.
     static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
-        return SwiftBuildSupport.targetName(forProductName: name, suffix: suffix?.rawValue)
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)-product"
     }
 }
 
@@ -897,11 +893,14 @@ extension ProjectModel.BuildSettings {
                 // Appending implies the setting is resilient to having ["$(inherited)"]
                 self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
 
-            case .SWIFT_VERSION:
+            case .SWIFT_VERSION, .DYLIB_INSTALL_NAME_BASE:
                 self.platformSpecificSettings[platform]![setting] = values // We are not resilient to $(inherited).
 
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
+            // Allow staging in new cases
+            default:
+                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
             }
         } else {
             switch setting {
@@ -919,8 +918,14 @@ extension ProjectModel.BuildSettings {
             case .SWIFT_VERSION:
                 self[.SWIFT_VERSION] = values.only.unwrap(orAssert: "Invalid values for 'SWIFT_VERSION': \(values)")
 
+            case .DYLIB_INSTALL_NAME_BASE:
+                self[.DYLIB_INSTALL_NAME_BASE] = values.only.unwrap(orAssert: "Invalid values for 'DYLIB_INSTALL_NAME_BASE': \(values)")
+
             case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
                 fatalError("Unexpected BuildSettings.Declaration: \(setting)")
+            // Allow staging in new cases
+            default:
+                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
             }
         }
     }
@@ -947,8 +952,11 @@ extension ProjectModel.BuildSettings.MultipleValueSetting {
             self = .SPECIALIZATION_SDK_OPTIONS
         case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
             self = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
-        case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SWIFT_VERSION:
+        case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SWIFT_VERSION, .DYLIB_INSTALL_NAME_BASE:
             return nil
+        // Allow staging in new cases
+        default:
+            fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
         }
     }
 }
@@ -968,6 +976,7 @@ extension ProjectModel.BuildSettings.Platform {
         case .windows: .windows
         case .wasi: .wasi
         case .openbsd: .openbsd
+        case .freebsd: .freebsd
         default: preconditionFailure("Unexpected platform: \(platform.name)")
         }
     }

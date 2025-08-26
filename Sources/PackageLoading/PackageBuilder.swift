@@ -290,17 +290,33 @@ public struct PrebuiltLibrary {
     /// The path to the extracted prebuilt artifacts
     public let path: AbsolutePath
 
+    /// The path to the checked out source
+    public let checkoutPath: AbsolutePath?
+
     /// The products in the library
     public let products: [String]
+
+    /// The include path relative to the checkouts dir
+    public let includePath: [RelativePath]?
 
     /// The C modules that need their includes directory added to the include path
     public let cModules: [String]
 
-    public init(identity: PackageIdentity, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
+    public init(
+        identity: PackageIdentity,
+        libraryName: String,
+        path: AbsolutePath,
+        checkoutPath: AbsolutePath?,
+        products: [String],
+        includePath: [RelativePath]? = nil,
+        cModules: [String] = []
+    ) {
         self.identity = identity
         self.libraryName = libraryName
         self.path = path
+        self.checkoutPath = checkoutPath
         self.products = products
+        self.includePath = includePath
         self.cModules = cModules
     }
 }
@@ -1063,7 +1079,9 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1108,7 +1126,9 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         }
     }
@@ -1268,6 +1288,96 @@ public final class PackageBuilder {
 
                 values = [version.rawValue]
 
+            case .treatAllWarnings(let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatAllWarnings")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-warnings-as-errors"
+                    case .warning: "-no-warnings-as-errors"
+                    }
+                    values = [flag]
+                }
+
+            case .treatWarning(let name, let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatWarning")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wwarning"
+                    }
+                    values = [flag, name]
+                }
+
+            case .enableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-W\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-W\(name)"]
+                case .swift, .linker:
+                    throw InternalError("enableWarning is supported by C/C++")
+                }
+
+            case .disableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-Wno-\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-Wno-\(name)"]
+                case .swift, .linker:
+                    throw InternalError("disableWarning is supported by C/C++")
+                }
+
             case .defaultIsolation(let isolation):
                 switch setting.tool {
                 case .c, .cxx, .linker:
@@ -1318,8 +1428,14 @@ public final class PackageBuilder {
                 table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
 
                 var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-                for cModule in prebuilt.cModules {
-                    includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                    for includeDir in includePath {
+                        includeDirs.append(checkoutPath.appending(includeDir))
+                    }
+                } else {
+                    for cModule in prebuilt.cModules {
+                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                    }
                 }
                 var includeAssignment = BuildSettings.Assignment()
                 includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
@@ -1881,7 +1997,8 @@ extension PackageBuilder {
                     packageAccess: false,
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
-                    usesUnsafeFlags: false
+                    usesUnsafeFlags: false,
+                    implicit: true
                 )
             }
     }

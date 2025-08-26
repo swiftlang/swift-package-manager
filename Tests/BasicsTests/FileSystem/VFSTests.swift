@@ -17,8 +17,6 @@ import Testing
 
 import struct TSCBasic.ByteString
 
-import _InternalTestSupport // for XCTSkipOnWindows
-
 func testWithTemporaryDirectory(
     function: StaticString = #function,
     body: @escaping (AbsolutePath) async throws -> Void

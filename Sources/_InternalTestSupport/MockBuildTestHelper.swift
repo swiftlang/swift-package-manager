@@ -23,7 +23,7 @@ import XCTest
 public struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)
     public let librarianPath = AbsolutePath("/fake/path/to/link.exe")
-    #elseif os(iOS) || os(macOS) || os(tvOS) || os(watchOS)
+    #elseif canImport(Darwin)
     public let librarianPath = AbsolutePath("/fake/path/to/libtool")
     #else
     public let librarianPath = AbsolutePath("/fake/path/to/llvm-ar")
@@ -31,6 +31,7 @@ public struct MockToolchain: PackageModel.Toolchain {
     public let swiftCompilerPath = AbsolutePath("/fake/path/to/swiftc")
     public let includeSearchPaths = [AbsolutePath]()
     public let librarySearchPaths = [AbsolutePath]()
+    public let runtimeLibraryPaths: [AbsolutePath] = [AbsolutePath]()
     public let swiftResourcesPath: AbsolutePath?
     public let swiftStaticResourcesPath: AbsolutePath? = nil
     public let sdkRootPath: AbsolutePath? = nil
@@ -88,7 +89,6 @@ public func mockBuildParameters(
     canRenameEntrypointFunctionName: Bool = false,
     triple: Basics.Triple = hostTriple,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
-    useExplicitModuleBuild: Bool = false,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
@@ -113,7 +113,6 @@ public func mockBuildParameters(
         ),
         driverParameters: .init(
             canRenameEntrypointFunctionName: canRenameEntrypointFunctionName,
-            useExplicitModuleBuild: useExplicitModuleBuild
         ),
         linkingParameters: .init(
             linkerDeadStrip: linkerDeadStrip,

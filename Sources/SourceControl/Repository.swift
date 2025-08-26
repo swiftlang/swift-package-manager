@@ -79,7 +79,7 @@ extension RepositorySpecifier: CustomStringConvertible {
 /// This protocol defines the lower level interface used to to access
 /// repositories. High-level clients should access repositories via a
 /// `RepositoryManager`.
-public protocol RepositoryProvider: Cancellable {
+public protocol RepositoryProvider: Cancellable, Sendable {
     /// Fetch the complete repository at the given location to `path`.
     ///
     /// - Parameters:
@@ -87,7 +87,7 @@ public protocol RepositoryProvider: Cancellable {
     ///   - path: The destination path for the fetch.
     ///   - progress: Reports the progress of the current fetch operation.
     /// - Throws: If there is any error fetching the repository.
-    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) throws
+    func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler?) async throws
 
     /// Open the given repository.
     ///
@@ -98,7 +98,7 @@ public protocol RepositoryProvider: Cancellable {
     ///     repository has previously been created via `fetch`.
     ///
     /// - Throws: If the repository is unable to be opened.
-    func open(repository: RepositorySpecifier, at path: AbsolutePath) throws -> Repository
+    func open(repository: RepositorySpecifier, at path: AbsolutePath) async throws -> Repository
 
     /// Create a working copy from a managed repository.
     ///
@@ -121,7 +121,7 @@ public protocol RepositoryProvider: Cancellable {
         repository: RepositorySpecifier,
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
-        editable: Bool) throws -> WorkingCheckout
+        editable: Bool) async throws -> WorkingCheckout
 
     /// Returns true if a working repository exists at `path`
     func workingCopyExists(at path: AbsolutePath) throws -> Bool
@@ -131,7 +131,7 @@ public protocol RepositoryProvider: Cancellable {
     /// - Parameters:
     ///   - path: The location of the repository on disk, at which the repository
     ///     has previously been created via `copyToWorkingDirectory`.
-    func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout
+    func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout
 
     /// Copies the repository at path `from` to path `to`.
     /// - Parameters:
@@ -164,7 +164,7 @@ public protocol RepositoryProvider: Cancellable {
 /// documented. The behavior when this assumption is violated is undefined,
 /// although the expectation is that implementations should throw or crash when
 /// an inconsistency can be detected.
-public protocol Repository {
+public protocol Repository: Sendable {
     /// Get the list of tags in the repository.
     func getTags() throws -> [String]
 
@@ -276,7 +276,7 @@ public protocol WorkingCheckout {
 }
 
 /// A single repository revision.
-public struct Revision: Hashable {
+public struct Revision: Hashable, Sendable {
     /// A precise identifier for a single repository revision, in a repository-specified manner.
     ///
     /// This string is intended to be opaque to the client, but understandable
@@ -289,7 +289,7 @@ public struct Revision: Hashable {
     }
 }
 
-public protocol FetchProgress {
+public protocol FetchProgress: Sendable {
     typealias Handler = (FetchProgress) -> Void
 
     var message: String { get }

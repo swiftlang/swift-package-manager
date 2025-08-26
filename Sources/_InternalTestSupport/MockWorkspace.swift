@@ -21,8 +21,15 @@ import Workspace
 import XCTest
 
 import struct TSCUtility.Version
+import enum TSCBasic.JSON
 
 extension UserToolchain {
+    package static var mockTargetInfo: JSON {
+        JSON.dictionary([
+            "compilerVersion": .string("Apple Swift version 6.2-dev (LLVM 815013bbc318474, Swift 1459ecafa998782)")
+        ])
+    }
+
     package static func mockHostToolchain(
         _ fileSystem: InMemoryFileSystem,
         hostTriple: Triple = hostTriple
@@ -42,6 +49,7 @@ extension UserToolchain {
                 ),
                 useXcrun: true
             ),
+            customTargetInfo: Self.mockTargetInfo,
             fileSystem: fileSystem
         )
     }
@@ -95,6 +103,7 @@ public final class MockWorkspace {
         .SourceControlToRegistryDependencyTransformation
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
+    public var enabledTraitsMap: EnabledTraitsMap
     public let pruneDependencies: Bool
 
     public init(
@@ -117,7 +126,8 @@ public final class MockWorkspace {
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
-        pruneDependencies: Bool = false
+        pruneDependencies: Bool = false,
+        enabledTraitsMap: EnabledTraitsMap = .init()
     ) async throws {
         try fileSystem.createMockToolchain()
 
@@ -156,6 +166,7 @@ public final class MockWorkspace {
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
+        self.enabledTraitsMap = enabledTraitsMap
         try await self.create()
     }
 
@@ -208,17 +219,11 @@ public final class MockWorkspace {
                         identity: PackageIdentity(url: url),
                         kind: .remoteSourceControl(url)
                     )
-                    let container = try await withCheckedThrowingContinuation { continuation in
-                        containerProvider.getContainer(
-                            for: packageRef,
-                            updateStrategy: .never,
-                            observabilityScope: observability.topScope,
-                            on: .sharedConcurrent,
-                            completion: {
-                                continuation.resume(with: $0)
-                            }
-                        )
-                    }
+                    let container = try await containerProvider.getContainer(
+                        for: packageRef,
+                        updateStrategy: .never,
+                        observabilityScope: observability.topScope
+                    )
                     guard let customContainer = container as? CustomPackageContainer else {
                         throw StringError("invalid custom container: \(container)")
                     }
@@ -321,7 +326,7 @@ public final class MockWorkspace {
                     displayName: package.name,
                     path: packagePath,
                     packageKind: packageKind,
-                    packageIdentity: .plain(package.name),
+                    packageIdentity: .plain(package.name.lowercased()),
                     packageLocation: packageLocation,
                     platforms: package.platforms,
                     version: v,
@@ -686,7 +691,8 @@ public final class MockWorkspace {
         let root = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
 
         let dependencyManifests = try await workspace.loadDependencyManifests(
@@ -953,7 +959,8 @@ public final class MockWorkspace {
         let graphRoot = try PackageGraphRoot(
             input: rootInput,
             manifests: rootManifests,
-            observabilityScope: observability.topScope
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: workspace.enabledTraitsMap
         )
         let manifests = try await workspace.loadDependencyManifests(
             root: graphRoot,
@@ -1198,11 +1205,12 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         // noop
     }
 
-    public func willDownloadPrebuilt(from url: String, fromCache: Bool) {
+    public func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         self.append("downloading package prebuilt: \(url)")
     }
 
     public func didDownloadPrebuilt(
+        package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
         duration: DispatchTimeInterval
@@ -1210,7 +1218,7 @@ public final class MockWorkspaceDelegate: WorkspaceDelegate {
         self.append("finished downloading package prebuilt: \(url)")
     }
 
-    public func downloadingPrebuilt(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    public func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
         // noop
     }
 

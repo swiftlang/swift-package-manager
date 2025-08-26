@@ -145,7 +145,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we write contents to the file
             // THEn we expect an error to occus
-            try withKnownIssue {
+            withKnownIssue {
                 try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
             }
 
@@ -165,7 +165,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we write contents to the file
             // THEN we expect an error to occur
-            try withKnownIssue {
+            withKnownIssue {
                 try fs.writeFileContents(pathUnderTest, bytes: expectedContents)
             }
 
@@ -201,7 +201,7 @@ struct InMemoryFileSystemTests {
 
             // WHEN we read a non-existing file
             // THEN an error occurs
-            try withKnownIssue {
+            withKnownIssue {
                 let _ = try fs.readFileContents("/file/does/not/exists")
             }
         }
