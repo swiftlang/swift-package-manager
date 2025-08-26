@@ -31,9 +31,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
             Unset.self,
             Login.self,
             Logout.self,
-            Publish.self,
-            Get.self,
-            Discover.self
+            Publish.self
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
@@ -143,8 +141,6 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         case unknownCredentialStore
         case invalidCredentialStore(Error)
         case credentialLengthLimitExceeded(Int)
-        case noPackageVersion(PackageIdentity)
-        case invalidLookupURL(SourceControlURL)
     }
 
     static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Registries {
@@ -203,10 +199,6 @@ extension PackageRegistryCommand.ValidationError: CustomStringConvertible {
             return "credential store is invalid: \(error.interpolationDescription)"
         case .credentialLengthLimitExceeded(let limit):
             return "password or access token must be \(limit) characters or less"
-        case .noPackageVersion(let identity):
-            return "no package version found for '\(identity)'"
-        case .invalidLookupURL(let url):
-            return "no package identifier was found in URL: \(url)"
         }
     }
 }

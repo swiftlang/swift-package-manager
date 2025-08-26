@@ -19,13 +19,13 @@ Now you can go to an empty directory and use an example template to make a packa
 There's also a template maker that will help you to write your own template. Here's how you can generate your own template:
 
 ```
-<path_to_swiftpm_dir>/.build/debug/swift-package init --template TemplateMaker --template-type git --template-url git@github.pie.apple.com:christie-mcgee/template.git
+<path_to_swiftpm_dir>/.build/debug/swift-package init --type TemplateMaker --template-type git --template-url git@github.pie.apple.com:christie-mcgee/template.git
 ```
 
 Once you've customized your template then you can test it from an empty directory:
 
 ```
-<path_to_swiftpm_dir>/.build/debug/swift-package init --template MyTemplate --template-type local --template-path <path_to_your_template_pkg>
+<path_to_swiftpm_dir>/.build/debug/swift-package init --type MyTemplate --template-type local --template-path <path_to_your_template_pkg>
 ```
 
 ## About SwiftPM

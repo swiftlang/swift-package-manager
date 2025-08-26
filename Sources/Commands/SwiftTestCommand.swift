@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import ArgumentParserToolInfo
 
 @_spi(SwiftPMInternal)
 import Basics

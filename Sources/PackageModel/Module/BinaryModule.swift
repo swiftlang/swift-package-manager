@@ -50,11 +50,8 @@ public final class BinaryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-<<<<<<< HEAD
-            implicit: false
-=======
-            template: false // TODO: determine whether binary modules can be templates or not
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
+            implicit: false,
+            template: false
         )
     }
 

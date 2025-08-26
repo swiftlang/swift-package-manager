@@ -154,8 +154,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         )
     }
 
-
-
     private func clone(
         _ repository: RepositorySpecifier,
         _ origin: String,
@@ -234,10 +232,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     ) throws -> WorkingCheckout {
 
         if editable {
-            // For editable clones, i.e. the user is expected to directly work on them, first we create
-            // a clone from our cache of repositories and then we replace the remote to the one originally
-            // present in the bare repository.
-
             try self.clone(
                 repository,
                 sourcePath.pathString,
@@ -254,15 +248,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
             try clone.fetch()
         } else {
-            // Clone using a shared object store with the canonical copy.
-            //
-            // We currently expect using shared storage here to be safe because we
-            // only ever expect to attempt to use the working copy to materialize a
-            // revision we selected in response to dependency resolution, and if we
-            // re-resolve such that the objects in this repository changed, we would
-            // only ever expect to get back a revision that remains present in the
-            // object storage.
-
             try self.clone(
                 repository,
                 sourcePath.pathString,

@@ -2157,7 +2157,7 @@ extension RegistryClient {
                     licenseURL: String? = nil,
                     readmeURL: String? = nil,
                     repositoryURLs: [String]? = nil,
-                    originalPublicationTime: Date? = nil,
+                    originalPublicationTime: Date? = nil
                 ) {
                     self.author = author
                     self.description = description

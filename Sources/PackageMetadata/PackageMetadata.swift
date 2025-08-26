@@ -24,20 +24,6 @@ import struct Foundation.URL
 import struct TSCUtility.Version
 
 public struct Package {
-
-    public struct Template: Sendable {
-        public let name: String
-        public let description: String?
-        //public let permissions: [String]? TODO ADD
-        public let arguments: [TemplateArguments]?
-    }
-
-    public struct TemplateArguments: Sendable {
-        public let name: String
-        public let description: String?
-        public let isRequired: Bool?
-    }
-
     public enum Source {
         case indexAndCollections(collections: [PackageCollectionsModel.CollectionIdentifier], indexes: [URL])
         case registry(url: URL)
@@ -103,7 +89,7 @@ public struct Package {
         publishedAt: Date? = nil,
         signingEntity: SigningEntity? = nil,
         latestVersion: Version? = nil,
-        source: Source,
+        source: Source
     ) {
         self.identity = identity
         self.location = location

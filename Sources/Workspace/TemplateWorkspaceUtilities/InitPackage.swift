@@ -56,6 +56,7 @@ public final class InitPackage {
         case buildToolPlugin = "build-tool-plugin"
         case commandPlugin = "command-plugin"
         case macro = "macro"
+
         public var description: String {
             return rawValue
         }

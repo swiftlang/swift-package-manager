@@ -23,10 +23,6 @@ public struct SourceControlURL: Codable, Equatable, Hashable, Sendable {
         self.urlString = urlString
     }
 
-    public init(argument: String) {
-        self.urlString = argument
-    }
-
     public init(_ url: URL) {
         self.urlString = url.absoluteString
     }
