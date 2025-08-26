@@ -638,33 +638,28 @@ class PackageCommandTestCase: CommandsBuildProviderTestCase {
         }
     }
 
-    func testShowTemplates() async throws { //john-to-revisit
+    func testShowTemplates() async throws {
 
         try await fixture(name: "Miscellaneous/ShowTemplates") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             let (textOutput, _) = try await self.execute(["show-templates", "--format=flatlist"], packagePath: packageRoot)
-            XCTAssert(textOutput.contains("GenerateStuff\n"))
-            XCTAssert(textOutput.contains("GenerateThings\n"))
+            XCTAssert(textOutput.contains("GenerateFromTemplate"))
+
 
             let (jsonOutput, _) = try await self.execute(["show-templates", "--format=json"], packagePath: packageRoot)
             let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
             guard case let .array(contents) = json else { XCTFail("unexpected result"); return }
 
-            XCTAssertEqual(2, contents.count)
+            XCTAssertEqual(1, contents.count)
 
             guard case let first = contents.first else { XCTFail("unexpected result"); return }
-            guard case let .dictionary(generateStuff) = first else { XCTFail("unexpected result"); return }
-            guard case let .string(generateStuffName)? = generateStuff["name"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(generateStuffName, "GenerateThings")
-            if case let .string(package)? = generateStuff["package"] {
+            guard case let .dictionary(generateFromTemplate) = first else { XCTFail("unexpected result"); return }
+            guard case let .string(generateFromTemplateName)? = generateFromTemplate["name"] else { XCTFail("unexpected result"); return }
+            XCTAssertEqual(generateFromTemplateName, "GenerateFromTemplate")
+            if case let .string(package)? = generateFromTemplate["package"] {
                 XCTFail("unexpected package for dealer (should be unset): \(package)")
                 return
             }
-
-            guard case let last = contents.last else { XCTFail("unexpected result"); return }
-            guard case let .dictionary(generateThings) = last else { XCTFail("unexpected result"); return }
-            guard case let .string(generateThingsName)? = generateThings["name"] else { XCTFail("unexpected result"); return }
-            XCTAssertEqual(generateThingsName, "GenerateStuff")
         }
     }
 
