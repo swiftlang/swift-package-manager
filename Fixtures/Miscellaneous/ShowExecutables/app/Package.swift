@@ -8,7 +8,7 @@ let package = Package(
             name: "dealer",
             targets: ["dealer"]
         ),
-    ],
+    ] + .template(name: "TemplateExample"),
     dependencies: [
         .package(path: "../deck-of-playing-cards"),
     ],

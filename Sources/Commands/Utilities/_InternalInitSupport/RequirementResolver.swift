@@ -18,7 +18,7 @@ import TSCUtility
 /// based on versioning input (e.g., version, branch, or revision).
 protocol DependencyRequirementResolving {
     func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement
-    func resolveRegistry() throws -> PackageDependency.Registry.Requirement
+    func resolveRegistry() throws -> PackageDependency.Registry.Requirement?
 }
 
 
@@ -58,7 +58,9 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
     /// `upToNextMinorFrom`.
     func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement {
+
         var specifiedRequirements: [PackageDependency.SourceControl.Requirement] = []
+
         if let v = exact { specifiedRequirements.append(.exact(v)) }
         if let b = branch { specifiedRequirements.append(.branch(b)) }
         if let r = revision { specifiedRequirements.append(.revision(r)) }
@@ -73,10 +75,16 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
             throw DependencyRequirementError.multipleRequirementsSpecified
         }
 
-        if case .range(let range) = specifiedRequirements, let upper = to {
-            return .range(range.lowerBound ..< upper)
-        } else if self.to != nil {
-            throw DependencyRequirementError.invalidToParameterWithoutFrom
+        if case .range(let range) = specifiedRequirements {
+            if let to {
+                return .range(range.lowerBound ..< to)
+            } else {
+                return .range(range)
+            }
+        } else {
+            if self.to != nil {
+                throw DependencyRequirementError.invalidToParameterWithoutFrom
+            }
         }
 
         return specifiedRequirements
@@ -87,7 +95,10 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.Registry.Requirement`.
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
-    func resolveRegistry() throws -> PackageDependency.Registry.Requirement {
+    func resolveRegistry() throws -> PackageDependency.Registry.Requirement? {
+        if exact == nil, from == nil, upToNextMinorFrom == nil, to == nil {
+            return nil
+        }
 
         var specifiedRequirements: [PackageDependency.Registry.Requirement] = []
 
@@ -103,10 +114,16 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
             throw DependencyRequirementError.multipleRequirementsSpecified
         }
 
-        if case .range(let range) = specifiedRequirements, let upper = to {
-            return .range(range.lowerBound ..< upper)
-        } else if self.to != nil {
-            throw DependencyRequirementError.invalidToParameterWithoutFrom
+        if case .range(let range) = specifiedRequirements {
+            if let to {
+                return .range(range.lowerBound ..< to)
+            } else {
+                return .range(range)
+            }
+        } else {
+            if self.to != nil {
+                throw DependencyRequirementError.invalidToParameterWithoutFrom
+            }
         }
 
         return specifiedRequirements
@@ -129,9 +146,9 @@ enum DependencyRequirementError: Error, CustomStringConvertible {
     var description: String {
         switch self {
         case .multipleRequirementsSpecified:
-            return "Specify exactly one source control version requirement."
+            return "Specify exactly version requirement."
         case .noRequirementSpecified:
-            return "No source control version requirement specified."
+            return "No exact or lower bound version requirement specified."
         case .invalidToParameterWithoutFrom:
             return "--to requires --from or --up-to-next-minor-from"
         }
