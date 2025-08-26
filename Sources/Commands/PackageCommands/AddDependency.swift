@@ -255,7 +255,7 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let editResult = try AddPackageDependency.manifestRefactor(
+            let editResult = try AddPackageDependency.textRefactor(
                 syntax: manifestSyntax,
                 in: .init(dependency: packageDependency)
             )
