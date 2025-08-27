@@ -141,6 +141,7 @@ def set_environment(
     swiftpm_bin_dir: pathlib.Path,
 ) -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
+    os.environ["SWIFTCI_USE_LOCAL_DEPS"] = "1"
 
     # Ensure SDKROOT is configure
     if is_on_darwin():
