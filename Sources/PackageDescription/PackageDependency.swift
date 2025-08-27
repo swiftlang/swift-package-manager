@@ -201,9 +201,9 @@ extension Package {
 // MARK: - file system
 
 extension Package.Dependency {
-    /// Adds a dependency to a package located at the path you provide.
+    /// Adds a local dependency to a package located at the path you provide.
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
@@ -219,7 +219,7 @@ extension Package.Dependency {
         return .init(name: nil, path: path, traits: nil)
     }
 
-    /// Adds a dependency to a package located at the path and with an optional set of traits you provide.
+    /// Adds a local dependency to a package located at the path and with an optional set of traits you provide.
     ///
     /// The Swift Package Manager uses the package dependency as-is
     /// and does not perform any source control access. Local package dependencies
@@ -238,9 +238,9 @@ extension Package.Dependency {
         return .init(name: nil, path: path, traits: traits)
     }
 
-    /// Adds a dependency to a named package located at the path you provide.
+    /// Adds a local dependency to a named package located at the path you provide.
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during
@@ -260,7 +260,7 @@ extension Package.Dependency {
         return .init(name: name, path: path, traits: nil)
     }
 
-    /// Adds a dependency to a named package located at the path and with an optional set of traits you provide.
+    /// Adds a local dependency to a named package located at the path and with an optional set of traits you provide.
     ///
     /// Swift Package Manager uses the package dependency as-is and doesn't perform any source
     /// control access. Local package dependencies are especially useful during
@@ -286,7 +286,7 @@ extension Package.Dependency {
 // MARK: - source control
 
 extension Package.Dependency {
-    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a remote package dependency with a version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -303,7 +303,7 @@ extension Package.Dependency {
     ///.package(url: "https://example.com/example-package.git", from: "1.2.3"),
     ///```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///    - url: The valid Git URL of the package.
@@ -317,7 +317,7 @@ extension Package.Dependency {
         return .package(url: url, .upToNextMajor(from: version))
     }
 
-    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a remote package dependency with a version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -349,7 +349,7 @@ extension Package.Dependency {
         return .package(url: url, .upToNextMajor(from: version), traits: traits)
     }
 
-    /// Adds a package dependency that uses the version requirement, starting
+    /// Adds a remote package dependency with a version requirement, starting
     /// with the given minimum version, going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency. It
@@ -384,13 +384,13 @@ extension Package.Dependency {
         return .package(name: name, url: url, .upToNextMajor(from: version))
     }
 
-    /// Adds a remote package dependency given a branch requirement.
+    /// Adds a remote package dependency with a branch requirement you provide.
     ///
     ///```swift
     /// .package(url: "https://example.com/example-package.git", branch: "main"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
@@ -405,7 +405,7 @@ extension Package.Dependency {
         return .package(url: url, requirement: .branch(branch))
     }
 
-    /// Adds a remote package dependency given a branch requirement.
+    /// Adds a remote package dependency with a branch requirement you provide.
     ///
     ///```swift
     /// .package(url: "https://example.com/example-package.git", branch: "main"),
@@ -426,7 +426,7 @@ extension Package.Dependency {
         return .package(url: url, requirement: .branch(branch), traits: traits)
     }
 
-    /// Adds a remote package dependency given a branch requirement.
+    /// Adds a remote package dependency with a branch requirement you provide.
     ///
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", branch: "main"),
@@ -447,13 +447,13 @@ extension Package.Dependency {
         return .package(name: name, url: url, requirement: .branch(branch))
     }
 
-    /// Adds a remote package dependency given a revision requirement.
+    /// Adds a remote package dependency with a specific revision requirement.
     ///
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
@@ -468,7 +468,7 @@ extension Package.Dependency {
         return .package(url: url, requirement: .revision(revision))
     }
 
-    /// Adds a remote package dependency given a revision requirement.
+    /// Adds a remote package dependency with a specific revision requirement.
     ///
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
@@ -489,7 +489,7 @@ extension Package.Dependency {
         return .package(url: url, requirement: .revision(revision), traits: traits)
     }
 
-    /// Adds a remote package dependency given a revision requirement.
+    /// Adds a remote package dependency with a specific revision requirement.
     ///
     /// ```swift
     /// .package(url: "https://example.com/example-package.git", revision: "aa681bd6c61e22df0fd808044a886fc4a7ed3a65"),
@@ -510,7 +510,7 @@ extension Package.Dependency {
         return .package(name: name, url: url, requirement: .revision(revision))
     }
 
-    /// Adds a package dependency starting with a specific minimum version, up to
+    /// Adds a remote package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -520,7 +520,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
@@ -534,7 +534,7 @@ extension Package.Dependency {
         return .package(name: nil, url: url, requirement: .range(range))
     }
 
-    /// Adds a package dependency starting with a specific minimum version, up to
+    /// Adds a remote package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -559,7 +559,7 @@ extension Package.Dependency {
         return .package(name: nil, url: url, requirement: .range(range), traits: traits)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, up to
+    /// Adds a remote package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -569,7 +569,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..<"1.2.6"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
@@ -586,7 +586,7 @@ extension Package.Dependency {
         return .package(name: name, url: url, requirement: .range(range))
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -596,7 +596,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
@@ -610,7 +610,7 @@ extension Package.Dependency {
         return .package(name: nil, url: url, closedRange: range)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -635,7 +635,7 @@ extension Package.Dependency {
         return .package(name: nil, url: url, closedRange: range, traits: traits)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -659,7 +659,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
@@ -676,7 +676,7 @@ extension Package.Dependency {
         return .package(name: name, url: url, closedRange: range)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -686,7 +686,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", "1.2.3"..."1.2.6"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - name: The name of the package, or `nil` to deduce it from the URL.
@@ -708,7 +708,7 @@ extension Package.Dependency {
         return .package(name: name, url: url, requirement: .range(closedRange.lowerBound ..< upperBound))
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -747,7 +747,7 @@ extension Package.Dependency {
         )
     }
 
-    /// Adds a package dependency that uses the exact version requirement.
+    /// Adds a remote package dependency that uses an exact version requirement.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when other packages depend on this package.
@@ -760,7 +760,7 @@ extension Package.Dependency {
     /// .package(url: "https://example.com/example-package.git", exact: "1.2.3"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - url: The valid Git URL of the package.
@@ -775,7 +775,7 @@ extension Package.Dependency {
         return .package(url: url, requirement: .exact(version))
     }
 
-    /// Adds a package dependency that uses the exact version requirement.
+    /// Adds a remote package dependency that uses an exact version requirement.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when other packages depend on this package.
@@ -860,7 +860,7 @@ extension Package.Dependency {
 // MARK: - registry
 
 extension Package.Dependency {
-    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a remote package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -877,7 +877,7 @@ extension Package.Dependency {
     /// .package(id: "scope.name", from: "1.2.3"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -892,7 +892,7 @@ extension Package.Dependency {
         return .package(id: id, .upToNextMajor(from: version))
     }
 
-    /// Adds a package dependency that uses the version requirement, starting with the given minimum version,
+    /// Adds a remote package dependency that uses the version requirement, starting with the given minimum version,
     /// going up to the next major version.
     ///
     /// This is the recommended way to specify a remote package dependency.
@@ -924,7 +924,7 @@ extension Package.Dependency {
         return .package(id: id, .upToNextMajor(from: version), traits: traits)
     }
 
-    /// Adds a package dependency that uses the exact version requirement.
+    /// Adds a remote package dependency with an exact version requirement.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
@@ -937,7 +937,7 @@ extension Package.Dependency {
     /// .package(id: "scope.name", exact: "1.2.3"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -952,7 +952,7 @@ extension Package.Dependency {
         return .package(id: id, requirement: .exact(version), traits: nil)
     }
 
-    /// Adds a package dependency that uses the exact version requirement.
+    /// Adds a remote package dependency with an exact version requirement.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
@@ -980,7 +980,7 @@ extension Package.Dependency {
         return .package(id: id, requirement: .exact(version), traits: traits)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, up to
+    /// Adds a remote package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -1004,7 +1004,7 @@ extension Package.Dependency {
     /// .package(id: "scope.name", .upToNextMinor(from: "1.0.0"),
     /// ```
     ///
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -1019,7 +1019,7 @@ extension Package.Dependency {
         return .package(id: id, requirement: .range(range), traits: nil)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, up to
+    /// Adds a remote package dependency starting with a specific minimum version, up to
     /// but not including a specified maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -1058,7 +1058,7 @@ extension Package.Dependency {
         return .package(id: id, requirement: .range(range), traits: traits)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
@@ -1068,7 +1068,7 @@ extension Package.Dependency {
     /// .package(id: "scope.name", "1.2.3"..."1.2.6"),
     /// ```
     /// 
-    /// If the dependency defines traits, the package manager uses the dependency with its default set of traits.
+    /// If the package you depend on defines traits, the package manager uses the dependency with its default set of traits.
     ///
     /// - Parameters:
     ///   - id: The identity of the package.
@@ -1089,7 +1089,7 @@ extension Package.Dependency {
         return .package(id: id, range.lowerBound ..< upperBound)
     }
 
-    /// Adds a package dependency starting with a specific minimum version, going
+    /// Adds a remote package dependency starting with a specific minimum version, going
     /// up to and including a specific maximum version.
     ///
     /// The following example allows the Swift Package Manager to pick
