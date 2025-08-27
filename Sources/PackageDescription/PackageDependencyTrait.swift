@@ -24,7 +24,7 @@ extension Package.Dependency {
 
             /// Creates a package dependency trait condition.
             ///
-            /// If any of the traits you provide are enabled on this package, the package manager enables the dependency to which the condition applies.
+            /// If the depending package enables any of the traits you provide, the package manager enables the dependency to which this condition applies.
             ///
             /// - Parameter traits: The set of traits that enable the dependencies trait.
             public static func when(
@@ -37,7 +37,7 @@ extension Package.Dependency {
         /// The name of the enabled trait.
         public var name: String
 
-        /// The condition under which the trait is enabled.
+        /// The condition under which the package manager enables the dependency.
         public var condition: Condition?
 
         /// Creates a new enabled trait.
@@ -53,6 +53,9 @@ extension Package.Dependency {
             self.condition = condition
         }
 
+        /// Creates a new enabled trait.
+        ///
+        /// - Parameter value: The name of the enabled trait.
         public init(stringLiteral value: StringLiteralType) {
             self.init(name: value)
         }
