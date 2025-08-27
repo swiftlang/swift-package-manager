@@ -74,18 +74,21 @@ struct TemplatePathResolver {
         switch source {
         case .local:
             guard let path = templateDirectory else {
+                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingLocalTemplatePath)
                 throw TemplatePathResolverError.missingLocalTemplatePath
             }
             self.fetcher = LocalTemplateFetcher(path: path)
 
         case .git:
             guard let url = templateURL, let requirement = sourceControlRequirement else {
+                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingGitURLOrRequirement)
                 throw TemplatePathResolverError.missingGitURLOrRequirement
             }
-            self.fetcher = GitTemplateFetcher(source: url, requirement: requirement)
+            self.fetcher = GitTemplateFetcher(source: url, requirement: requirement, swiftCommandState: swiftCommandState)
 
         case .registry:
             guard let identity = packageIdentity, let requirement = registryRequirement else {
+                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingRegistryIdentityOrRequirement)
                 throw TemplatePathResolverError.missingRegistryIdentityOrRequirement
             }
             self.fetcher = RegistryTemplateFetcher(
@@ -95,6 +98,7 @@ struct TemplatePathResolver {
             )
 
         case .none:
+            swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingTemplateType)
             throw TemplatePathResolverError.missingTemplateType
         }
     }
@@ -151,12 +155,14 @@ struct LocalTemplateFetcher: TemplateFetcher {
 /// The template is cloned into a temporary directory, checked out, and returned.
 
 struct GitTemplateFetcher: TemplateFetcher {
+
     /// The Git URL of the remote repository.
     let source: String
 
     /// The source control requirement used to determine which version/branch/revision to check out.
     let requirement: PackageDependency.SourceControl.Requirement
 
+    let swiftCommandState: SwiftCommandState
     /// Fetches the repository and returns the path to the checked-out working copy.
     ///
     /// - Returns: A path to the directory containing the fetched template.
@@ -196,14 +202,27 @@ struct GitTemplateFetcher: TemplateFetcher {
         do {
             try provider.fetch(repository: repositorySpecifier, to: path)
         } catch {
+            if isSSHPermissionError(error) {
+                swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.sshAuthenticationRequired(source: source))
+                throw GitTemplateFetcherError.sshAuthenticationRequired(source: source)
+            }
+            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error))
             throw GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error)
         }
+    }
+
+    private func isSSHPermissionError(_ error: Error) -> Bool {
+        let errorString = String(describing: error).lowercased()
+        return errorString.contains("permission denied") &&
+        errorString.contains("publickey") &&
+        source.hasPrefix("git@")
     }
 
     /// Validates that the directory contains a valid Git repository.
     private func validateBareRepository(at path: Basics.AbsolutePath) throws {
         let provider = GitRepositoryProvider()
         guard try provider.isValidDirectory(path) else {
+            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.invalidRepositoryDirectory(path: path))
             throw GitTemplateFetcherError.invalidRepositoryDirectory(path: path)
         }
     }
@@ -223,6 +242,7 @@ struct GitTemplateFetcher: TemplateFetcher {
                 editable: true
             )
         } catch {
+            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.createWorkingCopyFailed(path: workingCopyPath, underlyingError: error))
             throw GitTemplateFetcherError.createWorkingCopyFailed(path: workingCopyPath, underlyingError: error)
         }
     }
@@ -247,6 +267,7 @@ struct GitTemplateFetcher: TemplateFetcher {
             let versions = tags.compactMap { Version($0) }
             let filteredVersions = versions.filter { range.contains($0) }
             guard let latestVersion = filteredVersions.max() else {
+                swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.noMatchingTagInRange(range))
                 throw GitTemplateFetcherError.noMatchingTagInRange(range)
             }
             try repository.checkout(tag: latestVersion.description)
@@ -259,11 +280,12 @@ struct GitTemplateFetcher: TemplateFetcher {
             case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
             case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
             case noMatchingTagInRange(Range<Version>)
+            case sshAuthenticationRequired(source: String)
 
             var errorDescription: String? {
                 switch self {
                 case .cloneFailed(let source, let error):
-                    return "Failed to clone repository from '\(source)': \(error.localizedDescription)"
+                    return "Failed to clone repository from '\(source)': \(error)"
                 case .invalidRepositoryDirectory(let path):
                     return "Invalid Git repository at path: \(path.pathString)"
                 case .createWorkingCopyFailed(let path, let error):
@@ -272,6 +294,8 @@ struct GitTemplateFetcher: TemplateFetcher {
                     return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
                 case .noMatchingTagInRange(let range):
                     return "No Git tags found within version range \(range)"
+                case .sshAuthenticationRequired(let source):
+                    return "SSH authentication required for '\(source)'.\nEnsure SSH agent is running and key is loaded:\n\nhttps://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
                 }
             }
         }
@@ -359,6 +383,7 @@ struct RegistryTemplateFetcher: TemplateFetcher {
                 sharedRegistriesFile: sharedFile
             )
         } catch {
+            swiftCommandState.observabilityScope.emit(RegistryConfigError.failedToLoadConfiguration(file: sharedFile, underlyingError: error))
             throw RegistryConfigError.failedToLoadConfiguration(file: sharedFile, underlyingError: error)
         }
     }
