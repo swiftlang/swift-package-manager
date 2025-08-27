@@ -44,21 +44,21 @@ For more information on resolving package versions, see <doc:ResolvingPackageVer
 ### Constraining dependency versions
 
 Constrain the version of a remote dependency when you declare the dependency.
-The package manager uses git tags, each interpreted as a semantic version, to identify eligible versions of packages.
+The package manager uses git tags, interpreted as a semantic versions, to identify eligible versions of packages.
 
-> Note: tags for package versions should include all three components of a semantic version: major, minor, and patch. 
+> Note: tags for package versions should include all three components of a semantic version: major, minor, and patch.
 > Tags that only include one or two of those components are not interpreted as semantic versions.
 
 Use the version requirement when you declare the dependency to limit what the package manager can choose.
 The version requirement can be a range of possible semantic versions, a specific semantic version, a branch name, or a commit hash.
-The API reference documentation for [Package.Dependency](https://developer.apple.com/documentation/packagedescription/package/dependency) defines the methods to use.   
+The API reference documentation for [Package.Dependency](https://docs.swift.org/swiftpm/documentation/packagedescription/package/dependency) defines the methods to use.
 
 ### Packages with Traits
 
 Traits, introduced with Swift 6.1, allow packages to offer additional API that may include optional dependencies.
-Packages offer traits to provide expanded API beyond the core of a package.
-For example, a package may provide experimental API, optional API that requires additional dependencies, or otherwise default functionality that a developer may want to disable in specific circumstances.
-If a package offers traits, using that package as a dependency without any declared traits uses the default traits defined by the package.
+Packages should offer traits to provide API beyond the core of a package.
+For example, a package may provide an experimental API, optional API that requires additional dependencies, or functionality that a developer may want to disable in specific circumstances.
+If a package offers traits, using that package as a dependency without any declared traits uses the default traits that the package defines.
 In the following example dependency declaration, the package uses the default set of traits from the dependency, if any are defined:
 ```swift
 dependencies: [
@@ -69,7 +69,7 @@ dependencies: [
 
 To determine what traits a package offers, including its defaults, inspect its `Package.swift` manifest.
 
-Adding a trait should only expand the API offered by a package.
+Enabling a trait should only expand the API offered by a package.
 If a package offers default traits, you can choose to not use those traits by declaring an empty set of traits when you declare the dependency.
 The following example dependency declaration uses the dependency with no traits, even if the package normally provides a set of default traits to enable:
 
