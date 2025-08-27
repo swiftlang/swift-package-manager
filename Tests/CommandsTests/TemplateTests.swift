@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+
+@_spi(SwiftPMInternal)
 @testable import CoreCommands
 @testable import Commands
 @testable import PackageModel
@@ -18,6 +20,7 @@ import Basics
 import Foundation
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+
 import PackageGraph
 import TSCUtility
 import PackageLoading
@@ -26,6 +29,7 @@ import SPMBuildCore
 import _InternalTestSupport
 import Workspace
 import Testing
+
 
 import struct TSCBasic.ByteString
 import class TSCBasic.BufferedOutputByteStream
@@ -375,4 +379,111 @@ import class Basics.AsyncProcess
         #expect(tool.fileSystem.exists(stagingPath))
         #expect(tool.fileSystem.exists(cleanupPath))
     }
+
+    @Test func initDirectoryManagerFinalize() async throws {
+
+        try await fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+            let stagingPath = fixturePath.appending("generated-package")
+            let cleanupPath = fixturePath.appending("clean-up")
+            let cwd = fixturePath.appending("cwd")
+
+            let options = try GlobalOptions.parse([])
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            // Build it. TODO: CHANGE THE XCTAsserts build to the swift testing helper function instead
+            await XCTAssertBuilds(stagingPath)
+
+            
+            let stagingBuildPath = stagingPath.appending(".build")
+            let binFile = stagingBuildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "generated-package")
+            #expect(localFileSystem.exists(binFile))
+            #expect(localFileSystem.isDirectory(stagingBuildPath))
+
+
+            try await TemplateInitializationDirectoryManager(
+                fileSystem: tool.fileSystem,
+                observabilityScope: tool.observabilityScope
+            ).finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: tool)
+
+            let cwdBuildPath = cwd.appending(".build")
+            let cwdBinaryFile = cwdBuildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "generated-package")
+
+            // Postcondition checks
+            #expect(localFileSystem.exists(cwd), "cwd should exist after finalize")
+            #expect(localFileSystem.exists(cwdBinaryFile) == false, "Binary should have been cleaned before copying to cwd")
+        }
+    }
+
+    @Test func initPackageInitializer() throws {
+
+        let globalOptions = try GlobalOptions.parse([])
+        let testLibraryOptions = try TestLibraryOptions.parse([])
+        let buildOptions = try BuildCommandOptions.parse([])
+        let directoryPath = AbsolutePath("/")
+        let tool = try SwiftCommandState.makeMockState(options: globalOptions)
+
+
+        let templatePackageInitializer = try PackageInitConfiguration(
+            swiftCommandState: tool,
+            name: "foo",
+            initMode: "template",
+            testLibraryOptions: testLibraryOptions,
+            buildOptions: buildOptions,
+            globalOptions: globalOptions,
+            validatePackage: true,
+            args: ["--foobar foo"],
+            directory: directoryPath,
+            url: nil,
+            packageID: "foo.bar",
+            versionFlags: VersionFlags(exact: nil, revision: nil, branch: "master", from: nil, upToNextMinorFrom: nil ,to: nil)
+        ).makeInitializer()
+
+        #expect(templatePackageInitializer is TemplatePackageInitializer)
+
+
+        let standardPackageInitalizer  = try PackageInitConfiguration(
+            swiftCommandState: tool,
+            name: "foo",
+            initMode: "template",
+            testLibraryOptions: testLibraryOptions,
+            buildOptions: buildOptions,
+            globalOptions: globalOptions,
+            validatePackage: true,
+            args: ["--foobar foo"],
+            directory: nil,
+            url: nil,
+            packageID: nil,
+            versionFlags: VersionFlags(exact: nil, revision: nil, branch: "master", from: nil, upToNextMinorFrom: nil ,to: nil)
+        ).makeInitializer()
+
+        #expect(standardPackageInitalizer is StandardPackageInitializer)
+    }
+
+    //tests:
+    // infer package type
+    // set up the template package
+
+    //TODO: Fix here, as mocking swiftCommandState resolves to linux triple, but if testing on Darwin, runs into precondition error.
+    /*
+    @Test func inferInitialPackageType() async throws {
+
+        try await fixture(name: "Miscellaneous/InferPackageType") { fixturePath in
+
+            let options = try GlobalOptions.parse([])
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+
+            let libraryType = try await TemplatePackageInitializer.inferPackageType(from: fixturePath, templateName: "initialTypeLibrary", swiftCommandState: tool)
+
+            
+            #expect(libraryType.rawValue == "library")
+        }
+
+    }
+     */
 }
+
+
+
+
+
