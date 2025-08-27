@@ -53,7 +53,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
         let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
 
-        let packageType = try await inferPackageType(from: resolvedTemplatePath)
+        let packageType = try await TemplatePackageInitializer.inferPackageType(from: resolvedTemplatePath, templateName: templateName, swiftCommandState: swiftCommandState)
 
         let builder = DefaultPackageDependencyBuilder(
             templateSource: templateSource,
@@ -111,11 +111,8 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
-    private func inferPackageType(from templatePath: Basics.AbsolutePath) async throws -> InitPackage.PackageType {
-        try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { _, _ in
-            let workspace = try swiftCommandState.getActiveWorkspace()
-            let root = try swiftCommandState.getWorkspaceRoot()
-
+    static func inferPackageType(from templatePath: Basics.AbsolutePath, templateName: String?, swiftCommandState: SwiftCommandState) async throws -> InitPackage.PackageType {
+        try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
                 packages: root.packages,
                 observabilityScope: swiftCommandState.observabilityScope
@@ -143,7 +140,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
-    private func findTemplateName(from manifest: Manifest) throws -> String {
+    static func findTemplateName(from manifest: Manifest) throws -> String {
         let templateTargets = manifest.targets.compactMap { target -> String? in
             if let options = target.templateInitializationOptions,
                case .packageInit = options {
