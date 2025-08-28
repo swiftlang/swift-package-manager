@@ -46,6 +46,7 @@ build [--package-path=<package-path>]
   [--build-system=<build-system>] [--=<debug-info-format>]
   [--enable-dead-strip|disable-dead-strip]
   [--disable-local-rpath] [--build-tests]
+  [--enable-coverage|disable-coverage]
   [--enable-code-coverage|disable-code-coverage]
   [--show-bin-path] [--print-manifest-job-graph]
   [--print-pif-manifest-graph] [--target=<target>]
@@ -298,9 +299,14 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 *Build both source and test targets.*
 
 
-- term **--enable-code-coverage|disable-code-coverage**:
+- term **--enable-coverage|disable-coverage**:
 
 *Enable code coverage.*
+
+
+- term **--enable-code-coverage|disable-code-coverage**:
+
+*Enable code coverage. (deprecated. use '--enable-coverage/--disable-coverage' instead)*
 
 
 - term **--show-bin-path**:
