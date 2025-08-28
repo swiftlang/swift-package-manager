@@ -44,7 +44,7 @@ For more information on resolving package versions, see <doc:ResolvingPackageVer
 ### Constraining dependency versions
 
 Constrain the version of a remote dependency when you declare the dependency.
-The package manager uses git tags, interpreted as a semantic versions, to identify eligible versions of packages.
+The package manager uses git tags, interpreted as a semantic version, to identify eligible versions of packages.
 
 > Note: tags for package versions should include all three components of a semantic version: major, minor, and patch.
 > Tags that only include one or two of those components are not interpreted as semantic versions.
