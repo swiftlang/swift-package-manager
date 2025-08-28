@@ -94,6 +94,7 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 disabled
             DEFINE3 disabled
@@ -289,6 +290,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -336,6 +339,8 @@ struct TraitTests {
             Package10Library1 trait2 enabled
             Package10Library1 trait1 enabled
             Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
             DEFINE1 enabled
             DEFINE2 enabled
             DEFINE3 enabled
@@ -362,7 +367,7 @@ struct TraitTests {
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
             guard case .dictionary(let contents) = json else { Issue.record("unexpected result"); return }
             guard case .array(let traits)? = contents["traits"] else { Issue.record("unexpected result"); return }
-            #expect(traits.count == 12)
+            #expect(traits.count == 13)
         }
     }
 
@@ -523,6 +528,77 @@ struct TraitTests {
 
                     """
             #expect(stderr.contains(expectedErr))
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments:
+        SupportedBuildSystemOnAllPlatforms,
+        getTraitCombinations(
+            ("ExtraTrait",
+            """
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            ),
+            ("ExtraTrait,Package10",
+            """
+            Package10Library1 trait1 disabled
+            Package10Library1 trait2 enabled
+            Package10Library2 has been included.
+            Package10Library2 has been included.
+            DEFINE1 disabled
+            DEFINE2 disabled
+            DEFINE3 disabled
+            
+            """
+            )
+        )
+    )
+    func traits_whenManyTraitsEnableTargetDependency(
+        buildSystem: BuildSystemProvider.Kind,
+        traits: TraitArgumentData
+    ) async throws {
+        try await withKnownIssue(
+            """
+            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
+            Windows: https://github.com/swiftlang/swift-build/issues/609
+            """,
+            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+        ) {
+            try await fixture(name: "Traits") { fixturePath in
+                // We expect no warnings to be produced. Specifically no unused dependency warnings.
+                let unusedDependencyRegex = try Regex("warning: '.*': dependency '.*' is not used by any target")
+
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath.appending("Example"),
+                    "Example",
+                    extraArgs: ["--traits", traits.traitsArgument],
+                    buildSystem: buildSystem,
+                )
+                #expect(!stderr.contains(unusedDependencyRegex))
+                #expect(stdout == traits.expectedOutput)
+            }
+        } when: {
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 }
