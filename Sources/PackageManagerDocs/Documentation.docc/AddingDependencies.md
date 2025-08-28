@@ -57,7 +57,7 @@ The API reference documentation for [Package.Dependency](https://docs.swift.org/
 
 Traits, introduced with Swift 6.1, allow packages to offer additional API that may include optional dependencies.
 Packages should offer traits to provide API beyond the core of a package.
-For example, a package may provide an experimental API, optional API that requires additional dependencies, or functionality that a developer may want to disable in specific circumstances.
+For example, a package may provide an experimental API, an optional API that requires additional dependencies, or functionality that a developer may want to disable in specific circumstances.
 If a package offers traits, using that package as a dependency without any declared traits uses the default traits that the package defines.
 In the following example dependency declaration, the package uses the default set of traits from the dependency, if any are defined:
 ```swift
