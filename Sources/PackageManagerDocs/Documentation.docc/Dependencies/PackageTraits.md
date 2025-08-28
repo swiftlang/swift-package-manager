@@ -2,7 +2,7 @@
 
 Define one or more traits to offer default and configurable features for a package.
 
-Prior to Swift packages prior to Swift 6.1 offered a non-configurable API surface for each version.
+Swift packages prior to Swift 6.1 offered a non-configurable API surface for each version.
 With Swift 6.1, packages may offer traits, which express a configurable API surface for a package.
 
 Use traits to enable additional API beyond the core API of the package.
