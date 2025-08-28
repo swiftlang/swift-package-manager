@@ -16308,7 +16308,7 @@ final class WorkspaceTests: XCTestCase {
         let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
         try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -16322,7 +16322,7 @@ final class WorkspaceTests: XCTestCase {
         let dontTellMomAboutThisWorkspace = try await createMockWorkspace(.enabledTraits(["DontTellMom"]))
         try await dontTellMomAboutThisWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -16336,7 +16336,7 @@ final class WorkspaceTests: XCTestCase {
         let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
         try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -16350,7 +16350,7 @@ final class WorkspaceTests: XCTestCase {
         let noSugarForBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
         try await noSugarForBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal")
                 result.check(modules: "Wheat")
