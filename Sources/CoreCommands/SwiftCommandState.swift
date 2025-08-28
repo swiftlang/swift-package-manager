@@ -368,7 +368,7 @@ public final class SwiftCommandState {
     }
 
     // marked internal for testing
-    init(
+    package init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -530,7 +530,7 @@ public final class SwiftCommandState {
         }
     }
 
-    func waitForObservabilityEvents(timeout: DispatchTime) {
+    package func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
     }
 

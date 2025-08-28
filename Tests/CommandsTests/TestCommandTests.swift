@@ -22,7 +22,7 @@ import TSCTestSupport
 import Testing
 
 @Suite(
-    .serialized,  // to limit the number of swift executable running.
+    // .serialized,  // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Test,
@@ -1181,6 +1181,44 @@ struct TestCommandTests {
             }
         } when: {
             buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem)
+        }
+    }
+
+    static let enableDisableCoverageWarningMessage = "warning: The '--enable-code-coverage' and '--disable-code-coverage' options have been deprecated.  Use '--enable-coverage' instead."
+    static let showCoveragePathWarningMessage = "The '--show-code-coverage-path' and '--show-codecov-path' options are deprecated.  Use '--show-coverage-path' instead."
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (argument: "--disable-code-coverage", warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: true,),
+            (argument: "--enable-code-coverage",  warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: true),
+            (argument: "--enable-coverage",  warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: false),
+            (argument: "--show-code-coverage-path", warningMessage: Self.showCoveragePathWarningMessage, emitWarning: true),
+            (argument: "--show-codecov-path", warningMessage: Self.showCoveragePathWarningMessage,emitWarning: true),
+            (argument: "--show-coverage-path", warningMessage: Self.showCoveragePathWarningMessage,emitWarning: false),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: (argument: String, warningMessage: String, emitWarning: Bool),
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-coverage-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                err.contains(testData.warningMessage) == testData.emitWarning,
+                "stdout: \(out)\n\nstderr: \(err)"
+            )
         }
     }
 

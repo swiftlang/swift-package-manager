@@ -121,7 +121,7 @@ fileprivate func build(
 }
 
 @Suite(
-    .serializedIfOnWindows,
+    // .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Build,
@@ -1419,6 +1419,40 @@ struct BuildCommandTestCases {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
             #endif
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (argument: "--disable-code-coverage", emitWarning: true),
+            (argument: "--enable-code-coverage", emitWarning: true),
+            (argument: "--enable-coverage", emitWarning: false),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: (argument: String, emitWarning: Bool),
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-bin-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let warningMessage = "warning: The '--enable-code-coverage' and '--disable-code-coverage' options have been deprecated.  Use '--enable-coverage' instead."
+            #expect(
+                err.contains(warningMessage) == testData.emitWarning,
+                "stdout: \(out)\n\nstderr: \(err)"
+            )
         }
     }
 
