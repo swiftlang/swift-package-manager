@@ -127,23 +127,45 @@ struct CoverageTests {
         }
     }
 
+    struct GenerateCoverageReportTestData {
+        let buildData: BuildData
+        let fixtureName: String
+        let coverageFormat: CoverageFormat
+    }
+
     @Test(
         arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
-        ],
+        ].flatMap { fixturePath in
+            getBuildData(for: SupportedBuildSystemOnAllPlatforms).flatMap { buildData in
+                CoverageFormat.allCases.map { format in
+                    GenerateCoverageReportTestData(
+                        buildData: buildData,
+                        fixtureName: fixturePath,
+                        coverageFormat: format,
+                    )
+                }
+            }
+        },
     )
-    func generateCoverageReport(
-        buildData: BuildData,
-        fixtureName: String
+    func generateSingleCoverageReport(
+        testData: GenerateCoverageReportTestData,
     ) async throws {
+        let fixtureName = testData.fixtureName
+        let coverageFormat = testData.coverageFormat
+        let buildData = testData.buildData
         try await fixture(name: fixtureName) { path in
+            let commonCoverageArgs = [
+                "--coverage-format",
+                "\(coverageFormat)",
+            ]
             let coveragePathString = try await executeSwiftTest(
                 path,
                 configuration: buildData.config,
                 extraArgs: [
                     "--show-coverage-path",
-                ],
+                ] + commonCoverageArgs,
                 throwIfCommandFails: true,
                 buildSystem: buildData.buildSystem,
             ).stdout
@@ -157,7 +179,7 @@ struct CoverageTests {
                     configuration: buildData.config,
                     extraArgs: [
                         "--enable-code-coverage",
-                    ],
+                    ] + commonCoverageArgs,
                     throwIfCommandFails: true,
                     buildSystem: buildData.buildSystem,
                 )
@@ -169,4 +191,35 @@ struct CoverageTests {
             }
         }
     }
+
+    @Test func generateMultipleCoverageReports() async throws {
+        Issue.record("Test needs to be implemented")
+    }
+
+    @Test
+    func htmlReportOutputDirectory() async throws {
+        // Verify the output directory argument specified in the response file override the default location.
+        Issue.record("Test needs to be implemented.")
+    }
+
+    @Test
+    func htmlReportResponseFile() async throws {
+        // Verify the arguments specified in the response file are used.
+        Issue.record("Test needs to be implemented.")
+    }
+
+    @Suite
+    struct showCoveragePathTests {
+        @Test
+        func printPathModeTests() async throws {
+            Issue.record("""
+            Test needs to be implemented. Need to implnente cross matix of:
+             - single/multiple formats
+             - print in text/json format
+             - specifying the same format type multiple times
+             - response file [overrides | does not override] output directory
+            """)
+        }
+    }
+
 }
