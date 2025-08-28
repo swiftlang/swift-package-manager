@@ -28,7 +28,7 @@ import protocol ArgumentParser.AsyncParsableCommand
 import class TSCBasic.BufferedOutputByteStream
 
 @Suite(
-    .serialized,  // to limit the number of swift executable running.
+    // .serialized,  // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Test,
@@ -1190,6 +1190,44 @@ struct TestCommandTests {
         }
     }
 
+    static let enableDisableCoverageWarningMessage = "warning: The '--enable-code-coverage' and '--disable-code-coverage' options have been deprecated and will be removed in a future release.  Use '--enable-coverage' instead."
+    static let showCoveragePathWarningMessage = "The '--show-code-coverage-path' and '--show-codecov-path' options are deprecated.  Use '--show-coverage-path' instead."
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (argument: "--disable-code-coverage", warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: true,),
+            (argument: "--enable-code-coverage",  warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: true),
+            (argument: "--enable-coverage",  warningMessage: Self.enableDisableCoverageWarningMessage, emitWarning: false),
+            (argument: "--show-code-coverage-path", warningMessage: Self.showCoveragePathWarningMessage, emitWarning: true),
+            (argument: "--show-codecov-path", warningMessage: Self.showCoveragePathWarningMessage,emitWarning: true),
+            (argument: "--show-coverage-path", warningMessage: Self.showCoveragePathWarningMessage,emitWarning: false),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: (argument: String, warningMessage: String, emitWarning: Bool),
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-coverage-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                err.contains(testData.warningMessage) == testData.emitWarning,
+                "stdout: \(out)\n\nstderr: \(err)"
+            )
+        }
+    }
+
     @Test(
         .tags(
             .Feature.TargetType.Executable,
@@ -2149,7 +2187,7 @@ struct TestCommandTests {
                 shouldRunInParallel: Bool = false,
                 numberOfWorkers: Int? = nil,
                 shouldListTests: Bool = false,
-                shouldPrintCodeCovPath: Bool = false,
+                printCodeCovPathMode: CoveragePrintPathMode? = nil,
                 containing substrings: [String]
             ) {
                 let error = #expect(throws: StringError.self) {
@@ -2158,7 +2196,7 @@ struct TestCommandTests {
                         shouldRunInParallel: shouldRunInParallel,
                         numberOfWorkers: numberOfWorkers,
                         shouldListTests: shouldListTests,
-                        shouldPrintCodeCovPath: shouldPrintCodeCovPath
+                        printCodeCovPathMode: printCodeCovPathMode
                     )
                 }
                 let message = error?.description ?? ""
@@ -2205,7 +2243,7 @@ struct TestCommandTests {
             @Test
             func showCodeCovPathIsRejected() {
                 expectValidationError(
-                    shouldPrintCodeCovPath: true,
+                    printCodeCovPathMode: .text,
                     containing: ["--debugger", "--show-codecov-path"]
                 )
             }
@@ -2217,7 +2255,7 @@ struct TestCommandTests {
                     shouldRunInParallel: false,
                     numberOfWorkers: nil,
                     shouldListTests: false,
-                    shouldPrintCodeCovPath: false
+                    printCodeCovPathMode: nil,
                 )
             }
 
@@ -2230,7 +2268,7 @@ struct TestCommandTests {
                     shouldRunInParallel: true,
                     numberOfWorkers: 2,
                     shouldListTests: true,
-                    shouldPrintCodeCovPath: true,
+                    printCodeCovPathMode: .text,
                     containing: ["release configuration"]
                 )
             }
