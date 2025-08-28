@@ -322,7 +322,7 @@ fileprivate func setup(
         #else
         try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -510,6 +510,7 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
+    Xcov: [String] = [],
     env: Environment? = nil,
     throwIfCommandFails: Bool = false,
     buildSystem: BuildSystemProvider.Kind,
@@ -520,6 +521,7 @@ public func executeSwiftTest(
         Xcc: Xcc,
         Xld: Xld,
         Xswiftc: Xswiftc,
+        Xcov: Xcov,
         buildSystem: buildSystem
     )
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
@@ -531,6 +533,7 @@ private func swiftArgs(
     Xcc: [String],
     Xld: [String],
     Xswiftc: [String],
+    Xcov: [String] = [],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
     var args = ["--configuration"]
@@ -545,11 +548,12 @@ private func swiftArgs(
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
     args += getBuildSystemArgs(for: buildSystem)
+    args += Xcov.flatMap { ["-Xcov", $0] }
     args += extraArgs
     return args
 }
 
-@available(*, 
+@available(*,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -694,7 +698,7 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }

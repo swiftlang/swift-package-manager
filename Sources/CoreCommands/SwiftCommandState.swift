@@ -244,7 +244,7 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
-    
+
     /// Path to the package manager's own resources directory.
     public let packageManagerResourcesDirectory: AbsolutePath?
 
@@ -325,7 +325,7 @@ public final class SwiftCommandState {
     }
 
     // marked internal for testing
-    init(
+    package init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -405,7 +405,7 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
-        
+
         if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
             self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         } else if let cwd = localFileSystem.currentWorkingDirectory {
@@ -415,7 +415,7 @@ public final class SwiftCommandState {
             self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
                 .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
         }
-        
+
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -478,7 +478,7 @@ public final class SwiftCommandState {
         }
     }
 
-    func waitForObservabilityEvents(timeout: DispatchTime) {
+    package func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
     }
 
@@ -1165,7 +1165,7 @@ public final class SwiftCommandState {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
                 let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
-                
+
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
