@@ -28,6 +28,7 @@ import class TSCUtility.SimplePersistence
 extension Workspace {
     /// Workspace location configuration
     public struct Location {
+        package static let coverageResponseFileName = "coverage.html.report.args.txt"
         /// Path to scratch space (working) directory for this workspace (aka .build).
         public var scratchDirectory: AbsolutePath
 
@@ -103,6 +104,11 @@ extension Workspace {
         /// Path to the shared mirrors configuration.
         public var sharedMirrorsConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.mirrorsConfigurationFile(at: $0) }
+        }
+
+        /// Path to the LLVM Cov Show argument file
+        public var llvmCovShowArgumentFile: AbsolutePath {
+            self.localConfigurationDirectory.appending(Location.coverageResponseFileName)
         }
 
         /// Path to the local registries configuration.
