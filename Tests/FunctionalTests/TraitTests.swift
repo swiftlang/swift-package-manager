@@ -532,13 +532,11 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
-        .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
         ),
         arguments:
-        getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        SupportedBuildSystemOnAllPlatforms,
         getTraitCombinations(
             ("ExtraTrait",
             """
@@ -575,7 +573,7 @@ struct TraitTests {
         )
     )
     func traits_whenManyTraitsEnableTargetDependency(
-        data: BuildData,
+        buildSystem: BuildSystemProvider.Kind,
         traits: TraitArgumentData
     ) async throws {
         try await withKnownIssue(
@@ -592,16 +590,15 @@ struct TraitTests {
                 let (stdout, stderr) = try await executeSwiftRun(
                     fixturePath.appending("Example"),
                     "Example",
-                    configuration: data.config,
                     extraArgs: ["--traits", traits.traitsArgument],
-                    buildSystem: data.buildSystem,
+                    buildSystem: buildSystem,
                 )
                 #expect(!stderr.contains(unusedDependencyRegex))
                 #expect(stdout == traits.expectedOutput)
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || data.buildSystem == .swiftbuild))
-            || (data.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
+            (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
+            || (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 }
