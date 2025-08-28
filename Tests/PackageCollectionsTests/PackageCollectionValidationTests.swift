@@ -13,8 +13,8 @@
 import Foundation
 import XCTest
 
-@testable import PackageCollections
-@testable import PackageCollectionsModel
+import PackageCollections
+import PackageCollectionsModel
 import PackageModel
 
 class PackageCollectionValidationTests: XCTestCase {

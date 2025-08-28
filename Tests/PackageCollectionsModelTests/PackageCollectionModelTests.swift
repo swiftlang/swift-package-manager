@@ -14,7 +14,7 @@ import Foundation
 import _InternalTestSupport
 import XCTest
 
-@testable import PackageCollectionsModel
+import PackageCollectionsModel
 
 class PackageCollectionModelTests: XCTestCase {
     typealias Model = PackageCollectionModel.V1

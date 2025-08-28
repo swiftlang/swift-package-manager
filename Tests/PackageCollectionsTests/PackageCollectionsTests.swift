@@ -15,7 +15,7 @@ import XCTest
 import _InternalTestSupport
 
 import Basics
-@testable import PackageCollections
+import PackageCollections
 import PackageModel
 import SourceControl
 

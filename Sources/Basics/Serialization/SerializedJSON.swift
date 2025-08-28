@@ -13,7 +13,7 @@
 /// Wrapper type representing serialized escaped JSON strings providing helpers
 /// for escaped string interpolations for common types such as `AbsolutePath`.
 public struct SerializedJSON {
-    let underlying: String
+    package let underlying: String
 }
 
 extension SerializedJSON: ExpressibleByStringLiteral {

@@ -1164,6 +1164,10 @@ extension GitFileSystemView: @unchecked Sendable {}
 package struct GitShellError: Error, CustomStringConvertible {
     let result: AsyncProcessResult
 
+    package init(result: AsyncProcessResult) {
+        self.result = result
+    }
+
     public var description: String {
         let stdout = (try? self.result.utf8Output()) ?? ""
         let stderr = (try? self.result.utf8stderrOutput()) ?? ""

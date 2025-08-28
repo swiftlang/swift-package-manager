@@ -28,17 +28,17 @@ public actor SendableBox<Value: Sendable> {
 }
 
 extension SendableBox where Value == Int {
-    func increment() {
+    package func increment() {
         self.value = value + 1
     }
 
-    func decrement() {
+    package func decrement() {
         self.value = value - 1
     }
 }
 
 extension SendableBox where Value == Date {
-    func resetDate() {
+    package func resetDate() {
         value = Date()
     }
 }

@@ -40,11 +40,11 @@ extension SecIdentity: SigningIdentity {}
 // MARK: - SwiftSigningIdentity is created using raw private key and certificate bytes
 
 public struct SwiftSigningIdentity: SigningIdentity {
-    let certificate: Certificate
+    package let certificate: Certificate
     let privateKey: Certificate.PrivateKey
 
     // for testing
-    init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
+    package init(certificate: Certificate, privateKey: Certificate.PrivateKey) {
         self.certificate = certificate
         self.privateKey = privateKey
     }

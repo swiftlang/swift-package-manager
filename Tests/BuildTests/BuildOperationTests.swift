@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Build
-@testable import PackageModel
+import Build
+import PackageModel
 
 import Basics
 import LLBuildManifest

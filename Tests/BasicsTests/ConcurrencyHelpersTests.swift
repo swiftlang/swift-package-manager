@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 
-@testable import Basics
+import Basics
 import TSCTestSupport
 import Testing
 

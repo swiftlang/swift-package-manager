@@ -14,7 +14,6 @@ import _Concurrency
 import Testing
 
 @_spi(SwiftPMInternal)
-@testable
 import Basics
 import TSCBasic
 

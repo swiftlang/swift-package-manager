@@ -14,7 +14,7 @@ import _CryptoExtras // for RSA
 import Basics
 import Crypto
 import Foundation
-@testable import PackageSigning
+import PackageSigning
 import _InternalTestSupport
 import SwiftASN1
 @testable import X509 // need internal APIs for OCSP testing

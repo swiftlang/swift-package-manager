@@ -12,7 +12,7 @@
 
 import Basics
 import _Concurrency
-@testable import PackageCollectionsSigning
+import PackageCollectionsSigning
 import _InternalTestSupport
 import SwiftASN1
 import X509

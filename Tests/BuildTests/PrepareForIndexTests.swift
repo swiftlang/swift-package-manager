@@ -12,8 +12,8 @@
 
 import Build
 import Foundation
-@testable import Commands
-@testable import CoreCommands
+import Commands
+import CoreCommands
 import LLBuildManifest
 import _InternalTestSupport
 import TSCBasic

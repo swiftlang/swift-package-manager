@@ -19,14 +19,14 @@ import struct TSCUtility.Version
 
 /// A container for an individual package. This enhances PackageContainer to add PubGrub specific
 /// logic which is mostly related to computing incompatibilities at a particular version.
-final class PubGrubPackageContainer {
+package final class PubGrubPackageContainer {
     /// The underlying package container.
     let underlying: PackageContainer
 
     /// `Package.resolved` in-memory representation.
     private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
 
-    init(underlying: PackageContainer, resolvedPackages: ResolvedPackagesStore.ResolvedPackages) {
+    package init(underlying: PackageContainer, resolvedPackages: ResolvedPackagesStore.ResolvedPackages) {
         self.underlying = underlying
         self.resolvedPackages = resolvedPackages
     }
@@ -150,7 +150,7 @@ final class PubGrubPackageContainer {
     }
 
     /// Returns the incompatibilities of a package at the given version.
-    func incompatibilites(
+    package func incompatibilites(
         at version: Version,
         node: DependencyResolutionNode,
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],

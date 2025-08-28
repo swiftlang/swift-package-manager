@@ -20,6 +20,11 @@ extension PackageCollectionsModel {
 
         /// URL of the license file
         public let url: URL
+
+        package init(type: LicenseType, url: URL) {
+            self.type = type
+            self.url = url
+        }
     }
 
     /// An enum of license types

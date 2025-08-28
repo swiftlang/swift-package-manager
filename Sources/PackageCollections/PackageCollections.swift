@@ -21,17 +21,17 @@ import protocol TSCBasic.Closable
 public struct PackageCollections: PackageCollectionsProtocol, Closable {
     // Check JSONPackageCollectionProvider.isSignatureCheckSupported before updating or removing this
     #if os(macOS) || os(Linux) || os(Windows) || os(Android)
-    static let isSupportedPlatform = true
+    package static let isSupportedPlatform = true
     #else
-    static let isSupportedPlatform = false
+    package static let isSupportedPlatform = false
     #endif
 
-    let configuration: Configuration
+    package let configuration: Configuration
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let storageContainer: (storage: Storage, owned: Bool)
     private let collectionProviders: [Model.CollectionSourceType: PackageCollectionProvider]
-    let metadataProvider: PackageMetadataProvider
+    package let metadataProvider: PackageMetadataProvider
 
     private var storage: Storage {
         self.storageContainer.storage
@@ -92,7 +92,7 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     }
 
     // internal initializer for testing
-    init(configuration: Configuration = .init(),
+    package init(configuration: Configuration = .init(),
          fileSystem: FileSystem,
          observabilityScope: ObservabilityScope,
          storage: Storage,
@@ -545,8 +545,8 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
         }
     }
 
-    internal static func mergedPackageMetadata(package: Model.Package,
-                                               basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
+    package static func mergedPackageMetadata(package: Model.Package,
+                                              basicMetadata: Model.PackageBasicMetadata?) -> Model.Package {
         // This dictionary contains recent releases and might not contain everything that's in package.versions.
         let basicVersionMetadata = basicMetadata.map { Dictionary($0.versions.map { ($0.version, $0) }, uniquingKeysWith: { first, _ in first }) } ?? [:]
         var versions = package.versions.map { packageVersion -> Model.Package.Version in

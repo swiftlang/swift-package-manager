@@ -1337,7 +1337,7 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     @available(*, deprecated, message: "Use the async alternative")
-    func checkAvailability(
+    package func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
@@ -1354,7 +1354,7 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     // marked internal for testing
-    func checkAvailability(
+    package func checkAvailability(
         registry: Registry,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
@@ -1818,7 +1818,7 @@ extension RegistryClient {
         case error(String)
 
         // marked internal for testing
-        static var unavailableStatusCodes = [404, 501]
+        package static var unavailableStatusCodes = [404, 501]
     }
 }
 

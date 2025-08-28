@@ -14,7 +14,7 @@ import Testing
 import XCTest
 
 import Basics
-@testable import PackageSigning
+import PackageSigning
 import _InternalTestSupport
 import X509
 

@@ -972,7 +972,7 @@ extension SwiftSDK {
     ///   - properties: properties of the Swift SDK for the given triple.
     ///   - toolset: combined toolset used by this Swift SDK.
     ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
-    init(
+    package init(
         targetTriple: Triple,
         properties: SwiftSDKMetadataV4.TripleProperties,
         toolset: Toolset = .init(),
@@ -1174,8 +1174,8 @@ struct SerializedDestinationV3: Decodable {
 }
 
 /// Represents v4 schema of `swift-sdk.json` (previously `destination.json`) files used for cross-compilation.
-struct SwiftSDKMetadataV4: Decodable {
-    struct TripleProperties: Codable {
+package struct SwiftSDKMetadataV4: Decodable {
+    package struct TripleProperties: Codable {
         /// Path relative to `swift-sdk.json` containing SDK root.
         var sdkRootPath: String?
 
@@ -1193,6 +1193,15 @@ struct SwiftSDKMetadataV4: Decodable {
 
         /// Array of paths relative to `swift-sdk.json` containing toolset files.
         var toolsetPaths: [String]?
+
+        package init(sdkRootPath: String, swiftResourcesPath: String? = nil, swiftStaticResourcesPath: String? = nil, includeSearchPaths: [String]? = nil, librarySearchPaths: [String]? = nil, toolsetPaths: [String]? = nil) {
+            self.sdkRootPath = sdkRootPath
+            self.swiftResourcesPath = swiftResourcesPath
+            self.swiftStaticResourcesPath = swiftStaticResourcesPath
+            self.includeSearchPaths = includeSearchPaths
+            self.librarySearchPaths = librarySearchPaths
+            self.toolsetPaths = toolsetPaths
+        }
     }
 
     /// Mapping of triple strings to corresponding properties of such target triple.

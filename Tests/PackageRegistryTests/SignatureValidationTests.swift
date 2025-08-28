@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 import PackageModel
-@testable import PackageRegistry
+import PackageRegistry
 import PackageSigning
 import _InternalTestSupport
 import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes

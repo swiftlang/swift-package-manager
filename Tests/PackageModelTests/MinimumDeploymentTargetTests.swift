@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import PackageModel
+import PackageModel
 import XCTest
 
 import struct Basics.AsyncProcessResult

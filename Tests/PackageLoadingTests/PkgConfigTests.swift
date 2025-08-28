@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-@testable import PackageLoading
+import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest

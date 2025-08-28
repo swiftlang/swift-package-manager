@@ -21,12 +21,12 @@ import protocol TSCBasic.OutputByteStream
 import var TSCBasic.stdoutStream
 
 extension SwiftPackageCommand {
-    struct ShowDependencies: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(
+    package struct ShowDependencies: AsyncSwiftCommand {
+        package static let configuration = CommandConfiguration(
             abstract: "Print the resolved dependency graph.")
 
         @OptionGroup(visibility: .hidden)
-        var globalOptions: GlobalOptions
+        package var globalOptions: GlobalOptions
 
         @Option(help: "Set the output format.")
         var format: ShowDependenciesMode = .text
@@ -35,7 +35,9 @@ extension SwiftPackageCommand {
                 help: "The absolute or relative path to output the resolved dependency graph.")
         var outputPath: AbsolutePath?
 
-        func run(_ swiftCommandState: SwiftCommandState) async throws {
+        package init() {}
+
+        package func run(_ swiftCommandState: SwiftCommandState) async throws {
             let graph = try await swiftCommandState.loadPackageGraph()
             // command's result output goes on stdout
             // ie "swift package show-dependencies" should output to stdout
@@ -48,7 +50,7 @@ extension SwiftPackageCommand {
             )
         }
 
-        static func dumpDependenciesOf(
+        package static func dumpDependenciesOf(
             graph: ModulesGraph,
             rootPackage: ResolvedPackage,
             mode: ShowDependenciesMode,
@@ -69,7 +71,7 @@ extension SwiftPackageCommand {
             stream.flush()
         }
 
-        enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
+        package enum ShowDependenciesMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
             case text, dot, json, flatlist
 
             public init?(rawValue: String) {

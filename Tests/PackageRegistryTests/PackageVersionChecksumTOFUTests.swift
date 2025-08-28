@@ -15,7 +15,7 @@ import _Concurrency
 import Foundation
 import PackageFingerprint
 import PackageModel
-@testable import PackageRegistry
+import PackageRegistry
 import _InternalTestSupport
 import XCTest
 

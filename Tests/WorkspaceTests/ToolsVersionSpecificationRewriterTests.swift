@@ -16,7 +16,7 @@
 
 import Basics
 import PackageModel
-@testable import Workspace
+import Workspace
 import Testing
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`

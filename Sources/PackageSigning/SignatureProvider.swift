@@ -87,7 +87,7 @@ public struct VerifierConfiguration {
     public var certificateRevocation: CertificateRevocation
 
     // for testing
-    init(
+    package init(
         trustedRoots: [[UInt8]],
         includeDefaultTrustStore: Bool,
         certificateExpiration: CertificateExpiration,
@@ -160,7 +160,7 @@ public enum SigningKeyType {
     // RSA support is internal/testing only, thus not included
 }
 
-enum SignatureAlgorithm {
+package enum SignatureAlgorithm {
     case ecdsaP256
     case rsa
 
@@ -198,11 +198,11 @@ protocol SignatureProviderProtocol {
 
 // MARK: - CMS signature provider
 
-struct CMSSignatureProvider: SignatureProviderProtocol {
+package struct CMSSignatureProvider: SignatureProviderProtocol {
     let signatureAlgorithm: SignatureAlgorithm
     let httpClient: HTTPClient
 
-    init(
+    package init(
         signatureAlgorithm: SignatureAlgorithm,
         customHTTPClient: HTTPClient? = .none
     ) {
@@ -210,7 +210,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         self.httpClient = customHTTPClient ?? HTTPClient()
     }
 
-    func sign(
+    package func sign(
         content: [UInt8],
         identity: SigningIdentity,
         intermediateCertificates: [[UInt8]],
@@ -264,7 +264,7 @@ struct CMSSignatureProvider: SignatureProviderProtocol {
         }
     }
 
-    func status(
+    package func status(
         signature: [UInt8],
         content: [UInt8],
         verifierConfiguration: VerifierConfiguration,

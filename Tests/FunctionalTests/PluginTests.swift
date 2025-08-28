@@ -14,10 +14,10 @@ import Basics
 import _Concurrency
 
 @_spi(SwiftPMInternal)
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 import PackageModel
-@testable import SPMBuildCore
+import SPMBuildCore
 import _InternalTestSupport
 import Workspace
 import Testing

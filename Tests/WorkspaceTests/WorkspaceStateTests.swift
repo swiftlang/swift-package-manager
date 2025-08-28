@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Basics
-@testable import Workspace
+import Workspace
 import Testing
 
 fileprivate struct WorkspaceStateTests {

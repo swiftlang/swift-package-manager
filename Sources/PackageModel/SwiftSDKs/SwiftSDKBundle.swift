@@ -21,6 +21,11 @@ public struct SwiftSDKBundle {
     public struct Variant: Equatable {
         let metadata: ArtifactsArchiveMetadata.Variant
         let swiftSDKs: [SwiftSDK]
+
+        package init(metadata: ArtifactsArchiveMetadata.Variant, swiftSDKs: [SwiftSDK]) {
+            self.metadata = metadata
+            self.swiftSDKs = swiftSDKs
+        }
     }
 
     // Path to the bundle root directory.
@@ -31,6 +36,11 @@ public struct SwiftSDKBundle {
 
     /// Name of the Swift SDK bundle that can be used to distinguish it from other bundles.
     public var name: String { path.basename }
+
+    package init(path: AbsolutePath, artifacts: [String:[SwiftSDKBundle.Variant]] = [:]) {
+        self.path = path
+        self.artifacts = artifacts
+    }
 }
 
 extension SwiftSDKBundle.Variant {
@@ -81,7 +91,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the host building with these Swift SDKs.
     ///   - observabilityScope: observability scope to log warnings about multiple matches.
     /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
-    func selectSwiftSDK(
+    package func selectSwiftSDK(
         matching selector: String,
         hostTriple: Triple,
         observabilityScope: ObservabilityScope

@@ -13,14 +13,14 @@
 import _InternalTestSupport
 import Basics
 import PackageFingerprint
-@testable import PackageGraph
+import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
 import PackageSigning
 import SourceControl
 import SPMBuildCore
-@testable import Workspace
+import Workspace
 import XCTest
 
 import struct TSCBasic.ByteString
