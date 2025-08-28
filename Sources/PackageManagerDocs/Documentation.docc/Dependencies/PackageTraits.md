@@ -6,14 +6,14 @@ Swift packages prior to Swift 6.1 offered a non-configurable API surface for eac
 With Swift 6.1, packages may offer traits, which express a configurable API surface for a package.
 
 Use traits to enable additional API beyond the core API of the package.
-For example, a trait may enable an experimental API, optional extended functionality that requires additional dependencies, or functionality that isn't critical that a developer may want to disable in specific circumstances.
+For example, a trait may enable an experimental API, optional extended functionality that requires additional dependencies, or functionality that isn't critical that a developer may want to enable only in specific circumstances.
 
-> Note: Traits should always *enable* additional code, never "remove" or disable API when a trait is enabled.
+> Note: Traits should never "remove" or disable public API when a trait is enabled.
 
 Within the package, traits express conditional compilation, and may be used to declare additional dependencies that are enabled when that trait is active.
 
 Traits are identified by their names, which are name-spaced within the package that hosts them.
-Trait names must start with a [Unicode XID start character](https://unicode.org/reports/tr31/#Figure_Code_Point_Categories_for_Identifier_Parsing) (most letters), a digit, or `_`, with subsequent characters a [Unicode XID continue character](https://unicode.org/reports/tr31/#Figure_Code_Point_Categories_for_Identifier_Parsing) or the characters `-` or `+`.
+Trait names must be [valid swift identifiers](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/lexicalstructure#Identifiers) with the addition of the characters of `-` and `+`.
 The trait names `default` and `defaults` (regardless of any capitalization) aren't allowed to avoid confusion with the default traits that a package defines.
 
 Enabled traits are exposed as conditional blocks (for example, `#if YourTrait`) that you can use to conditionally enable imports or different compilation paths in code.
@@ -54,7 +54,8 @@ traits: [
 
 The traits enabled by default for the example above is `FeatureA`.
 
-> Note: Changing the default set of traits for your package should be considered a major semantic version change, as it can potentially remove API surface. 
+> Note: Changing the default set of traits for your package is a major semantic version change if it removes API surface.
+> Adding additional traits is not a major version change.
 
 #### Mutually Exclusive Traits
 
@@ -66,6 +67,8 @@ In the rare case that you need to offer mutually exclusive traits, protect that 
 #error("FeatureA and FeatureC are mutually exclusive")
 #endif // FeatureA && FeatureC
 ```
+
+> Note: Providing mutually exclusive traits can result in compilation errors when a developer enables the mutually exclusive traits.
 
 ### Using traits in your code
 

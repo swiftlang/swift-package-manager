@@ -57,9 +57,10 @@ The API reference documentation for [Package.Dependency](https://docs.swift.org/
 
 Traits, introduced with Swift 6.1, allow packages to offer additional API that may include optional dependencies.
 Packages should offer traits to provide API beyond the core of a package.
-For example, a package may provide an experimental API, an optional API that requires additional dependencies, or functionality that a developer may want to disable in specific circumstances.
-If a package offers traits, using that package as a dependency without any declared traits uses the default traits that the package defines.
-In the following example dependency declaration, the package uses the default set of traits from the dependency, if any are defined:
+For example, a package may provide an experimental API, an optional API that requires additional dependencies, or functionality that isn't critical that a developer may want to enable only in specific circumstances.
+
+If a package offers traits and you depend on it without defining the traits to use, the package uses its default set of traits.
+In the following example, the dependency `example-package-playingcard` uses its default traits, if it offers any:
 ```swift
 dependencies: [
   .package(url: "https://github.com/swiftlang/example-package-playingcard", 
@@ -67,7 +68,7 @@ dependencies: [
 ]
 ```
 
-To determine what traits a package offers, including its defaults, inspect its `Package.swift` manifest.
+To determine what traits a package offers, including its defaults, either inspect its `Package.swift` manifest or use <doc:PackageShowDependencies> to print out the resolved dependencies and their traits.
 
 Enabling a trait should only expand the API offered by a package.
 If a package offers default traits, you can choose to not use those traits by declaring an empty set of traits when you declare the dependency.
@@ -80,6 +81,10 @@ dependencies: [
            traits: [])
 ]
 ```
+
+Swift package manager determines the traits to enable using the entire graph of dependencies in a project.
+The traits enabled for a dependency is the union of all of the traits that for packages that depend upon it.
+For example, if you opt out of all traits, but a dependency you use uses the same package with some trait enabled, the package will use the depdendency with the requested traits enabled.
 
 > Note: By disabling any default traits, you may be removing available APIs from the dependency you use. 
 
