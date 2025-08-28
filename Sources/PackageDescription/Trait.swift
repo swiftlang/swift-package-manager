@@ -20,9 +20,9 @@
 /// For example, a trait with the canonical name `MyTrait` allows you to use the name as a conditional block:
 ///
 /// ```swift
-/// #if Trait1
-/// // additional imports or APIs that Trait1 enables
-/// #endif // Trait1
+/// #if MyTrait
+/// // additional imports or APIs that MyTrait enables
+/// #endif // MyTrait
 /// ```
 ///
 /// - Important: Traits must be strictly additive. Enabling a trait **must not** remove API.
