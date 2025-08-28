@@ -18,6 +18,7 @@ import PackageModel
 import SourceControl
 import _InternalTestSupport
 import XCTest
+import Testing
 
 import enum TSCBasic.JSON
 import protocol TSCBasic.JSONMappable
