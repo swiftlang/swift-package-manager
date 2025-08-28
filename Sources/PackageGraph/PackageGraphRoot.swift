@@ -164,6 +164,7 @@ public struct PackageGraphRoot {
                     return condition.isSatisfied(by: rootEnabledTraits)
                 }.map(\.name)
 
+                // TODO bp: fix
                 var enabledTraitsSet = enabledTraits.flatMap { Set($0) } ?? ["default"]
                 enabledTraitsSet.formUnion(enabledTraitsMap[dep.identity])
 
