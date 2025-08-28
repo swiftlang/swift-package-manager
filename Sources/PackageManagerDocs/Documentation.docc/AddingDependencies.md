@@ -1,6 +1,6 @@
 # Adding dependencies to a Swift package
 
-Use other swift packages, system libraries, or binary dependencies in your package.
+Use other Swift packages, system libraries, or binary dependencies in your package.
 
 ## Overview
 
@@ -8,7 +8,7 @@ To depend on another Swift package, define a dependency and the requirements for
 
 A remote dependency requires a location, represented by a URL, and a requirement on the versions the package manager may use.
 
-The following example illustrates a package that depends on [PlayingCard](https://github.com/apple/example-package-playingcard), using `from` to require at least version `3.0.4`, and allow any other version up to the next major version that is available at the time of dependency resolution.
+The following example illustrates a package that depends on [PlayingCard](https://github.com/apple/example-package-playingcard), using `from` to require at least version `4.0.0`, and allow any other version up to the next major version that is available at the time of dependency resolution.
 It then uses the product `PlayingCard` as a dependency for the target `MyPackage`:
 
 ```swift
@@ -19,7 +19,7 @@ let package = Package(
     name: "MyPackage",
     dependencies: [
         .package(url: "https://github.com/apple/example-package-playingcard.git", 
-                 from: "3.0.4"),
+                 from: "4.0.0"),
     ],
     targets: [
         .target(
@@ -43,15 +43,52 @@ For more information on resolving package versions, see <doc:ResolvingPackageVer
 
 ### Constraining dependency versions
 
-Constrain the version of a remote dependency when you when you declare the dependency.
-The package manager uses git tags interpretted as semantic versions to identify eligible versions of packages.
+Constrain the version of a remote dependency when you declare the dependency.
+The package manager uses git tags, interpreted as a semantic version, to identify eligible versions of packages.
 
-> Note: tags for package versions should include all three components of a semantic version: major, minor, and patch. 
+> Note: tags for package versions should include all three components of a semantic version: major, minor, and patch.
 > Tags that only include one or two of those components are not interpreted as semantic versions.
 
 Use the version requirement when you declare the dependency to limit what the package manager can choose.
 The version requirement can be a range of possible semantic versions, a specific semantic version, a branch name, or a commit hash.
-The API reference documentation for [Package.Dependency](https://developer.apple.com/documentation/packagedescription/package/dependency) defines the methods to use.   
+The API reference documentation for [Package.Dependency](https://docs.swift.org/swiftpm/documentation/packagedescription/package/dependency) defines the methods to use.
+
+### Packages with Traits
+
+Traits, introduced with Swift 6.1, allow packages to offer additional API that may include optional dependencies.
+Packages should offer traits to provide API beyond the core of a package.
+For example, a package may provide an experimental API, an optional API that requires additional dependencies, or functionality that isn't critical that a developer may want to enable only in specific circumstances.
+
+If a package offers traits and you depend on it without defining the traits to use, the package uses its default set of traits.
+In the following example, the dependency `example-package-playingcard` uses its default traits, if it offers any:
+```swift
+dependencies: [
+  .package(url: "https://github.com/swiftlang/example-package-playingcard", 
+           from: "4.0.0")
+]
+```
+
+To determine what traits a package offers, including its defaults, either inspect its `Package.swift` manifest or use <doc:PackageShowDependencies> to print out the resolved dependencies and their traits.
+
+Enabling a trait should only expand the API offered by a package.
+If a package offers default traits, you can choose to not use those traits by declaring an empty set of traits when you declare the dependency.
+The following example dependency declaration uses the dependency with no traits, even if the package normally provides a set of default traits to enable:
+
+```swift
+dependencies: [
+  .package(url: "https://github.com/swiftlang/example-package-playingcard", 
+           from: "4.0.0",
+           traits: [])
+]
+```
+
+Swift package manager determines the traits to enable using the entire graph of dependencies in a project.
+The traits enabled for a dependency is the union of all of the traits that for packages that depend upon it.
+For example, if you opt out of all traits, but a dependency you use uses the same package with some trait enabled, the package will use the depdendency with the requested traits enabled.
+
+> Note: By disabling any default traits, you may be removing available APIs from the dependency you use. 
+
+To learn how to provide packages with traits, see <doc:PackageTraits>.
 
 ### Local Dependencies
 
@@ -77,6 +114,7 @@ For more information on creating a binary target, see [Creating a multiplatform 
 ## Topics
 
 - <doc:ResolvingPackageVersions>
+- <doc:PackageTraits>
 - <doc:ResolvingDependencyFailures>
 - <doc:AddingSystemLibraryDependency>
 - <doc:ExampleSystemLibraryPkgConfig>
