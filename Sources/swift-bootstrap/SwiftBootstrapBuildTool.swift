@@ -407,7 +407,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
             // Compute the transitive closure of available dependencies.
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
-            _ = try await topologicalSort(input) { pair in
+            _ = try await self.topologicalSort(input) { pair in
                 // When bootstrapping no special trait build configuration is used
                 let dependenciesRequired = try pair.item.dependenciesRequired(for: .everything)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
@@ -478,82 +478,51 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 delegateQueue: .sharedConcurrent
             )
         }
-    }
-}
 
-// TODO: move to shared area
-extension AbsolutePath {
-    public init?(argument: String) {
-        if let cwd: AbsolutePath = localFileSystem.currentWorkingDirectory {
-            guard let path = try? AbsolutePath(validating: argument, relativeTo: cwd) else {
-                return nil
+        private func topologicalSort<T: Hashable>(
+            _ nodes: [T], successors: (T) async throws -> [T]
+        ) async throws -> [T] {
+            // Implements a topological sort via recursion and reverse postorder DFS.
+            func visit(_ node: T,
+                       _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
+                       _ successors: (T) async throws -> [T]) async throws {
+                // Mark this node as visited -- we are done if it already was.
+                if !visited.insert(node).inserted {
+                    return
+                }
+
+                // Otherwise, visit each adjacent node.
+                for succ in try await successors(node) {
+                    guard stack.append(succ) else {
+                        // If the successor is already in this current stack, we have found a cycle.
+                        //
+                        // FIXME: We could easily include information on the cycle we found here.
+                        throw TSCBasic.GraphError.unexpectedCycle
+                    }
+                    try await visit(succ, &stack, &visited, &result, successors)
+                    let popped = stack.removeLast()
+                    assert(popped == succ)
+                }
+
+                // Add to the result.
+                result.append(node)
             }
-            self = path
-        } else {
-            guard let path = try? AbsolutePath(validating: argument) else {
-                return nil
+
+            // FIXME: This should use a stack not recursion.
+            var visited = Set<T>()
+            var result = [T]()
+            var stack = OrderedSet<T>()
+            for node in nodes {
+                precondition(stack.isEmpty)
+                stack.append(node)
+                try await visit(node, &stack, &visited, &result, successors)
+                let popped = stack.removeLast()
+                assert(popped == node)
             }
-            self = path
+
+            return result.reversed()
         }
     }
-
-    public static var defaultCompletionKind: CompletionKind {
-        // This type is most commonly used to select a directory, not a file.
-        // Specify '.file()' in an argument declaration when necessary.
-        .directory
-    }
 }
 
-extension BuildConfiguration {
-    public init?(argument: String) {
-        self.init(rawValue: argument)
-    }
-}
 
-extension AbsolutePath: ExpressibleByArgument {}
-extension BuildConfiguration: ExpressibleByArgument {}
-extension BuildSystemProvider.Kind: ExpressibleByArgument {}
-
-public func topologicalSort<T: Hashable>(
-    _ nodes: [T], successors: (T) async throws -> [T]
-) async throws -> [T] {
-    // Implements a topological sort via recursion and reverse postorder DFS.
-    func visit(_ node: T,
-               _ stack: inout OrderedSet<T>, _ visited: inout Set<T>, _ result: inout [T],
-               _ successors: (T) async throws -> [T]) async throws {
-        // Mark this node as visited -- we are done if it already was.
-        if !visited.insert(node).inserted {
-            return
-        }
-
-        // Otherwise, visit each adjacent node.
-        for succ in try await successors(node) {
-            guard stack.append(succ) else {
-                // If the successor is already in this current stack, we have found a cycle.
-                //
-                // FIXME: We could easily include information on the cycle we found here.
-                throw TSCBasic.GraphError.unexpectedCycle
-            }
-            try await visit(succ, &stack, &visited, &result, successors)
-            let popped = stack.removeLast()
-            assert(popped == succ)
-        }
-
-        // Add to the result.
-        result.append(node)
-    }
-
-    // FIXME: This should use a stack not recursion.
-    var visited = Set<T>()
-    var result = [T]()
-    var stack = OrderedSet<T>()
-    for node in nodes {
-        precondition(stack.isEmpty)
-        stack.append(node)
-        try await visit(node, &stack, &visited, &result, successors)
-        let popped = stack.removeLast()
-        assert(popped == node)
-    }
-
-    return result.reversed()
-}
