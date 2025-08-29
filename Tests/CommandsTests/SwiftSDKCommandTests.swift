@@ -175,6 +175,8 @@ final class SwiftSDKCommandTests: CommandsTestCase {
 
                     XCTAssertEqual(stdout,
                         """
+
+                        swiftSDK: aarch64-unknown-linux-gnu
                         sdkRootPath: \(fixturePath.appending(components: sdkSubpath))
                         swiftResourcesPath: not set
                         swiftStaticResourcesPath: not set
@@ -223,6 +225,8 @@ final class SwiftSDKCommandTests: CommandsTestCase {
 
                             XCTAssertEqual(stdout,
                                 """
+
+                                swiftSDK: aarch64-unknown-linux-gnu
                                 sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
                                 swiftResourcesPath: \(fixturePath.appending("foo"))
                                 swiftStaticResourcesPath: not set

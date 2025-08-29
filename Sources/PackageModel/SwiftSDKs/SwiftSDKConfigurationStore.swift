@@ -202,6 +202,7 @@ public final class SwiftSDKConfigurationStore {
             }
 
             if showConfiguration {
+                print("\nswiftSDK: \(targetTriple)")
                 print(swiftSDK.pathsConfiguration)
                 continue
             }

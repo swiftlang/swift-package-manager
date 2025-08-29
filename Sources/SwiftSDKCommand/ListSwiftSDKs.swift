@@ -50,8 +50,15 @@ package struct ListSwiftSDKs: SwiftSDKSubcommand {
             return
         }
 
-        for artifactID in validBundles.sortedArtifactIDs {
-            print(artifactID)
+        let swiftSDKBundles = validBundles.listSwiftSDKs(hostTriple: hostTriple)
+        for bundle in validBundles.sortedArtifactIDs {
+            if let targetTriples = swiftSDKBundles[bundle], !targetTriples.isEmpty {
+                print("Swift SDK bundle: \(bundle)")
+                print("Swift SDKs:")
+                for triple in targetTriples {
+                    print("  \(triple)")
+                }
+            }
         }
     }
 }
