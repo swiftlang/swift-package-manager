@@ -41,8 +41,9 @@ extension Tag.Feature.Command {
     public enum Package {}
     public enum PackageRegistry {}
     @Tag public static var Build: Tag
-    @Tag public static var Test: Tag
     @Tag public static var Run: Tag
+    @Tag public static var Sdk: Tag
+    @Tag public static var Test: Tag
 }
 
 extension Tag.Feature.Command.Package {
