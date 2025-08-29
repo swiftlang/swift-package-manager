@@ -11,30 +11,30 @@
 import Basics
 import Testing
 
+// MARK: File System Helpers
+
+/// Verifies that a file exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for file existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileExists(
     at path: AbsolutePath,
-    _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-    let commentPrefix =
-        if let comment {
-            "\(comment): "
-        } else {
-            ""
-        }
-    let msgSuffix: String
-    do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path.parentDirectory))"
-    } catch {
-        msgSuffix = ""
-    }
     #expect(
         localFileSystem.exists(path),
-        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
+        "Files '\(path)' does not exist.",
         sourceLocation: sourceLocation,
     )
 }
 
+/// Verifies that a file does not exist at the specified path.
+///
+/// - Parameters:
+///   - fixturePath: The absolute path to check for file non-existence.
+///   - comment: An optional comment to include in the failure message.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileDoesNotExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
@@ -59,6 +59,12 @@ public func expectFileDoesNotExists(
     )
 }
 
+/// Verifies that a file exists and is executable at the specified path.
+///
+/// - Parameters:
+///   - fixturePath: The absolute path to check for executable file existence.
+///   - comment: An optional comment to include in the failure message.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileIsExecutable(
     at fixturePath: AbsolutePath,
     _ comment: Comment? = nil,
@@ -77,6 +83,11 @@ public func expectFileIsExecutable(
     )
 }
 
+/// Verifies that a directory exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for directory existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
@@ -94,6 +105,11 @@ let msgSuffix: String
     )
 }
 
+/// Verifies that a directory does not exist at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for directory non-existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryDoesNotExist(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
