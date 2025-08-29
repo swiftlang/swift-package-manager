@@ -50,10 +50,8 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let executablePath = try fixturePath.appending(
-                    components: [".build", UserToolchain.default.targetTriple.platformBuildPathComponent]
-                        + buildSystem.binPathSuffixes(for: configuration) + ["Foo"]
-                )
+                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString).withSwiftLineEnding
                 #expect(output == "Foo\nBar\n")
             }
@@ -111,10 +109,8 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let executablePath = try fixturePath.appending(
-                    components: [".build", UserToolchain.default.targetTriple.platformBuildPathComponent]
-                        + buildSystem.binPathSuffixes(for: configuration) + ["Foo"]
-                )
+                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
                 #expect(output == "meiow Baz\n")
@@ -152,12 +148,8 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let executablePath = packageRoot.appending(
-                    components: [
-                        ".build",
-                        try UserToolchain.default.targetTriple.platformBuildPathComponent,
-                    ] + buildSystem.binPathSuffixes(for: configuration) + [executableName("Bar")]
-                )
+                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let executablePath = binPath.appending(components: executableName("Bar"))
                 #expect(
                     localFileSystem.exists(executablePath),
                     "Path \(executablePath) does not exist",
@@ -185,22 +177,22 @@ struct DependencyResolutionTests {
     ) async throws {
         try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows){
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+                let packageRoot = fixturePath.appending("app")
                 try await executeSwiftBuild(
-                    fixturePath.appending("app"),
+                    packageRoot,
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let executablePath = try fixturePath.appending(
-                    components: [
-                        "app", ".build", UserToolchain.default.targetTriple.platformBuildPathComponent,
-                    ] + buildSystem.binPathSuffixes(for: configuration) + ["Dealer"]
-                )
+                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let executablePath = binPath.appending(components: "Dealer")
+                expectFileExists(at: executablePath)
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
                 #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
             }
         } when: {
-            [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            ([.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild)
+            || (ProcessInfo.hostOperatingSystem == .windows) // due to long path isues
         }
     }
 

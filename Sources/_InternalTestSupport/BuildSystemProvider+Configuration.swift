@@ -12,16 +12,18 @@
 
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
+import class PackageModel.UserToolchain
 
 extension BuildSystemProvider.Kind {
 
+    @available(*, deprecated, message: "use binPath(for:scrathPath:triple) instead")
     public func binPathSuffixes(for config: BuildConfiguration) -> [String] {
         let suffix: String
 
         #if os(Linux)
         suffix = "-linux"
         #elseif os(Windows)
-        suffix  = "-windows"
+        suffix = "-windows"
         #else
         suffix = ""
         #endif
@@ -34,4 +36,40 @@ extension BuildSystemProvider.Kind {
                 return ["apple", "Products" , "\(config)".capitalized + suffix]
         }
     }
+
+    public func binPath(
+        for config: BuildConfiguration,
+        scratchPath: [String] = [".build"],
+        triple: String? = nil,
+    ) throws -> [String] {
+        let suffix: String
+
+        #if os(Linux)
+            suffix = "-linux"
+        #elseif os(Windows)
+            suffix = "-windows"
+        #else
+            suffix = ""
+        #endif
+
+        let tripleString: String
+        if let triple {
+            tripleString = triple
+        } else {
+            do {
+                tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
+            } catch {
+                tripleString = ""
+            }
+        }
+        switch self {
+        case .native:
+            return scratchPath + [tripleString, "\(config)".lowercased()]
+        case .swiftbuild:
+            return scratchPath + [tripleString, "Products", "\(config)".capitalized + suffix]
+        case .xcode:
+            return scratchPath + ["apple", "Products", "\(config)".capitalized + suffix]
+        }
+    }
+
 }

@@ -52,7 +52,6 @@ struct SanitierTests {
 }
 
 @Suite(
-    .serialized, // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Build,
@@ -165,18 +164,11 @@ struct BuildCommandTestCases {
         // Test is not implemented for Xcode build system
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
-            
-            let rootScrathPath = fullPath.appending(component: ".build")
-            let targetPath: AbsolutePath
-            if buildSystem == .xcode {
-                targetPath =  rootScrathPath
-            } else {
-                targetPath = try rootScrathPath.appending(component: UserToolchain.default.targetTriple.platformBuildPathComponent)
-            }
+
+            let targetPath = try fullPath.appending(components: buildSystem.binPath(for: configuration))
             let path = try await self.execute(["--show-bin-path"], packagePath: fullPath, configuration: configuration, buildSystem: buildSystem).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             #expect(
-                AbsolutePath(path).pathString == targetPath
-                .appending(components: buildSystem.binPathSuffixes(for: configuration)).pathString
+                AbsolutePath(path).pathString == targetPath.pathString
             )
         }
     }
@@ -288,29 +280,24 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .SWBINTTODO("Test fails because of a difference in the build layout. This needs to be updated to the expected path"),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
     )
     func symlink(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
-                let targetPath = try fullPath.appending(components:
-                                                            ".build",
-                                                        UserToolchain.default.targetTriple.platformBuildPathComponent
-                )
                 // Test symlink.
-                let buildDir = fullPath.appending(components: ".build")
                 try await self.execute(packagePath: fullPath, configuration: configuration, buildSystem: buildSystem)
-                let actualDebug = try resolveSymlinks(buildDir.appending(components: buildSystem.binPathSuffixes(for: configuration)))
-                let expectedDebug = targetPath.appending(components: buildSystem.binPathSuffixes(for: configuration))
+                let actualDebug = try resolveSymlinks(fullPath.appending(components: buildSystem.binPath(for: configuration)))
+                let expectedDebug = try fullPath.appending(components: buildSystem.binPath(for: configuration))
                 #expect(actualDebug == expectedDebug)
             }
         } when: {
-            buildSystem != .native
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1125,10 +1112,9 @@ struct BuildCommandTestCases {
         return try SupportedBuildSystemOnPlatform.map { buildSystem in
             let triple = try UserToolchain.default.targetTriple.withoutVersion()
             let base = try RelativePath(validating: ".build")
-            let debugFolderComponents = buildSystem.binPathSuffixes(for: .debug)
+            let path = try base.appending(components: buildSystem.binPath(for: .debug, scratchPath: []))
             switch buildSystem {
                 case .xcode:
-                    let path = base.appending(components: debugFolderComponents)
                     return (
                         buildSystem,
                         triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
@@ -1137,8 +1123,6 @@ struct BuildCommandTestCases {
                             .appending("\(triple).swiftsourceinfo")
                     )
                 case .swiftbuild:
-                    let path = base.appending(triple.tripleString)
-                        .appending(components: debugFolderComponents)
                     return (
                         buildSystem,
                         triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
@@ -1149,8 +1133,7 @@ struct BuildCommandTestCases {
                 case .native:
                     return (
                         buildSystem,
-                        base.appending(components: debugFolderComponents)
-                            .appending("ExecutableNew.build")
+                        path.appending("ExecutableNew.build")
                             .appending("main.swift.o")
                     )
             }
