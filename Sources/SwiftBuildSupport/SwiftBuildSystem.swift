@@ -705,6 +705,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
+        // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
+        if buildParameters.triple.isMacOSX {
+            settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
+        }
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
