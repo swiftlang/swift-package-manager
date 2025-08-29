@@ -185,20 +185,6 @@ let package = Package(
         ),
     ],
     targets: [
-        // The `PackageDescription` target provides the API that is available
-        // to `Package.swift` manifests. Here we build a debug version of the
-        // library; the bootstrap scripts build the deployable version.
-        .target(
-            name: "PackageDescription",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .define("USE_IMPL_ONLY_IMPORTS"),
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
-
         // The `AppleProductTypes` target provides additional product types
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -213,19 +199,6 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
                 .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
             ]),
-
-        // The `PackagePlugin` target provides the API that is available to
-        // plugin scripts. Here we build a debug version of the library; the
-        // bootstrap scripts build the deployable version.
-        .target(
-            name: "PackagePlugin",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
 
         .target(
             name: "SourceKitLSPAPI",
@@ -776,11 +749,41 @@ let package = Package(
             ]
         ),
 
+        // The `PackageDescription` target provides the API that is available
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "PackageDescription",
+            path: "Sources/Runtime/PackageDescription",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .define("USE_IMPL_ONLY_IMPORTS"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
+        // The `PackagePlugin` target provides the API that is available to
+        // plugin scripts. Here we build a debug version of the library; the
+        // bootstrap scripts build the deployable version.
+        .target(
+            name: "PackagePlugin",
+            path: "Sources/Runtime/PackagePlugin",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
         .target(
             name: "CompilerPluginSupport",
             dependencies: ["PackageDescription"],
+            path: "Sources/Runtime/CompilerPluginSupport",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
