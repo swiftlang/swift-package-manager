@@ -260,10 +260,16 @@ struct InitTests {
     /// Tests creating packages with XCTest only.
     @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
     func initPackageLibraryWithXCTestOnly(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
+        #if canImport(TestingDisabled)
+            let buildSys = buildSystem
+        #else
+            let buildSys: BuildSystemProvider.Kind? = nil
+        #endif
+
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.xctest],
-            buildSystem: buildSystem,
+            buildSystem: buildSys,
             customVerification: { path, name in
                 #expect(try localFileSystem.getDirectoryContents(path.appending("Sources").appending(name)) == ["\(name).swift"],
                        "Expected single source file in Sources/\(name) directory")
@@ -280,10 +286,16 @@ struct InitTests {
     /// Tests creating packages with Swift Testing only.
     @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
     func initPackagesWithSwiftTestingOnly(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
+        #if canImport(TestingDisabled)
+            let buildSys = buildSystem
+        #else
+            let buildSys: BuildSystemProvider.Kind? = nil
+        #endif
+
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.swiftTesting],
-            buildSystem: buildSystem,
+            buildSystem: buildSys,
             customVerification: { path, name in
                 try verifyTestFileContents(at: path, name: name, hasSwiftTesting: true, hasXCTest: false)
 
@@ -298,10 +310,16 @@ struct InitTests {
     /// Tests creating packages with both Swift Testing and XCTest.
     @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
     func initPackageWithBothSwiftTestingAndXCTest(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
+        #if canImport(TestingDisabled)
+            let buildSys = buildSystem
+        #else
+            let buildSys: BuildSystemProvider.Kind? = nil
+        #endif
+
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.swiftTesting, .xctest],
-            buildSystem: buildSystem,
+            buildSystem: buildSys,
             customVerification: { path, name in
                 try verifyTestFileContents(at: path, name: name, hasSwiftTesting: true, hasXCTest: true)
 
@@ -316,6 +334,12 @@ struct InitTests {
     /// Tests creating packages with no testing libraries.
     @Test(arguments: [InitPackage.PackageType.library, .executable, .tool], [BuildSystemProvider.Kind.native, .swiftbuild])
     func initPackageWithNoTests(packageType: InitPackage.PackageType, buildSystem: BuildSystemProvider.Kind) async throws {
+        #if canImport(TestingDisabled)
+            let buildSys = buildSystem
+        #else
+            let buildSys: BuildSystemProvider.Kind? = nil
+        #endif
+
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [],
