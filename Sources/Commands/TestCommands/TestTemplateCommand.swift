@@ -105,6 +105,11 @@ extension SwiftTestCommand {
 
             let commandPlugin = try pluginManager.loadTemplatePlugin()
             let commandLineFragments = try await pluginManager.run()
+
+            if dryRun {
+                print(commandLineFragments)
+                return
+            }
             let packageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
 
 
@@ -114,7 +119,7 @@ extension SwiftTestCommand {
 
                 let folderName = commandLine.fullPathKey
 
-                buildMatrix[folderName] = try await testDecisionTreeBranch(folderName: folderName, commandLine: commandLine, swiftCommandState: swiftCommandState, packageType: packageType, commandPlugin: commandPlugin)
+                buildMatrix[folderName] = try await testDecisionTreeBranch(folderName: folderName, commandLine: commandLine.commandChain, swiftCommandState: swiftCommandState, packageType: packageType, commandPlugin: commandPlugin, cwd: cwd)
 
             }
 
@@ -126,7 +131,7 @@ extension SwiftTestCommand {
             }
         }
 
-        private func testDecisionTreeBranch(folderName: String, commandLine: CommandPath, swiftCommandState: SwiftCommandState, packageType: InitPackage.PackageType, commandPlugin: ResolvedModule) async throws -> BuildInfo {
+        private func testDecisionTreeBranch(folderName: String, commandLine: [CommandComponent], swiftCommandState: SwiftCommandState, packageType: InitPackage.PackageType, commandPlugin: ResolvedModule, cwd: AbsolutePath) async throws -> BuildInfo {
             let destinationPath = outputDirectory.appending(component: folderName)
 
             swiftCommandState.observabilityScope.emit(debug: "Generating \(folderName)")
@@ -139,7 +144,8 @@ extension SwiftTestCommand {
                 destinationAbsolutePath: destinationPath,
                 testingFolderName: folderName,
                 argumentPath: commandLine,
-                initialPackageType: packageType
+                initialPackageType: packageType,
+                cwd: cwd
             )
         }
 
@@ -238,8 +244,9 @@ extension SwiftTestCommand {
             buildOptions: BuildCommandOptions,
             destinationAbsolutePath: AbsolutePath,
             testingFolderName: String,
-            argumentPath: CommandPath,
-            initialPackageType: InitPackage.PackageType
+            argumentPath: [CommandComponent],
+            initialPackageType: InitPackage.PackageType,
+            cwd: AbsolutePath
         ) async throws -> BuildInfo {
 
             let startGen = DispatchTime.now()
@@ -249,6 +256,7 @@ extension SwiftTestCommand {
             var buildDuration: DispatchTimeInterval = .never
             var logPath: String? = nil
 
+            var pluginOutput = ""
             do {
                 let log = destinationAbsolutePath.appending("generation-output.log").pathString
                 let (origOut, origErr) = try redirectStdoutAndStderr(to: log)
@@ -256,8 +264,8 @@ extension SwiftTestCommand {
 
                 let initTemplate = try InitTemplatePackage(
                     name: testingFolderName,
-                    initMode: .fileSystem(name: templateName, path: swiftCommandState.originalWorkingDirectory.pathString),
-                    templatePath: swiftCommandState.originalWorkingDirectory,
+                    initMode: .fileSystem(name: templateName, path: cwd.pathString),
+                    templatePath: cwd,
                     fileSystem: swiftCommandState.fileSystem,
                     packageType: initialPackageType,
                     supportedTestingLibraries: [],
@@ -271,26 +279,38 @@ extension SwiftTestCommand {
                     try await swiftCommandState.loadPackageGraph()
                 }
 
-                for (index, command) in argumentPath.commandChain.enumerated() {
+                try await TemplateBuildSupport.buildForTesting(swiftCommandState: swiftCommandState, buildOptions: buildOptions, testingFolder: destinationAbsolutePath)
+
+                var subCommandPath: [String] = []
+                for (index, command) in argumentPath.enumerated() {
+
+                    subCommandPath.append(contentsOf: (index == 0 ? [] : [command.commandName]))
+
                     let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
-                    let fullCommand = (index == 0) ? [] : Array(argumentPath.commandChain.prefix(index + 1).map(\.commandName)) + commandArgs
+                    let fullCommand = subCommandPath + commandArgs
 
                     print("Running plugin with args:", fullCommand)
 
                     try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
-                        _ = try await TemplatePluginRunner.run(
+                        let output = try await TemplatePluginRunner.run(
                             plugin: commandPlugin,
                             package: graph.rootPackages.first!,
                             packageGraph: graph,
                             arguments: fullCommand,
                             swiftCommandState: swiftCommandState
                         )
+                        pluginOutput = String(data: output, encoding: .utf8) ?? "[Invalid UTF-8 output]"
+                        print(pluginOutput)
                     }
                 }
 
                 genDuration = startGen.distance(to: .now())
                 genSuccess = true
-                try FileManager.default.removeItem(atPath: log)
+
+                if genSuccess {
+                    try FileManager.default.removeItem(atPath: log)
+                }
+    
             } catch {
                 genDuration = startGen.distance(to: .now())
                 genSuccess = false
