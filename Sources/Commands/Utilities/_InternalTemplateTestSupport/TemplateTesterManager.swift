@@ -18,6 +18,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     public let scratchDirectory: Basics.AbsolutePath
     public let args: [String]
     public let packageGraph: ModulesGraph
+    public let branches: [String]
     let coordinator: TemplatePluginCoordinator
 
     public var rootPackage: ResolvedPackage {
@@ -27,12 +28,13 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         return root
     }
 
-    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String]) async throws {
+    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String], branches: [String]) async throws {
         let coordinator = TemplatePluginCoordinator(
             swiftCommandState: swiftCommandState,
             scratchDirectory: scratchDirectory,
             template: template,
-            args: args
+            args: args,
+            branches: branches
         )
 
         self.packageGraph = try await coordinator.loadPackageGraph()
@@ -41,6 +43,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         self.scratchDirectory = scratchDirectory
         self.args = args
         self.coordinator = coordinator
+        self.branches = branches
     }
 
     func run() async throws -> [CommandPath] {
@@ -51,7 +54,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     }
 
     func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
-        try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command, args: args)
+        try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command, args: args, branches: branches)
     }
 
     public func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
@@ -234,23 +237,21 @@ public class TemplateTestPromptingSystem {
 
     }
 
-    public func generateCommandPaths(rootCommand: CommandInfoV0, args: [String]) throws -> [CommandPath]  {
+    public func generateCommandPaths(rootCommand: CommandInfoV0, args: [String], branches: [String]) throws -> [CommandPath]  {
         var paths: [CommandPath] = []
         var visitedArgs = Set<ArgumentResponse>()
 
-        try dfs(command: rootCommand, path: [], visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: args)
+        try dfs(command: rootCommand, path: [], visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: args, branches: branches, branchDepth: 0)
 
         return paths
     }
 
-    func dfs(command: CommandInfoV0, path: [CommandComponent], visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>, paths: inout [CommandPath], predefinedArgs: [String]) throws{
+    func dfs(command: CommandInfoV0, path: [CommandComponent], visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>, paths: inout [CommandPath], predefinedArgs: [String], branches: [String], branchDepth: Int = 0) throws{
 
         let allArgs = try convertArguments(from: command)
 
-        var currentPredefinedArgs = predefinedArgs
-
         let (answeredArgs, leftoverArgs) = try
-          parseAndMatchArguments(currentPredefinedArgs, definedArgs: allArgs)
+          parseAndMatchArguments(predefinedArgs, definedArgs: allArgs)
 
         visitedArgs.formUnion(answeredArgs)
 
@@ -286,7 +287,18 @@ public class TemplateTestPromptingSystem {
 
         if let subcommands = getSubCommand(from: command) {
             for sub in subcommands {
-                try dfs(command: sub, path: newPath, visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: leftoverArgs)
+                let shouldTraverse: Bool
+                if branches.isEmpty {
+                    shouldTraverse = true
+                } else if branchDepth < (branches.count - 1) {
+                    shouldTraverse = sub.commandName == branches[branchDepth + 1]
+                } else {
+                    shouldTraverse = true
+                }
+                
+                if shouldTraverse {
+                    try dfs(command: sub, path: newPath, visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: leftoverArgs, branches: branches, branchDepth: branchDepth + 1)
+                }
             }
         } else {
             let fullPathKey = joinCommandNames(newPath)

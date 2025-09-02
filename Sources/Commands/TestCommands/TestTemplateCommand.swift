@@ -77,6 +77,14 @@ extension SwiftTestCommand {
         )
         var args: [String] = []
 
+        @Option(
+
+            name: .customLong("branches"),
+            parsing: .upToNextOption,
+            help: "Specify the branch of the template you want to test.",
+        )
+        public var branches: [String] = []
+
         @Flag(help: "Dry-run to display argument tree")
         var dryRun: Bool = false
 
@@ -100,7 +108,8 @@ extension SwiftTestCommand {
                 swiftCommandState: swiftCommandState,
                 template: templateName,
                 scratchDirectory: cwd,
-                args: args
+                args: args,
+                branches: branches
             )
 
             let commandPlugin = try pluginManager.loadTemplatePlugin()

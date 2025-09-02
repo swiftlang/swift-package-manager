@@ -38,7 +38,8 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
             swiftCommandState: swiftCommandState,
             scratchDirectory: scratchDirectory,
             template: template,
-            args: args
+            args: args,
+            branches: []
         )
 
         self.packageGraph = try await coordinator.loadPackageGraph()
