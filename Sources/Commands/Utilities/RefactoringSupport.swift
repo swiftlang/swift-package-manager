@@ -15,7 +15,7 @@ import Basics
 @_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 
-package extension PackageEdit {
+package extension [SourceEdit] {
     /// Apply the edits for the given manifest to the specified file system,
     /// updating the manifest to the given manifest
     func applyEdits(
@@ -32,7 +32,7 @@ package extension PackageEdit {
         }
 
         let updatedManifestSource = FixItApplier.apply(
-            edits: manifestEdits,
+            edits: self,
             to: manifest
         )
         try filesystem.writeFileContents(

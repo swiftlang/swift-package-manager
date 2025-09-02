@@ -129,7 +129,8 @@ extension SwiftPackageCommand {
                 url: url,
                 checksum: checksum
             )
-            let editResult = try AddPackageTarget.manifestRefactor(
+
+            let editResult = try AddPackageTarget.textRefactor(
                 syntax: manifestSyntax,
                 in: .init(
                     target: target,
