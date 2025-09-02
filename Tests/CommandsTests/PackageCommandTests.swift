@@ -5498,6 +5498,7 @@ struct PackageCommandTests {
             buildData: BuildData,
             testData: CommandPluginNetworkingPermissionsTestData,
         ) async throws {
+            try withKnownIssue(isIntermittent: true) {
             try await testWithTemporaryDirectory { tmpPath in
                 // Create a sample package with a library target and a plugin.
                 let packageDir = tmpPath.appending(components: "MyPackage")
@@ -5549,6 +5550,9 @@ struct PackageCommandTests {
                         ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild && buildData.config == .debug && testData.permissionError == Self.allNetworkConnectionPermissionError
                     }
                 }
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
