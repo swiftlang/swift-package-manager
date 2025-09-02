@@ -107,7 +107,9 @@ extension SwiftTestCommand {
             let commandLineFragments = try await pluginManager.run()
 
             if dryRun {
-                print(commandLineFragments)
+                for commandLine in commandLineFragments {
+                    print(commandLine.displayFormat())
+                }
                 return
             }
             let packageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
@@ -310,7 +312,7 @@ extension SwiftTestCommand {
                 if genSuccess {
                     try FileManager.default.removeItem(atPath: log)
                 }
-    
+
             } catch {
                 genDuration = startGen.distance(to: .now())
                 genSuccess = false

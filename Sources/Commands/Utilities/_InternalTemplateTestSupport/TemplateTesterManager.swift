@@ -80,6 +80,52 @@ public struct CommandComponent {
     let arguments: [TemplateTestPromptingSystem.ArgumentResponse]
 }
 
+extension CommandPath {
+    func displayFormat() -> String {
+        let commandNames = commandChain.map { $0.commandName }
+        let fullPath = commandNames.joined(separator: " ")
+
+        var result = "Command Path: \(fullPath) \nExecution Steps: \n\n"
+
+        // Build progressive commands
+        for i in 0..<commandChain.count {
+            let currentPath = Array(commandNames[0...i]).joined(separator: " ")
+
+            // Only add arguments from the final (current) command component
+            let currentComponent = commandChain[i]
+            let args = formatArguments(currentComponent.arguments)
+
+            if args.isEmpty {
+                result += "\(currentPath)\n"
+            } else {
+                result += "\(currentPath) \\\n\(args)\n"
+            }
+
+            if i < commandChain.count - 1 {
+                result += "\n"
+            }
+        }
+
+        result += "\n\n"
+        return result
+    }
+
+    private func formatArguments(_ argumentResponses:
+                                 [Commands.TemplateTestPromptingSystem.ArgumentResponse]) -> String {
+        let formattedArgs = argumentResponses.compactMap { response ->
+            String? in
+            guard let preferredName =
+                    response.argument.preferredName?.name else { return nil }
+
+            let values = response.values.joined(separator: " ")
+            return values.isEmpty ? nil : "  --\(preferredName) \(values)"
+        }
+
+        return formattedArgs.joined(separator: " \\\n")
+    }
+}
+
+
 
 
 public class TemplateTestPromptingSystem {
@@ -131,18 +177,31 @@ public class TemplateTestPromptingSystem {
 
         let allArgs = try convertArguments(from: command)
 
-        let currentArgs = allArgs.filter { arg in
-            !visitedArgs.contains(where: {$0.argument.valueName == arg.valueName})
+
+        // Separate args into already answered and new ones
+        var finalArgs: [TemplateTestPromptingSystem.ArgumentResponse] = []
+        var newArgs: [ArgumentInfoV0] = []
+        
+        for arg in allArgs {
+            if let existingArg = visitedArgs.first(where: { $0.argument.valueName == arg.valueName }) {
+                // Reuse the previously answered argument
+                finalArgs.append(existingArg)
+            } else {
+                // This is a new argument that needs prompting
+                newArgs.append(arg)
+            }
         }
 
-
+        // Only prompt for new arguments
         var collected: [String: ArgumentResponse] = [:]
-        let resolvedArgs = UserPrompter.prompt(for: currentArgs, collected: &collected)
+        let newResolvedArgs = UserPrompter.prompt(for: newArgs, collected: &collected)
 
-        resolvedArgs.forEach { visitedArgs.insert($0) }
+        // Add new arguments to final list and visited set
+        finalArgs.append(contentsOf: newResolvedArgs)
+        newResolvedArgs.forEach { visitedArgs.insert($0) }
 
         let currentComponent = CommandComponent(
-            commandName: command.commandName, arguments: resolvedArgs
+            commandName: command.commandName, arguments: finalArgs
         )
 
         var newPath = path
@@ -165,7 +224,6 @@ public class TemplateTestPromptingSystem {
         func joinCommandNames(_ path: [CommandComponent]) -> String {
             path.map { $0.commandName }.joined(separator: "-")
         }
-
 
     }
 
