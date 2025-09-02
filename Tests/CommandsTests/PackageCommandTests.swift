@@ -5452,6 +5452,10 @@ struct PackageCommandTests {
             .IssueWindowsRelativePathAssert,
             .IssueWindowsLongPath,
             .IssueWindowsPathLastConponent,
+            .issue(
+                "https://github.com/swiftlang/swift-package-manager/issues/9083",
+                relationship: .defect,
+            ),
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
             Self.getCommandPluginNetworkingPermissionTestData()
         )
