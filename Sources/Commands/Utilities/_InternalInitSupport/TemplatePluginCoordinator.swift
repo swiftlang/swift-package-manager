@@ -21,6 +21,7 @@ struct TemplatePluginCoordinator {
     let scratchDirectory: Basics.AbsolutePath
     let template: String?
     let args: [String]
+    let branches: [String]
 
     let EXPERIMENTAL_DUMP_HELP = ["--", "--experimental-dump-help"]
 
