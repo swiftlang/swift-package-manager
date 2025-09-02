@@ -28,7 +28,20 @@ import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
-final class SwiftCommandStateTests: CommandsTestCase {
+final class SwiftCommandStateTests: XCTestCase {
+    /// Original working directory before the test ran (if known).
+    private var originalWorkingDirectory: AbsolutePath? = .none
+
+    override func setUp() {
+        originalWorkingDirectory = localFileSystem.currentWorkingDirectory
+    }
+
+    override func tearDown() {
+        if let originalWorkingDirectory {
+            try? localFileSystem.changeCurrentWorkingDirectory(to: originalWorkingDirectory)
+        }
+     }
+
     func testSeverityEnum() async throws {
         try fixtureXCTest(name: "Miscellaneous/Simple") { _ in
 
