@@ -51,7 +51,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     }
 
     func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
-        try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command)
+        try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command, args: args)
     }
 
     public func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
@@ -164,19 +164,95 @@ public class TemplateTestPromptingSystem {
     // if subcommands exist, then for each subcommand, pass the function again, where we deepCopy a path
     // if not, then jointhe command names of all the paths, and append CommandPath()
 
-    public func generateCommandPaths(rootCommand: CommandInfoV0) throws -> [CommandPath]  {
+    private func parseAndMatchArguments(_ input: [String], definedArgs: [ArgumentInfoV0]) throws -> (Set<ArgumentResponse>, [String]) {
+        var responses = Set<ArgumentResponse>()
+        var providedMap: [String: [String]] = [:]
+
+        var leftover: [String] = []
+
+        var index = 0
+
+        while index < input.count {
+            let token = input[index]
+
+            if token.starts(with: "--") {
+                let name = String(token.dropFirst(2))
+
+                guard let arg = definedArgs.first(where : {$0.valueName == name}) else {
+                    // Unknown — defer for potential subcommand
+                    leftover.append(token)
+                    index += 1
+                    if index < input.count && !input[index].starts(with: "--") {
+                        leftover.append(input[index])
+                        index += 1
+                    }
+                    continue
+                }
+
+                switch arg.kind {
+                case .flag:
+                    providedMap[name] = ["true"]
+                case .option:
+                    index += 1
+                    guard index < input.count else {
+                        throw TemplateError.missingValueForOption(name: name)
+                    }
+                    providedMap[name] = [input[index]]
+                default:
+                    throw TemplateError.unexpectedNamedArgument(name: name)
+                }
+            } else {
+                leftover.append(token)
+            }
+            index += 1
+
+        }
+
+        for arg in definedArgs {
+            let name = arg.valueName ?? "__positional"
+
+            guard let values = providedMap[name] else {continue}
+
+            if let allowed = arg.allValues {
+                let invalid = values.filter {!allowed.contains($0)}
+
+                if !invalid.isEmpty {
+                    throw TemplateError.invalidValue(
+                        argument: name,
+                        invalidValues: invalid,
+                        allowed: allowed
+                    )
+
+                }
+            }
+            responses.insert(ArgumentResponse(argument: arg, values: values))
+            providedMap[name] = nil
+
+        }
+
+        return (responses, leftover)
+
+    }
+
+    public func generateCommandPaths(rootCommand: CommandInfoV0, args: [String]) throws -> [CommandPath]  {
         var paths: [CommandPath] = []
         var visitedArgs = Set<ArgumentResponse>()
 
-        try dfs(command: rootCommand, path: [], visitedArgs: &visitedArgs, paths: &paths)
+        try dfs(command: rootCommand, path: [], visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: args)
 
         return paths
     }
 
-    func dfs(command: CommandInfoV0, path: [CommandComponent], visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>, paths: inout [CommandPath]) throws{
+    func dfs(command: CommandInfoV0, path: [CommandComponent], visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>, paths: inout [CommandPath], predefinedArgs: [String]) throws{
 
         let allArgs = try convertArguments(from: command)
 
+        var currentPredefinedArgs = predefinedArgs
+
+        let (answeredArgs, leftoverArgs) = try
+          parseAndMatchArguments(currentPredefinedArgs, definedArgs: allArgs)
+
+        visitedArgs.formUnion(answeredArgs)
 
         // Separate args into already answered and new ones
         var finalArgs: [TemplateTestPromptingSystem.ArgumentResponse] = []
@@ -210,7 +286,7 @@ public class TemplateTestPromptingSystem {
 
         if let subcommands = getSubCommand(from: command) {
             for sub in subcommands {
-                try dfs(command: sub, path: newPath, visitedArgs: &visitedArgs, paths: &paths)
+                try dfs(command: sub, path: newPath, visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: leftoverArgs)
             }
         } else {
             let fullPathKey = joinCommandNames(newPath)
@@ -403,6 +479,7 @@ private enum TemplateError: Swift.Error {
     case unexpectedNamedArgument(name: String)
     case missingValueForOption(name: String)
     case invalidValue(argument: String, invalidValues: [String], allowed: [String])
+    case unexpectedSubcommand(name: String)
 }
 
 extension TemplateError: CustomStringConvertible {
@@ -425,6 +502,8 @@ extension TemplateError: CustomStringConvertible {
             "Missing value for option: \(name)"
         case .invalidValue(argument: let argument, invalidValues: let invalidValues, allowed: let allowed):
             "Invalid value \(argument). Valid values are: \(allowed.joined(separator: ", ")). \(invalidValues.isEmpty ? "" : "Also, \(invalidValues.joined(separator: ", ")) are not valid.")"
+        case .unexpectedSubcommand(name: let name):
+            "Invalid subcommand \(name) provided in arguments, arguments only accepts flags, options, or positional arguments. Subcommands are treated via the --branch option"
         }
     }
 }

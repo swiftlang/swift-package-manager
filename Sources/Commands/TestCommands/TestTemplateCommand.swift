@@ -73,7 +73,7 @@ extension SwiftTestCommand {
 
         /// Predetermined arguments specified by the consumer.
         @Argument(
-            help: "Predetermined arguments to pass to the template."
+            help: "Predetermined arguments to pass for testing template."
         )
         var args: [String] = []
 
