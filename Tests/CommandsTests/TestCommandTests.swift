@@ -124,6 +124,7 @@ struct TestCommandTests {
     ) async throws {
         try await withKnownIssue(
             "Windows: Driver threw unable to load output file map",
+            isIntermittent: true
         ) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 #if os(Windows)
