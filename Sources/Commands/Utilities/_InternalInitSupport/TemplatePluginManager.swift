@@ -27,10 +27,12 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
 
 
     var rootPackage: ResolvedPackage {
-        guard let root = packageGraph.rootPackages.first else {
-            fatalError("No root package found in the package graph.")
+        get throws {
+            guard let root = packageGraph.rootPackages.first else {
+                throw TemplateInitializationError.missingPackageGraph
+            }
+            return root
         }
-        return root
     }
 
     init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String]) async throws {
@@ -114,4 +116,16 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     func loadTemplatePlugin() throws -> ResolvedModule {
         try coordinator.loadTemplatePlugin(from: packageGraph)
     }
+
+    enum TemplateInitializationError: Error, CustomStringConvertible {
+        case missingPackageGraph
+
+        var description: String {
+            switch self {
+            case .missingPackageGraph:
+                return "No root package was found in package graph."
+            }
+        }
+    }
+
 }

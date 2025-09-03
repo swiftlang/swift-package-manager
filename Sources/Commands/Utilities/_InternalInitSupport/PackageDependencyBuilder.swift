@@ -77,19 +77,19 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
 
         case .git:
             guard let url = templateURL else {
-                throw StringError("Missing Git url")
+                throw PackageDependencyBuilderError.missingGitURLOrPath
             }
             guard let requirement = sourceControlRequirement else {
-                throw StringError("Missing Git requirement")
+                throw PackageDependencyBuilderError.missingGitRequirement
             }
             return .sourceControl(name: self.packageName, location: url, requirement: requirement)
 
         case .registry:
             guard let id = templatePackageID else {
-                throw StringError("Missing Package ID")
+                throw PackageDependencyBuilderError.missingRegistryIdentity
             }
             guard let requirement = registryRequirement else {
-                throw StringError("Missing Registry requirement")
+                throw PackageDependencyBuilderError.missingRegistryRequirement
             }
             return .registry(id: id, requirement: requirement)
         }
@@ -98,21 +98,21 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
 
     /// Errors thrown by `TemplatePathResolver` during initialization.
     enum PackageDependencyBuilderError: LocalizedError, Equatable {
-        case missingGitURL
+        case missingGitURLOrPath
         case missingGitRequirement
         case missingRegistryIdentity
         case missingRegistryRequirement
 
         var errorDescription: String? {
             switch self {
-            case .missingGitURL:
-                return "Missing Git URL for git template."
+            case .missingGitURLOrPath:
+                return "Missing Git URL or path for template from git."
             case .missingGitRequirement:
-                return "Missing version requirement for template in git."
+                return "Missing version requirement for template from git."
             case .missingRegistryIdentity:
-                return "Missing registry package identity for template in registry."
+                return "Missing registry package identity for template from registry."
             case .missingRegistryRequirement:
-                return "Missing version requirement for template in registry ."
+                return "Missing version requirement for template from registry ."
             }
         }
     }
