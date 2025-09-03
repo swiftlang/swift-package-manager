@@ -32,6 +32,11 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
     public subscript(key: PackageIdentity) -> Set<String> {
         get { storage[key] ?? ["default"] }
         set {
+            // Omit adding "default" explicitly, since the map returns "default"
+            // if there is no explicit traits declared. This will allow us to check
+            // for nil entries in the stored dictionary, which tells us whether
+            // traits have been explicitly declared.
+            guard newValue != ["default"] else { return }
             if storage[key] == nil {
                 storage[key] = newValue
             } else {
