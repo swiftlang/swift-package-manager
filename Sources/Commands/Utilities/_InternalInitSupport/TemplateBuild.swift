@@ -60,7 +60,6 @@ enum TemplateBuildSupport {
             do {
                 try await buildSystem.build(subset: subset)
             } catch let diagnostics as Diagnostics {
-                swiftCommandState.observabilityScope.emit(diagnostics)
                 throw ExitCode.failure
             }
         }
@@ -94,7 +93,6 @@ enum TemplateBuildSupport {
             do {
                 try await buildSystem.build(subset: subset)
             } catch let diagnostics as Diagnostics {
-                swiftCommandState.observabilityScope.emit(diagnostics)
                 throw ExitCode.failure
             }
         }

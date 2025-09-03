@@ -60,10 +60,6 @@ public struct TemplateInitializationDirectoryManager {
             }
 
         } catch {
-            observabilityScope.emit(
-                error: DirectoryManagerError.cleanupFailed(path: temporaryDirectory, underlying: error),
-                underlyingError: error
-            )
             throw DirectoryManagerError.cleanupFailed(path: temporaryDirectory, underlying: error)
         }
     }

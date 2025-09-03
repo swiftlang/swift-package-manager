@@ -74,21 +74,18 @@ struct TemplatePathResolver {
         switch source {
         case .local:
             guard let path = templateDirectory else {
-                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingLocalTemplatePath)
                 throw TemplatePathResolverError.missingLocalTemplatePath
             }
             self.fetcher = LocalTemplateFetcher(path: path)
 
         case .git:
             guard let url = templateURL, let requirement = sourceControlRequirement else {
-                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingGitURLOrRequirement)
                 throw TemplatePathResolverError.missingGitURLOrRequirement
             }
             self.fetcher = GitTemplateFetcher(source: url, requirement: requirement, swiftCommandState: swiftCommandState)
 
         case .registry:
             guard let identity = packageIdentity, let requirement = registryRequirement else {
-                swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingRegistryIdentityOrRequirement)
                 throw TemplatePathResolverError.missingRegistryIdentityOrRequirement
             }
             self.fetcher = RegistryTemplateFetcher(
@@ -98,7 +95,6 @@ struct TemplatePathResolver {
             )
 
         case .none:
-            swiftCommandState.observabilityScope.emit(TemplatePathResolverError.missingTemplateType)
             throw TemplatePathResolverError.missingTemplateType
         }
     }
@@ -203,10 +199,8 @@ struct GitTemplateFetcher: TemplateFetcher {
             try provider.fetch(repository: repositorySpecifier, to: path)
         } catch {
             if isSSHPermissionError(error) {
-                swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.sshAuthenticationRequired(source: source))
                 throw GitTemplateFetcherError.sshAuthenticationRequired(source: source)
             }
-            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error))
             throw GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error)
         }
     }
@@ -222,7 +216,6 @@ struct GitTemplateFetcher: TemplateFetcher {
     private func validateBareRepository(at path: Basics.AbsolutePath) throws {
         let provider = GitRepositoryProvider()
         guard try provider.isValidDirectory(path) else {
-            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.invalidRepositoryDirectory(path: path))
             throw GitTemplateFetcherError.invalidRepositoryDirectory(path: path)
         }
     }
@@ -242,7 +235,6 @@ struct GitTemplateFetcher: TemplateFetcher {
                 editable: true
             )
         } catch {
-            swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.createWorkingCopyFailed(path: workingCopyPath, underlyingError: error))
             throw GitTemplateFetcherError.createWorkingCopyFailed(path: workingCopyPath, underlyingError: error)
         }
     }
@@ -267,7 +259,6 @@ struct GitTemplateFetcher: TemplateFetcher {
             let versions = tags.compactMap { Version($0) }
             let filteredVersions = versions.filter { range.contains($0) }
             guard let latestVersion = filteredVersions.max() else {
-                swiftCommandState.observabilityScope.emit(GitTemplateFetcherError.noMatchingTagInRange(range))
                 throw GitTemplateFetcherError.noMatchingTagInRange(range)
             }
             try repository.checkout(tag: latestVersion.description)
@@ -383,7 +374,6 @@ struct RegistryTemplateFetcher: TemplateFetcher {
                 sharedRegistriesFile: sharedFile
             )
         } catch {
-            swiftCommandState.observabilityScope.emit(RegistryConfigError.failedToLoadConfiguration(file: sharedFile, underlyingError: error))
             throw RegistryConfigError.failedToLoadConfiguration(file: sharedFile, underlyingError: error)
         }
     }

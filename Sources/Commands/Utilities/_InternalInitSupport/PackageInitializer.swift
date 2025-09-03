@@ -34,80 +34,92 @@ struct TemplatePackageInitializer: PackageInitializer {
     let swiftCommandState: SwiftCommandState
 
     func run() async throws {
-        try precheck()
+        do {
+            try precheck()
+            var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+            var registryRequirement: PackageDependency.Registry.Requirement?
 
-        var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
-        var registryRequirement: PackageDependency.Registry.Requirement?
+            swiftCommandState.observabilityScope.emit(debug: "Fetching versioning requirements and resolving path of template on local disk.")
 
-        switch templateSource {
-        case .local:
-            sourceControlRequirement = nil
-            registryRequirement = nil
-        case .git:
-            sourceControlRequirement = try? versionResolver.resolveSourceControl()
-            registryRequirement = nil
-        case .registry:
-            sourceControlRequirement = nil
-            registryRequirement = try? await versionResolver.resolveRegistry()
-        }
+            switch templateSource {
+            case .local:
+                sourceControlRequirement = nil
+                registryRequirement = nil
+            case .git:
+                sourceControlRequirement = try? versionResolver.resolveSourceControl()
+                registryRequirement = nil
+            case .registry:
+                sourceControlRequirement = nil
+                registryRequirement = try? await versionResolver.resolveRegistry()
+            }
 
-        // Resolve version requirements
-        let resolvedTemplatePath = try await TemplatePathResolver(
-            source: templateSource,
-            templateDirectory: templateDirectory,
-            templateURL: templateURL,
-            sourceControlRequirement: sourceControlRequirement,
-            registryRequirement: registryRequirement,
-            packageIdentity: templatePackageID,
-            swiftCommandState: swiftCommandState
-        ).resolve()
+            // Resolve version requirements
+            let resolvedTemplatePath = try await TemplatePathResolver(
+                source: templateSource,
+                templateDirectory: templateDirectory,
+                templateURL: templateURL,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                packageIdentity: templatePackageID,
+                swiftCommandState: swiftCommandState
+            ).resolve()
 
-        let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
-        let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
+            let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+            let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
 
-        let packageType = try await TemplatePackageInitializer.inferPackageType(from: resolvedTemplatePath, templateName: templateName, swiftCommandState: swiftCommandState)
+            swiftCommandState.observabilityScope.emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
-        let builder = DefaultPackageDependencyBuilder(
-            templateSource: templateSource,
-            packageName: packageName,
-            templateURL: templateURL,
-            templatePackageID: templatePackageID,
-            sourceControlRequirement: sourceControlRequirement,
-            registryRequirement: registryRequirement,
-            resolvedTemplatePath: resolvedTemplatePath
-        )
+            let packageType = try await TemplatePackageInitializer.inferPackageType(from: resolvedTemplatePath, templateName: templateName, swiftCommandState: swiftCommandState)
+            let builder = DefaultPackageDependencyBuilder(
+                templateSource: templateSource,
+                packageName: packageName,
+                templateURL: templateURL,
+                templatePackageID: templatePackageID,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                resolvedTemplatePath: resolvedTemplatePath
+            )
 
-        let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
 
-        swiftCommandState.observabilityScope.emit(debug: "Set up initial package: \(templatePackage.packageName)")
+            let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
 
-        try await TemplateBuildSupport.build(
-            swiftCommandState: swiftCommandState,
-            buildOptions: buildOptions,
-            globalOptions: globalOptions,
-            cwd: stagingPath,
-            transitiveFolder: stagingPath
-        )
+            swiftCommandState.observabilityScope.emit(debug: "Finished setting up initial package: \(templatePackage.packageName).")
 
-        try await TemplateInitializationPluginManager(
-            swiftCommandState: swiftCommandState,
-            template: templateName,
-            scratchDirectory: stagingPath,
-            args: args
-        ).run()
+            swiftCommandState.observabilityScope.emit(debug: "Building package with dependency on template.")
 
-        try await directoryManager.finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: swiftCommandState)
-
-        if validatePackage {
             try await TemplateBuildSupport.build(
                 swiftCommandState: swiftCommandState,
                 buildOptions: buildOptions,
                 globalOptions: globalOptions,
-                cwd: cwd
+                cwd: stagingPath,
+                transitiveFolder: stagingPath
             )
-        }
 
-        try directoryManager.cleanupTemporary(templateSource: templateSource, path: resolvedTemplatePath, temporaryDirectory: tempDir)
+            swiftCommandState.observabilityScope.emit(debug: "Running plugin steps, including prompting and running the template package's plugin.")
+
+            try await TemplateInitializationPluginManager(
+                swiftCommandState: swiftCommandState,
+                template: templateName,
+                scratchDirectory: stagingPath,
+                args: args
+            ).run()
+
+            try await directoryManager.finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: swiftCommandState)
+
+            if validatePackage {
+                try await TemplateBuildSupport.build(
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: buildOptions,
+                    globalOptions: globalOptions,
+                    cwd: cwd
+                )
+            }
+
+            try directoryManager.cleanupTemporary(templateSource: templateSource, path: resolvedTemplatePath, temporaryDirectory: tempDir)
+
+        } catch {
+            swiftCommandState.observabilityScope.emit(error)
+        }
     }
 
     //Will have to add checking for git + registry too
@@ -270,6 +282,5 @@ struct StandardPackageInitializer: PackageInitializer {
             }
         }
     }
-
 }
 
