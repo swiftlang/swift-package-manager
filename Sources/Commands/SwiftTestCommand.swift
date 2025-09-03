@@ -225,7 +225,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// Launch tests under LLDB debugger.
     @Flag(name: .customLong("debugger"),
-          help: "Launch tests under LLDB debugger.")
+          help: "Launch the tests in a debugger session.")
     var shouldLaunchInLLDB: Bool = false
 
     /// Configure test output.
