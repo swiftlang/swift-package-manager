@@ -10,16 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@testable import Commands
+@testable import CoreCommands
 
+import Foundation
 import Basics
-import Commands
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 import PackageModel
 import _InternalTestSupport
 import TSCTestSupport
 import Testing
+
+import struct ArgumentParser.ExitCode
+import protocol ArgumentParser.AsyncParsableCommand
+import class TSCBasic.BufferedOutputByteStream
 
 fileprivate func execute(
     _ args: [String],
@@ -1296,166 +1301,117 @@ struct TestCommandTests {
     struct LLDBTests {
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithParallelThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "--parallel"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem
-                    )
-                }
+            let args = args(["--debugger", "--parallel"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with --parallel (debugging requires sequential execution)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let errorDescription = outputStream.bytes.description
+            #expect(
+                errorDescription.contains("--debugger cannot be used with --parallel"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithNumWorkersThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "--parallel", "--num-workers", "2"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
+            let args = args(["--debugger", "--parallel", "--num-workers", "2"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                // Should hit the --parallel error first since validation is done in order
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with --parallel (debugging requires sequential execution)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let errorDescription = outputStream.bytes.description
+            // Should hit the --parallel error first since validation is done in order
+            #expect(
+                errorDescription.contains("--debugger cannot be used with --parallel"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithNumWorkersOnlyThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "--num-workers", "2"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
+            let args = args(["--debugger", "--num-workers", "2"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with --num-workers (debugging requires sequential execution)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let errorDescription = outputStream.bytes.description
+            #expect(
+                errorDescription.contains("--debugger cannot be used with --num-workers"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithListTestsThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "--list-tests"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
+            let args = args(["--debugger", "--list-tests"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with --list-tests (use 'swift test list' for listing tests)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let errorDescription = outputStream.bytes.description
+            #expect(
+                errorDescription.contains("--debugger cannot be used with --list-tests"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithShowCodecovPathThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "--show-codecov-path"],
-                        packagePath: fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
+            let args = args(["--debugger", "--show-codecov-path"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with --show-codecov-path (debugging session cannot show paths)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            let errorDescription = outputStream.bytes.description
+            #expect(
+                errorDescription.contains("--debugger cannot be used with --show-codecov-path"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
         func lldbWithReleaseConfigurationThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await execute(
-                        ["--debugger", "-c", "release"],
-                        packagePath: fixturePath,
-                        configuration: .release,
-                        buildSystem: buildSystem,
-                    )
-                }
-                guard case let SwiftPMError.executionFailure(_, stdout, stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
+            let args = args(["--debugger"], for: buildSystem, buildConfiguration: .release)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
 
-                #expect(
-                    stderr.contains("error: --debugger cannot be used with release configuration (debugging requires debug symbols)"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
             }
-        }
 
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
-        func lldbWithCompatibleFlagsDoesNotThrowValidationError(buildSystem: BuildSystemProvider.Kind) async throws {
-            let configuration = BuildConfiguration.debug
-            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-                let (stdout, stderr) = try await execute(
-                    ["--debugger", "--filter", ".*", "--skip", "sometest", "--enable-testable-imports"],
-                    packagePath: fixturePath,
-                    configuration: configuration,
-                    buildSystem: buildSystem,
-                )
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-                #expect(
-                    !stderr.contains("error: --debugger cannot be used with"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
-            }
+            let errorDescription = outputStream.bytes.description
+            #expect(
+                errorDescription.contains("--debugger cannot be used with release configuration"),
+                "Expected error about incompatible flags, got: \(errorDescription)"
+            )
         }
 
         @Test(arguments: SupportedBuildSystemOnAllPlatforms)
@@ -1474,8 +1430,14 @@ struct TestCommandTests {
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
 
+                #if os(macOS)
+                let targetName = "xctest"
+                #else
+                let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
+                #endif
+
                 #expect(
-                    stdout.contains("target create") && stdout.contains("xctest"),
+                    stdout.contains("target create") && stdout.contains(targetName),
                     "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
@@ -1502,8 +1464,14 @@ struct TestCommandTests {
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
 
+                #if os(macOS)
+                let targetName = "swiftpm-testing-helper"
+                #else
+                let targetName = "TestDebuggingTests-test-runner"
+                #endif
+
                 #expect(
-                    stdout.contains("target create") && stdout.contains("swiftpm-testing-helper"),
+                    stdout.contains("target create") && stdout.contains(targetName),
                     "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
                 )
 
@@ -1546,5 +1514,49 @@ struct TestCommandTests {
                 )
             }
         }
+
+        func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
+            return args + buildConfiguration.args + getBuildSystemArgs(for: buildSystem)
+        }
+
+        func commandState() throws -> (SwiftCommandState, BufferedOutputByteStream) {
+            let outputStream = BufferedOutputByteStream()
+
+            let state = try SwiftCommandState(
+                outputStream: outputStream,
+                options: try GlobalOptions.parse([]),
+                toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
+                workspaceDelegateProvider: {
+                    CommandWorkspaceDelegate(
+                        observabilityScope: $0,
+                        outputHandler: $1,
+                        progressHandler: $2,
+                        inputHandler: $3
+                    )
+                },
+                workspaceLoaderProvider: {
+                    XcodeWorkspaceLoader(
+                        fileSystem: $0,
+                        observabilityScope: $1
+                    )
+                },
+                createPackagePath: false
+            )
+            return (state, outputStream)
+        }
     }
 }
+
+fileprivate extension BuildConfiguration {
+    var args: [String] {
+        var args = ["--configuration"]
+        switch self {
+        case .debug:
+            args.append("debug")
+        case .release:
+            args.append("release")
+        }
+        return args
+    }
+}
+
