@@ -36,10 +36,22 @@ struct TemplatePackageInitializer: PackageInitializer {
     func run() async throws {
         try precheck()
 
-        // Resolve version requirements
-        let sourceControlRequirement = try? versionResolver.resolveSourceControl()
-        let registryRequirement = try? versionResolver.resolveRegistry()
+        var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+        var registryRequirement: PackageDependency.Registry.Requirement?
 
+        switch templateSource {
+        case .local:
+            sourceControlRequirement = nil
+            registryRequirement = nil
+        case .git:
+            sourceControlRequirement = try? versionResolver.resolveSourceControl()
+            registryRequirement = nil
+        case .registry:
+            sourceControlRequirement = nil
+            registryRequirement = try? await versionResolver.resolveRegistry()
+        }
+
+        // Resolve version requirements
         let resolvedTemplatePath = try await TemplatePathResolver(
             source: templateSource,
             templateDirectory: templateDirectory,
@@ -65,7 +77,6 @@ struct TemplatePackageInitializer: PackageInitializer {
             resolvedTemplatePath: resolvedTemplatePath
         )
 
-        
         let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
 
         swiftCommandState.observabilityScope.emit(debug: "Set up initial package: \(templatePackage.packageName)")

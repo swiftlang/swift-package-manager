@@ -224,6 +224,8 @@ struct PackageInitConfiguration {
 
         if templateSource != nil {
             self.versionResolver = DependencyRequirementResolver(
+                packageIdentity: packageID,
+                swiftCommandState: swiftCommandState,
                 exact: versionFlags.exact,
                 revision: versionFlags.revision,
                 branch: versionFlags.branch,

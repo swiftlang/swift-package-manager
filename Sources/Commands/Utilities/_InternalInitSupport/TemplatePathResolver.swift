@@ -372,7 +372,7 @@ struct RegistryTemplateFetcher: TemplateFetcher {
     ///
     /// - Returns: Registry configuration to use for fetching packages.
     /// - Throws: If configurations  are missing or unreadable.
-    private static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace
+    public static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace
         .Configuration.Registries {
         let sharedFile = Workspace.DefaultLocations
             .registriesConfigurationFile(at: swiftCommandState.sharedConfigurationDirectory)
