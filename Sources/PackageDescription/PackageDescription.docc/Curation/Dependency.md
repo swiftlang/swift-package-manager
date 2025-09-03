@@ -41,16 +41,12 @@
 - ``Trait``
 - ``RegistryRequirement``
 - ``SourceControlRequirement``
-- ``requirement-swift.property``
-- ``Requirement-swift.enum``
 
 ### Describing a Package Dependency
 
 - ``kind-swift.property``
 - ``Kind``
 - ``Version``
-- ``name``
-- ``url``
 
 ### Deprecated methods
 
@@ -63,3 +59,5 @@
 - ``package(url:_:)-(_,Package.Dependency.Requirement)``
 - ``name``
 - ``url``
+- ``requirement-swift.property``
+- ``Requirement-swift.enum``
