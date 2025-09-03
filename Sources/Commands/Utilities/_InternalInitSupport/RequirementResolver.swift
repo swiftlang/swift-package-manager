@@ -11,14 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 import PackageModel
+import PackageRegistry
 import TSCBasic
 import TSCUtility
+import CoreCommands
+import Workspace
+import PackageFingerprint
+import PackageSigning
 
 /// A protocol defining interfaces for resolving package dependency requirements
 /// based on versioning input (e.g., version, branch, or revision).
 protocol DependencyRequirementResolving {
     func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement
-    func resolveRegistry() throws -> PackageDependency.Registry.Requirement?
+    func resolveRegistry() async throws -> PackageDependency.Registry.Requirement?
 }
 
 
@@ -34,6 +39,10 @@ protocol DependencyRequirementResolving {
 /// `from`.
 
 struct DependencyRequirementResolver: DependencyRequirementResolving {
+    /// Package-id for registry
+    let packageIdentity: String?
+    /// SwiftCommandstate
+    let swiftCommandState: SwiftCommandState
     /// An exact version to use.
     let exact: Version?
 
@@ -95,9 +104,29 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.Registry.Requirement`.
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
-    func resolveRegistry() throws -> PackageDependency.Registry.Requirement? {
+    func resolveRegistry() async throws -> PackageDependency.Registry.Requirement? {
         if exact == nil, from == nil, upToNextMinorFrom == nil, to == nil {
-            return nil
+            let config = try RegistryTemplateFetcher.getRegistriesConfig(self.swiftCommandState, global: true)
+            let auth = try swiftCommandState.getRegistryAuthorizationProvider()
+
+            guard let stringIdentity = self.packageIdentity else {
+                throw DependencyRequirementError.noRequirementSpecified
+            }
+            let identity = PackageIdentity.plain(stringIdentity)
+            let registryClient = RegistryClient(
+                configuration: config.configuration,
+                fingerprintStorage: .none,
+                fingerprintCheckingMode: .strict,
+                skipSignatureValidation: false,
+                signingEntityStorage: .none,
+                signingEntityCheckingMode: .strict,
+                authorizationProvider: auth,
+                delegate: .none,
+                checksumAlgorithm: SHA256()
+            )
+
+            let resolvedVersion = try await resolveVersion(for: identity, using: registryClient)
+            return (.exact(resolvedVersion))
         }
 
         var specifiedRequirements: [PackageDependency.Registry.Requirement] = []
@@ -128,6 +157,23 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
 
         return specifiedRequirements
     }
+    
+    /// Resolves the version to use for registry packages, fetching latest if none specified
+    ///
+    /// - Parameters:
+    ///   - packageIdentity: The package identity to resolve version for
+    ///   - registryClient: The registry client to use for fetching metadata
+    /// - Returns: The resolved version to use
+    /// - Throws: Error if version resolution fails
+    func resolveVersion(for packageIdentity: PackageIdentity, using registryClient: RegistryClient) async throws -> Version {
+        let metadata = try await registryClient.getPackageMetadata(package: packageIdentity, observabilityScope: swiftCommandState.observabilityScope)
+        
+        guard let maxVersion = metadata.versions.max() else {
+            throw DependencyRequirementError.failedToFetchLatestVersion(metadata: metadata, packageIdentity: packageIdentity)
+        }
+        
+        return maxVersion
+    }
 }
 
 /// Enum representing the type of dependency to resolve.
@@ -142,6 +188,7 @@ enum DependencyRequirementError: Error, CustomStringConvertible {
     case multipleRequirementsSpecified
     case noRequirementSpecified
     case invalidToParameterWithoutFrom
+    case failedToFetchLatestVersion(metadata: RegistryClient.PackageMetadata, packageIdentity: PackageIdentity)
 
     var description: String {
         switch self {
@@ -151,6 +198,12 @@ enum DependencyRequirementError: Error, CustomStringConvertible {
             return "No exact or lower bound version requirement specified."
         case .invalidToParameterWithoutFrom:
             return "--to requires --from or --up-to-next-minor-from"
+        case .failedToFetchLatestVersion(let metadata, let packageIdentity):
+            return """
+                Failed to fetch latest version of \(packageIdentity)
+                Here is the metadata of the package you were trying to query:
+                \(metadata)
+                """
         }
     }
 }

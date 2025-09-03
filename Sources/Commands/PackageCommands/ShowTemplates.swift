@@ -100,6 +100,8 @@ struct ShowTemplates: AsyncSwiftCommand {
     private func resolveTemplatePath(using swiftCommandState: SwiftCommandState, source: InitTemplatePackage.TemplateSource) async throws -> Basics.AbsolutePath {
 
         let requirementResolver = DependencyRequirementResolver(
+            packageIdentity: templatePackageID,
+            swiftCommandState: swiftCommandState,
             exact: exact,
             revision: revision,
             branch: branch,
@@ -108,8 +110,21 @@ struct ShowTemplates: AsyncSwiftCommand {
             to: to
         )
 
-        let registryRequirement = try? requirementResolver.resolveRegistry()
-        let sourceControlRequirement = try? requirementResolver.resolveSourceControl()
+        var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+        var registryRequirement: PackageDependency.Registry.Requirement?
+
+
+        switch source {
+        case .local:
+            sourceControlRequirement = nil
+            registryRequirement = nil
+        case .git:
+            sourceControlRequirement = try? requirementResolver.resolveSourceControl()
+            registryRequirement = nil
+        case .registry:
+            sourceControlRequirement = nil
+            registryRequirement = try? await requirementResolver.resolveRegistry()
+        }
 
         return try await TemplatePathResolver(
             source: source,
