@@ -13,15 +13,15 @@ import PackageGraph
 /// `TemplateTesterPluginManager` encapsulates the logic needed to fetch,
 ///  and run templates' plugins given arguments, based on the template initialization workflow.
 public struct TemplateTesterPluginManager: TemplatePluginManager {
-    public let swiftCommandState: SwiftCommandState
-    public let template: String?
-    public let scratchDirectory: Basics.AbsolutePath
-    public let args: [String]
-    public let packageGraph: ModulesGraph
-    public let branches: [String]
-    let coordinator: TemplatePluginCoordinator
+    private let swiftCommandState: SwiftCommandState
+    private let template: String?
+    private let scratchDirectory: Basics.AbsolutePath
+    private let args: [String]
+    private let packageGraph: ModulesGraph
+    private let branches: [String]
+    private let coordinator: TemplatePluginCoordinator
 
-    public var rootPackage: ResolvedPackage {
+    private var rootPackage: ResolvedPackage {
         guard let root = packageGraph.rootPackages.first else {
             fatalError("No root package found.")
         }
@@ -53,22 +53,12 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         return try promptUserForTemplateArguments(using: toolInfo)
     }
 
-    func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
+    private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
         try TemplateTestPromptingSystem().generateCommandPaths(rootCommand: toolInfo.command, args: args, branches: branches)
     }
 
-    public func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
-        try await TemplatePluginRunner.run(
-            plugin: plugin,
-            package: rootPackage,
-            packageGraph: packageGraph,
-            arguments: arguments,
-            swiftCommandState: swiftCommandState
-        )
-    }
-
     public func loadTemplatePlugin() throws -> ResolvedModule {
-        try coordinator.loadTemplatePlugin(from: packageGraph)
+        return try coordinator.loadTemplatePlugin(from: packageGraph)
     }
 }
 

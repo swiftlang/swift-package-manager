@@ -10,7 +10,27 @@ import PackageGraph
 
 public protocol TemplatePluginManager {
     func loadTemplatePlugin() throws -> ResolvedModule
-    func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data
+}
+
+/// Utility for executing template plugins with common patterns.
+enum TemplatePluginExecutor {
+    static func execute(
+        plugin: ResolvedModule,
+        rootPackage: ResolvedPackage,
+        packageGraph: ModulesGraph,
+        arguments: [String],
+        swiftCommandState: SwiftCommandState,
+        requestPermission: Bool = false
+    ) async throws -> Data {
+        return try await TemplatePluginRunner.run(
+            plugin: plugin,
+            package: rootPackage,
+            packageGraph: packageGraph,
+            arguments: arguments,
+            swiftCommandState: swiftCommandState,
+            requestPermission: requestPermission
+        )
+    }
 }
 
 /// A utility for obtaining and running a template's plugin .
@@ -18,15 +38,14 @@ public protocol TemplatePluginManager {
 /// `TemplateIntiializationPluginManager` encapsulates the logic needed to fetch,
 ///  and run templates' plugins given arguments, based on the template initialization workflow.
 struct TemplateInitializationPluginManager: TemplatePluginManager {
-    let swiftCommandState: SwiftCommandState
-    let template: String?
-    let scratchDirectory: Basics.AbsolutePath
-    let args: [String]
-    let packageGraph: ModulesGraph
-    let coordinator: TemplatePluginCoordinator
+    private let swiftCommandState: SwiftCommandState
+    private let template: String?
+    private let scratchDirectory: Basics.AbsolutePath
+    private let args: [String]
+    private let packageGraph: ModulesGraph
+    private let coordinator: TemplatePluginCoordinator
 
-
-    var rootPackage: ResolvedPackage {
+    private var rootPackage: ResolvedPackage {
         get throws {
             guard let root = packageGraph.rootPackages.first else {
                 throw TemplateInitializationError.missingPackageGraph
@@ -60,13 +79,13 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     ///   - `TemplatePluginError.execu`
 
     func run() async throws {
-        let plugin = try coordinator.loadTemplatePlugin(from: packageGraph)
+        let plugin = try loadTemplatePlugin()
         let toolInfo = try await coordinator.dumpToolInfo(using: plugin, from: packageGraph, rootPackage: rootPackage)
 
         let cliResponses: [[String]] = try promptUserForTemplateArguments(using: toolInfo)
 
         for response in cliResponses {
-            _ = try await executeTemplatePlugin(plugin, with: response)
+            _ = try await runTemplatePlugin(plugin, with: response)
         }
     }
 
@@ -78,8 +97,10 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Throws:
     ///   - Any other errors thrown during the prompting of the user.
     ///
-    /// - Returns: A 2D array of the arguments given by the user, that will be consumed by the template during the project generation phase.
-    func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [[String]] {
+    /// - Parameter toolInfo: The JSON representation of the template's decision tree
+    /// - Returns: A 2D array of arguments provided by the user for template generation
+    /// - Throws: Any errors during user prompting
+    private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [[String]] {
         return try TemplatePromptingSystem().promptUser(command: toolInfo.command, arguments: args)
     }
 
@@ -95,13 +116,14 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     ///
     /// - Returns: A data representation of the result of the execution of the template's plugin.
 
-    func executeTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
-        return try await TemplatePluginRunner.run(
+    private func runTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
+        return try await TemplatePluginExecutor.execute(
             plugin: plugin,
-            package: rootPackage,
+            rootPackage: rootPackage,
             packageGraph: packageGraph,
             arguments: arguments,
-            swiftCommandState: swiftCommandState
+            swiftCommandState: swiftCommandState,
+            requestPermission: false
         )
     }
 
@@ -114,7 +136,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Returns: A data representation of the result of the execution of the template's plugin.
 
     func loadTemplatePlugin() throws -> ResolvedModule {
-        try coordinator.loadTemplatePlugin(from: packageGraph)
+        return try coordinator.loadTemplatePlugin(from: packageGraph)
     }
 
     enum TemplateInitializationError: Error, CustomStringConvertible {

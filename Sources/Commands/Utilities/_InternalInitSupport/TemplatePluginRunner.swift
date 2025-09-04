@@ -65,7 +65,8 @@ enum TemplatePluginRunner {
         packageGraph: ModulesGraph,
         arguments: [String],
         swiftCommandState: SwiftCommandState,
-        allowNetworkConnections: [SandboxNetworkPermission] = []
+        allowNetworkConnections: [SandboxNetworkPermission] = [],
+        requestPermission: Bool
     ) async throws -> Data {
         let pluginTarget = try castToPlugin(plugin)
         let pluginsDir = try pluginDirectory(for: plugin.name, in: swiftCommandState)
@@ -75,14 +76,16 @@ enum TemplatePluginRunner {
         var writableDirs = [outputDir, package.path]
         var allowedNetworkConnections = allowNetworkConnections
 
-        try requestPluginPermissions(
-            from: pluginTarget,
-            pluginName: plugin.name,
-            packagePath: package.path,
-            writableDirectories: &writableDirs,
-            allowNetworkConnections: &allowedNetworkConnections,
-            state: swiftCommandState
-        )
+        if requestPermission {
+            try requestPluginPermissions(
+                from: pluginTarget,
+                pluginName: plugin.name,
+                packagePath: package.path,
+                writableDirectories: &writableDirs,
+                allowNetworkConnections: &allowedNetworkConnections,
+                state: swiftCommandState
+            )
+        }
 
         let readOnlyDirs = writableDirs
             .contains(where: { package.path.isDescendantOfOrEqual(to: $0) }) ? [] : [package.path]

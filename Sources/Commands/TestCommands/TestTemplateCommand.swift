@@ -303,12 +303,14 @@ extension SwiftTestCommand {
                     print("Running plugin with args:", fullCommand)
 
                     try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
-                        let output = try await TemplatePluginRunner.run(
+
+                        let output = try await TemplatePluginExecutor.execute(
                             plugin: commandPlugin,
-                            package: graph.rootPackages.first!,
+                            rootPackage: graph.rootPackages.first!,
                             packageGraph: graph,
                             arguments: fullCommand,
-                            swiftCommandState: swiftCommandState
+                            swiftCommandState: swiftCommandState,
+                            requestPermission: false
                         )
                         pluginOutput = String(data: output, encoding: .utf8) ?? "[Invalid UTF-8 output]"
                         print(pluginOutput)
