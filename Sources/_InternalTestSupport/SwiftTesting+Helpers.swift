@@ -10,6 +10,8 @@
 
 import Basics
 import Testing
+import Foundation
+import class TSCBasic.BufferedOutputByteStream
 
 public func expectFileExists(
     at path: AbsolutePath,
@@ -145,4 +147,35 @@ public func expectAsyncThrowsError<T>(
     } catch {
         errorHandler(error)
     }
+}
+
+/// Checks if an output stream contains a specific string, with retry logic for asynchronous writes.
+/// - Parameters:
+///   - outputStream: The output stream to check
+///   - needle: The string to search for in the output stream
+///   - timeout: Maximum time to wait for the string to appear (default: 3 seconds)
+///   - retryInterval: Time to wait between checks (default: 50 milliseconds)
+/// - Returns: True if the string was found within the timeout period
+public func waitForOutputStreamToContain(
+    _ outputStream: BufferedOutputByteStream,
+    _ needle: String,
+    timeout: TimeInterval = 3.0,
+    retryInterval: TimeInterval = 0.05
+) async throws -> Bool {
+    let description = outputStream.bytes.description
+    if description.contains(needle) {
+        return true
+    }
+
+    let startTime = Date()
+    while Date().timeIntervalSince(startTime) < timeout {
+        let description = outputStream.bytes.description
+        if description.contains(needle) {
+            return true
+        }
+
+        try await Task.sleep(nanoseconds: UInt64(retryInterval * 1_000_000_000))
+    }
+
+    return outputStream.bytes.description.contains(needle)
 }
