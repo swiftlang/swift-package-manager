@@ -37,6 +37,7 @@ import func _InternalTestSupport.XCTAssertMatch
 import func _InternalTestSupport.XCTAssertNoDiagnostics
 
 import XCTest
+import Testing
 
 final class CrossCompilationBuildPlanTests: XCTestCase {
     func testEmbeddedWasmTarget() async throws {

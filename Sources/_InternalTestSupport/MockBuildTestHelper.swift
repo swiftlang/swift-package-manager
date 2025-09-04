@@ -18,7 +18,6 @@ import struct PackageGraph.ResolvedProduct
 import PackageModel
 import SPMBuildCore
 import TSCUtility
-import XCTest
 
 public struct MockToolchain: PackageModel.Toolchain {
     #if os(Windows)

@@ -5526,6 +5526,10 @@ struct PackageCommandTests {
                 "https://github.com/swiftlang/swift-package-manager/issues/8782",
                 relationship: .defect
             ),
+            .issue(
+                "https://github.com/swiftlang/swift-package-manager/issues/9090",
+                relationship: .defect,
+            ),
             .requiresSwiftConcurrencySupport,
             .tags(
                 .Feature.Command.Package.CommandPlugin,
@@ -5639,7 +5643,11 @@ struct PackageCommandTests {
                             configuration: data.config,
                             buildSystem: data.buildSystem,
                         )
-                        #expect(stdout.contains("successfully created it"))
+                        withKnownIssue(isIntermittent: true) {
+                            #expect(stdout.contains("successfully created it"))
+                        } when: {
+                            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .native && data.config == .release
+                        }
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
                     }
 

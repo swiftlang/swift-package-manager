@@ -15,7 +15,6 @@ import Dispatch
 import PackageGraph
 import PackageModel
 import SourceControl
-import XCTest
 
 import struct TSCUtility.Version
 

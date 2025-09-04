@@ -3697,8 +3697,8 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             httpClient: httpClient
         )
 
-        await XCTAssertAsyncThrowsError(try await registryClient.checkAvailability(registry: registry)) { error in
-            #expect(error as? StringError == StringError("registry \(registry.url) does not support availability checks."))
+        await #expect(throws: StringError("registry \(registry.url) does not support availability checks.")) {
+            try await registryClient.checkAvailability(registry: registry)
         }
     }
 }

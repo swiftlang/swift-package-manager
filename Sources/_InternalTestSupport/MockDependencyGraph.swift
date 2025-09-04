@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import XCTest
+import Testing
 
 import PackageGraph
 import PackageModel
@@ -32,15 +33,30 @@ public struct MockDependencyGraph {
     public func checkResult(
         _ output: [(container: PackageReference, version: Version)],
         file: StaticString = #file,
-        line: UInt = #line
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
         var result = self.result
         for item in output {
-            XCTAssertEqual(result[item.container], item.version, file: file, line: line)
+            if Test.current != nil {
+                #expect(
+                    result[item.container] == item.version,
+                    sourceLocation: sourceLocation,
+                )
+            } else {
+                XCTAssertEqual(result[item.container], item.version, file: file, line: line)
+            }
             result[item.container] = nil
         }
         if !result.isEmpty {
-            XCTFail("Unchecked containers: \(result)", file: file, line: line)
+            if Test.current != nil {
+                Issue.record(
+                    "Unchecked containers: \(result)",
+                    sourceLocation: sourceLocation,
+                )
+            } else {
+                XCTFail("Unchecked containers: \(result)", file: file, line: line)
+            }
         }
     }
 }

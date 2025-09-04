@@ -23,6 +23,7 @@ import PackageModel
 import SPMBuildCore
 import TSCUtility
 import XCTest
+import Testing
 
 public func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
@@ -174,12 +175,30 @@ public struct BuildPlanResult {
         self.plan = plan
     }
 
-    public func checkTargetsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.targetMap.count, count, file: file, line: line)
+    public func checkTargetsCount(
+        _ count: Int,
+        file: StaticString = #file,
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
+    ) {
+        if Test.current != nil {
+            #expect(self.targetMap.count ==  count, sourceLocation: sourceLocation)
+        } else {
+            XCTAssertEqual(self.targetMap.count, count, file: file, line: line)
+        }
     }
 
-    public func checkProductsCount(_ count: Int, file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(self.productMap.count, count, file: file, line: line)
+    public func checkProductsCount(
+        _ count: Int,
+        file: StaticString = #file,
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
+    ) {
+        if Test.current != nil {
+            #expect(self.productMap.count ==  count, sourceLocation: sourceLocation)
+        } else {
+            XCTAssertEqual(self.productMap.count, count, file: file, line: line)
+        }
     }
 
     public func moduleBuildDescription(for name: String) throws -> Build.ModuleBuildDescription {

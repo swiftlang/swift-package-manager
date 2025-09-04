@@ -26,6 +26,7 @@ import _InternalBuildTestSupport
 import _InternalTestSupport
 import Workspace
 import XCTest
+import Testing
 
 @testable import class Build.BuildPlan
 import struct Build.PluginConfiguration

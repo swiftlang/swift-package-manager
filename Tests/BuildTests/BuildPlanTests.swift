@@ -32,6 +32,7 @@ import SwiftDriver
 import TSCTestSupport
 import Workspace
 import XCTest
+import Testing
 
 import struct TSCBasic.ByteString
 import func TSCBasic.withTemporaryFile

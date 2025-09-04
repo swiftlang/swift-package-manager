@@ -23,6 +23,7 @@ import _InternalTestSupport
 import _InternalBuildTestSupport
 @testable import XCBuildSupport
 import XCTest
+import Testing
 
 final class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
