@@ -23,7 +23,7 @@ struct TemplatePluginCoordinator {
     let args: [String]
     let branches: [String]
 
-    let EXPERIMENTAL_DUMP_HELP = ["--", "--experimental-dump-help"]
+    private let EXPERIMENTAL_DUMP_HELP = ["--", "--experimental-dump-help"]
 
     func loadPackageGraph() async throws -> ModulesGraph {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: scratchDirectory) { _, _ in
@@ -64,7 +64,8 @@ struct TemplatePluginCoordinator {
             package: rootPackage,
             packageGraph: packageGraph,
             arguments: EXPERIMENTAL_DUMP_HELP,
-            swiftCommandState: swiftCommandState
+            swiftCommandState: swiftCommandState,
+            requestPermission: true
         )
 
         do {
