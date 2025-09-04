@@ -1664,10 +1664,12 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
+            // The output stream is written to asynchronously on a DispatchQueue and can
+            // receive output after the command has thrown.
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
             #expect(
-                errorDescription.contains("--debugger cannot be used with --parallel"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -1683,11 +1685,11 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
             // Should hit the --parallel error first since validation is done in order
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --parallel")
             #expect(
-                errorDescription.contains("--debugger cannot be used with --parallel"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -1703,10 +1705,10 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --num-workers")
             #expect(
-                errorDescription.contains("--debugger cannot be used with --num-workers"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -1722,10 +1724,10 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --list-tests")
             #expect(
-                errorDescription.contains("--debugger cannot be used with --list-tests"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -1741,10 +1743,10 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with --show-codecov-path")
             #expect(
-                errorDescription.contains("--debugger cannot be used with --show-codecov-path"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
@@ -1760,10 +1762,10 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            let errorDescription = outputStream.bytes.description
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger cannot be used with release configuration")
             #expect(
-                errorDescription.contains("--debugger cannot be used with release configuration"),
-                "Expected error about incompatible flags, got: \(errorDescription)"
+                found,
+                "Expected error about incompatible flags, got: \(outputStream.bytes.description)"
             )
         }
 
