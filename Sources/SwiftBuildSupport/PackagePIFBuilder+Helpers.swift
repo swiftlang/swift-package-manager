@@ -88,7 +88,19 @@ extension PackageModel.Module {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
+        let items = [
+            self.name,
+            self.description,
+            String(describing: self.bundleName),
+            "\(self.hashValue)",
+            self.path.pathString,
+            self.type.rawValue,
+        ].joined(separator: " - ")
+        // print("Module name is: \(items)")
+        // let aliases = self.moduleAliases.map {(data) in  "\(dat)=\(value)"}
+
+        // print("Module aliases is: \(aliases)")
+        return PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
 }
 
@@ -104,7 +116,7 @@ extension PackageModel.Product {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forProductName: self.name, withId:self.identity, suffix: suffix)
     }
 }
 
@@ -134,11 +146,11 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.uniqueDescription(forName: name)
-        return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
+    static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
+        let suffixDescription: String = suffix.uniqueDescription(forName: name)
+        return "PACKAGE-PRODUCT:\(id).\(name)\(suffixDescription)"
     }
-    
+
     /// Helper function to consistently generate a target name string for a product in a package.
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
@@ -775,13 +787,13 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        var moduleNamesSeen: Set<String> = []
-        var productNamesSeen: Set<String> = []
+        var moduleGuidsSeen: Set<ResolvedModule.ID> = []
+        var productGuidsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
             case .module(let moduleDependency, _):
-                let (unseenModule, _) = moduleNamesSeen.insert(moduleDependency.name)
+                let (unseenModule, _) = moduleGuidsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
                 if moduleDependency.underlying.type != .macro {
@@ -792,7 +804,7 @@ extension Collection<PackageGraph.ResolvedModule> {
                 block(dependency)
 
             case .product(let productDependency, let conditions):
-                let (unseenProduct, _) = productNamesSeen.insert(productDependency.name)
+                let (unseenProduct, _) = productGuidsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
                 block(dependency)
 
@@ -800,7 +812,7 @@ extension Collection<PackageGraph.ResolvedModule> {
                 // targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
-                    if moduleNamesSeen.contains(moduleDependency.name) { continue }
+                    if moduleGuidsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }
             }
@@ -848,12 +860,13 @@ extension ProjectModel.BuildSettings {
 extension ProjectModel.Project {
     @discardableResult
     public mutating func addTarget(
+        packageProductId: String,
         packageProductName: String,
         productType: ProjectModel.Target.ProductType
     ) throws -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target> {
         let targetKeyPath = try self.addTarget { _ in
             ProjectModel.Target(
-                id: PackagePIFBuilder.targetGUID(forProductName: packageProductName),
+                id: PackagePIFBuilder.targetGUID(forProductName: packageProductName, withId: packageProductId),
                 productType: productType,
                 name: packageProductName,
                 productName: packageProductName

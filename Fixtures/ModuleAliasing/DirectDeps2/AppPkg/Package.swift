@@ -19,7 +19,8 @@ let package = Package(
                          package: "Bpkg",
                          moduleAliases: ["Utils": "BUtils"]
                         )
-            ]),
+            ]
+        ),
     ]
 )
 

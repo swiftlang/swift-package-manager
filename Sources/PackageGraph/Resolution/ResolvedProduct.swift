@@ -179,7 +179,7 @@ public struct ResolvedProduct {
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        "<ResolvedProduct: \(self.name), \(self.type)>"
+        "<ResolvedProduct: \(self.packageIdentity), \(self.name), \(self.type)>"
     }
 }
 

@@ -617,6 +617,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Handle the target's dependencies (but only link against them if needed).
+        print("sourceModule name: \(sourceModule.name)")
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         sourceModule.recursivelyTraverseDependencies { dependency in
             switch dependency {
@@ -700,6 +701,7 @@ extension PackagePIFProjectBuilder {
                 }
 
             case .product(let productDependency, let packageConditions):
+                print("productDep: \(productDependency)")
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
                 if productDependency.isBinaryOnlyExecutableProduct {
                     return
