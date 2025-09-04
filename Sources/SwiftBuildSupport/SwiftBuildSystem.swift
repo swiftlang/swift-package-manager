@@ -66,7 +66,7 @@ public func createSession(
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
     } else {
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
