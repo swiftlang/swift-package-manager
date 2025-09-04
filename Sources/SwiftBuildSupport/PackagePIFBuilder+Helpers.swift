@@ -234,7 +234,7 @@ extension Sequence<PackageModel.PackageCondition> {
             }
 
             var pifPlatformsForCondition: [ProjectModel.BuildSettings.Platform] = platforms
-                .map { ProjectModel.BuildSettings.Platform(from: $0) }
+                .compactMap { try? ProjectModel.BuildSettings.Platform(from: $0) }
 
             // Treat catalyst like macOS for backwards compatibility with older tools versions.
             if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
@@ -537,7 +537,7 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    var allBuildSettings: AllBuildSettings {
+    func computeAllBuildSettings(observabilityScope: ObservabilityScope) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
@@ -565,7 +565,16 @@ extension PackageGraph.ResolvedModule {
                 let (platforms, configurations, _) = settingAssignment.conditions.splitIntoConcreteConditions
 
                 for platform in platforms {
-                    let pifPlatform = platform.map { ProjectModel.BuildSettings.Platform(from: $0) }
+                    let pifPlatform: ProjectModel.BuildSettings.Platform?
+                    if let platform {
+                        guard let computedPifPlatform = try? ProjectModel.BuildSettings.Platform(from: platform) else {
+                            observabilityScope.logPIF(.warning, "Ignoring settings assignments for unknown platform '\(platform.name)'")
+                            continue
+                        }
+                        pifPlatform = computedPifPlatform
+                    } else {
+                        pifPlatform = nil
+                    }
 
                     if pifDeclaration == .OTHER_LDFLAGS {
                         var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
@@ -962,7 +971,11 @@ extension ProjectModel.BuildSettings.MultipleValueSetting {
 }
 
 extension ProjectModel.BuildSettings.Platform {
-    init(from platform: PackageModel.Platform) {
+    enum Error: Swift.Error {
+        case unknownPlatform(String)
+    }
+
+    init(from platform: PackageModel.Platform) throws {
         self = switch platform {
         case .macOS: .macOS
         case .macCatalyst: .macCatalyst
@@ -977,7 +990,7 @@ extension ProjectModel.BuildSettings.Platform {
         case .wasi: .wasi
         case .openbsd: .openbsd
         case .freebsd: .freebsd
-        default: preconditionFailure("Unexpected platform: \(platform.name)")
+        default: throw Error.unknownPlatform(platform.name)
         }
     }
 }
