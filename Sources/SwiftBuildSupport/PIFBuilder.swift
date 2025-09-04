@@ -83,9 +83,7 @@ extension ModulesGraph {
 }
 
 /// The parameters required by `PIFBuilder`.
-struct PIFBuilderParameters {
-    let triple: Basics.Triple
-
+package struct PIFBuilderParameters {
     /// Whether the toolchain supports `-package-name` option.
     let isPackageAccessModifierSupported: Bool
 
@@ -101,9 +99,6 @@ struct PIFBuilderParameters {
     /// An array of paths to search for pkg-config `.pc` files.
     let pkgConfigDirectories: [AbsolutePath]
 
-    /// The toolchain's SDK root path.
-    let sdkRootPath: AbsolutePath?
-
     /// The Swift language versions supported by the SwiftBuild being used for the build.
     let supportedSwiftVersions: [SwiftLanguageVersion]
 
@@ -118,6 +113,19 @@ struct PIFBuilderParameters {
 
     /// Additional rules for including a source or resource file in a target
     let additionalFileRules: [FileRuleDescription]
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription]) {
+        self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
+        self.enableTestability = enableTestability
+        self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
+        self.toolchainLibDir = toolchainLibDir
+        self.pkgConfigDirectories = pkgConfigDirectories
+        self.supportedSwiftVersions = supportedSwiftVersions
+        self.pluginScriptRunner = pluginScriptRunner
+        self.disableSandbox = disableSandbox
+        self.pluginWorkingDirectory = pluginWorkingDirectory
+        self.additionalFileRules = additionalFileRules
+    }
 }
 
 /// PIF object builder for a package graph.
@@ -146,7 +154,7 @@ public final class PIFBuilder {
     ///   - parameters: The parameters used to configure the PIF.
     ///   - fileSystem: The file system to read from.
     ///   - observabilityScope: The ObservabilityScope to emit diagnostics to.
-    init(
+    package init(
         graph: ModulesGraph,
         parameters: PIFBuilderParameters,
         fileSystem: FileSystem,
@@ -163,7 +171,7 @@ public final class PIFBuilder {
     ///   - prettyPrint: Whether to return a formatted JSON.
     ///   - preservePIFModelStructure: Whether to preserve model structure.
     /// - Returns: The package graph in the JSON PIF format.
-    func generatePIF(
+    package func generatePIF(
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
@@ -227,7 +235,7 @@ public final class PIFBuilder {
     }
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
-    private func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
+    package func constructPIF(buildParameters: BuildParameters) async throws -> PIF.TopLevelObject {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
@@ -727,13 +735,11 @@ extension PIFBuilderParameters {
         additionalFileRules: [FileRuleDescription]
     ) {
         self.init(
-            triple: buildParameters.triple,
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
             enableTestability: buildParameters.enableTestability,
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             toolchainLibDir: (try? buildParameters.toolchain.toolchainLibDir) ?? .root,
             pkgConfigDirectories: buildParameters.pkgConfigDirectories,
-            sdkRootPath: buildParameters.toolchain.sdkRootPath,
             supportedSwiftVersions: supportedSwiftVersions,
             pluginScriptRunner: pluginScriptRunner,
             disableSandbox: disableSandbox,

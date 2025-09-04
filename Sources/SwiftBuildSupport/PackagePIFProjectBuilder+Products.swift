@@ -470,7 +470,7 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in mainModule.allBuildSettings.targetSettings {
+        for (buildConfig, declarationsByPlatform) in mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).targetSettings {
             for (platform, declarations) in declarationsByPlatform {
                 // A `nil` platform means that the declaration applies to *all* platforms.
                 for (declaration, stringValues) in declarations {
