@@ -430,7 +430,8 @@ extension PackagePIFProjectBuilder {
                             on: moduleDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
+                            // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
+                            linkProduct: moduleDependency.usesSwift
                         )
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
