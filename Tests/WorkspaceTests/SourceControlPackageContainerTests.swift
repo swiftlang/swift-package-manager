@@ -125,10 +125,6 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
@@ -174,10 +170,6 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
@@ -274,10 +266,6 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testPreReleaseVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
@@ -325,10 +313,6 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testSimultaneousVersions() async throws {
-        try XCTSkipOnWindows(because: """
-        https://github.com/swiftlang/swift-package-manager/issues/8578
-        """)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
 
