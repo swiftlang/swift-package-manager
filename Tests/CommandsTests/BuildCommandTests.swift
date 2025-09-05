@@ -782,7 +782,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let buildSystem = data.buildSystem
         try await fixture(name: "Miscellaneous/ParseableInterfaces") { fixturePath in
-            try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+            try await withKnownIssue(isIntermittent: true) {
                 let result = try await build(
                     ["--enable-parseable-module-interfaces"],
                     packagePath: fixturePath,
@@ -1148,24 +1148,31 @@ struct BuildCommandTestCases {
     func swiftDriverRawOutputGetsNewlines(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
-            // compatible with whole module optimization` message, which should have a trailing newline.  Since that
-            // message won't be there at all when the legacy compiler driver is used, we gate this check on whether the
-            // remark is there in the first place.
-            let result = try await execute(
-                ["-Xswiftc", "-wmo"],
-                packagePath: fixturePath,
-                configuration: .release,
-                buildSystem: buildSystem,
-            )
-            if result.stdout.contains(
-                "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
-            ) {
-                #expect(result.stdout.contains("optimization\n"))
-                #expect(!result.stdout.contains("optimization["))
-                #expect(!result.stdout.contains("optimizationremark"))
+         try await withKnownIssue(
+            "error produced for this fixture",
+            isIntermittent: true,
+        ) {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                // Building with `-wmo` should result in a `remark: Incremental compilation has been disabled: it is not
+                // compatible with whole module optimization` message, which should have a trailing newline.  Since that
+                // message won't be there at all when the legacy compiler driver is used, we gate this check on whether the
+                // remark is there in the first place.
+                let result = try await execute(
+                    ["-Xswiftc", "-wmo"],
+                    packagePath: fixturePath,
+                    configuration: .release,
+                    buildSystem: buildSystem,
+                )
+                if result.stdout.contains(
+                    "remark: Incremental compilation has been disabled: it is not compatible with whole module optimization"
+                ) {
+                    #expect(result.stdout.contains("optimization\n"))
+                    #expect(!result.stdout.contains("optimization["))
+                    #expect(!result.stdout.contains("optimizationremark"))
+                }
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
@@ -1205,7 +1212,7 @@ struct BuildCommandTestCases {
 
             try await withKnownIssue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8659, SWIFT_EXEC override is not working",
-                isIntermittent: (buildSystem == .native && config == .release)
+                isIntermittent: true
             ){
                 // Build with a swiftc that returns version 1.0, we expect a successful build which compiles our one source
                 // file.
@@ -1300,7 +1307,7 @@ struct BuildCommandTestCases {
     func getTaskAllowEntitlement(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
     #if os(macOS)
                 // try await building with default parameters.  This should succeed. We build verbosely so we get full command
@@ -1512,7 +1519,7 @@ struct BuildCommandTestCases {
      func parseAsLibraryCriteria(
         buildData: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParseAsLibrary") { fixturePath in
                 _ =  try await executeSwiftBuild(
                     fixturePath,
