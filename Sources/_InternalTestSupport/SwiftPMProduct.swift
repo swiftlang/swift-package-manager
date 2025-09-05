@@ -149,6 +149,7 @@ extension SwiftPM {
         }
         completeArgs += args
 
+        print("\(completeArgs.joined(separator: " "))")
         return try await AsyncProcess.popen(arguments: completeArgs, environment: environment)
     }
 }

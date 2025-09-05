@@ -167,8 +167,6 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
-        try XCTSkipOnWindows()
-
         var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
             resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)

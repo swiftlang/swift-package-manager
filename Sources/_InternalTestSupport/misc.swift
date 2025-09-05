@@ -219,8 +219,8 @@ public enum TestError: Error {
 
             defer {
                 // Unblock and remove the tmp dir on deinit.
-                try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
-                try? localFileSystem.removeFileTree(tmpDirPath)
+                //try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                //try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
             let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
