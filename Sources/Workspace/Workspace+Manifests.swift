@@ -207,7 +207,6 @@ extension Workspace {
 
             let inputNodes: [GraphLoadingNode] = try root.packages.map { identity, package in
                 inputIdentities.append(package.reference)
-                let result = workspace.enabledTraitsMap[package.reference.identity]
 
                 let node = try GraphLoadingNode(
                     identity: identity,
@@ -314,26 +313,15 @@ extension Workspace {
                             }
                         }
 
-                        // should calculate enabled traits here.
-                        let explicitlyEnabledTraits = dependency.traits?.filter {
-                            guard let condition = $0.condition else { return true }
-                            return condition.isSatisfied(by: node.enabledTraits)
-                        }.map(\.name)
+                        let enabledTraitsSet = workspace.enabledTraitsMap[dependency.identity]
 
                         return try manifestsMap[dependency.identity].map { manifest in
-                            // Calculate all transitively enabled traits for this manifest.
-
-                            var allEnabledTraits: Set<String> = ["default"]
-                            if let explicitlyEnabledTraits
-                            {
-                                allEnabledTraits = Set(explicitlyEnabledTraits)
-                            }
 
                             return try GraphLoadingNode(
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: allEnabledTraits
+                                enabledTraits: enabledTraitsSet
                             )
                         }
                     }
