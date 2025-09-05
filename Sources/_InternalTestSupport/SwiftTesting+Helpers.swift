@@ -11,11 +11,17 @@
 import Basics
 import Testing
 
+// MARK: File System Helpers
+
+/// Verifies that a file exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for file existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-
     #expect(
         localFileSystem.exists(path),
         "Files '\(path)' does not exist.",
@@ -23,6 +29,12 @@ public func expectFileExists(
     )
 }
 
+/// Verifies that a file does not exist at the specified path.
+///
+/// - Parameters:
+///   - fixturePath: The absolute path to check for file non-existence.
+///   - comment: An optional comment to include in the failure message.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileDoesNotExists(
     at fixturePath: AbsolutePath,
     _ comment: Comment? = nil,
@@ -41,6 +53,12 @@ public func expectFileDoesNotExists(
     )
 }
 
+/// Verifies that a file exists and is executable at the specified path.
+///
+/// - Parameters:
+///   - fixturePath: The absolute path to check for executable file existence.
+///   - comment: An optional comment to include in the failure message.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectFileIsExecutable(
     at fixturePath: AbsolutePath,
     _ comment: Comment? = nil,
@@ -59,6 +77,11 @@ public func expectFileIsExecutable(
     )
 }
 
+/// Verifies that a directory exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for directory existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryExists(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
@@ -70,6 +93,11 @@ public func expectDirectoryExists(
     )
 }
 
+/// Verifies that a directory does not exist at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for directory non-existence.
+///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryDoesNotExist(
     at path: AbsolutePath,
     sourceLocation: SourceLocation = #_sourceLocation,
@@ -81,6 +109,15 @@ public func expectDirectoryDoesNotExist(
     )
 }
 
+// MARK: Error Helpers
+
+/// Verifies that an expression throws a `CommandExecutionError`.
+///
+/// - Parameters:
+///   - expression: The expression to evaluate.
+///   - message: An optional description of the failure.
+///   - sourceLocation: The source location where the expectation is made.
+///   - errorHandler: A closure that's called with the error if the expression throws.
 public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment = "",
@@ -99,7 +136,13 @@ public func expectThrowsCommandExecutionError<T>(
     }
 }
 
-/// An `async`-friendly replacement for `XCTAssertThrowsError`.
+/// An async-friendly replacement for `XCTAssertThrowsError` that verifies an expression throws an error.
+///
+/// - Parameters:
+///   - expression: The expression to evaluate that should throw an error.
+///   - message: An optional failure message to display if the expression doesn't throw.
+///   - sourceLocation: The source location where the expectation is made.
+///   - errorHandler: A closure that's called with the error if the expression throws.
 public func expectAsyncThrowsError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment? = nil,
