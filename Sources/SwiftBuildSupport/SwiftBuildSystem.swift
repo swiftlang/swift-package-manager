@@ -533,13 +533,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .targetStarted(let info):
                             try buildState.started(target: info)
                         case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
+                            // TODO bp print out every message here for investigation (--vv)
+                            self.observabilityScope.emit(error: "Unhandled message: \(message)")
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
                         case .buildOutput, .targetOutput, .taskOutput:
                             break // deprecated
-                        @unknown default:
-                            break
+
+//                        default:
+//                            self.outputStream.send(<#T##value: ArraySlice<UInt8>##ArraySlice<UInt8>#>)
+//                            self.observabilityScope.emit(info: "\(message)")
+//                        @unknown default:
+//                            break
+                            // TODO bp print(message) instead of switch
                         }
                     }
 
