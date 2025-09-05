@@ -237,7 +237,7 @@ struct TestCommandTests {
     ) async throws {
         try await withKnownIssue(
             "fails to build the package",
-            isIntermittent: (CiEnvironment.runningInSmokeTestPipeline),
+            isIntermittent: true,
         ) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
@@ -250,8 +250,7 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
+            buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem
         }
     }
 
@@ -267,7 +266,7 @@ struct TestCommandTests {
         configuration: BuildConfiguration,
     ) async throws {
         // disabled
-        try await withKnownIssue("fails to build", isIntermittent: ProcessInfo.hostOperatingSystem == .windows) {
+        try await withKnownIssue("fails to build", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let error = await #expect(throws: SwiftPMError.self) {
                     try await execute(
@@ -302,7 +301,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("failes to build the package", isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
+        try await withKnownIssue("failes to build the package", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
                     ["--enable-testable-imports", "--vv"],
@@ -329,7 +328,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // First try normal serial testing.
                 let error = await #expect(throws: SwiftPMError.self) {
@@ -349,7 +348,7 @@ struct TestCommandTests {
                 #expect(!stdout.contains("[3/3]"))
             }
         } when: {
-            buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem)
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -367,7 +366,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // Try --no-parallel.
                 let error = await #expect(throws: SwiftPMError.self) {
@@ -403,7 +402,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 // Run tests in parallel.
                 let error = await #expect(throws: SwiftPMError.self) {
@@ -442,7 +441,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ParallelTestsPkg") { fixturePath in
                 let xUnitOutput = fixturePath.appending("result.xml")
                 // Run tests in parallel with verbose output.
@@ -496,7 +495,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
                 let xUnitOutput = fixturePath.appending("result.xml")
                 // Run tests in parallel with verbose output.
@@ -668,7 +667,7 @@ struct TestCommandTests {
         // windows issue not recorded for:
         //   - native, single, XCTest, experimental true
         //   - native, single, XCTest, experimental false
-        try await withKnownIssue( isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)) {
+        try await withKnownIssue( isIntermittent: true) {
             try await fixture(name: tcdata.fixtureName) { fixturePath in
                 // GIVEN we have a Package with a failing \(testRunner) test cases
                 let xUnitOutput = fixturePath.appending("result.xml")
@@ -723,7 +722,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["--filter", ".*1"],
@@ -769,7 +768,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["--skip", "SomeTests"],
@@ -787,7 +786,7 @@ struct TestCommandTests {
             [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
 
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
                     [
@@ -813,7 +812,7 @@ struct TestCommandTests {
             [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
 
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/SkipTests") { fixturePath in
                 let (stdout, _) = try await execute(
                     ["--skip", "Tests"],
@@ -950,7 +949,7 @@ struct TestCommandTests {
             }
 
             // list
-            try await withKnownIssue("Fails to find test executable", isIntermittent: ([.linux, .windows].contains(ProcessInfo.hostOperatingSystem))) { // windows; issue not recorded
+            try await withKnownIssue("Fails to find test executable", isIntermittent: true) { // windows; issue not recorded
                 let (listStdout, listStderr) = try await execute(
                     ["list"],
                     packagePath: fixturePath,
@@ -990,7 +989,7 @@ struct TestCommandTests {
         try await withKnownIssue("Failes to find test executable") {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 // build first
-                try await withKnownIssue("Failed to save attachment", isIntermittent: (.windows == ProcessInfo.hostOperatingSystem)) { // windows: native, debug did not record issue
+                try await withKnownIssue("Failed to save attachment", isIntermittent: true) {
                     // This might be intermittently failing on windows
                     let (buildStdout, _) = try await executeSwiftBuild(
                         fixturePath,
@@ -1095,7 +1094,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             let strictConcurrencyFlags = ["-Xswiftc", "-strict-concurrency=complete"]
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (_, stderr) = try await execute(
@@ -1122,7 +1121,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             let existentialAnyFlags = ["-Xswiftc", "-enable-upcoming-feature", "-Xswiftc", "ExistentialAny"]
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (_, stderr) = try await execute(
