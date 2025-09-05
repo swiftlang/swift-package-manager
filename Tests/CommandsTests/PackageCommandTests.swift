@@ -1365,6 +1365,156 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.ShowDependencies,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func showDependenciesWithTraitsGuardingDependencies(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Traits") { fixturePath in
+                let packageRoot = fixturePath.appending("PackageConditionalDeps")
+
+                // Test output with default traits
+                let (textOutputDefault, _) = try await execute(
+                    ["show-dependencies", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputDefault.contains("Package1@"))
+                #expect(!textOutputDefault.contains("Package2"))
+
+                let (jsonOutputDefault, _) = try await execute(
+                    ["show-dependencies", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonDefault = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefault))
+                guard case .dictionary(let contents) = jsonDefault else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage1Dep")))
+
+                // Test output with default traits disabled
+                let (textOutputDefaultDisabled, _) = try await execute(
+                    ["show-dependencies", "--disable-default-traits", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputDefaultDisabled.contains("No external dependencies found"))
+                #expect(!textOutputDefaultDisabled.contains("Package1"))
+                #expect(!textOutputDefaultDisabled.contains("Package2"))
+
+                let (jsonOutputDefaultDisabled, _) = try await execute(
+                    ["show-dependencies", "--disable-default-traits", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonDefaultDisabled = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefaultDisabled))
+                guard case .dictionary(let contents) = jsonDefaultDisabled else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.isEmpty)
+
+                // Test output with overridden trait configuration
+                let (textOutputPackage2Dep, _) = try await execute(
+                    ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(!textOutputPackage2Dep.contains("Package1"))
+                #expect(textOutputPackage2Dep.contains("Package2@"))
+
+                let (jsonOutputPackage2Dep, _) = try await execute(
+                    ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonPackage2Dep = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputPackage2Dep))
+                guard case .dictionary(let contents) = jsonPackage2Dep else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage2Dep")))
+                #expect(!traitsProperty.contains(.string("EnablePackage1Dep")))
+
+                // Test output with all traits enabled
+                let (textOutputAllTraits, _) = try await execute(
+                    ["show-dependencies", "--enable-all-traits", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputAllTraits.contains("Package1@"))
+                #expect(textOutputAllTraits.contains("Package2@"))
+
+                let (jsonOutputAllTraits, _) = try await execute(
+                    ["show-dependencies", "--enable-all-traits", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonAllTraits = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputAllTraits))
+                guard case .dictionary(let contents) = jsonAllTraits else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage2Dep")))
+                #expect(traitsProperty.contains(.string("EnablePackage1Dep")))
+
+            }
+        }
+
+        @Test(
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func showDependencies_dotFormat_sr12016(

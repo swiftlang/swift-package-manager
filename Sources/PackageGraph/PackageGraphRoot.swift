@@ -164,8 +164,8 @@ public struct PackageGraphRoot {
                     return condition.isSatisfied(by: rootEnabledTraits)
                 }.map(\.name)
 
-                var enabledTraitsSet = enabledTraits.flatMap { Set($0) } ?? ["default"]
-                enabledTraitsSet.formUnion(enabledTraitsMap[dep.identity])
+                var enabledTraitsSet = enabledTraitsMap[dep.identity]
+                enabledTraitsSet.formUnion(enabledTraits.flatMap({ Set($0) }) ?? [])
 
                 return PackageContainerConstraint(
                     package: dep.packageRef,

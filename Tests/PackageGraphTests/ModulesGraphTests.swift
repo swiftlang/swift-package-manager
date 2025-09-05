@@ -4622,6 +4622,165 @@ struct ModulesGraphTests {
             }
         }
     }
+
+    @Test
+    func traits_whenConditionalDependencies() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Lunch/Sources/Drink/source.swift",
+            "/Caffeine/Sources/CoffeeTarget/source.swift",
+            "/Juice/Sources/AppleJuiceTarget/source.swift",
+        )
+
+        let manifests = try [
+            Manifest.createRootManifest(
+                displayName: "Lunch",
+                path: "/Lunch",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Caffeine",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                    ),
+                    .localSourceControl(
+                        path: "/Juice",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Drink",
+                        dependencies: [
+                            .product(
+                                name: "Coffee",
+                                package: "Caffeine",
+                                condition: .init(traits: ["EnableCoffeeDep"])
+                            ),
+                            .product(
+                                name: "AppleJuice",
+                                package: "Juice",
+                                condition: .init(traits: ["EnableAppleJuiceDep"])
+                            )
+                        ],
+                    ),
+                ],
+                traits: [
+                    .init(name: "default", enabledTraits: ["EnableCoffeeDep"]),
+                    .init(name: "EnableCoffeeDep"),
+                    .init(name: "EnableAppleJuiceDep"),
+                ],
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Caffeine",
+                path: "/Caffeine",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "Coffee",
+                        type: .library(.automatic),
+                        targets: ["CoffeeTarget"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "CoffeeTarget",
+                    ),
+                ],
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Juice",
+                path: "/Juice",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "AppleJuice",
+                        type: .library(.automatic),
+                        targets: ["AppleJuiceTarget"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "AppleJuiceTarget",
+                    ),
+                ],
+            )
+        ]
+
+        // Test graph with default trait configuration
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope
+        )
+
+        #expect(observability.diagnostics.count == 0)
+        try PackageGraphTester(graph) { result in
+            try result.checkPackage("Lunch") { package in
+                #expect(package.enabledTraits == ["EnableCoffeeDep"])
+                #expect(package.dependencies.count == 1)
+            }
+            try result.checkTarget("Drink") { target in
+                target.check(dependencies: "Coffee")
+            }
+            try result.checkPackage("Caffeine") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+            try result.checkPackage("Juice") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+        }
+
+        // Test graph when disabling all traits
+        let graphWithTraitsDisabled = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope,
+            traitConfiguration: .disableAllTraits
+        )
+        #expect(observability.diagnostics.count == 0)
+
+        try PackageGraphTester(graphWithTraitsDisabled) { result in
+            try result.checkPackage("Lunch") { package in
+                #expect(package.enabledTraits == [])
+                #expect(package.dependencies.count == 0)
+            }
+            try result.checkTarget("Drink") { target in
+                #expect(target.target.dependencies.isEmpty)
+            }
+            try result.checkPackage("Caffeine") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+            try result.checkPackage("Juice") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+        }
+
+        // Test graph when we set a trait configuration that enables different traits than the defaults
+        let graphWithDifferentEnabledTraits = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope,
+            traitConfiguration: .enabledTraits(["EnableAppleJuiceDep"])
+        )
+        #expect(observability.diagnostics.count == 0)
+
+        try PackageGraphTester(graphWithDifferentEnabledTraits) { result in
+            try result.checkPackage("Lunch") { package in
+                #expect(package.enabledTraits == ["EnableAppleJuiceDep"])
+                #expect(package.dependencies.count == 1)
+            }
+            try result.checkTarget("Drink") { target in
+                target.check(dependencies: "AppleJuice")
+            }
+            try result.checkPackage("Caffeine") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+            try result.checkPackage("Juice") { package in
+                #expect(package.enabledTraits == ["default"])
+            }
+        }
+    }
 }
 
 extension Manifest {

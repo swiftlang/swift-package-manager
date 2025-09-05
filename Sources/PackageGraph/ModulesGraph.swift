@@ -505,26 +505,14 @@ public func loadModulesGraph(
                         return condition.isSatisfied(by: parentTraits)
                     }.map(\.name)
 
-                    var enabledTraitsSet = explicitlyEnabledTraits.flatMap { Set($0) }
-                    let precomputedTraits = enabledTraitsMap[dependency.identity]
-
-                    if precomputedTraits == ["default"],
-                       let enabledTraitsSet {
-                        enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                    } else {
-                        // unify traits
-                        enabledTraitsSet?.formUnion(precomputedTraits)
-                        if let enabledTraitsSet {
-                            enabledTraitsMap[dependency.identity] = enabledTraitsSet
-                        }
+                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+                        let calculatedTraits = try manifest.enabledTraits(
+                            using: enabledTraitsSet,
+                            .init(parent)
+                        )
+                        enabledTraitsMap[dependency.identity] = calculatedTraits
                     }
 
-                    let calculatedTraits = try manifest.enabledTraits(
-                        using: enabledTraitsSet ?? ["default"],
-                        .init(parent)
-                    )
-
-                    enabledTraitsMap[dependency.identity] = calculatedTraits
                     let result = visited.insert(dependency.identity)
                     if result.inserted {
                         try dependencies(of: manifest, dependency.productFilter)
