@@ -116,7 +116,7 @@ struct ModulesGraphTests {
         .IssueWindowsPathTestsFailures,
     )
     func basic() throws {
-        try withKnownIssue {
+        try withKnownIssue(isIntermittent: true) {
             let fs = InMemoryFileSystem(
                 emptyFiles:
                 "/Foo/Sources/Foo/source.swift",

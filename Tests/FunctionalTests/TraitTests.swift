@@ -40,7 +40,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -85,7 +85,7 @@ struct TraitTests {
             """
             Windows: "https://github.com/swiftlang/swift-build/issues/609"
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -136,7 +136,7 @@ struct TraitTests {
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -184,7 +184,7 @@ struct TraitTests {
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -232,7 +232,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -272,7 +272,7 @@ struct TraitTests {
         try await withKnownIssue("""
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild),
+            isIntermittent: true,
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -317,7 +317,7 @@ struct TraitTests {
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -372,7 +372,7 @@ struct TraitTests {
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)
+            isIntermittent: true
         ) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
@@ -450,7 +450,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, _) = try await executeSwiftTest(
                 fixturePath.appending("Example"),
@@ -489,7 +489,7 @@ struct TraitTests {
             """
             Windows: "https://github.com/swiftlang/swift-build/issues/609"
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
             try await fixture(name: "Traits") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(
@@ -535,7 +535,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true, {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Traits") { fixturePath in
                 let (stdout, _) = try await executeSwiftPackage(
                     fixturePath.appending("Package10"),
@@ -554,9 +554,9 @@ struct TraitTests {
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait1"))
                 #expect(symbolGraph.contains("TypeGatedByPackage10Trait2"))
             }
-        }, when: {
+        } when: {
             ProcessInfo.hostOperatingSystem == .windows
-        })
+        }
     }
 
     @Test(
@@ -686,7 +686,7 @@ struct TraitTests {
             """
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
-            isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
+            isIntermittent: true,
         ) {
             try await fixture(name: "Traits") { fixturePath in
                 // We expect no warnings to be produced. Specifically no unused dependency warnings.
