@@ -448,7 +448,7 @@ final class MiscellaneousTestCase: XCTestCase {
     }
 
     func testUnicode() async throws {
-        try XCTSkipOnWindows(because: "Filepath too long error")
+        try XCTSkipOnWindows(because: "fixture copy does not like the unicode files, needs investigation.")
         #if !os(Linux) && !os(Android) // TODO: - Linux has trouble with this and needs investigation.
         try await fixtureXCTest(name: "Miscellaneous/Unicode") { fixturePath in
             // See the fixture manifest for an explanation of this string.
@@ -877,9 +877,8 @@ final class MiscellaneousTestCase: XCTestCase {
         try await fixtureXCTest(name: "Miscellaneous/RootPackageWithConditionals") { path in
             _ = try await executeSwiftBuild(
                 path,
-                extraArgs: ["--build-system=swiftbuild"],
                 env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
-                buildSystem: .native,
+                buildSystem: .swiftbuild,
             )
         }
     }
