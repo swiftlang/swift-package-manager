@@ -167,7 +167,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += ["-L", self.buildParameters.buildPath.pathString]
         args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
-        args += self.dylibs.map { "-l" + $0.product.name }
+        args += self.dylibs.map { "-l" + $0.product.name + $0.buildParameters.suffix }
 
         // Add arguments needed for code coverage if it is enabled.
         if self.buildParameters.testingParameters.enableCodeCoverage {
