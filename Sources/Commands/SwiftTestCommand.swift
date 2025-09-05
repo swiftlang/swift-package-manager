@@ -678,17 +678,20 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState,
         library: TestingLibrary
     ) async throws -> TestRunner.Result {
-        // Pass through arguments that come after "--" to Swift Testing.
+        // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
         if library == .swiftTesting {
-            // Only pass arguments that come after the "--" separator to Swift Testing
-            let allCommandLineArguments = CommandLine.arguments.dropFirst()
-
-            if let separatorIndex = allCommandLineArguments.firstIndex(of: "--") {
-                // Only pass arguments after the "--" separator
-                let testArguments = Array(allCommandLineArguments.dropFirst(separatorIndex + 1))
-                additionalArguments += testArguments
+            // Reconstruct the arguments list. If an xUnit path was specified, remove it.
+            var commandLineArguments = [String]()
+            var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
+            while let arg = originalCommandLineArguments.next() {
+                if arg == "--xunit-output" {
+                    _ = originalCommandLineArguments.next()
+                } else {
+                    commandLineArguments.append(arg)
+                }
             }
+            additionalArguments += commandLineArguments
 
             if var xunitPath = options.xUnitOutput {
                 if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
