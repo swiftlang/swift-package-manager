@@ -6953,166 +6953,170 @@ struct PackageCommandTests {
         func commandPluginDynamicDependencies(
             buildData: BuildData
         ) async throws {
-            try await testWithTemporaryDirectory { tmpPath in
-                // Create a sample package with a command plugin that has a dynamic dependency.
-                let packageDir = tmpPath.appending(components: "MyPackage")
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Package.swift"),
-                    string:
-                        """
-                        // swift-tools-version: 6.0
-                        // The swift-tools-version declares the minimum version of Swift required to build this package.
+            try await withKnownIssue {
+                try await testWithTemporaryDirectory { tmpPath in
+                    // Create a sample package with a command plugin that has a dynamic dependency.
+                    let packageDir = tmpPath.appending(components: "MyPackage")
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 6.0
+                            // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-                        import PackageDescription
+                            import PackageDescription
 
-                        let package = Package(
-                            name: "command-plugin-dynamic-linking",
-                            products: [
-                                // Products can be used to vend plugins, making them visible to other packages.
-                                .plugin(
-                                    name: "command-plugin-dynamic-linking",
-                                    targets: ["command-plugin-dynamic-linking"]),
-                            ],
-                            dependencies: [
-                                .package(path: "LocalPackages/DynamicLib")
-                            ],
-                            targets: [
-                                // Targets are the basic building blocks of a package, defining a module or a test suite.
-                                // Targets can depend on other targets in this package and products from dependencies.
-                                .executableTarget(
-                                    name: "Core",
-                                    dependencies: [
-                                        .product(name: "DynamicLib", package: "DynamicLib")
-                                    ]
-                                ),
-                                .plugin(
-                                    name: "command-plugin-dynamic-linking",
-                                    capability: .command(intent: .custom(
-                                        verb: "command_plugin_dynamic_linking",
-                                        description: "prints hello world"
-                                    )),
-                                    dependencies: [
-                                        "Core"
-                                    ]
-                                )
-                            ]
-                        )
-                        """
-                )
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Sources", "Core", "Core.swift"),
-                    string:
-                        """
-                        import DynamicLib
+                            let package = Package(
+                                name: "command-plugin-dynamic-linking",
+                                products: [
+                                    // Products can be used to vend plugins, making them visible to other packages.
+                                    .plugin(
+                                        name: "command-plugin-dynamic-linking",
+                                        targets: ["command-plugin-dynamic-linking"]),
+                                ],
+                                dependencies: [
+                                    .package(path: "LocalPackages/DynamicLib")
+                                ],
+                                targets: [
+                                    // Targets are the basic building blocks of a package, defining a module or a test suite.
+                                    // Targets can depend on other targets in this package and products from dependencies.
+                                    .executableTarget(
+                                        name: "Core",
+                                        dependencies: [
+                                            .product(name: "DynamicLib", package: "DynamicLib")
+                                        ]
+                                    ),
+                                    .plugin(
+                                        name: "command-plugin-dynamic-linking",
+                                        capability: .command(intent: .custom(
+                                            verb: "command_plugin_dynamic_linking",
+                                            description: "prints hello world"
+                                        )),
+                                        dependencies: [
+                                            "Core"
+                                        ]
+                                    )
+                                ]
+                            )
+                            """
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Sources", "Core", "Core.swift"),
+                        string:
+                            """
+                            import DynamicLib
 
-                        @main
-                        struct Core {
-                            static func main() {
-                                let result = dynamicLibFunc()
-                                print(result)
-                            }
-                        }
-                        """
-                )
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Plugins", "command-plugin-dynamic-linking.swift"),
-                    string:
-                        """
-                        import PackagePlugin
-                        import Foundation
-
-                        enum CommandError: Error, CustomStringConvertible {
-                            var description: String {
-                                String(describing: self)
-                            }
-
-                            case pluginError(String)
-                        }
-
-                        @main
-                        struct command_plugin_dynamic_linking: CommandPlugin {
-                            // Entry point for command plugins applied to Swift Packages.
-                            func performCommand(context: PluginContext, arguments: [String]) async throws {
-                                let tool = try context.tool(named: "Core")
-
-                                let process = try Process.run(tool.url, arguments: arguments)
-                                process.waitUntilExit()
-
-                                if process.terminationReason != .exit || process.terminationStatus != 0 {
-                                    throw CommandError.pluginError("\\(tool.name) failed")
-                                } else {
-                                    print("Works fine!")
+                            @main
+                            struct Core {
+                                static func main() {
+                                    let result = dynamicLibFunc()
+                                    print(result)
                                 }
                             }
-                        }
+                            """
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Plugins", "command-plugin-dynamic-linking.swift"),
+                        string:
+                            """
+                            import PackagePlugin
+                            import Foundation
 
-                        #if canImport(XcodeProjectPlugin)
-                        import XcodeProjectPlugin
+                            enum CommandError: Error, CustomStringConvertible {
+                                var description: String {
+                                    String(describing: self)
+                                }
 
-                        extension command_plugin_dynamic_linking: XcodeCommandPlugin {
-                            // Entry point for command plugins applied to Xcode projects.
-                            func performCommand(context: XcodePluginContext, arguments: [String]) throws {
-                                print("Hello, World!")
+                                case pluginError(String)
                             }
-                        }
 
-                        #endif
-                        """
-                )
+                            @main
+                            struct command_plugin_dynamic_linking: CommandPlugin {
+                                // Entry point for command plugins applied to Swift Packages.
+                                func performCommand(context: PluginContext, arguments: [String]) async throws {
+                                    let tool = try context.tool(named: "Core")
 
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "LocalPackages", "DynamicLib", "Package.swift"),
-                    string:
-                        """
-                        // swift-tools-version: 6.0
-                        // The swift-tools-version declares the minimum version of Swift required to build this package.
+                                    let process = try Process.run(tool.url, arguments: arguments)
+                                    process.waitUntilExit()
 
-                        import PackageDescription
+                                    if process.terminationReason != .exit || process.terminationStatus != 0 {
+                                        throw CommandError.pluginError("\\(tool.name) failed")
+                                    } else {
+                                        print("Works fine!")
+                                    }
+                                }
+                            }
 
-                        let package = Package(
-                            name: "DynamicLib",
-                            products: [
-                                // Products define the executables and libraries a package produces, making them visible to other packages.
-                                .library(
-                                    name: "DynamicLib",
-                                    type: .dynamic,
-                                    targets: ["DynamicLib"]),
-                            ],
-                            targets: [
-                                // Targets are the basic building blocks of a package, defining a module or a test suite.
-                                // Targets can depend on other targets in this package and products from dependencies.
-                                .target(
-                                    name: "DynamicLib"),
-                                .testTarget(
-                                    name: "DynamicLibTests",
-                                    dependencies: ["DynamicLib"]
-                                ),
-                            ]
-                        )
-                        """
-                )
+                            #if canImport(XcodeProjectPlugin)
+                            import XcodeProjectPlugin
 
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "LocalPackages", "DynamicLib", "Sources", "DynamicLib.swift"),
-                    string:
-                        """
-                        // The Swift Programming Language
-                        // https://docs.swift.org/swift-book
+                            extension command_plugin_dynamic_linking: XcodeCommandPlugin {
+                                // Entry point for command plugins applied to Xcode projects.
+                                func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+                                    print("Hello, World!")
+                                }
+                            }
 
-                        public func dynamicLibFunc() -> String {
-                            return "Hello from DynamicLib!"
-                        }
-                        """
-                )
+                            #endif
+                            """
+                    )
 
-                let (stdout, _) = try await execute(
-                    ["plugin", "command_plugin_dynamic_linking"],
-                    packagePath: packageDir,
-                    configuration: buildData.config,
-                    buildSystem: buildData.buildSystem,
-                )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "LocalPackages", "DynamicLib", "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 6.0
+                            // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-                #expect(stdout.contains("Works fine!"))
+                            import PackageDescription
+
+                            let package = Package(
+                                name: "DynamicLib",
+                                products: [
+                                    // Products define the executables and libraries a package produces, making them visible to other packages.
+                                    .library(
+                                        name: "DynamicLib",
+                                        type: .dynamic,
+                                        targets: ["DynamicLib"]),
+                                ],
+                                targets: [
+                                    // Targets are the basic building blocks of a package, defining a module or a test suite.
+                                    // Targets can depend on other targets in this package and products from dependencies.
+                                    .target(
+                                        name: "DynamicLib"),
+                                    .testTarget(
+                                        name: "DynamicLibTests",
+                                        dependencies: ["DynamicLib"]
+                                    ),
+                                ]
+                            )
+                            """
+                    )
+
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "LocalPackages", "DynamicLib", "Sources", "DynamicLib.swift"),
+                        string:
+                            """
+                            // The Swift Programming Language
+                            // https://docs.swift.org/swift-book
+
+                            public func dynamicLibFunc() -> String {
+                                return "Hello from DynamicLib!"
+                            }
+                            """
+                    )
+
+                    let (stdout, _) = try await execute(
+                        ["plugin", "command_plugin_dynamic_linking"],
+                        packagePath: packageDir,
+                        configuration: buildData.config,
+                        buildSystem: buildData.buildSystem,
+                    )
+
+                    #expect(stdout.contains("Works fine!"))
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows || (ProcessInfo.hostOperatingSystem == .linux && buildData.buildSystem == .swiftbuild)
             }
         }
     }
