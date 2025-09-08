@@ -24,6 +24,7 @@ import _InternalTestSupport
 import SwiftDriver
 import Workspace
 import XCTest
+import Testing
 
 final class ModuleAliasingBuildTests: XCTestCase {
     func testModuleAliasingEmptyAlias() async throws {
