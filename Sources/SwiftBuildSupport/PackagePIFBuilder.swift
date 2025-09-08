@@ -558,6 +558,9 @@ public final class PackagePIFBuilder {
         // sharing.
         settings[.COMPILER_WORKING_DIRECTORY] = "$(WORKSPACE_DIR)"
 
+        // Defer to the build system for linker driver selection.
+        settings[.LINKER_DRIVER] = "auto"
+
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
 
