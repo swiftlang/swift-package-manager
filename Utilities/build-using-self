@@ -250,6 +250,7 @@ def main() -> None:
                     *args.additional_run_args.split(" "),
                     "swift-test",
                     *global_args,
+                    "--very-verbose",
                     "--configuration",
                     args.config,
                     "--parallel",
