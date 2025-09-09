@@ -966,6 +966,9 @@ final class TestRunner {
             args.append(runnerPath.pathString)
             args.append(contentsOf: runner.extraCLIOptions)
             args.append(testPath.relative(to: localFileSystem.currentWorkingDirectory!).pathString)
+            if runner.path?.components.last == "wasmkit" {
+                args.append("--")
+            }
             args.append(contentsOf: self.additionalArguments)
         } else {
 #if os(macOS)

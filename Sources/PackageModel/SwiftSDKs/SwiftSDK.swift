@@ -896,7 +896,7 @@ extension SwiftSDK {
     ) throws -> [SwiftSDK] {
         let wasmKitProperties = Toolset.ToolProperties(
             path: hostToolchainBinDir.appending("wasmkit"),
-            extraCLIOptions: ["run"]
+            extraCLIOptions: ["run", "--dir", "."]
         )
 
         switch semanticVersion.schemaVersion {
