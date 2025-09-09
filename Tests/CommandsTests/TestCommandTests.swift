@@ -1423,7 +1423,8 @@ struct TestCommandTests {
         func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
                 let configuration = BuildConfiguration.debug
@@ -1457,7 +1458,8 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline
+                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
+                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
             }
         }
 
@@ -1468,7 +1470,8 @@ struct TestCommandTests {
         func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
                 let configuration = BuildConfiguration.debug
@@ -1502,7 +1505,8 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline
+                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
+                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
             }
         }
 
@@ -1513,7 +1517,8 @@ struct TestCommandTests {
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
+                Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
                 let configuration = BuildConfiguration.debug
@@ -1546,7 +1551,8 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline
+                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
+                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
             }
         }
 
