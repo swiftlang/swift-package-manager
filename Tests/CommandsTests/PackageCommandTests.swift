@@ -1316,6 +1316,55 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.ShowDependencies,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func showDependenciesWithTraits(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Traits") { fixturePath in
+                let packageRoot = fixturePath.appending("Example")
+                let (textOutput, _) = try await execute(
+                    ["show-dependencies", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutput.contains("(traits: Package3Trait3)"))
+
+                let (jsonOutput, _) = try await execute(
+                    ["show-dependencies", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+                guard case .dictionary(let contents) = json else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "TraitsExample")
+
+                // verify the traits JSON entry lists each of the traits in the fixture
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("Package1")))
+                #expect(traitsProperty.contains(.string("Package2")))
+                #expect(traitsProperty.contains(.string("Package3")))
+                #expect(traitsProperty.contains(.string("Package4")))
+                #expect(traitsProperty.contains(.string("BuildCondition1")))
+            }
+        }
+
+        @Test(
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func showDependencies_dotFormat_sr12016(
@@ -2412,12 +2461,9 @@ struct PackageCommandTests {
                 )
 
                 // Path to the executable.
+                let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
                 let exec = [
-                    fooPath.appending(
-                        components: [
-                            ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent,
-                        ] + data.buildSystem.binPathSuffixes(for: data.config) + ["foo"]
-                    ).pathString
+                    binPath.appending("foo").pathString
                 ]
 
                 // We should see it now in packages directory.
@@ -2553,10 +2599,8 @@ struct PackageCommandTests {
                     buildSystem: data.buildSystem,
                 )
                 let buildPath = packageRoot.appending(".build")
-                let binFile = buildPath.appending(
-                    components: [try UserToolchain.default.targetTriple.platformBuildPathComponent]
-                        + data.buildSystem.binPathSuffixes(for: data.config) + [executableName("Bar")]
-                )
+                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
+                let binFile = binPath.appending(executableName("Bar"))
                 expectFileExists(at: binFile)
                 #expect(localFileSystem.isDirectory(buildPath))
 
@@ -2604,10 +2648,8 @@ struct PackageCommandTests {
                     buildSystem: data.buildSystem
                 )
                 let buildPath = packageRoot.appending(".build")
-                let binFile = buildPath.appending(
-                    components: [try UserToolchain.default.targetTriple.platformBuildPathComponent]
-                        + data.buildSystem.binPathSuffixes(for: data.config) + [executableName("Bar")]
-                )
+                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
+                let binFile = binPath.appending(executableName("Bar"))
                 expectFileExists(at: binFile)
                 #expect(localFileSystem.isDirectory(buildPath))
                 // Clean, and check for removal of the build directory but not Packages.
@@ -2733,15 +2775,9 @@ struct PackageCommandTests {
         try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
             try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
                 let fooPath = fixturePath.appending("foo")
+                let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
                 let exec = [
-                    fooPath.appending(
-                        components: [
-                            ".build",
-                            try UserToolchain.default.targetTriple.platformBuildPathComponent,
-                        ] + data.buildSystem.binPathSuffixes(for: data.config) + [
-                            "foo"
-                        ]
-                    ).pathString
+                    binPath.appending("foo").pathString
                 ]
 
                 // Build and check.
@@ -4966,15 +5002,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryIsBuildinDebugByDefault(
             buildData: BuildData,
         ) async throws {
-            let tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            let debugTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .debug) + [
-                    executableName("placeholder")
-                ]
-            let releaseTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .release) + [
-                    executableName("placeholder")
-                ]
+            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // By default, a plugin-requested build produces a debug binary
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5004,15 +5033,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInDebugIfPluginSpecifiesDebugBuild(
             buildData: BuildData,
         ) async throws {
-            let tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            let debugTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .debug) + [
-                    executableName("placeholder")
-                ]
-            let releaseTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .release) + [
-                    executableName("placeholder")
-                ]
+            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5046,17 +5068,9 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInReleaseIfPluginSpecifiesReleaseBuild(
             buildData: BuildData,
         ) async throws {
-            let tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            let debugTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .debug) + [
-                    executableName("placeholder")
-                ]
-            let releaseTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .release) + [
-                    executableName("placeholder")
-                ]
+            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
-
                 // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                     let _ = try await execute(
@@ -5088,15 +5102,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltCorrectlyIfPluginSpecifiesInheritBuild(
             buildData: BuildData,
         ) async throws {
-            let tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            let debugTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .debug) + [
-                    executableName("placeholder")
-                ]
-            let releaseTarget =
-                [".build", tripleString] + buildData.buildSystem.binPathSuffixes(for: .release) + [
-                    executableName("placeholder")
-                ]
+            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // If the plugin inherits the overall build configuration, that is what will be built
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5197,7 +5204,7 @@ struct PackageCommandTests {
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
-                || (ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild)
+                    || (ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild)
             }
         }
 
@@ -5442,6 +5449,13 @@ struct PackageCommandTests {
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
+            .IssueWindowsRelativePathAssert,
+            .IssueWindowsLongPath,
+            .IssueWindowsPathLastConponent,
+            .issue(
+                "https://github.com/swiftlang/swift-package-manager/issues/9083",
+                relationship: .defect,
+            ),
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
             Self.getCommandPluginNetworkingPermissionTestData()
         )
@@ -5449,57 +5463,61 @@ struct PackageCommandTests {
             buildData: BuildData,
             testData: CommandPluginNetworkingPermissionsTestData,
         ) async throws {
-            try await testWithTemporaryDirectory { tmpPath in
-                // Create a sample package with a library target and a plugin.
-                let packageDir = tmpPath.appending(components: "MyPackage")
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Package.swift"),
-                    string:
-                        """
-                        // swift-tools-version: 5.9
-                        import PackageDescription
-                        let package = Package(
-                            name: "MyPackage",
-                            targets: [
-                                .target(name: "MyLibrary"),
-                                .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(testData.permissionsManifestFragment))),
-                            ]
-                        )
-                        """
-                )
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Sources", "MyLibrary", "library.swift"),
-                    string: "public func Foo() { }"
-                )
-                try localFileSystem.writeFileContents(
-                    packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
-                    string:
-                        """
-                        import PackagePlugin
-
-                        @main
-                        struct MyCommandPlugin: CommandPlugin {
-                            func performCommand(context: PluginContext, arguments: [String]) throws {
-                                print("hello world")
-                            }
-                        }
-                        """
-                )
-
-                // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
-                do {
-                    let (stdout, _) = try await execute(
-                        ["plugin"] + testData.remedy + ["Network"],
-                        packagePath: packageDir,
-                        configuration: buildData.config,
-                        buildSystem: buildData.buildSystem,
+            try await withKnownIssue(isIntermittent: true) {
+                try await testWithTemporaryDirectory { tmpPath in
+                    // Create a sample package with a library target and a plugin.
+                    let packageDir = tmpPath.appending(components: "MyPackage")
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 5.9
+                            import PackageDescription
+                            let package = Package(
+                                name: "MyPackage",
+                                targets: [
+                                    .target(name: "MyLibrary"),
+                                    .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "Network", description: "Help description"), permissions: \(testData.permissionsManifestFragment))),
+                                ]
+                            )
+                            """
                     )
-                    withKnownIssue(isIntermittent: true) {
-                        #expect(stdout.contains("hello world"))
-                    } when: {
-                        ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild && buildData.config == .debug && testData.permissionError == Self.allNetworkConnectionPermissionError
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Sources", "MyLibrary", "library.swift"),
+                        string: "public func Foo() { }"
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                        string:
+                            """
+                            import PackagePlugin
+
+                            @main
+                            struct MyCommandPlugin: CommandPlugin {
+                                func performCommand(context: PluginContext, arguments: [String]) throws {
+                                    print("hello world")
+                                }
+                            }
+                            """
+                    )
+
+                    // Check that we don't get an error (and also are allowed to write to the package directory) if we pass `--allow-writing-to-package-directory`.
+                    do {
+                        let (stdout, _) = try await execute(
+                            ["plugin"] + testData.remedy + ["Network"],
+                            packagePath: packageDir,
+                            configuration: buildData.config,
+                            buildSystem: buildData.buildSystem,
+                        )
+                        withKnownIssue(isIntermittent: true) {
+                            #expect(stdout.contains("hello world"))
+                        } when: {
+                            ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild && buildData.config == .debug && testData.permissionError == Self.allNetworkConnectionPermissionError
+                        }
                     }
                 }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -5507,6 +5525,10 @@ struct PackageCommandTests {
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8782",
                 relationship: .defect
+            ),
+            .issue(
+                "https://github.com/swiftlang/swift-package-manager/issues/9090",
+                relationship: .defect,
             ),
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -5621,7 +5643,11 @@ struct PackageCommandTests {
                             configuration: data.config,
                             buildSystem: data.buildSystem,
                         )
-                        #expect(stdout.contains("successfully created it"))
+                        withKnownIssue(isIntermittent: true) {
+                            #expect(stdout.contains("successfully created it"))
+                        } when: {
+                            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .native && data.config == .release
+                        }
                         #expect(!stderr.contains("error: Couldn’t create file at path"))
                     }
 
@@ -6753,7 +6779,7 @@ struct PackageCommandTests {
                         }
                         #expect(stdout.contains("Building for \(data.config.buildFor)..."))
                     }
-                } when : {
+                } when: {
                     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
                 }
 

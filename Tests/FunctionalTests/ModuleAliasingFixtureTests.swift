@@ -39,7 +39,7 @@ struct ModuleAliasingFixtureTests {
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
-                let buildPath = pkgPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + buildSystem.binPathSuffixes(for: configuration))
+                let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
                 try await executeSwiftBuild(
                     pkgPath,
                     configuration: configuration,
@@ -82,7 +82,7 @@ struct ModuleAliasingFixtureTests {
         try await withKnownIssue {
         try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = pkgPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + buildSystem.binPathSuffixes(for: configuration))
+            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
             try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
@@ -117,7 +117,7 @@ struct ModuleAliasingFixtureTests {
         try await withKnownIssue {
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = pkgPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + buildSystem.binPathSuffixes(for: configuration))
+            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
             try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
@@ -156,7 +156,7 @@ struct ModuleAliasingFixtureTests {
         try await withKnownIssue {
         try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = pkgPath.appending(components: [".build", try UserToolchain.default.targetTriple.platformBuildPathComponent] + buildSystem.binPathSuffixes(for: configuration))
+            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
             try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,

@@ -13,6 +13,7 @@
 import Basics
 import XCBuildSupport
 import XCTest
+import Testing
 
 public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) throws -> Void) throws {
     try body(PIFWorkspaceTester(workspace: pif.workspace))
@@ -36,10 +37,16 @@ public final class PIFWorkspaceTester {
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: (PIFProjectTester) -> Void
     ) throws {
         guard let project = projectMap[guid] else {
-            return XCTFail("project \(guid) not found", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("project \(guid) not found", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("project \(guid) not found", file: file, line: line)
+            }
         }
 
         body(try PIFProjectTester(project: project, targetMap: targetMap))
@@ -72,15 +79,26 @@ public final class PIFProjectTester {
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: ((PIFTargetTester) -> Void)? = nil
     ) {
         guard let baseTarget = baseTarget(withGUID: guid) else {
             let guids = project.targets.map { $0.guid }.joined(separator: ", ")
-            return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("target \(guid) not found among \(guids)", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
+            }
         }
 
         guard let target = baseTarget as? PIF.Target else {
-            return XCTFail("target \(guid) is not a standard target", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("target \(guid) is not a standard target", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("target \(guid) is not a standard target", file: file, line: line)
+            }
         }
 
         body?(PIFTargetTester(target: target, targetMap: targetMap, fileMap: fileMap))
@@ -90,10 +108,15 @@ public final class PIFProjectTester {
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: ((PIFTargetTester) -> Void)? = nil
     ) {
         if baseTarget(withGUID: guid) != nil {
-            XCTFail("target \(guid) found", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("target \(guid) found", sourceLocation: sourceLocation)
+            } else {
+                XCTFail("target \(guid) found", file: file, line: line)
+            }
         }
     }
 
@@ -101,15 +124,26 @@ public final class PIFProjectTester {
         _ guid: PIF.GUID,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: ((PIFAggregateTargetTester) -> Void)? = nil
     ) {
         guard let baseTarget = baseTarget(withGUID: guid) else {
             let guids = project.targets.map { $0.guid }.joined(separator: ", ")
-            return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("target \(guid) not found among \(guids)", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("target \(guid) not found among \(guids)", file: file, line: line)
+            }
         }
 
         guard let target = baseTarget as? PIF.AggregateTarget else {
-            return XCTFail("target \(guid) is not an aggregate target", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("target \(guid) is not an aggregate target", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("target \(guid) is not an aggregate target", file: file, line: line)
+            }
         }
 
         body?(PIFAggregateTargetTester(target: target, targetMap: targetMap, fileMap: fileMap))
@@ -119,11 +153,17 @@ public final class PIFProjectTester {
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: (PIFBuildConfigurationTester) -> Void
     ) {
         guard let configuration = buildConfiguration(withName: name) else {
             let names = project.buildConfigurations.map { $0.name }.joined(separator: ", ")
-            return XCTFail("build configuration \(name) not found among \(names)", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("build configuration \(name) not found among \(names)", sourceLocation: sourceLocation)
+                return
+            } else {
+                return XCTFail("build configuration \(name) not found among \(names)", file: file, line: line)
+            }
         }
 
         body(PIFBuildConfigurationTester(buildConfiguration: configuration))
@@ -185,10 +225,16 @@ public class PIFBaseTargetTester {
         _ name: String,
         file: StaticString = #file,
         line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
         body: (PIFBuildConfigurationTester) -> Void
     ) {
         guard let configuration = buildConfiguration(withName: name) else {
-            return XCTFail("build configuration \(name) not found", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("build configuration \(name) not found", sourceLocation: #_sourceLocation)
+                return
+            } else {
+                return XCTFail("build configuration \(name) not found", file: file, line: line)
+            }
         }
 
         body(PIFBuildConfigurationTester(buildConfiguration: configuration))
@@ -319,20 +365,42 @@ public final class PIFBuildSettingsTester {
         }
     }
 
-    public func checkUncheckedSettings(file: StaticString = #file, line: UInt = #line) {
+    public func checkUncheckedSettings(file: StaticString = #file, line: UInt = #line, sourceLocation: SourceLocation = #_sourceLocation) {
         let uncheckedKeys =
             Array(buildSettings.singleValueSettings.keys.map { $0.rawValue }) +
             Array(buildSettings.multipleValueSettings.keys.map { $0.rawValue })
-        XCTAssert(uncheckedKeys.isEmpty, "settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+        if Test.current != nil {
+            #expect(
+                uncheckedKeys.isEmpty,
+                "settings are left unchecked: \(uncheckedKeys)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTAssert(uncheckedKeys.isEmpty, "settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+        }
 
         for (platform, settings) in buildSettings.platformSpecificSingleValueSettings {
             let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
-            XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+            if Test.current != nil {
+                #expect(
+                    uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)",
+                    sourceLocation: sourceLocation,
+                )
+            } else {
+                XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+            }
         }
 
         for (platform, settings) in buildSettings.platformSpecificMultipleValueSettings {
             let uncheckedKeys = Array(settings.keys.map { $0.rawValue })
-            XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+            if Test.current != nil {
+                #expect(
+                    uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)",
+                    sourceLocation: sourceLocation,
+                )
+            } else {
+                XCTAssert(uncheckedKeys.isEmpty, "\(platform) settings are left unchecked: \(uncheckedKeys)", file: file, line: line)
+            }
         }
     }
 }

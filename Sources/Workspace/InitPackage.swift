@@ -661,9 +661,12 @@ public final class InitPackage {
         }
 
         switch packageType {
-        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
-            default: break
+        case .empty, .buildToolPlugin, .commandPlugin:
+            return
+        case .library, .executable, .tool, .macro:
+            break
         }
+
         let tests = destinationPath.appending("Tests")
         guard self.fileSystem.exists(tests) == false else {
             return
@@ -873,9 +876,11 @@ public final class InitPackage {
         try makeDirectories(testModule)
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
+
         switch packageType {
-        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
-        case .library:
+        case .empty, .buildToolPlugin, .commandPlugin:
+            break
+        case .library, .executable, .tool:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)

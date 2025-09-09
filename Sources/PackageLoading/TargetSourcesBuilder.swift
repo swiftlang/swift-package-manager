@@ -191,7 +191,7 @@ public struct TargetSourcesBuilder {
                 if handledResources.contains(resource.path) {
                     return nil
                 } else {
-                    print("Found unhandled resource at \(resource.path)")
+                    self.observabilityScope.emit(info: "Found unhandled resource at \(resource.path)")
                     return self.resource(for: resource.path, with: .init(resource.rule))
                 }
             }

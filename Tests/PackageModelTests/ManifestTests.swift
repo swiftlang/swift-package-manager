@@ -683,6 +683,7 @@ class ManifestTests: XCTestCase {
         let dependencies: [PackageDependency] = [
             .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
             .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0")),
+            .localSourceControl(path: "/Cosmic", requirement: .upToNextMajor(from: "1.0.0")),
         ]
 
         let products = try [
@@ -711,6 +712,12 @@ class ManifestTests: XCTestCase {
             package: "Boom"
         )
 
+        let manyTraitsEnableTargetDependency: TargetDescription.Dependency = .product(
+            name: "Supernova",
+            package: "Cosmic",
+            condition: .init(traits: ["Space", "Music"])
+        )
+
         let target = try TargetDescription(
             name: "Foo",
             dependencies: [
@@ -718,6 +725,7 @@ class ManifestTests: XCTestCase {
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
                 enabledTargetDependencyWithSamePackage,
+                manyTraitsEnableTargetDependency
             ]
         )
 
@@ -726,6 +734,8 @@ class ManifestTests: XCTestCase {
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
             TraitDescription(name: "Trait3"),
+            TraitDescription(name: "Space"),
+            TraitDescription(name: "Music"),
         ]
 
         do {
@@ -792,6 +802,33 @@ class ManifestTests: XCTestCase {
                 enabledTargetDependencyWithSamePackage,
                 enabledTraits: []
             ))
+
+            // Test variations of traits that enable a target dependency that is unguarded by many traits.
+            XCTAssertFalse(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                manyTraitsEnableTargetDependency,
+                enabledTraits: []
+            ))
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                manyTraitsEnableTargetDependency,
+                enabledTraits: ["Space"]
+            ))
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                manyTraitsEnableTargetDependency,
+                enabledTraits: ["Music"]
+            ))
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                manyTraitsEnableTargetDependency,
+                enabledTraits: ["Music", "Space"]
+            ))
+            XCTAssertTrue(try manifest.isTargetDependencyEnabled(
+                target: "Foo",
+                manyTraitsEnableTargetDependency,
+                enabledTraits: ["Trait3", "Music", "Space", "Trait1", "Trait2"]
+            ))
         }
     }
 
@@ -799,11 +836,13 @@ class ManifestTests: XCTestCase {
         let bar: PackageDependency = .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0"))
         let baz: PackageDependency = .localSourceControl(path: "/Baz", requirement: .upToNextMajor(from: "1.0.0"))
         let bam: PackageDependency = .localSourceControl(path: "/Bam", requirement: .upToNextMajor(from: "1.0.0"))
+        let drinks: PackageDependency = .localSourceControl(path: "/Drinks", requirement: .upToNextMajor(from: "1.0.0"))
 
         let dependencies: [PackageDependency] = [
             bar,
             baz,
             bam,
+            drinks,
         ]
 
         let products = try [
@@ -832,12 +871,19 @@ class ManifestTests: XCTestCase {
             package: "Bam"
         )
 
+        let manyTraitsGuardingTargetDependency: TargetDescription.Dependency = .product(
+            name: "Coffee",
+            package: "Drinks",
+            condition: .init(traits: ["Sugar", "Cream"])
+        )
+
         let target = try TargetDescription(
             name: "Foo",
             dependencies: [
                 unguardedTargetDependency,
                 trait3GuardedTargetDependency,
                 defaultTraitGuardedTargetDependency,
+                manyTraitsGuardingTargetDependency
             ]
         )
 
@@ -856,6 +902,8 @@ class ManifestTests: XCTestCase {
             TraitDescription(name: "Trait1", enabledTraits: ["Trait2"]),
             TraitDescription(name: "Trait2"),
             TraitDescription(name: "Trait3"),
+            TraitDescription(name: "Sugar"),
+            TraitDescription(name: "Cream"),
         ]
 
         do {
@@ -879,19 +927,19 @@ class ManifestTests: XCTestCase {
                 traits: traits
             )
 
-//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bar))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(bar, enabledTraits: []))
-//            XCTAssertFalse(try manifest.isPackageDependencyUsed(baz))
             XCTAssertTrue(try manifest.isPackageDependencyUsed(baz, enabledTraits: ["Trait3"]))
-//            XCTAssertTrue(try manifest.isPackageDependencyUsed(bam))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertFalse(try manifest.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
+            XCTAssertFalse(try manifest.isPackageDependencyUsed(drinks, enabledTraits: []))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(drinks, enabledTraits: ["Sugar"]))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(drinks, enabledTraits: ["Cream"]))
+            XCTAssertTrue(try manifest.isPackageDependencyUsed(drinks, enabledTraits: ["Sugar", "Cream"]))
 
             // Configuration of the manifest that includes a case where there exists a target
             // dependency that depends on the same package as another target dependency, but
             // is unguarded by traits; therefore, this package dependency should be considered used
             // in every scenario, regardless of the passed trait configuration.
-//            XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: nil))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: []))
             XCTAssertTrue(try manifestWithBamDependencyAlwaysUsed.isPackageDependencyUsed(bam, enabledTraits: ["Trait3"]))
         }
