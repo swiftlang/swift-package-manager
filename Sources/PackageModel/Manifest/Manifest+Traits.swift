@@ -313,7 +313,7 @@ extension Manifest {
         let areDefaultsEnabled = enabledTraits.remove("default") != nil
 
         // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        if /*explictlyEnabledTraits == nil*//*enabledTraits.isEmpty && */explictlyEnabledTraits == ["default"] || areDefaultsEnabled {
+        if explictlyEnabledTraits == ["default"] || areDefaultsEnabled {
             if let defaultTraits {
                 enabledTraits.formUnion(defaultTraits.flatMap(\.enabledTraits))
             }
