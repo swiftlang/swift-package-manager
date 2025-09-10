@@ -35,52 +35,6 @@ struct Artifact: Codable {
     var swiftVersion: String?
 }
 
-// Copying this struct over for now to avoid using RelativePath which
-// gives the wrong slash direction when run on Windows.
-public struct PrebuiltsManifest: Codable {
-    public let version: Int
-    public var libraries: [Library]
-    
-    public struct Library: Identifiable, Codable {
-        public let name: String
-        public var products: [String]
-        public var cModules: [String]?
-        public var includePath: [String]?
-        public var artifacts: [Workspace.PrebuiltsManifest.Library.Artifact]?
-
-        public var id: String { name }
-
-        public init(
-            name: String,
-            products: [String] = [],
-            cModules: [String]? = nil,
-            includePath: [String]? = nil,
-            artifacts: [Workspace.PrebuiltsManifest.Library.Artifact]? = nil
-        ) {
-            self.name = name
-            self.products = products
-            self.cModules = cModules
-            self.includePath = includePath
-            self.artifacts = artifacts
-        }
-    }
-
-    public init(libraries: [Library] = []) {
-        self.version = 1
-        self.libraries = libraries
-    }
-}
-
-public struct SignedPrebuiltsManifest: Codable {
-    public var manifest: PrebuiltsManifest
-    public var signature: ManifestSignature
-
-    public init(manifest: PrebuiltsManifest, signature: ManifestSignature) {
-        self.manifest = manifest
-        self.signature = signature
-    }
-}
-
 @main
 struct BuildPrebuilts: AsyncParsableCommand {
     @Option(help: "The directory to generate the artifacts to.")
@@ -327,7 +281,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Fetch manifests for requested swift versions
             let swiftVersions: Set<String> = .init(artifacts.compactMap(\.swiftVersion))
-            var manifests: [String: PrebuiltsManifest] = [:]
+            var manifests: [String: Workspace.PrebuiltsManifest] = [:]
             for swiftVersion in swiftVersions {
                 let manifestFile = "\(swiftVersion)-manifest.json"
                 let destination = versionDir.appending(component: manifestFile)
@@ -335,7 +289,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     let signedManifest = try decoder.decode(
                         path: destination,
                         fileSystem: fileSystem,
-                        as: SignedPrebuiltsManifest.self
+                        as: Workspace.SignedPrebuiltsManifest.self
                     )
                     manifests[swiftVersion] = signedManifest.manifest
                 } else {
@@ -369,7 +323,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     let signedManifest = try decoder.decode(
                         path: destination,
                         fileSystem: fileSystem,
-                        as: SignedPrebuiltsManifest.self
+                        as: Workspace.SignedPrebuiltsManifest.self
                     )
 
                     manifests[swiftVersion] = signedManifest.manifest
@@ -458,7 +412,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         fileSystem: fileSystem
                     )
 
-                    let signedManifest = SignedPrebuiltsManifest(manifest: manifest, signature: signature)
+                    let signedManifest = Workspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
                     let manifestFile = versionDir.appending(component: "\(swiftVersion)-manifest.json")
                     try encoder.encode(signedManifest).write(to: manifestFile.asURL)
                 }
