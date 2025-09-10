@@ -413,7 +413,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
+                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -521,7 +521,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -631,7 +631,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(genSymbolGraph: Bool) throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(session: SWBBuildServiceSession, genSymbolGraph: Bool) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -642,11 +642,20 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
-        // An error with determining the override should not be fatal here.
-        settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-        // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-        // native build system.
-        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+
+        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
+        } else {
+            // FIXME: This list of overrides is incomplete.
+            // An error with determining the override should not be fatal here.
+            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        }
+
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if genSymbolGraph {
@@ -705,6 +714,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
+        // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
+        if buildParameters.triple.isMacOSX {
+            settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
+        }
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
@@ -727,9 +741,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) throws -> SWBBuildRequest {
+    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try makeBuildParameters(genSymbolGraph: genSymbolGraph)
+        request.parameters = try await makeBuildParameters(session: session, genSymbolGraph: genSymbolGraph)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
