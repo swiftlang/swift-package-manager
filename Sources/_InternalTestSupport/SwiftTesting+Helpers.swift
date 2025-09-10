@@ -81,38 +81,58 @@ public func expectDirectoryDoesNotExist(
     )
 }
 
+/// Expects that the expression throws a CommandExecutionError and passes it to the provided throwing error handler.
+/// - Parameters:
+///   - expression: The expression expected to throw
+///   - message: Optional message for the expectation
+///   - sourceLocation: Source location for error reporting
+///   - errorHandler: A throwing closure that receives the CommandExecutionError
 public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment = "",
     sourceLocation: SourceLocation = #_sourceLocation,
-    _ errorHandler: (_ error: CommandExecutionError) -> Void = { _ in }
-) async {
-    await expectAsyncThrowsError(try await expression(), message(), sourceLocation: sourceLocation) { error in
-        guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-            case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-            processResult.exitStatus != .terminated(code: 0)
-        else {
-            Issue.record("Unexpected error type: \(error.interpolationDescription)", sourceLocation: sourceLocation)
-            return
-        }
-        errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
+    _ errorHandler: (_ error: CommandExecutionError) throws -> Void = { _ in }
+) async rethrows {
+    if let commandError = await runCommandExpectingError(try await expression(), message(), sourceLocation: sourceLocation) {
+        try errorHandler(commandError)
     }
 }
 
-/// An `async`-friendly replacement for `XCTAssertThrowsError`.
-public func expectAsyncThrowsError<T>(
+/// Expects that the expression throws a CommandExecutionError and passes it to the provided non-throwing error handler.
+/// This version can be called without `try` when the error handler doesn't throw.
+/// - Parameters:
+///   - expression: The expression expected to throw
+///   - message: Optional message for the expectation
+///   - sourceLocation: Source location for error reporting
+///   - errorHandler: A non-throwing closure that receives the CommandExecutionError
+public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
-    _ message: @autoclosure () -> Comment? = nil,
+    _ message: @autoclosure () -> Comment = "",
     sourceLocation: SourceLocation = #_sourceLocation,
-    _ errorHandler: (_ error: any Error) -> Void = { _ in }
+    _ errorHandler: (_ error: CommandExecutionError) -> Void
 ) async {
-    do {
-        _ = try await expression()
-        Issue.record(
-            message() ?? "Expected an error, which did not occur.",
-            sourceLocation: sourceLocation,
-        )
-    } catch {
-        errorHandler(error)
+    if let commandError = await runCommandExpectingError(try await expression(), message(), sourceLocation: sourceLocation) {
+        errorHandler(commandError)
     }
+}
+
+/// Helper function that extracts a CommandExecutionError from an expression that's expected to throw
+/// - Returns: The CommandExecutionError if the expected error was thrown, nil otherwise
+private func runCommandExpectingError<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> Comment = "",
+    sourceLocation: SourceLocation
+) async -> CommandExecutionError? {
+    let error = await #expect(throws: SwiftPMError.self, sourceLocation: sourceLocation) {
+        try await expression()
+    }
+
+    guard case .executionFailure(let processError, let stdout, let stderr) = error,
+          case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
+          processResult.exitStatus != .terminated(code: 0) else {
+        Issue.record("Unexpected error type: \(error?.interpolationDescription)", sourceLocation: sourceLocation)
+        return nil
+    }
+
+    return CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr)
 }
