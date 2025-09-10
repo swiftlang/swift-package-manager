@@ -352,11 +352,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try await writePIF(buildParameters: buildParameters)
 
         var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
-        switch buildOutputs[0] {
-        case .symbolGraph(let options):
-        symbolGraphOptions = options
-        default:
-            break
+        for output in buildOutputs {
+            switch output {
+            case .symbolGraph(let options):
+                symbolGraphOptions = options
+            default:
+                continue
+            }
         }
 
         return try await startSWBuildOperation(
