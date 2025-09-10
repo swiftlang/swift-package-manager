@@ -201,7 +201,7 @@ struct GitTemplateFetcher: TemplateFetcher {
             if isSSHPermissionError(error) {
                 throw GitTemplateFetcherError.sshAuthenticationRequired(source: source)
             }
-            throw GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error)
+            throw GitTemplateFetcherError.cloneFailed(source: source)
         }
     }
 
@@ -265,32 +265,35 @@ struct GitTemplateFetcher: TemplateFetcher {
         }
     }
 
-    enum GitTemplateFetcherError: Error, LocalizedError {
-            case cloneFailed(source: String, underlyingError: Error)
-            case invalidRepositoryDirectory(path: Basics.AbsolutePath)
-            case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
-            case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
-            case noMatchingTagInRange(Range<Version>)
-            case sshAuthenticationRequired(source: String)
+    enum GitTemplateFetcherError: Error, LocalizedError, Equatable {
+        case cloneFailed(source: String)
+        case invalidRepositoryDirectory(path: Basics.AbsolutePath)
+        case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
+        case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
+        case noMatchingTagInRange(Range<Version>)
+        case sshAuthenticationRequired(source: String)
 
-            var errorDescription: String? {
-                switch self {
-                case .cloneFailed(let source, let error):
-                    return "Failed to clone repository from '\(source)': \(error)"
-                case .invalidRepositoryDirectory(let path):
-                    return "Invalid Git repository at path: \(path.pathString)"
-                case .createWorkingCopyFailed(let path, let error):
-                    return "Failed to create working copy at '\(path)': \(error.localizedDescription)"
-                case .checkoutFailed(let requirement, let error):
-                    return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
-                case .noMatchingTagInRange(let range):
-                    return "No Git tags found within version range \(range)"
-                case .sshAuthenticationRequired(let source):
-                    return "SSH authentication required for '\(source)'.\nEnsure SSH agent is running and key is loaded:\n\nhttps://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
-                }
+        var errorDescription: String? {
+            switch self {
+            case .cloneFailed(let source):
+                return "Failed to clone repository from '\(source)'"
+            case .invalidRepositoryDirectory(let path):
+                return "Invalid Git repository at path: \(path.pathString)"
+            case .createWorkingCopyFailed(let path, let error):
+                return "Failed to create working copy at '\(path)': \(error.localizedDescription)"
+            case .checkoutFailed(let requirement, let error):
+                return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
+            case .noMatchingTagInRange(let range):
+                return "No Git tags found within version range \(range)"
+            case .sshAuthenticationRequired(let source):
+                return "SSH authentication required for '\(source)'.\nEnsure SSH agent is running and key is loaded:\n\nhttps://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
             }
         }
 
+        public static func == (lhs: GitTemplateFetcherError, rhs: GitTemplateFetcherError) -> Bool {
+            lhs.errorDescription == rhs.errorDescription
+        }
+    }
 }
 
 /// Fetches a Swift package template from a package registry.

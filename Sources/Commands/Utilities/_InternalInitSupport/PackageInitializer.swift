@@ -186,7 +186,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             destinationPath: stagingPath,
             installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
         )
-        try swiftCommandState.fileSystem.createDirectory(stagingPath, recursive: true)
+
         try templatePackage.setupTemplateManifest()
         return templatePackage
     }

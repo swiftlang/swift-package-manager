@@ -440,11 +440,20 @@ import class Basics.AsyncProcess
                 to: higherBoundVersion
             ).resolveSourceControl()
         }
-    }
 
-    // test local
-    // test git
-    // test registry
+        let range = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
+            exact: nil,
+            revision: nil,
+            branch: nil,
+            from: lowerBoundVersion,
+            upToNextMinorFrom: nil,
+            to: lowerBoundVersion
+        ).resolveSourceControl()
+
+        #expect(range == .range(lowerBoundVersion ..< lowerBoundVersion))
+    }
 
     @Test func localTemplatePathResolver() async throws {
         let mockTemplatePath = AbsolutePath("/fake/path/to/template")
@@ -495,6 +504,37 @@ import class Basics.AsyncProcess
         }
     }
 
+    // Need to add traits of not running on windows, and CI
+    @Test func gitTemplatePathResolverWithInvalidURL() async throws {
+
+        try await testWithTemporaryDirectory { path in
+
+            let sourceControlRequirement = PackageDependency.SourceControl.Requirement.branch("main")
+            let options = try GlobalOptions.parse([])
+
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            let templateRepoPath = path.appending(component: "template-repo")
+            try! makeDirectories(templateRepoPath)
+            initGitRepo(templateRepoPath, tag: "1.2.3")
+
+            let resolver = try TemplatePathResolver(
+                source: .git,
+                templateDirectory: nil,
+                templateURL: "invalid-git-url",
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: nil,
+                packageIdentity: nil,
+                swiftCommandState: tool
+            )
+
+            await #expect(throws: GitTemplateFetcher.GitTemplateFetcherError.cloneFailed(source: "invalid-git-url")) {
+                _ = try await resolver.resolve()
+            }
+        }
+    }
+
+    //might need to test
     @Test func packageRegistryTemplatePathResolver() async throws {
         //TODO: im too lazy right now
     }
@@ -551,6 +591,157 @@ import class Basics.AsyncProcess
             #expect(localFileSystem.exists(cwd), "cwd should exist after finalize")
             #expect(localFileSystem.exists(cwdBinaryFile) == false, "Binary should have been cleaned before copying to cwd")
         }
+    }
+
+    @Test func cleanUpTemporaryDirectories() throws {
+
+        try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+            let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+            let options = try GlobalOptions.parse([])
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            try TemplateInitializationDirectoryManager(
+                fileSystem: tool.fileSystem,
+                observabilityScope: tool.observabilityScope
+            ).cleanupTemporary(templateSource: .git, path: pathToRemove, temporaryDirectory: nil)
+
+            #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
+        }
+
+        try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+            let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+            let options = try GlobalOptions.parse([])
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            try TemplateInitializationDirectoryManager(
+                fileSystem: tool.fileSystem,
+                observabilityScope: tool.observabilityScope
+            ).cleanupTemporary(templateSource: .registry, path: pathToRemove, temporaryDirectory: nil)
+
+            #expect(!localFileSystem.exists(pathToRemove), "path should be removed")
+        }
+
+        try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
+            let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+            let options = try GlobalOptions.parse([])
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            try TemplateInitializationDirectoryManager(
+                fileSystem: tool.fileSystem,
+                observabilityScope: tool.observabilityScope
+            ).cleanupTemporary(templateSource: .local, path: pathToRemove, temporaryDirectory: nil)
+
+            #expect(localFileSystem.exists(pathToRemove), "path should not be removed if local")
+        }
+    }
+
+    ///test package builder
+    @Test func defaultDependencyBuilder() async throws {
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+
+        let packageName = "foo"
+        let templateURL = "git@github.com:foo/bar"
+        let templatePackageID = "foo.bar"
+
+        let versionResolver = DependencyRequirementResolver(
+            packageIdentity: templatePackageID, swiftCommandState: tool, exact: Version(stringLiteral: "1.2.0"), revision: nil, branch: nil, from: nil, upToNextMinorFrom: nil, to: nil
+        )
+
+        let sourceControlRequirement: SourceControlRequirement = try versionResolver.resolveSourceControl()
+        guard let registryRequirement = try await versionResolver.resolveRegistry() else {
+            Issue.record("Registry ID of template could not be resolved.")
+                return
+        }
+
+        let resolvedTemplatePath: AbsolutePath = try AbsolutePath(validating: "/fake/path/to/template")
+
+        //local
+
+        let localDependency = try DefaultPackageDependencyBuilder(
+            templateSource: .local,
+            packageName: packageName,
+            templateURL: templateURL,
+            templatePackageID: templatePackageID,
+            sourceControlRequirement: sourceControlRequirement,
+            registryRequirement: registryRequirement,
+            resolvedTemplatePath: resolvedTemplatePath
+        ).makePackageDependency()
+
+        #expect(localDependency == MappablePackageDependency.Kind.fileSystem(name: packageName, path: resolvedTemplatePath.asURL.path))
+
+        // git
+        #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitURLOrPath.self) {
+            try DefaultPackageDependencyBuilder(
+                templateSource: .git,
+                packageName: packageName,
+                templateURL: nil,
+                templatePackageID: templatePackageID,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                resolvedTemplatePath: resolvedTemplatePath
+            ).makePackageDependency()
+        }
+
+        #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingGitRequirement.self) {
+            try DefaultPackageDependencyBuilder(
+                templateSource: .git,
+                packageName: packageName,
+                templateURL: templateURL,
+                templatePackageID: templatePackageID,
+                sourceControlRequirement: nil,
+                registryRequirement: registryRequirement,
+                resolvedTemplatePath: resolvedTemplatePath
+            ).makePackageDependency()
+        }
+
+        let gitDependency = try DefaultPackageDependencyBuilder(
+            templateSource: .git,
+            packageName: packageName,
+            templateURL: templateURL,
+            templatePackageID: templatePackageID,
+            sourceControlRequirement: sourceControlRequirement,
+            registryRequirement: registryRequirement,
+            resolvedTemplatePath: resolvedTemplatePath
+        ).makePackageDependency()
+
+        #expect(gitDependency == MappablePackageDependency.Kind.sourceControl(name: packageName, location: templateURL, requirement: sourceControlRequirement))
+
+        #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryIdentity.self) {
+            try DefaultPackageDependencyBuilder(
+                templateSource: .registry,
+                packageName: packageName,
+                templateURL: templateURL,
+                templatePackageID: nil,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: registryRequirement,
+                resolvedTemplatePath: resolvedTemplatePath
+            ).makePackageDependency()
+        }
+
+        #expect(throws: DefaultPackageDependencyBuilder.PackageDependencyBuilderError.missingRegistryRequirement.self) {
+            try DefaultPackageDependencyBuilder(
+                templateSource: .registry,
+                packageName: packageName,
+                templateURL: templateURL,
+                templatePackageID: templatePackageID,
+                sourceControlRequirement: sourceControlRequirement,
+                registryRequirement: nil,
+                resolvedTemplatePath: resolvedTemplatePath
+            ).makePackageDependency()
+        }
+
+        let registryDependency = try DefaultPackageDependencyBuilder(
+            templateSource: .registry,
+            packageName: packageName,
+            templateURL: templateURL,
+            templatePackageID: templatePackageID,
+            sourceControlRequirement: sourceControlRequirement,
+            registryRequirement: registryRequirement,
+            resolvedTemplatePath: resolvedTemplatePath
+        ).makePackageDependency()
+
+        #expect(registryDependency == MappablePackageDependency.Kind.registry(id: templatePackageID, requirement: registryRequirement))
     }
 
     @Test func initPackageInitializer() throws {
