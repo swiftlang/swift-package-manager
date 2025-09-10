@@ -169,7 +169,7 @@ def add_build_args(parser):
         help="whether to link to the llbuild framework")
     parser.add_argument(
         "--extra-dynamic-library-path",
-        help="path to add to DYLD/LD_LIBRARY_PATH",
+        help="path to add to DYLD/LD_LIBRARY_PATH")
     parser.add_argument(
         "--release",
         action="store_true",
