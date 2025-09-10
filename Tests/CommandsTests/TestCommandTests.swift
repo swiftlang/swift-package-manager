@@ -1557,7 +1557,7 @@ struct TestCommandTests {
         }
 
         func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
-            return args + buildConfiguration.args + getBuildSystemArgs(for: buildSystem)
+            return args + buildConfiguration.buildArgs + getBuildSystemArgs(for: buildSystem)
         }
 
         func commandState() throws -> (SwiftCommandState, BufferedOutputByteStream) {
@@ -1585,19 +1585,6 @@ struct TestCommandTests {
             )
             return (state, outputStream)
         }
-    }
-}
-
-fileprivate extension BuildConfiguration {
-    var args: [String] {
-        var args = ["--configuration"]
-        switch self {
-        case .debug:
-            args.append("debug")
-        case .release:
-            args.append("release")
-        }
-        return args
     }
 }
 
