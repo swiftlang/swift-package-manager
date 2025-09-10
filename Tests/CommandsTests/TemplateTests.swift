@@ -41,10 +41,19 @@ import class Basics.AsyncProcess
 
 
     //maybe add tags
-    @Test func resolveSourceTests() {
+    @Test func resolveSourceTests() throws {
 
-        let resolver = DefaultTemplateSourceResolver()
-        
+        let options = try GlobalOptions.parse([])
+
+        let tool = try SwiftCommandState.makeMockState(options: options)
+
+
+        guard let cwd = tool.fileSystem.currentWorkingDirectory else {return}
+        let fileSystem = tool.fileSystem
+        let observabilityScope = tool.observabilityScope
+
+        let resolver = DefaultTemplateSourceResolver(cwd: cwd, fileSystem: fileSystem, observabilityScope: observabilityScope)
+
         let nilSource = resolver.resolveSource(
             directory: nil, url: nil, packageID: nil
         )
@@ -64,28 +73,120 @@ import class Basics.AsyncProcess
             directory: AbsolutePath("/fake/path/to/template"), url: "https://github.com/foo/bar", packageID: "foo.bar"
         )
         #expect(gitSource == .git)
+    }
+
+    @Test func testValidGitURL() async throws {
+
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        try resolver.validate(templateSource: .git, directory: nil, url: "https://github.com/apple/swift", packageID: nil)
+
+        // Check that nothing was emitted (i.e., no error for valid URL)
+        #expect(tool.observabilityScope.errorsReportedInAnyScope == false)
 
     }
 
-    @Test func resolveRegistryDependencyTests() throws {
+    @Test func testInvalidGitURL() throws {
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        #expect(throws: DefaultTemplateSourceResolver.SourceResolverError.invalidGitURL("invalid-url").self) {
+            try resolver.validate(templateSource: .git, directory: nil, url: "invalid-url", packageID: nil)
+        }
+    }
+
+    @Test func testValidRegistryID() throws {
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        try resolver.validate(templateSource: .registry, directory: nil, url: nil, packageID: "mona.LinkedList")
+
+        // Check that nothing was emitted (i.e., no error for valid URL)
+        #expect(tool.observabilityScope.errorsReportedInAnyScope == false)
+    }
+
+    @Test func testInvalidRegistryID() throws {
+
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        #expect(throws: DefaultTemplateSourceResolver.SourceResolverError.invalidRegistryIdentity("invalid-id").self) {
+            try resolver.validate(templateSource: .registry, directory: nil, url: nil, packageID: "invalid-id")
+        }
+    }
+
+    @Test func testlocalMissingPath() throws {
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        #expect(throws: DefaultTemplateSourceResolver.SourceResolverError.missingLocalPath.self) {
+            try resolver.validate(templateSource: .local, directory: nil, url: nil, packageID: nil)
+        }
+    }
+
+    @Test func testInvalidPath() throws {
+        let options = try GlobalOptions.parse([])
+        let tool = try SwiftCommandState.makeMockState(options: options)
+        let resolver = DefaultTemplateSourceResolver(cwd: tool.fileSystem.currentWorkingDirectory!, fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope)
+
+        #expect(throws: DefaultTemplateSourceResolver.SourceResolverError.invalidDirectoryPath("/fake/path/that/does/not/exist").self) {
+            try resolver.validate(templateSource: .local, directory: "/fake/path/that/does/not/exist", url: nil, packageID: nil)
+        }
+    }
+
+    @Test func resolveRegistryDependencyWithNoVersion() async throws {
+
+        /* Need to do mock up of registry for this
+         // if exact, from, upToNextMinorFrom and to are nil, then should return nil
+         let nilRegistryDependency = try await DependencyRequirementResolver(
+         packageIdentity: nil,
+         swiftCommandState: tool,
+         exact: nil,
+         revision: "revision",
+         branch: "branch",
+         from: nil,
+         upToNextMinorFrom: nil,
+         to: nil,
+         ).resolveRegistry()
+
+         #expect(nilRegistryDependency == nil)
+         */
+
+        //TODO: Set it up
+    }
+
+    @Test func resolveRegistryDependencyTests() async throws {
+
+        let options = try GlobalOptions.parse([])
+
+        let tool = try SwiftCommandState.makeMockState(options: options)
 
         let lowerBoundVersion = Version(stringLiteral: "1.2.0")
         let higherBoundVersion = Version(stringLiteral: "3.0.0")
 
-        // if exact, from, upToNextMinorFrom and to are nil, then should return nil
-        let nilRegistryDependency = try DependencyRequirementResolver(
-            exact: nil,
-            revision: "revision",
-            branch: "branch",
-            from: nil,
-            upToNextMinorFrom: nil,
-            to: nil
-        ).resolveRegistry()
-
-        #expect(nilRegistryDependency == nil)
+        await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+            try await DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
+                exact: nil,
+                revision: "revision",
+                branch: "branch",
+                from: nil,
+                upToNextMinorFrom: nil,
+                to: nil,
+            ).resolveRegistry()
+        }
 
         // test exact specification
-        let exactRegistryDependency = try DependencyRequirementResolver(
+        let exactRegistryDependency = try await DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: lowerBoundVersion,
             revision: nil,
             branch: nil,
@@ -98,7 +199,9 @@ import class Basics.AsyncProcess
 
 
         // test from to
-        let fromToRegistryDependency = try DependencyRequirementResolver(
+        let fromToRegistryDependency = try await DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -110,7 +213,9 @@ import class Basics.AsyncProcess
         #expect(fromToRegistryDependency == PackageDependency.Registry.Requirement.range(lowerBoundVersion ..< higherBoundVersion))
 
         // test up-to-next-minor-from and to
-        let upToNextMinorFromToRegistryDependency = try DependencyRequirementResolver(
+        let upToNextMinorFromToRegistryDependency = try await DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -122,7 +227,9 @@ import class Basics.AsyncProcess
         #expect(upToNextMinorFromToRegistryDependency == PackageDependency.Registry.Requirement.range(lowerBoundVersion ..< higherBoundVersion))
 
         // test just from
-        let fromRegistryDependency = try DependencyRequirementResolver(
+        let fromRegistryDependency = try await DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -134,7 +241,9 @@ import class Basics.AsyncProcess
         #expect(fromRegistryDependency == PackageDependency.Registry.Requirement.range(.upToNextMajor(from: lowerBoundVersion)))
 
         // test just up-to-next-minor-from
-        let upToNextMinorFromRegistryDependency = try DependencyRequirementResolver(
+        let upToNextMinorFromRegistryDependency = try await DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -146,8 +255,10 @@ import class Basics.AsyncProcess
         #expect(upToNextMinorFromRegistryDependency == PackageDependency.Registry.Requirement.range(.upToNextMinor(from: lowerBoundVersion)))
 
 
-        #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
-            try DependencyRequirementResolver(
+        await #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
+            try await DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: nil,
                 branch: nil,
@@ -157,8 +268,10 @@ import class Basics.AsyncProcess
             ).resolveRegistry()
         }
 
-        #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
-            try DependencyRequirementResolver(
+        await #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
+            try await DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
                 branch: nil,
@@ -168,8 +281,10 @@ import class Basics.AsyncProcess
             ).resolveRegistry()
         }
 
-        #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
-            try DependencyRequirementResolver(
+        await #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
+            try await DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: nil,
                 branch: nil,
@@ -183,10 +298,16 @@ import class Basics.AsyncProcess
     // TODO: should we add edge cases to < from and from == from
     @Test func resolveSourceControlDependencyTests() throws {
 
+        let options = try GlobalOptions.parse([])
+
+        let tool = try SwiftCommandState.makeMockState(options: options)
+
         let lowerBoundVersion = Version(stringLiteral: "1.2.0")
         let higherBoundVersion = Version(stringLiteral: "3.0.0")
 
         let branchSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: "master",
@@ -198,6 +319,8 @@ import class Basics.AsyncProcess
         #expect(branchSourceControlDependency == PackageDependency.SourceControl.Requirement.branch("master"))
 
         let revisionSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: "dae86e",
             branch: nil,
@@ -210,6 +333,8 @@ import class Basics.AsyncProcess
 
         // test exact specification
         let exactSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: lowerBoundVersion,
             revision: nil,
             branch: nil,
@@ -222,6 +347,8 @@ import class Basics.AsyncProcess
 
         // test from to
         let fromToSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -234,6 +361,8 @@ import class Basics.AsyncProcess
 
         // test up-to-next-minor-from and to
         let upToNextMinorFromToSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -246,6 +375,8 @@ import class Basics.AsyncProcess
 
         // test just from
         let fromSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -258,6 +389,8 @@ import class Basics.AsyncProcess
 
         // test just up-to-next-minor-from
         let upToNextMinorFromSourceControlDependency = try DependencyRequirementResolver(
+            packageIdentity: nil,
+            swiftCommandState: tool,
             exact: nil,
             revision: nil,
             branch: nil,
@@ -271,6 +404,8 @@ import class Basics.AsyncProcess
 
         #expect(throws: DependencyRequirementError.multipleRequirementsSpecified.self) {
             try DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: "dae86e",
                 branch: nil,
@@ -282,6 +417,8 @@ import class Basics.AsyncProcess
 
         #expect(throws: DependencyRequirementError.noRequirementSpecified.self) {
             try DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: nil,
                 revision: nil,
                 branch: nil,
@@ -293,6 +430,8 @@ import class Basics.AsyncProcess
 
         #expect(throws: DependencyRequirementError.invalidToParameterWithoutFrom.self) {
             try DependencyRequirementResolver(
+                packageIdentity: nil,
+                swiftCommandState: tool,
                 exact: lowerBoundVersion,
                 revision: nil,
                 branch: nil,
@@ -393,7 +532,7 @@ import class Basics.AsyncProcess
             // Build it. TODO: CHANGE THE XCTAsserts build to the swift testing helper function instead
             await XCTAssertBuilds(stagingPath)
 
-            
+
             let stagingBuildPath = stagingPath.appending(".build")
             let binFile = stagingBuildPath.appending(components: try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "generated-package")
             #expect(localFileSystem.exists(binFile))
@@ -465,20 +604,20 @@ import class Basics.AsyncProcess
 
     //TODO: Fix here, as mocking swiftCommandState resolves to linux triple, but if testing on Darwin, runs into precondition error.
     /*
-    @Test func inferInitialPackageType() async throws {
+     @Test func inferInitialPackageType() async throws {
 
-        try await fixture(name: "Miscellaneous/InferPackageType") { fixturePath in
+     try await fixture(name: "Miscellaneous/InferPackageType") { fixturePath in
 
-            let options = try GlobalOptions.parse([])
-            let tool = try SwiftCommandState.makeMockState(options: options)
+     let options = try GlobalOptions.parse([])
+     let tool = try SwiftCommandState.makeMockState(options: options)
 
 
-            let libraryType = try await TemplatePackageInitializer.inferPackageType(from: fixturePath, templateName: "initialTypeLibrary", swiftCommandState: tool)
+     let libraryType = try await TemplatePackageInitializer.inferPackageType(from: fixturePath, templateName: "initialTypeLibrary", swiftCommandState: tool)
 
-            
-            #expect(libraryType.rawValue == "library")
-        }
 
-    }
+     #expect(libraryType.rawValue == "library")
+     }
+
+     }
      */
 }

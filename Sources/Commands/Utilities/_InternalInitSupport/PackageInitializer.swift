@@ -35,7 +35,6 @@ struct TemplatePackageInitializer: PackageInitializer {
 
     func run() async throws {
         do {
-            try precheck()
             var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
             var registryRequirement: PackageDependency.Registry.Requirement?
 
@@ -123,17 +122,6 @@ struct TemplatePackageInitializer: PackageInitializer {
     }
 
     //Will have to add checking for git + registry too
-    private func precheck() throws {
-        let manifest = cwd.appending(component: Manifest.filename)
-        guard !swiftCommandState.fileSystem.exists(manifest) else {
-            throw InitError.manifestAlreadyExists
-        }
-
-        if let dir = templateDirectory, !swiftCommandState.fileSystem.exists(dir) {
-            throw TemplatePackageInitializerError.templateDirectoryNotFound(dir.pathString)
-        }
-    }
-
     static func inferPackageType(from templatePath: Basics.AbsolutePath, templateName: String?, swiftCommandState: SwiftCommandState) async throws -> InitPackage.PackageType {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
@@ -204,7 +192,6 @@ struct TemplatePackageInitializer: PackageInitializer {
     }
 
     enum TemplatePackageInitializerError: Error, CustomStringConvertible {
-        case templateDirectoryNotFound(String)
         case invalidManifestInTemplate(String)
         case templateNotFound(String)
         case noTemplatesInManifest
@@ -212,8 +199,6 @@ struct TemplatePackageInitializer: PackageInitializer {
 
         var description: String {
             switch self {
-            case .templateDirectoryNotFound(let path):
-                return "The specified template path does not exist: \(path)"
             case .invalidManifestInTemplate(let path):
                 return "Invalid manifest found in template at \(path)."
             case .templateNotFound(let templateName):

@@ -184,7 +184,7 @@ enum DependencyType {
     case registry
 }
 
-enum DependencyRequirementError: Error, CustomStringConvertible {
+enum DependencyRequirementError: Error, CustomStringConvertible, Equatable{
     case multipleRequirementsSpecified
     case noRequirementSpecified
     case invalidToParameterWithoutFrom
@@ -206,5 +206,10 @@ enum DependencyRequirementError: Error, CustomStringConvertible {
                 """
         }
     }
+
+    public static func == (_ lhs: Self, _ rhs: Self) -> Bool {
+        lhs.description == rhs.description
+    }
+
 }
 

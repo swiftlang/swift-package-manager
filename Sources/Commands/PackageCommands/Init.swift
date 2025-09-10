@@ -202,6 +202,11 @@ struct PackageInitConfiguration {
             throw InternalError("Could not find the current working directory")
         }
 
+        let manifest = cwd.appending(component: Manifest.filename)
+        guard !swiftCommandState.fileSystem.exists(manifest) else {
+            throw InitError.manifestAlreadyExists
+        }
+
         self.cwd = cwd
         self.packageName = name ?? cwd.basename
         self.swiftCommandState = swiftCommandState
@@ -215,14 +220,23 @@ struct PackageInitConfiguration {
         self.url = url
         self.packageID = packageID
 
-        let sourceResolver = DefaultTemplateSourceResolver()
+        let sourceResolver = DefaultTemplateSourceResolver(cwd: cwd, fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+
         self.templateSource = sourceResolver.resolveSource(
             directory: directory,
             url: url,
             packageID: packageID
         )
 
+
         if templateSource != nil {
+            //we force wrap as we already do the the nil check.
+            do {
+                try sourceResolver.validate(templateSource: templateSource!, directory: self.directory, url: self.url, packageID: self.packageID)
+            } catch {
+                swiftCommandState.observabilityScope.emit(error)
+            }
+
             self.versionResolver = DependencyRequirementResolver(
                 packageIdentity: packageID,
                 swiftCommandState: swiftCommandState,
@@ -289,9 +303,21 @@ protocol TemplateSourceResolver {
         url: String?,
         packageID: String?
     ) -> InitTemplatePackage.TemplateSource?
+
+    func validate(
+        templateSource: InitTemplatePackage.TemplateSource,
+        directory: Basics.AbsolutePath?,
+        url: String?,
+        packageID: String?
+    ) throws
 }
 
 public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
+
+    let cwd: AbsolutePath
+    let fileSystem: FileSystem
+    let observabilityScope: ObservabilityScope
+
     func resolveSource(
         directory: Basics.AbsolutePath?,
         url: String?,
@@ -301,6 +327,80 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
         if packageID != nil { return .registry }
         if directory != nil { return .local }
         return nil
+    }
+
+    func validate(
+        templateSource: InitTemplatePackage.TemplateSource,
+        directory: Basics.AbsolutePath?,
+        url: String?,
+        packageID: String?
+    ) throws {
+        switch templateSource {
+        case .git:
+            guard let url = url, isValidGitSource(url, fileSystem: fileSystem) else {
+                throw SourceResolverError.invalidGitURL(url ?? "nil")
+            }
+
+        case .registry:
+            guard let packageID = packageID, isValidRegistryPackageIdentity(packageID) else {
+                throw SourceResolverError.invalidRegistryIdentity(packageID ?? "nil")
+            }
+
+        case .local:
+            guard let directory = directory else {
+                throw SourceResolverError.missingLocalPath
+            }
+
+            try isValidSwiftPackage(path: directory)
+        }
+    }
+
+    private func isValidRegistryPackageIdentity(_ packageID: String) -> Bool {
+        return PackageIdentity.plain(packageID).isRegistry
+    }
+
+    func isValidGitSource(_ input: String, fileSystem: FileSystem) -> Bool {
+        if input.hasPrefix("http://") || input.hasPrefix("https://") || input.hasPrefix("git@") || input.hasPrefix("ssh://") {
+            return true  // likely a remote URL
+        }
+
+        do {
+            let path = try AbsolutePath(validating: input)
+            if fileSystem.exists(path) {
+                let gitDir = path.appending(component: ".git")
+                return fileSystem.isDirectory(gitDir)
+            }
+        } catch {
+            return false
+        }
+        return false
+    }
+
+    private func isValidSwiftPackage(path: AbsolutePath) throws {
+        if !fileSystem.exists(path) {
+            throw SourceResolverError.invalidDirectoryPath(path)
+        }
+    }
+
+    enum SourceResolverError: Error, CustomStringConvertible, Equatable {
+        case invalidDirectoryPath(AbsolutePath)
+        case invalidGitURL(String)
+        case invalidRegistryIdentity(String)
+        case missingLocalPath
+
+        var description: String {
+            switch self {
+            case .invalidDirectoryPath(let path):
+                return "Invalid local path: \(path) does not exist or is not accessible."
+            case .invalidGitURL(let url):
+                return "Invalid Git URL: \(url) is not a valid Git source."
+            case .invalidRegistryIdentity(let id):
+                return "Invalid registry package identity: \(id) is not a valid registry package."
+            case .missingLocalPath:
+                return "Missing local path for template source."
+            }
+        }
+
     }
 }
 
