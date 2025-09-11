@@ -41,8 +41,13 @@ public enum BuildSubset {
 public enum BuildOutput: Equatable {
     public static func == (lhs: BuildOutput, rhs: BuildOutput) -> Bool {
         switch lhs {    
-        case .symbolGraph(_):
-            return false
+        case .symbolGraph(let leftOptions):
+            switch rhs {
+                case .symbolGraph(let rightOptions):
+                    return leftOptions == rightOptions
+                default:
+                    return false
+            }
         case .buildPlan:
             switch rhs {
                 case .buildPlan:
@@ -63,7 +68,7 @@ public enum BuildOutput: Equatable {
     public enum SymbolGraphAccessLevel: String {
         case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
-    public struct SymbolGraphOptions {
+    public struct SymbolGraphOptions: Equatable {
         public var prettyPrint: Bool
         public var minimumAccessLevel: SymbolGraphAccessLevel
         public var includeSynthesized: Bool

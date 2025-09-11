@@ -56,7 +56,6 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             enableAllTraits: true,
             cacheBuildManifest: false
         )
-        // TODO pass along the various flags as associated values to the symbol graph build output (e.g. includeSPISymbols)
         let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(
             BuildOutput.SymbolGraphOptions(
                 prettyPrint: prettyPrint,
