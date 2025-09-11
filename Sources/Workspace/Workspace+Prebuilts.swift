@@ -54,7 +54,7 @@ extension Workspace {
             public let name: String
             public var products: [String]
             public var cModules: [String]?
-            public var includePath: [RelativePath]?
+            public var includePath: [String]?
             public var artifacts: [Artifact]?
 
             public var id: String { name }
@@ -81,7 +81,7 @@ extension Workspace {
                 self.name = name
                 self.products = products
                 self.cModules = cModules
-                self.includePath = includePath
+                self.includePath = includePath?.map({ $0.pathString.replacingOccurrences(of: "\\", with: "/") })
                 self.artifacts = artifacts
             }
         }
@@ -628,7 +628,7 @@ extension Workspace {
                             path: path,
                             checkoutPath: checkoutPath,
                             products: library.products,
-                            includePath: library.includePath,
+                            includePath: try library.includePath?.map({ try RelativePath(validating: $0) }),
                             cModules: library.cModules ?? []
                         )
                         addedPrebuilts.add(managedPrebuilt)
