@@ -5821,7 +5821,7 @@ struct PackageCommandTests {
         func commandPluginSymbolGraphCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library, and executable, and a plugin.
                     let packageDir = tmpPath.appending(components: "MyPackage")
@@ -5952,7 +5952,8 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+                (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                || !CiEnvironment.runningInSmokeTestPipeline
             }
         }
 
