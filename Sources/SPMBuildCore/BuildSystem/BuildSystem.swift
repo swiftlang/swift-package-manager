@@ -44,9 +44,19 @@ public enum BuildOutput: Equatable {
         case .symbolGraph(_):
             return false
         case .buildPlan:
-            return rhs == .buildPlan
+            switch rhs {
+                case .buildPlan:
+                    return true
+                default:
+                    return false
+            }
         case .replArguments:
-            return rhs == .replArguments
+            switch rhs {
+                case .replArguments:
+                    return true
+                default:
+                    return false
+            }
         }
     }
 
