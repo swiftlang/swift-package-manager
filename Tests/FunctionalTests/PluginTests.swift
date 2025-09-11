@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,11 @@ import Workspace
 import Testing
 import Foundation
 
-@Suite(.serialized)
+@Suite(
+    .tags(
+        .Feature.Command.Package.Plugin,
+    )
+)
 final class PluginTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
@@ -1343,34 +1347,124 @@ final class PluginTests {
         }
     }
 
-    @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .requiresSwiftConcurrencySupport,
+    @Suite(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+        .tags(
+            .Feature.Snippets,
+        )
     )
-    func testSnippetSupport() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                path.appending("PluginsAndSnippets"),
-                configuration: .debug,
-                extraArgs: ["do-something"],
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+    struct SnippetTests {
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+            .requiresSwiftConcurrencySupport,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms)
+        )
+        func testSnippetSupport(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["do-something"],
+                    buildSystem: data.buildSystem,
+                )
+                #expect(stdout.contains("type of snippet target: snippet"), "stderr:\n\(stderr)")
+            }
         }
 
-        // Try again with the Swift Build build system
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                path.appending("PluginsAndSnippets"),
-                configuration: .debug,
-                extraArgs: ["--build-system", "swiftbuild", "do-something"],
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+        @Test(
+            .disabled(),
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CompletionTool,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func testBasicBuildSnippets(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                await #expect(throws: Never.self) {
+                    let _ = try await executeSwiftBuild(
+                        fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                }
+
+                let snippets = try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["completion-tool", "list-snippet"],
+                    buildSystem: data.buildSystem,
+                ).stdout.split(whereSeparator: \.isNewline)
+
+                for snippet in snippets {
+                    try expectFileExists(
+                        at: fixturePath.appending(components: data.buildSystem.binPath(for: data.config) + ["\(snippet)"])
+                    )
+                }
+            }
+        }
+
+        @Test(
+            .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+            .IssueWindowsCannotSaveAttachment,
+            .requiresSwiftConcurrencySupport,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+        )
+        func testBasicBuildIndividualSnippets(
+            data: BuildData,
+            targetPath: RelativePath,
+        ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let targetName = targetPath.basenameWithoutExt
+                await #expect(throws: Never.self) {
+                    let _ = try await executeSwiftBuild(
+                        fixturePath,
+                        configuration: data.config,
+                        extraArgs: ["--product", targetName],
+                        buildSystem: data.buildSystem,
+                    )
+                }
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            }
+        }
+
+        @Test(
+            .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+            .IssueWindowsCannotSaveAttachment,
+            .requiresSwiftConcurrencySupport,
+            .IssueSwiftBuildLinuxRunnable,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+        )
+        func testBasicRunSnippets(
+            data: BuildData,
+            targetPath: RelativePath,
+        ) async throws {
+            let targetName = targetPath.basenameWithoutExt
+            try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath,
+                    targetName,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
+            }
+            } when: {
+                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            }
         }
     }
-
+    
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
