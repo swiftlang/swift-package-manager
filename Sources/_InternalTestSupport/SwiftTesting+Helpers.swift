@@ -123,7 +123,7 @@ private func runCommandExpectingError<T>(
     _ message: @autoclosure () -> Comment = "",
     sourceLocation: SourceLocation
 ) async -> CommandExecutionError? {
-    let error = await #expect(throws: SwiftPMError.self, sourceLocation: sourceLocation) {
+    let error: SwiftPMError? = await #expect(throws: SwiftPMError.self, sourceLocation: sourceLocation) {
         try await expression()
     }
 
