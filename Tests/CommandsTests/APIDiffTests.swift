@@ -25,25 +25,6 @@ import _InternalTestSupport
 import Workspace
 import Testing
 
-fileprivate func expectThrowsCommandExecutionError<T>(
-    _ expression: @autoclosure () async throws -> T,
-    sourceLocation: SourceLocation = #_sourceLocation,
-    _ errorHandler: (_ error: CommandExecutionError) throws -> Void = { _ in }
-) async rethrows {
-    let error = await #expect(throws: SwiftPMError.self, sourceLocation: sourceLocation) {
-        try await expression()
-    }
-
-    guard case .executionFailure(let processError, let stdout, let stderr) = error,
-          case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-          processResult.exitStatus != .terminated(code: 0) else {
-        Issue.record("Unexpected error type: \(error?.interpolationDescription)", sourceLocation: sourceLocation)
-        return
-    }
-    try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
-}
-
-
 extension Trait where Self == Testing.ConditionTrait {
     public static var requiresAPIDigester: Self {
         enabled("This test requires a toolchain with swift-api-digester") {
@@ -81,7 +62,7 @@ struct APIDiffTests {
                 packageRoot.appending("Foo.swift"),
                 string: "public let foo = 42"
             )
-            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 #expect(!error.stdout.isEmpty)
             }
         }
@@ -96,7 +77,7 @@ struct APIDiffTests {
                 packageRoot.appending("Foo.swift"),
                 string: "public let foo = 42"
             )
-            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 #expect(error.stdout.contains("1 breaking change detected in Foo"))
                 #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))
             }
@@ -119,7 +100,7 @@ struct APIDiffTests {
                 packageRoot.appending(components: "Sources", "Qux", "Qux.swift"),
                 string: "public class Qux<T, U> { private let x = 1 }"
             )
-            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 withKnownIssue {
                     #expect(error.stdout.contains("2 breaking changes detected in Qux"))
                     #expect(error.stdout.contains("💔 API breakage: class Qux has generic signature change from <T> to <T, U>"))
@@ -154,7 +135,7 @@ struct APIDiffTests {
                 customAllowlistPath,
                 string: "API breakage: class Qux has generic signature change from <T> to <T, U>\n"
             )
-            try await expectThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", customAllowlistPath.pathString],
                             packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
@@ -277,7 +258,7 @@ struct APIDiffTests {
             }
 
             // Test diagnostics
-            try await expectThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "NotATarget", "Exec", "--products", "NotAProduct", "Exec"],
                             packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
@@ -305,13 +286,13 @@ struct APIDiffTests {
                     }
                     """
                 )
-                try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                     #expect(error.stdout.contains("1 breaking change detected in Bar"))
                     #expect(error.stdout.contains("💔 API breakage: func bar() has return type change from Swift.Int to Swift.String"))
                 }
 
                 // Report an error if we explicitly ask to diff a C-family target
-                try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3", "--targets", "Foo"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                     #expect(error.stderr.contains("error: 'Foo' is not a Swift language target"))
                 }
             }
@@ -413,7 +394,7 @@ struct APIDiffTests {
     func testBadTreeish(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
-            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 #expect(error.stderr.contains("error: Couldn’t get revision"))
             }
         }
@@ -433,7 +414,7 @@ struct APIDiffTests {
                 )
                 try repo.stage(file: "Foo.swift")
                 try repo.commit(message: "Add foo")
-                try await expectThrowsCommandExecutionError(
+                await expectThrowsCommandExecutionError(
                     try await execute(["diagnose-api-breaking-changes", "main", "--baseline-dir", baselineDir.pathString],
                                       packagePath: packageRoot,
                                       buildSystem: buildSystem)
@@ -473,7 +454,7 @@ struct APIDiffTests {
             let repo = GitRepository(path: packageRoot)
             let revision = try repo.resolveRevision(identifier: "1.2.3")
 
-            try await expectThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3", "--baseline-dir", baselineDir.pathString], packagePath: packageRoot, buildSystem: buildSystem)
             ) { error in
                 #expect(error.stdout.contains("1 breaking change detected in Foo"))
@@ -541,7 +522,7 @@ struct APIDiffTests {
             // Accomodate filesystems with low resolution timestamps
             try await Task.sleep(for: .seconds(1))
 
-            try await expectThrowsCommandExecutionError(
+            await expectThrowsCommandExecutionError(
                 try await execute(["diagnose-api-breaking-changes", "1.2.3",
                              "--baseline-dir", baselineDir.pathString, "--regenerate-baseline"],
                             packagePath: packageRoot,
@@ -556,7 +537,7 @@ struct APIDiffTests {
 
     @Test(arguments: SupportedBuildSystemOnAllPlatforms)
     func testOldName(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await expectThrowsCommandExecutionError(try await execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"], packagePath: nil, buildSystem: buildSystem)) { error in
+        await expectThrowsCommandExecutionError(try await execute(["experimental-api-diff", "1.2.3", "--regenerate-baseline"], packagePath: nil, buildSystem: buildSystem)) { error in
             #expect(error.stdout.contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
         }
     }
@@ -565,7 +546,7 @@ struct APIDiffTests {
     func testBrokenAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
             let packageRoot = fixturePath.appending("BrokenPkg")
-            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 let expectedError: String
                 if buildSystem == .swiftbuild {
                     expectedError = "error: Build failed"

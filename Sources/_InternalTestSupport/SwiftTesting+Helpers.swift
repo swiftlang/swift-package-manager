@@ -111,38 +111,64 @@ public func expectDirectoryDoesNotExist(
     )
 }
 
+/// Expects that the expression throws a CommandExecutionError and passes it to the provided throwing error handler.
+/// - Parameters:
+///   - expression: The expression expected to throw
+///   - message: Optional message for the expectation
+///   - sourceLocation: Source location for error reporting
+///   - errorHandler: A throwing closure that receives the CommandExecutionError
 public func expectThrowsCommandExecutionError<T>(
     _ expression: @autoclosure () async throws -> T,
     _ message: @autoclosure () -> Comment = "",
     sourceLocation: SourceLocation = #_sourceLocation,
-    _ errorHandler: (_ error: CommandExecutionError) -> Void = { _ in }
+    _ errorHandler: (_ error: CommandExecutionError) throws -> Void = { _ in }
+) async rethrows {
+    _ = try await _expectThrowsCommandExecutionError(
+        { try await expression() },
+        { message() },
+        sourceLocation: sourceLocation,
+        errorHandler
+    )
+}
+
+/// Expects that the expression throws a CommandExecutionError and passes it to the provided non-throwing error handler.
+/// This version can be called without `try` when the error handler doesn't throw.
+/// - Parameters:
+///   - expression: The expression expected to throw
+///   - message: Optional message for the expectation
+///   - sourceLocation: Source location for error reporting
+///   - errorHandler: A non-throwing closure that receives the CommandExecutionError
+public func expectThrowsCommandExecutionError<T>(
+    _ expression: @autoclosure () async throws -> T,
+    _ message: @autoclosure () -> Comment = "",
+    sourceLocation: SourceLocation = #_sourceLocation,
+    _ errorHandler: (_ error: CommandExecutionError) -> Void
 ) async {
-    await expectAsyncThrowsError(try await expression(), message(), sourceLocation: sourceLocation) { error in
-        guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-            case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-            processResult.exitStatus != .terminated(code: 0)
-        else {
-            Issue.record("Unexpected error type: \(error.interpolationDescription)", sourceLocation: sourceLocation)
-            return
-        }
-        errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
+    _ = try? await _expectThrowsCommandExecutionError(
+        { try await expression() },
+        { message() },
+        sourceLocation: sourceLocation
+    ) { error in
+        errorHandler(error)
+        return ()
     }
 }
 
-/// An `async`-friendly replacement for `XCTAssertThrowsError`.
-public func expectAsyncThrowsError<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ message: @autoclosure () -> Comment? = nil,
-    sourceLocation: SourceLocation = #_sourceLocation,
-    _ errorHandler: (_ error: any Error) -> Void = { _ in }
-) async {
-    do {
-        _ = try await expression()
-        Issue.record(
-            message() ?? "Expected an error, which did not occur.",
-            sourceLocation: sourceLocation,
-        )
-    } catch {
-        errorHandler(error)
+private func _expectThrowsCommandExecutionError<R>(
+    _ expressionClosure: () async throws -> Any,
+    _ message: () -> Comment,
+    sourceLocation: SourceLocation,
+    _ errorHandler: (_ error: CommandExecutionError) throws -> R
+) async rethrows -> R? {
+    let error = await #expect(throws: SwiftPMError.self, message(), sourceLocation: sourceLocation) {
+        try await expressionClosure()
     }
+
+    guard case .executionFailure(let processError, let stdout, let stderr) = error,
+          case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
+          processResult.exitStatus != .terminated(code: 0) else {
+        Issue.record("Unexpected error type: \(error?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
+        return nil
+    }
+    return try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
 }
