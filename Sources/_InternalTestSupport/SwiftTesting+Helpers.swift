@@ -93,9 +93,12 @@ public func expectThrowsCommandExecutionError<T>(
     sourceLocation: SourceLocation = #_sourceLocation,
     _ errorHandler: (_ error: CommandExecutionError) throws -> Void = { _ in }
 ) async rethrows {
-    if let commandError = await runCommandExpectingError(try await expression(), message(), sourceLocation: sourceLocation) {
-        try errorHandler(commandError)
-    }
+    _ = try await _expectThrowsCommandExecutionError(
+        { try await expression() },
+        { message() },
+        sourceLocation: sourceLocation,
+        errorHandler
+    )
 }
 
 /// Expects that the expression throws a CommandExecutionError and passes it to the provided non-throwing error handler.
@@ -111,28 +114,31 @@ public func expectThrowsCommandExecutionError<T>(
     sourceLocation: SourceLocation = #_sourceLocation,
     _ errorHandler: (_ error: CommandExecutionError) -> Void
 ) async {
-    if let commandError = await runCommandExpectingError(try await expression(), message(), sourceLocation: sourceLocation) {
-        errorHandler(commandError)
+    _ = try? await _expectThrowsCommandExecutionError(
+        { try await expression() },
+        { message() },
+        sourceLocation: sourceLocation
+    ) { error in
+        errorHandler(error)
+        return ()
     }
 }
 
-/// Helper function that extracts a CommandExecutionError from an expression that's expected to throw
-/// - Returns: The CommandExecutionError if the expected error was thrown, nil otherwise
-private func runCommandExpectingError<T>(
-    _ expression: @autoclosure () async throws -> T,
-    _ message: @autoclosure () -> Comment = "",
-    sourceLocation: SourceLocation
-) async -> CommandExecutionError? {
-    let error: SwiftPMError? = await #expect(throws: SwiftPMError.self, sourceLocation: sourceLocation) {
-        try await expression()
+private func _expectThrowsCommandExecutionError<R>(
+    _ expressionClosure: () async throws -> Any,
+    _ message: () -> Comment,
+    sourceLocation: SourceLocation,
+    _ errorHandler: (_ error: CommandExecutionError) throws -> R
+) async rethrows -> R? {
+    let error = await #expect(throws: SwiftPMError.self, message(), sourceLocation: sourceLocation) {
+        try await expressionClosure()
     }
 
     guard case .executionFailure(let processError, let stdout, let stderr) = error,
           case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
           processResult.exitStatus != .terminated(code: 0) else {
-        Issue.record("Unexpected error type: \(error?.interpolationDescription)", sourceLocation: sourceLocation)
+        Issue.record("Unexpected error type: \(error?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
         return nil
     }
-
-    return CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr)
+    return try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
 }
