@@ -32,33 +32,9 @@ public func expectFileExists(
 /// Verifies that a file does not exist at the specified path.
 ///
 /// - Parameters:
-///   - fixturePath: The absolute path to check for file non-existence.
+///   - path: The absolute path to check for file non-existence.
 ///   - comment: An optional comment to include in the failure message.
 ///   - sourceLocation: The source location where the expectation is made.
-public func expectFileDoesNotExists(
-    at fixturePath: AbsolutePath,
-    _ comment: Comment? = nil,
-    sourceLocation: SourceLocation = #_sourceLocation,
-) {
-    let commentPrefix =
-        if let comment {
-            "\(comment): "
-        } else {
-            ""
-        }
-    let msgSuffix: String
-    do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path.parentDirectory))"
-    } catch {
-        msgSuffix = ""
-    }
-    #expect(
-        localFileSystem.exists(path),
-        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
-        sourceLocation: sourceLocation,
-    )
-}
-
 public func expectFileDoesNotExists(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
@@ -77,8 +53,8 @@ public func expectFileDoesNotExists(
         msgSuffix = ""
     }
     #expect(
-        !localFileSystem.exists(path),
-        "\(commentPrefix)File: '\(path)' was not expected to exist, but does.\(msgSuffix))",
+        localFileSystem.exists(path),
+        "\(commentPrefix)File '\(path)' does not exist. \(msgSuffix)",
         sourceLocation: sourceLocation,
     )
 }
