@@ -211,7 +211,6 @@ struct PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = bundleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(module.name).resources"
             .spm_mangledToBundleIdentifier()
-        settings[.EXECUTABLE_NAME] = ""
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
 
