@@ -122,8 +122,7 @@ private struct SwiftPMTests {
                 #expect(!runOutput.stderr.contains("error:"))
                 #expect(runOutput.stdout.contains("Hello, world!"))
             } when: {
-                (buildSystemProvider == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-                || (buildSystemProvider == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
+                (buildSystemProvider == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
             }
         }
     }

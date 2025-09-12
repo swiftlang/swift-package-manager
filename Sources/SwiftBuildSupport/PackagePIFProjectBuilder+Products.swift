@@ -77,7 +77,7 @@ extension PackagePIFProjectBuilder {
                 id: product.pifTargetGUID,
                 productType: pifProductType,
                 name: product.targetName(),
-                productName: product.name
+                productName: "$(EXECUTABLE_NAME)"
             )
         }
         do {
@@ -115,7 +115,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = product.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
-        settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
@@ -596,35 +595,15 @@ extension PackagePIFProjectBuilder {
 
         // FIXME: Cleanup this mess with <rdar://56889224>
 
-        let pifProductName: String
-        let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
-                pifProductName = "lib\(product.name).dylib"
-                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
-                // If a product is explicitly declared dynamic, we preserve its name,
-                // otherwise we will compute an automatic one.
-                if product.libraryType == .dynamic {
-                    if let customExecutableName = pifBuilder.delegate
-                        .customExecutableName(product: product.underlying)
-                    {
-                        executableName = customExecutableName
-                    } else {
-                        executableName = product.name
-                    }
-                } else {
-                    executableName = PackagePIFBuilder.computePackageProductFrameworkName(productName: product.name)
-                }
-                pifProductName = "\(executableName).framework"
                 productType = .framework
             }
         } else {
-            pifProductName = "lib\(product.name).a"
-            executableName = pifProductName
             productType = .packageProduct
         }
 
@@ -637,7 +616,7 @@ extension PackagePIFProjectBuilder {
                 id: product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: product.targetName(suffix: targetSuffix),
-                productName: pifProductName
+                productName: product.name
             )
         }
         do {
@@ -706,7 +685,6 @@ extension PackagePIFProjectBuilder {
             settings.configureDynamicSettings(
                 productName: product.name,
                 targetName: product.targetName(),
-                executableName: executableName,
                 packageIdentity: package.identity,
                 packageName: package.identity.c99name,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
@@ -1037,7 +1015,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = moduleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
             .spm_mangledToBundleIdentifier()
-        settings[.EXECUTABLE_NAME] = name
         settings[.SKIP_INSTALL] = "NO"
         settings[.SWIFT_VERSION] = "5.0"
         // This should eventually be set universally for all package targets/products.
