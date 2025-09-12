@@ -1,0 +1,1403 @@
+[
+  {
+    "contents" : {
+      "guid" : "Workspace:/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/AppPkg@11",
+      "name" : "AppPkg",
+      "path" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/AppPkg",
+      "projects" : [
+        "a6e5ed88221952d85d9f2cb958a70e895bed971a861c7b40bec603369a1648d1",
+        "9c31da198979a9e43b5bcb3d72880d9dd51215f50d4248ab5ef2e3746aca7d4c",
+        "94d2947a2080d7efc7c2e9af4ade273eebc8255e08b5e0736afae81c76c2782b",
+        "de0b74057ec292adc23d7f0e6617ac2fec000dab76492c1a4b3b5766394a7d4d"
+      ]
+    },
+    "signature" : "b82c4d633942aacb6166c78a8ffa8ef9252e249e380d4f7a76367492a5f803ed",
+    "type" : "workspace"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "NO",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_NS_ASSERTIONS" : "YES",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "0",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG=1"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "ONLY_ACTIVE_ARCH" : "YES",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Onone",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:apkg::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "YES",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf-with-dsym",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "s",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Owholemodule",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:apkg::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "defaultConfigurationName" : "Release",
+      "developmentRegion" : "en",
+      "groupTree" : {
+        "children" : [
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:apkg::MAINGROUP::REF_0::REF_0",
+                "name" : "main.swift",
+                "path" : "main.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:apkg::MAINGROUP::REF_0",
+            "name" : "Sources/AApp",
+            "path" : "Sources/AApp",
+            "sourceTree" : "<group>",
+            "type" : "group"
+          },
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:apkg::MAINGROUP::REF_1::REF_0",
+                "name" : "File.swift",
+                "path" : "File.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:apkg::MAINGROUP::REF_1",
+            "name" : "Sources/Utils",
+            "path" : "Sources/Utils",
+            "sourceTree" : "<group>",
+            "type" : "group"
+          }
+        ],
+        "guid" : "PACKAGE:apkg::MAINGROUP",
+        "name" : "",
+        "path" : "",
+        "sourceTree" : "<group>",
+        "type" : "group"
+      },
+      "guid" : "PACKAGE:apkg@11",
+      "path" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Apkg",
+      "projectDirectory" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Apkg",
+      "projectIsPackage" : "true",
+      "projectName" : "Apkg",
+      "targets" : [
+        "d5ca99444b8e36653724c218ee02d69349a316afd9de3f2aca3eb12f41e316d7",
+        "a7e57f87f05cbd25b5d19c1890ff037379cb505ecf028b376bcb06d8ccf50d20",
+        "632299f2574ffade7dca91ee0dee4968bcedc0e79563c7fab1ab901651f3ba07"
+      ]
+    },
+    "signature" : "a6e5ed88221952d85d9f2cb958a70e895bed971a861c7b40bec603369a1648d1",
+    "type" : "project"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apkg.AApp",
+            "PRODUCT_MODULE_NAME" : "AApp",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "AApp"
+          },
+          "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apkg.AApp",
+            "PRODUCT_MODULE_NAME" : "AApp",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "AApp"
+          },
+          "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "fileReference" : "PACKAGE:apkg::MAINGROUP::REF_0::REF_0",
+              "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ]
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        },
+        {
+          "buildFiles" : [
+            {
+              "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDPHASE_1::0",
+              "platformFilters" : [
+
+              ],
+              "targetReference" : "PACKAGE-TARGET:AUtils@11"
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:apkg.AApp::BUILDPHASE_1",
+          "type" : "com.apple.buildphase.frameworks"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-TARGET:AUtils@11"
+        }
+      ],
+      "guid" : "PACKAGE-PRODUCT:apkg.AApp@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+
+        }
+      },
+      "name" : "AApp_573FA2CC6_PackageProduct",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-PRODUCT:apkg.AApp",
+        "name" : "AApp",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.tool",
+      "type" : "standard"
+    },
+    "signature" : "d5ca99444b8e36653724c218ee02d69349a316afd9de3f2aca3eb12f41e316d7",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "APPLICATION_EXTENSION_API_ONLY" : "YES",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "EXECUTABLE_PREFIX" : "lib",
+            "INSTALL_PATH" : "/usr/local/lib",
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apkg.Utils",
+            "PRODUCT_MODULE_NAME" : "Utils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SKIP_INSTALL" : "NO",
+            "TARGET_NAME" : "Utils",
+            "USES_SWIFTPM_UNSAFE_FLAGS" : "NO"
+          },
+          "guid" : "PACKAGE-PRODUCT:apkg.Utils::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "APPLICATION_EXTENSION_API_ONLY" : "YES",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "EXECUTABLE_PREFIX" : "lib",
+            "INSTALL_PATH" : "/usr/local/lib",
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apkg.Utils",
+            "PRODUCT_MODULE_NAME" : "Utils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SKIP_INSTALL" : "NO",
+            "TARGET_NAME" : "Utils",
+            "USES_SWIFTPM_UNSAFE_FLAGS" : "NO"
+          },
+          "guid" : "PACKAGE-PRODUCT:apkg.Utils::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "guid" : "PACKAGE-PRODUCT:apkg.Utils::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ],
+              "targetReference" : "PACKAGE-TARGET:AUtils@11"
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:apkg.Utils::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.frameworks"
+        },
+        {
+          "buildFiles" : [
+
+          ],
+          "guid" : "PACKAGE-PRODUCT:apkg.Utils::BUILDPHASE_1",
+          "type" : "com.apple.buildphase.sources"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-TARGET:AUtils@11"
+        }
+      ],
+      "guid" : "PACKAGE-PRODUCT:apkg.Utils@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+
+        }
+      },
+      "name" : "Utils_DCABD1A2BD6_PackageProduct",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-PRODUCT:apkg.Utils",
+        "name" : "libUtils.dylib",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.library.dynamic",
+      "type" : "standard"
+    },
+    "signature" : "a7e57f87f05cbd25b5d19c1890ff037379cb505ecf028b376bcb06d8ccf50d20",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_COVERAGE_MAPPING_LINKER_ARGS" : "NO",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "GENERATE_MASTER_OBJECT_FILE" : "NO",
+            "MACH_O_TYPE" : "mh_object",
+            "MODULEMAP_FILE_CONTENTS" : "module AUtils {\n    header \"AUtils-Swift.h\"\n    export *\n}",
+            "MODULEMAP_PATH" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/AUtils.modulemap",
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "AUtils",
+            "PRODUCT_MODULE_NAME" : "AUtils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_MODULE_ALIASES" : [
+              "Utils=AUtils"
+            ],
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "AUtils-Swift.h",
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "AUtils_Module"
+          },
+          "guid" : "PACKAGE-TARGET:AUtils::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "OTHER_CFLAGS" : [
+                "$(inherited)",
+                "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/AUtils.modulemap"
+              ],
+              "OTHER_LDFLAGS" : [
+                "$(inherited)",
+                "-Wl,-no_warn_duplicate_libraries"
+              ],
+              "OTHER_LDRFLAGS" : [
+
+              ]
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_COVERAGE_MAPPING_LINKER_ARGS" : "NO",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "GENERATE_MASTER_OBJECT_FILE" : "NO",
+            "MACH_O_TYPE" : "mh_object",
+            "MODULEMAP_FILE_CONTENTS" : "module AUtils {\n    header \"AUtils-Swift.h\"\n    export *\n}",
+            "MODULEMAP_PATH" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/AUtils.modulemap",
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "AUtils",
+            "PRODUCT_MODULE_NAME" : "AUtils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_MODULE_ALIASES" : [
+              "Utils=AUtils"
+            ],
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "AUtils-Swift.h",
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "AUtils_Module"
+          },
+          "guid" : "PACKAGE-TARGET:AUtils::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "OTHER_CFLAGS" : [
+                "$(inherited)",
+                "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/AUtils.modulemap"
+              ],
+              "OTHER_LDFLAGS" : [
+                "$(inherited)",
+                "-Wl,-no_warn_duplicate_libraries"
+              ],
+              "OTHER_LDRFLAGS" : [
+
+              ]
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "fileReference" : "PACKAGE:apkg::MAINGROUP::REF_1::REF_0",
+              "guid" : "PACKAGE-TARGET:AUtils::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ]
+            }
+          ],
+          "guid" : "PACKAGE-TARGET:AUtils::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "dependencies" : [
+
+      ],
+      "guid" : "PACKAGE-TARGET:AUtils@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+          "OTHER_CFLAGS" : [
+            "$(inherited)",
+            "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/AUtils.modulemap"
+          ],
+          "OTHER_LDFLAGS" : [
+            "$(inherited)",
+            "-Wl,-no_warn_duplicate_libraries"
+          ],
+          "OTHER_LDRFLAGS" : [
+
+          ]
+        }
+      },
+      "name" : "AUtils",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-TARGET:AUtils",
+        "name" : "AUtils_Module.o",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.objfile",
+      "type" : "standard"
+    },
+    "signature" : "632299f2574ffade7dca91ee0dee4968bcedc0e79563c7fab1ab901651f3ba07",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "NO",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_NS_ASSERTIONS" : "YES",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "0",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG=1"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "ONLY_ACTIVE_ARCH" : "YES",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Onone",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:apppkg::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "YES",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf-with-dsym",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "s",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Owholemodule",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:apppkg::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "defaultConfigurationName" : "Release",
+      "developmentRegion" : "en",
+      "groupTree" : {
+        "children" : [
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:apppkg::MAINGROUP::REF_0::REF_0",
+                "name" : "main.swift",
+                "path" : "main.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:apppkg::MAINGROUP::REF_0",
+            "name" : "Sources/App",
+            "path" : "Sources/App",
+            "sourceTree" : "<group>",
+            "type" : "group"
+          }
+        ],
+        "guid" : "PACKAGE:apppkg::MAINGROUP",
+        "name" : "",
+        "path" : "",
+        "sourceTree" : "<group>",
+        "type" : "group"
+      },
+      "guid" : "PACKAGE:apppkg@11",
+      "path" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/AppPkg",
+      "projectDirectory" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/AppPkg",
+      "projectIsPackage" : "true",
+      "projectName" : "AppPkg",
+      "targets" : [
+        "8b94961a842d34bf9004fff4f14c33fdbc81fd853ceb1902eedadc25a3c8e1cd"
+      ]
+    },
+    "signature" : "9c31da198979a9e43b5bcb3d72880d9dd51215f50d4248ab5ef2e3746aca7d4c",
+    "type" : "project"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "INSTALL_PATH" : "/usr/local/bin",
+            "LD_RUNPATH_SEARCH_PATHS" : [
+              "$(inherited)",
+              "@executable_path/../lib"
+            ],
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apppkg.App",
+            "PRODUCT_MODULE_NAME" : "App",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SKIP_INSTALL" : "NO",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "App"
+          },
+          "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "INSTALL_PATH" : "/usr/local/bin",
+            "LD_RUNPATH_SEARCH_PATHS" : [
+              "$(inherited)",
+              "@executable_path/../lib"
+            ],
+            "LIBRARY_SEARCH_PATHS" : [
+              "$(inherited)",
+              "/Applications/XcodeWE.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx"
+            ],
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "apppkg.App",
+            "PRODUCT_MODULE_NAME" : "App",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SKIP_INSTALL" : "NO",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "App"
+          },
+          "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "fileReference" : "PACKAGE:apppkg::MAINGROUP::REF_0::REF_0",
+              "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ]
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        },
+        {
+          "buildFiles" : [
+            {
+              "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDPHASE_1::0",
+              "platformFilters" : [
+
+              ],
+              "targetReference" : "PACKAGE-PRODUCT:bpkg.Utils@11"
+            },
+            {
+              "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDPHASE_1::1",
+              "platformFilters" : [
+
+              ],
+              "targetReference" : "PACKAGE-PRODUCT:apkg.Utils@11"
+            }
+          ],
+          "guid" : "PACKAGE-PRODUCT:apppkg.App::BUILDPHASE_1",
+          "type" : "com.apple.buildphase.frameworks"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-PRODUCT:bpkg.Utils@11"
+        },
+        {
+          "guid" : "PACKAGE-PRODUCT:apkg.Utils@11"
+        }
+      ],
+      "guid" : "PACKAGE-PRODUCT:apppkg.App@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+
+        }
+      },
+      "name" : "App_1DA2DD44_PackageProduct",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-PRODUCT:apppkg.App",
+        "name" : "App",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.tool",
+      "type" : "standard"
+    },
+    "signature" : "8b94961a842d34bf9004fff4f14c33fdbc81fd853ceb1902eedadc25a3c8e1cd",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "NO",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_NS_ASSERTIONS" : "YES",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "0",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG=1"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "ONLY_ACTIVE_ARCH" : "YES",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE",
+              "DEBUG"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Onone",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:bpkg::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_ENABLE_OBJC_ARC" : "YES",
+            "CODE_SIGNING_REQUIRED" : "NO",
+            "CODE_SIGN_IDENTITY" : "",
+            "COPY_PHASE_STRIP" : "YES",
+            "DEBUG_INFORMATION_FORMAT" : "dwarf-with-dsym",
+            "DRIVERKIT_DEPLOYMENT_TARGET" : "19.0",
+            "DYLIB_INSTALL_NAME_BASE" : "@rpath",
+            "ENABLE_TESTABILITY" : "YES",
+            "ENABLE_TESTING_SEARCH_PATHS" : "YES",
+            "ENTITLEMENTS_REQUIRED" : "NO",
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=ios;ios-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=macos]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "FRAMEWORK_SEARCH_PATHS[__platform_filter=tvos;tvos-simulator]" : [
+              "$(inherited)",
+              "$(PLATFORM_DIR)/Developer/Library/Frameworks"
+            ],
+            "GCC_OPTIMIZATION_LEVEL" : "s",
+            "GCC_PREPROCESSOR_DEFINITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "IPHONEOS_DEPLOYMENT_TARGET" : "12.0",
+            "IPHONEOS_DEPLOYMENT_TARGET[__platform_filter=ios-maccatalyst]" : "13.0",
+            "KEEP_PRIVATE_EXTERNS" : "NO",
+            "MACOSX_DEPLOYMENT_TARGET" : "10.13",
+            "OTHER_LDRFLAGS" : [
+
+            ],
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ],
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_PACKAGE"
+            ],
+            "SWIFT_INSTALL_OBJC_HEADER" : "NO",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "",
+            "SWIFT_OPTIMIZATION_LEVEL" : "-Owholemodule",
+            "TVOS_DEPLOYMENT_TARGET" : "12.0",
+            "USE_HEADERMAP" : "NO",
+            "WATCHOS_DEPLOYMENT_TARGET" : "4.0",
+            "XROS_DEPLOYMENT_TARGET" : "1.0"
+          },
+          "guid" : "PACKAGE:bpkg::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "defaultConfigurationName" : "Release",
+      "developmentRegion" : "en",
+      "groupTree" : {
+        "children" : [
+          {
+            "children" : [
+              {
+                "fileType" : "sourcecode.swift",
+                "guid" : "PACKAGE:bpkg::MAINGROUP::REF_0::REF_0",
+                "name" : "File.swift",
+                "path" : "File.swift",
+                "sourceTree" : "<group>",
+                "type" : "file"
+              }
+            ],
+            "guid" : "PACKAGE:bpkg::MAINGROUP::REF_0",
+            "name" : "Sources/Utils",
+            "path" : "Sources/Utils",
+            "sourceTree" : "<group>",
+            "type" : "group"
+          }
+        ],
+        "guid" : "PACKAGE:bpkg::MAINGROUP",
+        "name" : "",
+        "path" : "",
+        "sourceTree" : "<group>",
+        "type" : "group"
+      },
+      "guid" : "PACKAGE:bpkg@11",
+      "path" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Bpkg",
+      "projectDirectory" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Bpkg",
+      "projectIsPackage" : "true",
+      "projectName" : "Bpkg",
+      "targets" : [
+        "fb35effc4031f18c20527783ee31625231a6297bc700c673d4f2aa393a7fb293",
+        "ec722d9afa3f59a62e18752171ac3424fa7e6f339a13e5cd82c785dda3bceb67"
+      ]
+    },
+    "signature" : "94d2947a2080d7efc7c2e9af4ade273eebc8255e08b5e0736afae81c76c2782b",
+    "type" : "project"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "APPLICATION_EXTENSION_API_ONLY" : "YES",
+            "USES_SWIFTPM_UNSAFE_FLAGS" : "NO"
+          },
+          "guid" : "PACKAGE-PRODUCT:bpkg.Utils::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "APPLICATION_EXTENSION_API_ONLY" : "YES",
+            "USES_SWIFTPM_UNSAFE_FLAGS" : "NO"
+          },
+          "guid" : "PACKAGE-PRODUCT:bpkg.Utils::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-TARGET:BUtils@11"
+        }
+      ],
+      "frameworksBuildPhase" : {
+        "buildFiles" : [
+          {
+            "guid" : "PACKAGE-PRODUCT:bpkg.Utils::BUILDPHASE_0::0",
+            "platformFilters" : [
+
+            ],
+            "targetReference" : "PACKAGE-TARGET:BUtils@11"
+          }
+        ],
+        "guid" : "PACKAGE-PRODUCT:bpkg.Utils::BUILDPHASE_0",
+        "type" : "com.apple.buildphase.frameworks"
+      },
+      "guid" : "PACKAGE-PRODUCT:bpkg.Utils@11",
+      "name" : "Utils_DCABD1A2BD6_PackageProduct",
+      "type" : "packageProduct"
+    },
+    "signature" : "fb35effc4031f18c20527783ee31625231a6297bc700c673d4f2aa393a7fb293",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "CLANG_COVERAGE_MAPPING_LINKER_ARGS" : "NO",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "GENERATE_MASTER_OBJECT_FILE" : "NO",
+            "MACH_O_TYPE" : "mh_object",
+            "MODULEMAP_FILE_CONTENTS" : "module BUtils {\n    header \"BUtils-Swift.h\"\n    export *\n}",
+            "MODULEMAP_PATH" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BUtils.modulemap",
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "BUtils",
+            "PRODUCT_MODULE_NAME" : "BUtils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_MODULE_ALIASES" : [
+              "Utils=BUtils"
+            ],
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "BUtils-Swift.h",
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "BUtils_Module"
+          },
+          "guid" : "PACKAGE-TARGET:BUtils::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "OTHER_CFLAGS" : [
+                "$(inherited)",
+                "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BUtils.modulemap"
+              ],
+              "OTHER_LDFLAGS" : [
+                "$(inherited)",
+                "-Wl,-no_warn_duplicate_libraries"
+              ],
+              "OTHER_LDRFLAGS" : [
+
+              ]
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "CLANG_COVERAGE_MAPPING_LINKER_ARGS" : "NO",
+            "CLANG_ENABLE_MODULES" : "YES",
+            "DEFINES_MODULE" : "YES",
+            "GENERATE_MASTER_OBJECT_FILE" : "NO",
+            "MACH_O_TYPE" : "mh_object",
+            "MODULEMAP_FILE_CONTENTS" : "module BUtils {\n    header \"BUtils-Swift.h\"\n    export *\n}",
+            "MODULEMAP_PATH" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BUtils.modulemap",
+            "PACKAGE_RESOURCE_TARGET_KIND" : "regular",
+            "PRODUCT_BUNDLE_IDENTIFIER" : "BUtils",
+            "PRODUCT_MODULE_NAME" : "BUtils",
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SWIFT_ACTIVE_COMPILATION_CONDITIONS" : [
+              "$(inherited)",
+              "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"
+            ],
+            "SWIFT_MODULE_ALIASES" : [
+              "Utils=BUtils"
+            ],
+            "SWIFT_OBJC_INTERFACE_HEADER_DIR" : "$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)",
+            "SWIFT_OBJC_INTERFACE_HEADER_NAME" : "BUtils-Swift.h",
+            "SWIFT_VERSION" : "5",
+            "TARGET_NAME" : "BUtils_Module"
+          },
+          "guid" : "PACKAGE-TARGET:BUtils::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+              "OTHER_CFLAGS" : [
+                "$(inherited)",
+                "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BUtils.modulemap"
+              ],
+              "OTHER_LDFLAGS" : [
+                "$(inherited)",
+                "-Wl,-no_warn_duplicate_libraries"
+              ],
+              "OTHER_LDRFLAGS" : [
+
+              ]
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+        {
+          "buildFiles" : [
+            {
+              "fileReference" : "PACKAGE:bpkg::MAINGROUP::REF_0::REF_0",
+              "guid" : "PACKAGE-TARGET:BUtils::BUILDPHASE_0::0",
+              "platformFilters" : [
+
+              ]
+            }
+          ],
+          "guid" : "PACKAGE-TARGET:BUtils::BUILDPHASE_0",
+          "type" : "com.apple.buildphase.sources"
+        }
+      ],
+      "buildRules" : [
+
+      ],
+      "dependencies" : [
+
+      ],
+      "guid" : "PACKAGE-TARGET:BUtils@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+          "OTHER_CFLAGS" : [
+            "$(inherited)",
+            "-fmodule-map-file=$(OBJROOT)/GeneratedModuleMaps/$(PLATFORM_NAME)/BUtils.modulemap"
+          ],
+          "OTHER_LDFLAGS" : [
+            "$(inherited)",
+            "-Wl,-no_warn_duplicate_libraries"
+          ],
+          "OTHER_LDRFLAGS" : [
+
+          ]
+        }
+      },
+      "name" : "BUtils",
+      "productReference" : {
+        "guid" : "PRODUCTREF-PACKAGE-TARGET:BUtils",
+        "name" : "BUtils_Module.o",
+        "type" : "file"
+      },
+      "productTypeIdentifier" : "com.apple.product-type.objfile",
+      "type" : "standard"
+    },
+    "signature" : "ec722d9afa3f59a62e18752171ac3424fa7e6f339a13e5cd82c785dda3bceb67",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ]
+          },
+          "guid" : "AGGREGATE::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+            "PRODUCT_NAME" : "$(TARGET_NAME)",
+            "SDKROOT" : "auto",
+            "SDK_VARIANT" : "auto",
+            "SKIP_INSTALL" : "YES",
+            "SUPPORTED_PLATFORMS" : [
+              "$(AVAILABLE_PLATFORMS)"
+            ]
+          },
+          "guid" : "AGGREGATE::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "defaultConfigurationName" : "Release",
+      "developmentRegion" : "en",
+      "groupTree" : {
+        "children" : [
+
+        ],
+        "guid" : "AGGREGATE::MAINGROUP",
+        "name" : "",
+        "path" : "",
+        "sourceTree" : "<group>",
+        "type" : "group"
+      },
+      "guid" : "AGGREGATE@11",
+      "path" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Apkg",
+      "projectDirectory" : "/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager/Fixtures/ModuleAliasing/DirectDeps2/Apkg",
+      "projectIsPackage" : "true",
+      "projectName" : "Aggregate",
+      "targets" : [
+        "d31ceb271084420fea0164f7965ac081f6cd3f8a29799f204baeb61d07b57f3e",
+        "1cad2c2372317a6282072ad35b216f732aa9b0bd229bc411adb9a0ec2131f9e1"
+      ]
+    },
+    "signature" : "de0b74057ec292adc23d7f0e6617ac2fec000dab76492c1a4b3b5766394a7d4d",
+    "type" : "project"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+
+          },
+          "guid" : "ALL-EXCLUDING-TESTS::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+
+          },
+          "guid" : "ALL-EXCLUDING-TESTS::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-PRODUCT:apppkg.App@11"
+        }
+      ],
+      "guid" : "ALL-EXCLUDING-TESTS@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+
+        }
+      },
+      "name" : "AllExcludingTests",
+      "type" : "aggregate"
+    },
+    "signature" : "d31ceb271084420fea0164f7965ac081f6cd3f8a29799f204baeb61d07b57f3e",
+    "type" : "target"
+  },
+  {
+    "contents" : {
+      "buildConfigurations" : [
+        {
+          "buildSettings" : {
+
+          },
+          "guid" : "ALL-INCLUDING-TESTS::BUILDCONFIG_Debug",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Debug"
+        },
+        {
+          "buildSettings" : {
+
+          },
+          "guid" : "ALL-INCLUDING-TESTS::BUILDCONFIG_Release",
+          "impartedBuildProperties" : {
+            "buildSettings" : {
+
+            }
+          },
+          "name" : "Release"
+        }
+      ],
+      "buildPhases" : [
+
+      ],
+      "dependencies" : [
+        {
+          "guid" : "PACKAGE-PRODUCT:apppkg.App@11"
+        }
+      ],
+      "guid" : "ALL-INCLUDING-TESTS@11",
+      "impartedBuildProperties" : {
+        "buildSettings" : {
+
+        }
+      },
+      "name" : "AllIncludingTests",
+      "type" : "aggregate"
+    },
+    "signature" : "1cad2c2372317a6282072ad35b216f732aa9b0bd229bc411adb9a0ec2131f9e1",
+    "type" : "target"
+  }
+]
