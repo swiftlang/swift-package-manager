@@ -628,7 +628,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 // let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
                 for product in testProducts {
                     // Export the codecov data as JSON.
-                    let jsonPath = try await self.getCodeCodePath(swiftCommandState, format: .json)
+                    let jsonPath = try await self.getCodeCoverageConfiguration(swiftCommandState, format: .json).outputDir
                     try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
                 }
             case .html:
@@ -640,16 +640,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     testProducts: testProducts,
                     swiftCommandState: swiftCommandState
                 )
-                
+                let configuration = try await self.getCodeCoverageConfiguration(swiftCommandState, format: .html)
                 for product in testProducts {
-                    let coveragaHtmlReportPath = try await generateCoverateReport(
+                    let coveragaHtmlReportPath = try await generateCoverageReport(
                         llvmCovPath: llvmCov,
                         fromFile: profData,
-                        outputPath: self.getCodeCodePath(swiftCommandState, format: .html),
+                        desiredOutputPath: configuration.outputDir,
                         testBinary: product.binaryPath,
                         sourceFiles: sourceFiles,
                         withTitle: rootManifest.displayName,
-                        // packageDirectory
+                        llvmCovShowArgumentFile: configuration.htmlArgumentFile,
+                        //  .appending("coverage.html.report.args.txt"),
                     )
                     swiftCommandState.outputStream.send("Code coverage HTML report generated at: \(coveragaHtmlReportPath.appending("index.html").pathString)\n")
                     swiftCommandState.outputStream.flush()
@@ -748,13 +749,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     /// Generates a code coverage HTML report.
-    package func generateCoverateReport(
+    package func generateCoverageReport(
         llvmCovPath: AbsolutePath,
         fromFile profData: AbsolutePath,
-        outputPath: AbsolutePath,
+        desiredOutputPath outputPath: AbsolutePath,
         testBinary: AbsolutePath,
         sourceFiles: [AbsolutePath],
         withTitle title: String,
+        llvmCovShowArgumentFile: AbsolutePath,
     ) async throws -> AbsolutePath {
         // Generate the HTML report.
         if localFileSystem.exists(outputPath) {
@@ -763,25 +765,22 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             try localFileSystem.createDirectory(outputPath, recursive: true)
         }
 
+        let argumentFile: [String] = if localFileSystem.exists(llvmCovShowArgumentFile) {
+            ["@\(llvmCovShowArgumentFile)"]
+        } else {
+            []
+        }
+
         var args = [
             llvmCovPath.pathString,
             "show",
             "--project-title=\(title) Coverage Report",
-            "--format=html",
-            "--tab-size=10",
-            "--coverage-watermark=80,20",
-            "--enable-vtable-value-profiling",
-            "--show-branch-summary",
-            "--show-region-summary",
-            "--show-branches=percent",
-            "--show-mcdc-summary",
-            "--show-expansions",
-            "--show-instantiations",
-            "--show-regions",
-            "--show-directory-coverage",
-            "--show-line-counts",
             "-instr-profile=\(profData.pathString)",
             "-output-dir=\(outputPath.pathString)",
+        ] + argumentFile + [
+            // ensure we overdie the fomat to HTML as that's what the user specified via
+            // the Swift test command line argument
+            "--format=html",
             testBinary.pathString,
         ]
         
@@ -795,7 +794,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw StringError("Unable to generate HTML code coverage report:\n \(output)")
         }
 
-        return outputPath
+        // the output put can be updated via the command arg file
+        return try! getOutputDir(from: llvmCovShowArgumentFile) ?? outputPath
     }
 
     /// Builds the "test" target if enabled in options.
@@ -844,7 +844,54 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     public init() {}
 }
 
+package func getOutputDir(
+    from file: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem,
+) throws-> AbsolutePath? {
+    return try getOutputDir(from: try fileSystem.readFileContents(file))
+}
+
+package func getOutputDir(from content: String) throws ->  AbsolutePath? {
+    // let regex = /WIFI:S:(?<ssid>[^;]+);(?:T:(?<security>[^;]*);)?P:(?<password>[^;]+);(?:H:(?<hidden>[^;]*);)?;/
+    let outputDirRegex = try Regex("--output-dir=(?<output>.*)")
+    // let outputDirRegex = /--output-dir=(?<output>.+)/
+
+    let allMatches = content.matches(of: outputDirRegex)
+    // if let allMatches = try outputDirRegex.wholeMatch(in: content) {
+    //     return allMatches.output
+    // }
+
+    return nil
+
+    if let lastMatch: Regex<Regex<AnyRegexOutput>.RegexOutput>.Match = allMatches.last {
+        print("Match = \(lastMatch.output)")
+        // return "\(lastMatch.output)"
+        return try AbsolutePath(validating: "\(lastMatch.output)")
+    } else {
+        return nil
+    }
+}
+
+struct CodeCoverageConfiguration {
+    let outputDir: AbsolutePath
+    let htmlArgumentFile: AbsolutePath
+}
 extension SwiftTestCommand {
+
+    func getCodeCoverageConfiguration(
+        _ swiftCommandState: SwiftCommandState,
+        format: CoverageFormat
+    ) async throws -> CodeCoverageConfiguration {
+        let outputDir = try await self.getCodeCodePath(swiftCommandState, format: format)
+        let htmlArgumentFile = try  swiftCommandState.getActiveWorkspace().location.llvmCovShowArgumentFile
+
+        return CodeCoverageConfiguration(
+            outputDir: outputDir,
+            htmlArgumentFile: htmlArgumentFile,
+        )
+    }
+
+
     func getCodeCodePath(
                 _ swiftCommandState: SwiftCommandState,
                 format: CoverageFormat
@@ -870,8 +917,8 @@ extension SwiftTestCommand {
         _ swiftCommandState: SwiftCommandState,
         format: CoverageFormat,
     ) async throws {
-        let path = try await self.getCodeCodePath(swiftCommandState, format: format)
-        print(path.pathString)
+        let config = try await self.getCodeCoverageConfiguration(swiftCommandState, format: format)
+        print(config.outputDir.pathString)
     }
 }
 
