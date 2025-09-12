@@ -18,7 +18,7 @@ import XCTest
 
 final class TraitLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .vNext
+        .v6_1
     }
 
     func testTraits() async throws {

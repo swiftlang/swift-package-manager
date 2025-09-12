@@ -227,8 +227,57 @@ final class WorkspaceTests: XCTestCase {
                     )
                     """
                 )
+                if SwiftVersion.current.isDevelopment {
+                    XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                } else {
+                    XCTAssertThrowsError(
+                        try ws.interpreterFlags(for: packageManifest)
+                    )
+                }
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.0
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.1
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.1.0")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.2
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.2.0")])
             }
 
             do {

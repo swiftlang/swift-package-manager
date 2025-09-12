@@ -18,7 +18,7 @@ import PackageLoading
 
 class PackageDescriptionAppleProductLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
-        .vNext
+        .v6_0 // TODO: confirm this value
     }
 
     func testApplicationProducts() throws {
