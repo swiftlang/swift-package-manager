@@ -308,7 +308,7 @@ public struct PackageManager {
         /// Creates a new set of options for returning the symbol graph for a target.
         /// - Parameters:
         ///   - minimumAccessLevel: The minimum access level of symbols to return.
-        ///   - includeInheritedDocs: A Bool;ean value that indicates whether to include inheirted docs from protocol or class members.
+        ///   - includeInheritedDocs: A Boolean value that indicates whether to include inheirted docs from protocol or class members.
         ///   - includeSynthesized: A Boolean value that indicates whether to include synthesized members.
         ///   - includeSPI: A Boolean value that indicates whether to include symbols marked as SPI.
         ///   - emitExtensionBlocks: A Boolean value that indicates whether to emit symbols for extensions to external types.
