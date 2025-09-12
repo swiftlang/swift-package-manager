@@ -184,7 +184,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = []
 
-        for rootPkg in packageGraph.rootPackages {
+        for rootPkg in packageGraph.packages {
             let builtProducts = rootPkg.products.filter {
                 switch subset {
                 case .all(let includingTests):
