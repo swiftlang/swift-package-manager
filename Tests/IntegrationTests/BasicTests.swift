@@ -27,12 +27,12 @@ private struct BasicTests {
             Tag.Feature.Command.Build,
         ),
     )
-    func testExamplePackageDealer() throws {
-        try withTemporaryDirectory { tempDir in
+    func testExamplePackageDealer() async throws {
+        try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
             withKnownIssue(isIntermittent: true) {
                 // marking as withKnownIssue(intermittent: trye) as git operation can fail.
-                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath, env: ["HOME": tempDir.dirname])
             }
             let build1Output = try await executeSwiftBuild(
                 packagePath,
@@ -59,7 +59,11 @@ private struct BasicTests {
                 buildSystem: .native,
             ).stdout
             #expect(build2Output.contains("Build complete"))
-            #expect(build2Output.contains("Compiling") == false)
+
+            // Check that no compilation happened (except for plugins which are allowed)
+            // catch "Compiling xxx" but ignore "Compiling plugin" messages
+            let compilingRegex = try Regex("Compiling (?!plugin)")
+            #expect(build2Output.contains(compilingRegex) == false)
         }
     }
 
