@@ -56,8 +56,16 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             enableAllTraits: true,
             cacheBuildManifest: false
         )
-        // TODO pass along the various flags as associated values to the symbol graph build output (e.g. includeSPISymbols)
-        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph, .buildPlan])
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(
+            BuildOutput.SymbolGraphOptions(
+                prettyPrint: prettyPrint,
+                minimumAccessLevel: .accessLevel(minimumAccessLevel),
+                includeSynthesized: !skipSynthesizedMembers,
+                includeSPI: includeSPISymbols,
+                emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
+                // TODO skip inherited docs
+            )
+        ), .buildPlan])
 
         let symbolGraphDirectory = try swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
 
@@ -187,5 +195,11 @@ struct DumpPIF: AsyncSwiftCommand {
 
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         return .init(wantsMultipleTestProducts: true)
+    }
+}
+
+fileprivate extension BuildOutput.SymbolGraphAccessLevel {
+    fileprivate static func accessLevel(_ accessLevel: SymbolGraphExtract.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+        return BuildOutput.SymbolGraphAccessLevel.init(rawValue: accessLevel.rawValue)!
     }
 }

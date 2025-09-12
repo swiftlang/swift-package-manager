@@ -351,16 +351,26 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: buildParameters)
 
+        var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
+        for output in buildOutputs {
+            switch output {
+            case .symbolGraph(let options):
+                symbolGraphOptions = options
+            default:
+                continue
+            }
+        }
+
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
-            genSymbolGraph: buildOutputs.contains(.symbolGraph),
+            symbolGraphOptions: symbolGraphOptions,
             generateReplArguments: buildOutputs.contains(.replArguments),
         )
     }
 
     private func startSWBuildOperation(
         pifTargetName: String,
-        genSymbolGraph: Bool,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         generateReplArguments: Bool
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
@@ -413,7 +423,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
+                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -631,7 +641,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, genSymbolGraph: Bool) async throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -658,9 +668,39 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
-        if genSymbolGraph {
+        if let symbolGraphOptions {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
-            // TODO set additional symbol graph options from the build output here, such as "include-spi-symbols"
+
+            if symbolGraphOptions.prettyPrint {
+                settings["DOCC_PRETTY_PRINT"] = "YES"
+            }
+
+            if symbolGraphOptions.emitExtensionBlocks {
+                settings["DOCC_EXTRACT_EXTENSION_SYMBOLS"] = "YES"
+            }
+
+            if !symbolGraphOptions.includeSynthesized {
+                settings["DOCC_SKIP_SYNTHESIZED_MEMBERS"] = "YES"
+            }
+
+            if symbolGraphOptions.includeSPI {
+                settings["DOCC_EXTRACT_SPI_DOCUMENTATION"] = "YES"
+            }
+
+            switch symbolGraphOptions.minimumAccessLevel {
+            case .private:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "private"
+            case .fileprivate:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "fileprivate"
+            case .internal:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "internal"
+            case .package:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "package"
+            case .public:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "public"
+            case .open:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "open"
+            }
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
@@ -741,9 +781,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, genSymbolGraph: genSymbolGraph)
+        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false

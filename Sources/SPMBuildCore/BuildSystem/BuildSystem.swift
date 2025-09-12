@@ -38,14 +38,59 @@ public enum BuildSubset {
 /// can produce certain extra outputs in the process of building. Not all
 /// build systems can produce all possible build outputs. Check the build
 /// result for indication that the output was produced.
-public enum BuildOutput {
-    case symbolGraph
-    // TODO associated values for the following symbol graph options:
-    // "-skip-inherited-docs"
-    // "-symbol-graph-minimum-access-level", “<LEVEL>”
-    // "-include-spi-symbols"
-    // "-emit-extension-block-symbols"
-    // "-emit-synthesized-members"
+public enum BuildOutput: Equatable {
+    public static func == (lhs: BuildOutput, rhs: BuildOutput) -> Bool {
+        switch lhs {    
+        case .symbolGraph(let leftOptions):
+            switch rhs {
+                case .symbolGraph(let rightOptions):
+                    return leftOptions == rightOptions
+                default:
+                    return false
+            }
+        case .buildPlan:
+            switch rhs {
+                case .buildPlan:
+                    return true
+                default:
+                    return false
+            }
+        case .replArguments:
+            switch rhs {
+                case .replArguments:
+                    return true
+                default:
+                    return false
+            }
+        }
+    }
+
+    public enum SymbolGraphAccessLevel: String {
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
+    }
+    public struct SymbolGraphOptions: Equatable {
+        public var prettyPrint: Bool
+        public var minimumAccessLevel: SymbolGraphAccessLevel
+        public var includeSynthesized: Bool
+        public var includeSPI: Bool
+        public var emitExtensionBlocks: Bool
+
+        public init(
+            prettyPrint: Bool = false,
+            minimumAccessLevel: SymbolGraphAccessLevel,
+            includeSynthesized: Bool,
+            includeSPI: Bool,
+            emitExtensionBlocks: Bool
+        ) {
+            self.prettyPrint = prettyPrint
+            self.minimumAccessLevel = minimumAccessLevel
+            self.includeSynthesized = includeSynthesized
+            self.includeSPI = includeSPI
+            self.emitExtensionBlocks = emitExtensionBlocks
+        }
+    }
+
+    case symbolGraph(SymbolGraphOptions)
     case buildPlan
     case replArguments
 }
