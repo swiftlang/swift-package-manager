@@ -536,9 +536,6 @@ final class DebugTestRunner {
             let xctestFailureBreakpoint = "-s libXCTest.so -n \"XCTest.XCTestCase.recordFailure\""
         #endif
 
-        // Add clear screen alias
-        lldbCommands.append("command alias clear script print(\"\\033[H\\033[J\", end=\"\")")
-
         // Add failure breakpoint commands based on available libraries
         if hasSwiftTesting && hasXCTest {
             lldbCommands.append("command alias failbreak script lldb.debugger.HandleCommand('breakpoint set \(swiftTestingFailureBreakpoint)'); lldb.debugger.HandleCommand('breakpoint set \(xctestFailureBreakpoint)')")
