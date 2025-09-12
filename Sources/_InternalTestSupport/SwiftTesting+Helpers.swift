@@ -20,11 +20,16 @@ import Testing
 ///   - sourceLocation: The source location where the expectation is made.
 public func expectFileExists(
     at path: AbsolutePath,
+    _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
         localFileSystem.exists(path),
-        "Files '\(path)' does not exist.",
+        wrapMessage(
+            "Files '\(path)' does not exist.",
+            comment: comment,
+            directoryPath: path.parentDirectory
+        ),
         sourceLocation: sourceLocation,
     )
 }
@@ -32,7 +37,7 @@ public func expectFileExists(
 /// Verifies that a file does not exist at the specified path.
 ///
 /// - Parameters:
-///   - fixturePath: The absolute path to check for file non-existence.
+///   - path: The absolute path to check for file non-existence.
 ///   - comment: An optional comment to include in the failure message.
 ///   - sourceLocation: The source location where the expectation is made.
 public func expectFileDoesNotExists(
@@ -40,21 +45,13 @@ public func expectFileDoesNotExists(
     _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-    let commentPrefix =
-        if let comment {
-            "\(comment): "
-        } else {
-            ""
-        }
-    let msgSuffix: String
-    do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path.parentDirectory))"
-    } catch {
-        msgSuffix = ""
-    }
     #expect(
         !localFileSystem.exists(path),
-        "\(commentPrefix)File: '\(path)' was not expected to exist, but does.\(msgSuffix))",
+        wrapMessage(
+            "File: '\(path)' was not expected to exist, but does.",
+            comment: comment,
+            directoryPath: path.parentDirectory
+        ),
         sourceLocation: sourceLocation,
     )
 }
@@ -70,15 +67,9 @@ public func expectFileIsExecutable(
     _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-    let commentPrefix =
-        if let comment {
-            "\(comment): "
-        } else {
-            ""
-        }
     #expect(
         localFileSystem.isExecutableFile(fixturePath),
-        "\(commentPrefix)File '\(fixturePath)' expected to be executable, but is not.",
+        wrapMessage("File '\(fixturePath)' expected to be executable, but is not.", comment: comment),
         sourceLocation: sourceLocation,
     )
 }
@@ -90,17 +81,12 @@ public func expectFileIsExecutable(
 ///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryExists(
     at path: AbsolutePath,
+    _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-let msgSuffix: String
-    do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
-    } catch {
-        msgSuffix = ""
-    }
     #expect(
         localFileSystem.isDirectory(path),
-        "Expected directory doesn't exist: '\(path)'. \(msgSuffix)",
+        wrapMessage("Expected directory doesn't exist: '\(path)'", comment: comment, directoryPath: path),
         sourceLocation: sourceLocation,
     )
 }
@@ -112,19 +98,45 @@ let msgSuffix: String
 ///   - sourceLocation: The source location where the expectation is made.
 public func expectDirectoryDoesNotExist(
     at path: AbsolutePath,
+    _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
-    let msgSuffix: String
-    do {
-        msgSuffix = try "Directory contents: \(localFileSystem.getDirectoryContents(path))"
-    } catch {
-        msgSuffix = ""
-    }
     #expect(
         !localFileSystem.isDirectory(path),
-        "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
+        wrapMessage("Directory exists unexpectedly: '\(path)'", comment: comment, directoryPath: path),
         sourceLocation: sourceLocation,
     )
+}
+
+/// Wraps a message with an optional comment prefix and directory contents suffix.
+///
+/// - Parameters:
+///   - message: The base message to wrap.
+///   - comment: An optional comment to prefix the message with.
+///   - directoryPath: An optional path to a folder whose contents will be appended to the message.
+/// - Returns: The formatted message with prefix and suffix.
+private func wrapMessage(
+    _ message: Comment,
+    comment: Comment? = nil,
+    directoryPath: AbsolutePath? = nil
+) -> Comment {
+    let commentPrefix =
+        if let comment {
+            "\(comment): "
+        } else {
+            ""
+        }
+
+    var msgSuffix = ""
+    if let directoryPath {
+        do {
+            msgSuffix = try " Directory contents: \(localFileSystem.getDirectoryContents(directoryPath))"
+        } catch {
+            // Silently ignore errors when getting directory contents
+        }
+    }
+
+    return "\(commentPrefix)\(message)\(msgSuffix)"
 }
 
 /// Expects that the expression throws a CommandExecutionError and passes it to the provided throwing error handler.
