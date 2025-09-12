@@ -6102,8 +6102,14 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
-                || !CiEnvironment.runningInSmokeTestPipeline
+                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+
+                #if compiler(>=6.3)
+                    return shouldSkip
+                #else
+                    // Symbol graph generation options are only available in 6.3 toolchain or later for swift build
+                    return shouldSkip || data.buildSystem == .swiftbuild
+                #endif
             }
         }
 

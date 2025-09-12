@@ -679,6 +679,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings["DOCC_EXTRACT_EXTENSION_SYMBOLS"] = "YES"
             }
 
+            if !symbolGraphOptions.includeInheritedDocs {
+                settings["DOCC_SKIP_INHERITED_DOCS"] = "YES"
+            }
+
             if !symbolGraphOptions.includeSynthesized {
                 settings["DOCC_SKIP_SYNTHESIZED_MEMBERS"] = "YES"
             }
