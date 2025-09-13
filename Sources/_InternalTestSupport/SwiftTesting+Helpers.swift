@@ -134,7 +134,8 @@ private func _expectThrowsCommandExecutionError<R>(
         try await expressionClosure()
     }
 
-    guard case .executionFailure(let processError, let stdout, let stderr) = error,
+    guard let error = error,
+          case .executionFailure(let processError, let stdout, let stderr) = error,
           case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
           processResult.exitStatus != .terminated(code: 0) else {
         Issue.record("Unexpected error type: \(error?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
