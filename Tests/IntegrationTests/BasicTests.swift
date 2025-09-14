@@ -32,7 +32,7 @@ private struct BasicTests {
             let packagePath = tempDir.appending(component: "dealer")
             withKnownIssue(isIntermittent: true) {
                 // marking as withKnownIssue(intermittent: trye) as git operation can fail.
-                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath, env: ["HOME": tempDir.dirname])
+                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
             }
             let build1Output = try await executeSwiftBuild(
                 packagePath,
