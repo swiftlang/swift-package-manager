@@ -462,7 +462,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             case .open:
                 symbolGraphExtractor.minimumAccessLevel = .open
             }
-            symbolGraphExtractor.skipInheritedDocs = true
+            symbolGraphExtractor.skipInheritedDocs = !options.includeInheritedDocs
             symbolGraphExtractor.includeSPISymbols = options.includeSPI
             symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
 
