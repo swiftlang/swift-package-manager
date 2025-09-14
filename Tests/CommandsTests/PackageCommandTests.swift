@@ -7116,7 +7116,7 @@ struct PackageCommandTests {
                     #expect(stdout.contains("Works fine!"))
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows || (ProcessInfo.hostOperatingSystem == .linux && buildData.buildSystem == .swiftbuild)
+                (ProcessInfo.hostOperatingSystem == .linux && buildData.buildSystem == .swiftbuild)
             }
         }
     }
