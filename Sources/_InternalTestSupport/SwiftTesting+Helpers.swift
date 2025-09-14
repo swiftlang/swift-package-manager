@@ -124,21 +124,21 @@ public func expectThrowsCommandExecutionError<T>(
     }
 }
 
-private func _expectThrowsCommandExecutionError<R>(
-    _ expressionClosure: () async throws -> Any,
+private func _expectThrowsCommandExecutionError<R, T>(
+    _ expressionClosure: () async throws -> T,
     _ message: () -> Comment,
     sourceLocation: SourceLocation,
     _ errorHandler: (_ error: CommandExecutionError) throws -> R
 ) async rethrows -> R? {
-    let error = await #expect(throws: SwiftPMError.self, message(), sourceLocation: sourceLocation) {
+    let err = await #expect(throws: SwiftPMError.self, message(), sourceLocation: sourceLocation) {
         try await expressionClosure()
     }
 
-    guard let error = error,
+    guard let error = err,
           case .executionFailure(let processError, let stdout, let stderr) = error,
           case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
           processResult.exitStatus != .terminated(code: 0) else {
-        Issue.record("Unexpected error type: \(error?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
+        Issue.record("Unexpected error type: \(err?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
         return nil
     }
     return try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
