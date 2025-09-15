@@ -1,0 +1,6 @@
+Building for debugging...
+[0/3] Write swift-version-4C9A2395E9159513.txt
+Build of product 'swift-build' complete! (0.29s)
+Building for debugging...
+Write auxiliary file /Users/bripeticca/dev/swift-tooling/test-projects/swift-crypto/.build/arm64-apple-macosx/debug/swift-version-61A6B76668897818.txt
+Build complete! (0.29s)

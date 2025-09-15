@@ -438,7 +438,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // Perform the build.
         let llbuildTarget = try await computeLLBuildTargetName(for: subset)
         let success = buildSystem.build(target: llbuildTarget)
-
+        
         let duration = buildStartTime.distance(to: .now())
 
         let subsetDescriptor: String?
