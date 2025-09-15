@@ -40,6 +40,12 @@ private struct BasicTests {
                     try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
                 #endif
             }
+
+            // Do not run the test when the git clone operation failed
+            if !FileManager.default.fileExists(atPath: packagePath.pathString) {
+                return
+            }
+
             let build1Output = try await executeSwiftBuild(
                 packagePath,
                 buildSystem: .native,
