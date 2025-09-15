@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,11 @@ import Workspace
 import Testing
 import Foundation
 
-@Suite(.serialized)
+@Suite(
+    .tags(
+        .Feature.Command.Package.Plugin,
+    )
+)
 final class PluginTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
@@ -1092,74 +1096,79 @@ final class PluginTests {
                 toolchain: try UserToolchain.default
             )
             let delegate = PluginDelegate(delegateQueue: delegateQueue)
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask {
-                    // TODO: have invoke natively support task cancellation instead
-                    try await withTaskCancellationHandler {
-                        _ = try await plugin.invoke(
-                            action: .performCommand(package: package, arguments: []),
-                            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
-                            scriptRunner: scriptRunner,
-                            workingDirectory: package.path,
-                            outputDirectory: pluginDir.appending("output"),
-                            toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
-                            accessibleTools: [:],
-                            writableDirectories: [pluginDir.appending("output")],
-                            readOnlyDirectories: [package.path],
-                            allowNetworkConnections: [],
-                            pkgConfigDirectories: [],
-                            sdkRootPath: try UserToolchain.default.sdkRootPath,
-                            fileSystem: localFileSystem,
-                            modulesGraph: packageGraph,
-                            observabilityScope: observability.topScope,
-                            callbackQueue: delegateQueue,
-                            delegate: delegate
-                        )
-                    } onCancel: {
-                        do {
-                            try scriptRunner.cancel(deadline: .now() + .seconds(5))
-                        } catch {
-                            Issue.record("Cancelling script runner should not fail: \(error)")
-                        }
-                    }
-                }
-                group.addTask {
+            // Use a task with timeout to test cancellation
+            let pluginTask = Task {
+                try await withTaskCancellationHandler {
+                    _ = try await plugin.invoke(
+                        action: .performCommand(package: package, arguments: []),
+                        buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                        scriptRunner: scriptRunner,
+                        workingDirectory: package.path,
+                        outputDirectory: pluginDir.appending("output"),
+                        toolSearchDirectories: [try UserToolchain.default.swiftCompilerPath.parentDirectory],
+                        accessibleTools: [:],
+                        writableDirectories: [pluginDir.appending("output")],
+                        readOnlyDirectories: [package.path],
+                        allowNetworkConnections: [],
+                        pkgConfigDirectories: [],
+                        sdkRootPath: try UserToolchain.default.sdkRootPath,
+                        fileSystem: localFileSystem,
+                        modulesGraph: packageGraph,
+                        observabilityScope: observability.topScope,
+                        callbackQueue: delegateQueue,
+                        delegate: delegate
+                    )
+                } onCancel: {
                     do {
-                        try await Task.sleep(nanoseconds: UInt64(DispatchTimeInterval.seconds(3).nanoseconds()!))
+                        try scriptRunner.cancel(deadline: .now() + .seconds(5))
                     } catch {
-                        Issue.record("The plugin should not finish within 3 seconds")
+                        Issue.record("Cancelling script runner should not fail: \(error)")
                     }
                 }
+            }
 
-                try await group.next()
+            // Wait for the plugin to start and get its PID
+            try await Task.sleep(nanoseconds: UInt64(DispatchTimeInterval.seconds(3).nanoseconds()!))
 
+            // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
+            var pid: Int? = .none
+            delegateQueue.sync {
+                pid = delegate.parsedProcessIdentifier
+            }
+            guard let pid = pid else {
+                pluginTask.cancel()
+                print("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
+                return
+            }
 
-                // At this point we should have parsed out the process identifier. But it's possible we don't always — this is being investigated in rdar://88792829.
-                var pid: Int? = .none
-                delegateQueue.sync {
-                    pid = delegate.parsedProcessIdentifier
-                }
-                guard let pid = pid else {
-                    print("skipping test because no pid was received from the plugin; being investigated as rdar://88792829\n\(delegate.diagnostics.description)")
-                    return
-                }
+            // Check that it's running (we do this by asking for its priority — this only works on some platforms).
+            #if os(macOS)
+            errno = 0
+            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+            #expect(errno == 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+            #endif
 
-                // Check that it's running (we do this by asking for its priority — this only works on some platforms).
-                #if os(macOS)
-                errno = 0
-                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-                #expect(errno == 0, "unexpectedly got errno \(errno) when trying to check process \(pid)")
-                #endif
+            // Cancel the plugin task
+            pluginTask.cancel()
 
-                // Ask the plugin running to cancel all plugins.
-                group.cancelAll()
+            // Wait a bit for cancellation to propagate
+            try await Task.sleep(nanoseconds: UInt64(DispatchTimeInterval.milliseconds(500).nanoseconds()!))
 
-                // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
-                #if os(macOS)
-                errno = 0
-                getpriority(Int32(PRIO_PROCESS), UInt32(pid))
-                #expect(errno == ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
-                #endif
+            // Check that it's no longer running (we do this by asking for its priority — this only works on some platforms).
+            #if os(macOS)
+            errno = 0
+            getpriority(Int32(PRIO_PROCESS), UInt32(pid))
+            #expect(errno == ESRCH, "unexpectedly got errno \(errno) when trying to check process \(pid)")
+            #endif
+
+            // Ensure the task was actually cancelled
+            do {
+                _ = try await pluginTask.value
+                Issue.record("Plugin task should have been cancelled")
+            } catch is CancellationError {
+                // Expected - task was cancelled
+            } catch {
+                // Also acceptable - plugin may have been terminated
             }
 
 
@@ -1343,26 +1352,124 @@ final class PluginTests {
         }
     }
 
-    @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .requiresSwiftConcurrencySupport,
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    @Suite(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+        .tags(
+            .Feature.Snippets,
+        )
     )
-    func testSnippetSupport(
-        buildData: BuildData,
-    ) async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftPackage(
-                path.appending("PluginsAndSnippets"),
-                configuration: buildData.config,
-                extraArgs: ["do-something", "--skip-dump"],
-                buildSystem: buildData.buildSystem,
-            )
-            #expect(stdout.contains("type of snippet target: snippet"), "output:\n\(stderr)\n\(stdout)")
+    struct SnippetTests {
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+            .requiresSwiftConcurrencySupport,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func testSnippetSupport(
+            buildData: BuildData,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: buildData.config,
+                    extraArgs: ["do-something"],
+                    buildSystem: buildData.buildSystem,
+                )
+                #expect(stdout.contains("type of snippet target: snippet"), "stderr:\n\(stderr)")
+            }
+        }
+
+        @Test(
+            .disabled(),
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CompletionTool,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func testBasicBuildSnippets(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                await #expect(throws: Never.self) {
+                    let _ = try await executeSwiftBuild(
+                        fixturePath,
+                        configuration: data.config,
+                        buildSystem: data.buildSystem,
+                    )
+                }
+
+                let snippets = try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: data.config,
+                    extraArgs: ["completion-tool", "list-snippet"],
+                    buildSystem: data.buildSystem,
+                ).stdout.split(whereSeparator: \.isNewline)
+
+                for snippet in snippets {
+                    try expectFileExists(
+                        at: fixturePath.appending(components: data.buildSystem.binPath(for: data.config) + ["\(snippet)"])
+                    )
+                }
+            }
+        }
+
+        @Test(
+            .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+            .IssueWindowsCannotSaveAttachment,
+            .requiresSwiftConcurrencySupport,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+        )
+        func testBasicBuildIndividualSnippets(
+            data: BuildData,
+            targetPath: RelativePath,
+        ) async throws {
+            try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let targetName = targetPath.basenameWithoutExt
+                await #expect(throws: Never.self) {
+                    let _ = try await executeSwiftBuild(
+                        fixturePath,
+                        configuration: data.config,
+                        extraArgs: ["--product", targetName],
+                        buildSystem: data.buildSystem,
+                    )
+                }
+            }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            }
+        }
+
+        @Test(
+            .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
+            .IssueWindowsCannotSaveAttachment,
+            .requiresSwiftConcurrencySupport,
+            .IssueSwiftBuildLinuxRunnable,
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+        )
+        func testBasicRunSnippets(
+            data: BuildData,
+            targetPath: RelativePath,
+        ) async throws {
+            let targetName = targetPath.basenameWithoutExt
+            try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/PluginsAndSnippets") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath,
+                    targetName,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
+            }
+            } when: {
+                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            }
         }
     }
-
+    
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
