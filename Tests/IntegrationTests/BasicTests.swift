@@ -31,8 +31,14 @@ private struct BasicTests {
         try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
             withKnownIssue(isIntermittent: true) {
-                // marking as withKnownIssue(intermittent: trye) as git operation can fail.
-                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+                // marking as withKnownIssue(intermittent: true) as git operation can fail.
+
+                #if os(macOS)
+                    // On macOS, we add the HOME variable to avoid git errors.                
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath, env: ["HOME": tempDir.pathString])
+                #else
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+                #endif
             }
             let build1Output = try await executeSwiftBuild(
                 packagePath,
