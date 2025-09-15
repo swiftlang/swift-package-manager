@@ -121,11 +121,6 @@ private func _expectThrowsCommandExecutionError<R, T>(
     _ sourceLocation: SourceLocation,
     _ errorHandler: (_ error: CommandExecutionError) throws -> R
 ) async rethrows -> R? {
-    #if compiler(>=6.1)
-    let err = await #expect(throws: SwiftPMError.self, message(), sourceLocation: sourceLocation) {
-        try await expressionClosure()
-    }
-    #else
     // Older toolchains don't have https://github.com/swiftlang/swift-evolution/blob/main/proposals/testing/0006-return-errors-from-expect-throws.md
     // This can be removed once the CI smoke jobs build with 6.2.
     var err: SwiftPMError?
@@ -137,7 +132,6 @@ private func _expectThrowsCommandExecutionError<R, T>(
             throw error
         }
     }
-    #endif
 
     guard let error = err,
           case .executionFailure(let processError, let stdout, let stderr) = error,
