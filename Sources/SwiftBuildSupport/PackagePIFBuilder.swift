@@ -451,13 +451,13 @@ public final class PackagePIFBuilder {
                     try projectBuilder.makeLibraryProduct(product, type: libraryType)
                 }
 
-            case .executable, .test:
+            case .executable, .test, .snippet:
                 try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
                 try projectBuilder.makePluginProduct(product)
 
-            case .snippet, .macro:
+            case .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }
@@ -562,7 +562,10 @@ public final class PackagePIFBuilder {
         self.delegate.configureProjectBuildSettings(&settings)
 
         for (platform, platformOptions) in self.package.sdkOptions(delegate: self.delegate) {
-            let pifPlatform = ProjectModel.BuildSettings.Platform(from: platform)
+            guard let pifPlatform = try? ProjectModel.BuildSettings.Platform(from: platform) else {
+                log(.warning, "Ignoring options '\(platformOptions.joined(separator: " "))' specified for unknown platform \(platform.name)")
+                continue
+            }
             settings.platformSpecificSettings[pifPlatform]![.SPECIALIZATION_SDK_OPTIONS]!
                 .append(contentsOf: platformOptions)
         }
@@ -584,11 +587,11 @@ public final class PackagePIFBuilder {
         let arm64ePlatforms: [PackageModel.Platform] = [.iOS, .macOS, .visionOS]
         for arm64ePlatform in arm64ePlatforms {
             if self.delegate.shouldPackagesBuildForARM64e(platform: arm64ePlatform) {
-                let pifPlatform: ProjectModel.BuildSettings.Platform = switch arm64ePlatform {
-                case .iOS:
-                    ._iOSDevice
-                default:
-                    .init(from: arm64ePlatform)
+                let pifPlatform: ProjectModel.BuildSettings.Platform
+                do {
+                    pifPlatform = try .init(from: arm64ePlatform)
+                } catch {
+                    preconditionFailure("Unhandled arm64e platform: \(error)")
                 }
                 settings.platformSpecificSettings[pifPlatform]![.ARCHS, default: []].append(contentsOf: ["arm64e"])
             }

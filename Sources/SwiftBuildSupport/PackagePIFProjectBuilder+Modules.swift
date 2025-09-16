@@ -738,7 +738,7 @@ extension PackagePIFProjectBuilder {
         var debugSettings = settings
         var releaseSettings = settings
 
-        let allBuildSettings = sourceModule.allBuildSettings
+        let allBuildSettings = sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
 
         // Apply target-specific build settings defined in the manifest.
         for (buildConfig, declarationsByPlatform) in allBuildSettings.targetSettings {
@@ -756,7 +756,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Impart the linker flags.
-        for (platform, settingsByDeclaration) in sourceModule.allBuildSettings.impartedSettings {
+        for (platform, settingsByDeclaration) in sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).impartedSettings {
             // Note: A `nil` platform means that the declaration applies to *all* platforms.
             for (declaration, stringValues) in settingsByDeclaration {
                 impartedSettings.append(values: stringValues, to: declaration, platform: platform)
@@ -769,6 +769,7 @@ extension PackagePIFProjectBuilder {
         //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
         //
         // An imparted build setting on C will propagate back to both B and A.
+        // FIXME: -rpath should not be given if -static is
         impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
             ["$(RPATH_ORIGIN)"] +
             (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])

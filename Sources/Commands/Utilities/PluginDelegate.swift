@@ -413,8 +413,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Build the target, if needed. We are interested in symbol graph (ideally) or a build plan.
-        // TODO pass along the options as associated values to the symbol graph build output (e.g. includeSPI)
-        let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph, .buildPlan])
+        let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
             let path = (try swiftCommandState.productsBuildParameters.buildPath)
@@ -502,6 +501,36 @@ extension BuildSystem {
             return true
         } catch {
             return false
+        }
+    }
+}
+
+extension BuildOutput {
+    static func symbolGraph(_ options: PluginInvocationSymbolGraphOptions) -> BuildOutput {
+        return .symbolGraph(SymbolGraphOptions(
+                minimumAccessLevel: .accessLevel(options.minimumAccessLevel),
+                includeSynthesized: options.includeSynthesized,
+                includeSPI: options.includeSPI,
+                emitExtensionBlocks: options.emitExtensionBlocks
+        ))
+    }
+}
+
+fileprivate extension BuildOutput.SymbolGraphAccessLevel {
+    fileprivate static func accessLevel(_ accessLevel: PluginInvocationSymbolGraphOptions.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+        return switch accessLevel {
+        case .private:
+            .private
+        case .fileprivate:
+            .fileprivate
+        case .internal:
+            .internal
+        case .package:
+            .package
+        case .public:
+            .public
+        case .open:
+            .open
         }
     }
 }

@@ -135,7 +135,7 @@ public func testWithTemporaryDirectory<Result>(
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            let fixtureDir = try verifyFixtureExistsXCTest(at: fixtureSubpath, file: file, line: line)
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
             let preparedFixture = try setup(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
@@ -156,6 +156,8 @@ public func testWithTemporaryDirectory<Result>(
     name: String,
     createGitRepo: Bool = true,
     removeFixturePathOnDeinit: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) throws -> T
 ) throws -> T {
@@ -221,7 +223,7 @@ public enum TestError: Error {
                 try? localFileSystem.removeFileTree(tmpDirPath)
             }
 
-            let fixtureDir = try verifyFixtureExistsXCTest(at: fixtureSubpath, file: file, line: line)
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line)
             let preparedFixture = try setup(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
@@ -242,6 +244,8 @@ public enum TestError: Error {
     name: String,
     createGitRepo: Bool = true,
     removeFixturePathOnDeinit: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
     sourceLocation: SourceLocation = #_sourceLocation,
     body: (AbsolutePath) async throws -> T
 ) async throws -> T {
@@ -264,7 +268,7 @@ public enum TestError: Error {
                 }
             }
 
-            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line, sourceLocation: sourceLocation)
             let preparedFixture = try setup(
                 fixtureDir: fixtureDir,
                 in: tmpDirPath,
@@ -281,26 +285,25 @@ public enum TestError: Error {
     }
 }
 
-fileprivate func verifyFixtureExistsXCTest(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
+fileprivate func verifyFixtureExists(
+    at fixtureSubpath: RelativePath,
+    file: StaticString = #file,
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws -> AbsolutePath {
     let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
         .appending(fixtureSubpath)
 
     // Check that the fixture is really there.
     guard localFileSystem.isDirectory(fixtureDir) else {
-        XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
-        throw SwiftPMError.packagePathNotFound
-    }
-
-    return fixtureDir
-}
-
-fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, sourceLocation: SourceLocation = #_sourceLocation) throws -> AbsolutePath {
-    let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
-        .appending(fixtureSubpath)
-
-    // Check that the fixture is really there.
-    guard localFileSystem.isDirectory(fixtureDir) else {
-        Issue.record("No such fixture: \(fixtureDir)", sourceLocation: sourceLocation)
+        if Test.current != nil {
+            Issue.record(
+                "No such fixture: \(fixtureDir)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        }
         throw SwiftPMError.packagePathNotFound
     }
 
@@ -365,7 +368,8 @@ public func initGitRepo(
     tags: [String],
     addFile: Bool = true,
     file: StaticString = #file,
-    line: UInt = #line
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
         if addFile {
@@ -385,7 +389,14 @@ public func initGitRepo(
         }
         try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
-        XCTFail("\(error.interpolationDescription)", file: file, line: line)
+        if Test.current != nil {
+            Issue.record(
+                "\(error.interpolationDescription)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTFail("\(error.interpolationDescription)", file: file, line: line)
+        }
     }
 }
 

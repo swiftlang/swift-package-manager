@@ -66,7 +66,7 @@ public func createSession(
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
     } else {
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
@@ -351,16 +351,26 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: buildParameters)
 
+        var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
+        for output in buildOutputs {
+            switch output {
+            case .symbolGraph(let options):
+                symbolGraphOptions = options
+            default:
+                continue
+            }
+        }
+
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
-            genSymbolGraph: buildOutputs.contains(.symbolGraph),
+            symbolGraphOptions: symbolGraphOptions,
             generateReplArguments: buildOutputs.contains(.replArguments),
         )
     }
 
     private func startSWBuildOperation(
         pifTargetName: String,
-        genSymbolGraph: Bool,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         generateReplArguments: Bool
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
@@ -414,7 +424,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
+                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -558,7 +568,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -692,7 +702,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(genSymbolGraph: Bool) throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -703,16 +713,55 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
-        // An error with determining the override should not be fatal here.
-        settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-        // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-        // native build system.
-        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+
+        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
+        } else {
+            // FIXME: This list of overrides is incomplete.
+            // An error with determining the override should not be fatal here.
+            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        }
+
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
-        if genSymbolGraph {
+        if let symbolGraphOptions {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
-            // TODO set additional symbol graph options from the build output here, such as "include-spi-symbols"
+
+            if symbolGraphOptions.prettyPrint {
+                settings["DOCC_PRETTY_PRINT"] = "YES"
+            }
+
+            if symbolGraphOptions.emitExtensionBlocks {
+                settings["DOCC_EXTRACT_EXTENSION_SYMBOLS"] = "YES"
+            }
+
+            if !symbolGraphOptions.includeSynthesized {
+                settings["DOCC_SKIP_SYNTHESIZED_MEMBERS"] = "YES"
+            }
+
+            if symbolGraphOptions.includeSPI {
+                settings["DOCC_EXTRACT_SPI_DOCUMENTATION"] = "YES"
+            }
+
+            switch symbolGraphOptions.minimumAccessLevel {
+            case .private:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "private"
+            case .fileprivate:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "fileprivate"
+            case .internal:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "internal"
+            case .package:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "package"
+            case .public:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "public"
+            case .open:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "open"
+            }
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
@@ -766,6 +815,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             settings["ARCHS"] = architectures.joined(separator: " ")
         }
 
+        // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
+        if buildParameters.triple.isMacOSX {
+            settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
+        }
+
         func reportConflict(_ a: String, _ b: String) throws -> String {
             throw StringError("Build parameters constructed conflicting settings overrides '\(a)' and '\(b)'")
         }
@@ -788,9 +842,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) throws -> SWBBuildRequest {
+    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try makeBuildParameters(genSymbolGraph: genSymbolGraph)
+        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false

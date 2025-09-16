@@ -33,6 +33,7 @@ extension Tag.Feature {
     @Tag public static var NetRc: Tag
     @Tag public static var Resource: Tag
     @Tag public static var SpecialCharacters: Tag
+    @Tag public static var Snippets: Tag
     @Tag public static var Traits: Tag
 
 }

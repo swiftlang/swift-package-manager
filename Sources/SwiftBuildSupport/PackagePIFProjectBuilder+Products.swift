@@ -17,6 +17,7 @@ import TSCUtility
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
+import func Build.containsAtMain
 
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
@@ -55,7 +56,7 @@ extension PackagePIFProjectBuilder {
         let synthesizedResourceGeneratingPluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult] =
             []
 
-        if product.type == .executable {
+        if [.executable, .snippet].contains(product.type) {
             if let customPIFProductType = pifBuilder.delegate.customProductType(forExecutable: product.underlying) {
                 pifProductType = customPIFProductType
                 moduleOrProductType = PackagePIFBuilder.ModuleOrProductType(from: customPIFProductType)
@@ -138,6 +139,17 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
+        } else if mainModule.type == .snippet {
+            let hasMainModule: Bool
+            if let mainModule = product.mainModule {
+                // Check if any source file in the main module contains @main
+                hasMainModule = mainModule.sources.paths.contains { (sourcePath: AbsolutePath) in
+                    (try? containsAtMain(fileSystem: pifBuilder.fileSystem, path: sourcePath)) ?? false
+                }
+            } else {
+                hasMainModule = false
+            }
+            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = hasMainModule ? "NO" : "YES"
         }
 
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
@@ -430,7 +442,8 @@ extension PackagePIFProjectBuilder {
                             on: moduleDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
+                            // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
+                            linkProduct: moduleDependency.usesSwift
                         )
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
@@ -470,7 +483,7 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in mainModule.allBuildSettings.targetSettings {
+        for (buildConfig, declarationsByPlatform) in mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).targetSettings {
             for (platform, declarations) in declarationsByPlatform {
                 // A `nil` platform means that the declaration applies to *all* platforms.
                 for (declaration, stringValues) in declarations {

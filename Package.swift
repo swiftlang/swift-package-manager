@@ -80,7 +80,6 @@ let swiftPMProduct = (
         "LLBuildManifest",
         "SourceKitLSPAPI",
         "SPMLLBuild",
-        "SwiftBuildSupport",
     ]
 )
 
@@ -535,6 +534,7 @@ let package = Package(
         .target(
             name: "SwiftBuildSupport",
             dependencies: [
+                "Build",
                 "SPMBuildCore",
                 "PackageGraph",
             ],
@@ -984,6 +984,10 @@ let package = Package(
                 "swift-package-manager",
                 "_InternalTestSupport",
             ]
+        ),
+        .testTarget(
+            name: "SwiftBuildSupportTests",
+            dependencies: ["SwiftBuildSupport", "_InternalTestSupport", "_InternalBuildTestSupport"]
         ),
         // Examples (These are built to ensure they stay up to date with the API.)
         .executableTarget(
