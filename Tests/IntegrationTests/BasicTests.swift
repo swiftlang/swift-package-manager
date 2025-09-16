@@ -30,19 +30,23 @@ private struct BasicTests {
     func testExamplePackageDealer() async throws {
         try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
+            let repoToClone = "https://github.com/swiftlang/example-package-dealer"
             withKnownIssue(isIntermittent: true) {
                 // marking as withKnownIssue(intermittent: true) as git operation can fail.
 
                 #if os(macOS)
-                    // On macOS, we add the HOME variable to avoid git errors.                
-                    try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath, env: ["HOME": tempDir.pathString])
+                    // On macOS, we add the HOME variable to avoid git errors.
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", repoToClone, packagePath, env: ["HOME": tempDir.pathString])
                 #else
-                    try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", repoToClone, packagePath)
                 #endif
             }
 
             // Do not run the test when the git clone operation failed
             if !FileManager.default.fileExists(atPath: packagePath.pathString) {
+                #if compiler(>=6.3)
+                    Issue.record("Can't clone the repository \(repoToClone), abording the test.", severity: .warning)
+                #endif
                 return
             }
 
