@@ -371,7 +371,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private func startSWBuildOperation(
         pifTargetName: String,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
-        generateReplArguments: Bool
+        generateReplArguments: Bool,
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
         var replArguments: CLIArguments?
@@ -423,7 +423,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
+                    let request = try await self.makeBuildRequest(
+                        session: session,
+                        configuredTargets: configuredTargets,
+                        derivedDataPath: derivedDataPath,
+                        symbolGraphOptions: symbolGraphOptions,
+                    )
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -641,7 +646,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -784,9 +792,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+    ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -879,8 +895,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
-        // TODO: enableCodeCoverage
-        // explicitlyEnabledTestability
+
+        settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
 
         switch parameters.explicitlyEnabledTestability {
         case true:

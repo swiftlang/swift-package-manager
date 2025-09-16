@@ -40,7 +40,7 @@ public enum BuildSubset {
 /// result for indication that the output was produced.
 public enum BuildOutput: Equatable {
     public static func == (lhs: BuildOutput, rhs: BuildOutput) -> Bool {
-        switch lhs {    
+        switch lhs {
         case .symbolGraph(let leftOptions):
             switch rhs {
                 case .symbolGraph(let rightOptions):
