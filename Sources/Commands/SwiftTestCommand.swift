@@ -14,6 +14,7 @@ import ArgumentParser
 
 @_spi(SwiftPMInternal)
 import Basics
+import struct Basics.Triple
 
 import _Concurrency
 
@@ -597,7 +598,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
-            try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
+            try await exportCodeCovAsJSON(
+                to: jsonPath,
+                testBinary: product.binaryPath,
+                swiftCommandState: swiftCommandState,
+            )
         }
     }
 
@@ -619,7 +624,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
-
         try await AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
@@ -632,11 +636,18 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
+        let archArgs: [String] = if let arch = productsBuildParameters.triple.llvmCovArchArgument {
+        // let archArgs: [String] = if let arch = productsBuildParameters.triple.arch {
+            ["--arch", "\(arch)"]
+        } else {
+            []
+        }
         let args = [
             llvmCov.pathString,
             "export",
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
-            testBinary.pathString
+        ] + archArgs + [
+            testBinary.pathString,
         ]
         let result = try await AsyncProcess.popen(arguments: args)
 
@@ -706,6 +717,21 @@ extension SwiftTestCommand {
         }
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(enableCodeCoverage: true)
         print(productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName))
+    }
+}
+
+fileprivate extension Triple {
+    var llvmCovArchArgument: String? {
+        guard let arch = self.arch else {
+            return nil
+        }
+        switch arch {
+        case .aarch64:
+            // macOS uses arm64, Linux might use aarch64
+            return ProcessInfo.hostOperatingSystem == .macOS ? "arm64" : "aarch64"
+        default:
+            return "\(arch)"
+        }
     }
 }
 

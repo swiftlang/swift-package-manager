@@ -30,7 +30,7 @@ import Foundation
 )
 final class PluginTests {
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )
@@ -67,7 +67,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8786"),
         .requiresSwiftConcurrencySupport,
     )
@@ -98,7 +98,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -137,7 +137,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -176,7 +176,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -247,7 +247,7 @@ final class PluginTests {
     }
     
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -284,7 +284,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
@@ -320,7 +320,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -428,7 +428,7 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8794"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -866,7 +866,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
@@ -1361,7 +1361,7 @@ final class PluginTests {
     struct SnippetTests {
         @Test(
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-            .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+            .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -1583,7 +1583,7 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -1630,7 +1630,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )
@@ -1666,7 +1666,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )

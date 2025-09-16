@@ -9,7 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
+import Foundation
 import struct TSCBasic.RelativePath
 
 // public for transition
@@ -40,7 +40,9 @@ public struct RelativePath: Hashable, Sendable {
 
     /// Convenience initializer that verifies that the path is relative.
     public init(validating pathString: String) throws {
-        self.underlying = try .init(validating: pathString)
+        self.underlying = try .init(
+            validating: pathString.trimmingCharacters(in: .whitespacesAndNewlines),
+        )
     }
 
     /// Directory component.  For a relative path without any path separators,
