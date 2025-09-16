@@ -8,13 +8,20 @@
 import ArgumentParserToolInfo
 import Basics
 import Foundation
-import PackageModel
-import PackageModelSyntax
+@_spi(PackageRefactor) import SwiftRefactor
+@_spi(FixItApplier) import SwiftIDEUtils
+
 import SPMBuildCore
 import SwiftParser
+import SwiftSyntax
 import System
 import TSCBasic
 import TSCUtility
+
+
+import struct PackageModel.InstalledSwiftPMConfiguration
+import struct PackageModel.SupportedPlatform
+import class PackageModel.Manifest
 
 /// A class responsible for initializing a Swift package from a specified template.
 ///
@@ -30,9 +37,11 @@ import TSCUtility
 /// - Call `setupTemplateManifest()` to create the package and add the template dependency.
 /// - Use `promptUser(tool:)` to interactively prompt the user for command line argument values.
 
-public final class InitTemplatePackage {
+public struct InitTemplatePackage {
+
     /// The kind of package dependency to add for the template.
-    let packageDependency: MappablePackageDependency.Kind
+    let packageDependency: SwiftRefactor.PackageDependency
+
     /// The set of testing libraries supported by the generated package.
     public var supportedTestingLibraries: Set<TestingLibrary>
 
@@ -107,9 +116,11 @@ public final class InitTemplatePackage {
     ///   - supportedTestingLibraries: The set of testing libraries to support.
     ///   - destinationPath: The directory where the new package should be created.
     ///   - installedSwiftPMConfiguration: Configuration from the SwiftPM toolchain.
-    public init(
+
+
+    package init(
         name: String,
-        initMode: MappablePackageDependency.Kind,
+        initMode: SwiftRefactor.PackageDependency,
         templatePath: Basics.AbsolutePath,
         fileSystem: FileSystem,
         packageType: InitPackage.PackageType,
@@ -180,12 +191,13 @@ public final class InitTemplatePackage {
             }
         }
 
-        let editResult = try AddPackageDependency.addPackageDependency(
-            self.packageDependency, to: manifestSyntax
+        let editResult = try SwiftRefactor.AddPackageDependency.textRefactor(
+            syntax: manifestSyntax,
+            in: SwiftRefactor.AddPackageDependency.Context(dependency: packageDependency)
         )
 
         try editResult.applyEdits(
-            to: self.fileSystem,
+            to: fileSystem,
             manifest: manifestSyntax,
             manifestPath: manifestPath,
             verbose: false
@@ -639,3 +651,34 @@ extension TemplateError: CustomStringConvertible {
         }
     }
 }
+
+extension [SourceEdit] {
+    /// Apply the edits for the given manifest to the specified file system,
+    /// updating the manifest to the given manifest
+    func applyEdits(
+        to filesystem: any FileSystem,
+        manifest: SourceFileSyntax,
+        manifestPath: Basics.AbsolutePath,
+        verbose: Bool
+    ) throws {
+        let rootPath = manifestPath.parentDirectory
+
+        // Update the manifest
+        if verbose {
+            print("Updating package manifest at \(manifestPath.relative(to: rootPath))...", terminator: "")
+        }
+
+        let updatedManifestSource = FixItApplier.apply(
+            edits: self,
+            to: manifest
+        )
+        try filesystem.writeFileContents(
+            manifestPath,
+            string: updatedManifestSource
+        )
+        if verbose {
+            print(" done.")
+        }
+    }
+}
+

@@ -63,6 +63,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Build Options")
     public var linker: LinkerOptions
+
+    @OptionGroup(title: "Trait Options")
+    public var traits: TraitOptions
 }
 
 public struct LocationOptions: ParsableArguments {
@@ -198,7 +201,7 @@ public struct CachingOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-prebuilts"),
           inversion: .prefixedEnableDisable,
           help: "Whether to use prebuilt swift-syntax libraries for macros.")
-    public var usePrebuilts: Bool = false
+    public var usePrebuilts: Bool = true
 
     /// Hidden option to override the prebuilts download location for testing
     @Option(
@@ -530,10 +533,6 @@ public struct BuildOptions: ParsableArguments {
     @Option(help: "A flag that indicates this build should check whether targets only import their explicitly-declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
-    /// Whether to use the explicit module build flow (with the integrated driver)
-    @Flag(name: .customLong("experimental-explicit-module-build"))
-    public var useExplicitModuleBuild: Bool = false
-
     /// The build system to use.
     @Option(name: .customLong("build-system"))
     var _buildSystem: BuildSystemProvider.Kind = .native
@@ -543,8 +542,13 @@ public struct BuildOptions: ParsableArguments {
     public var debugInfoFormat: DebugInfoFormat = .dwarf
 
     public var buildSystem: BuildSystemProvider.Kind {
-        // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
+        switch self._buildSystem {
+        case .swiftbuild, .xcode:
+            return self._buildSystem
+        case .native:
+            // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
+            return self.architectures.count > 1 ? .xcode : .native
+        }
     }
 
     /// Whether to enable test discovery on platforms without Objective-C runtime.
@@ -687,8 +691,8 @@ public struct TestLibraryOptions: ParsableArguments {
     }
 }
 
-package struct TraitOptions: ParsableArguments {
-    package init() {}
+public struct TraitOptions: ParsableArguments {
+    public init() {}
 
     /// The traits to enable for the package.
     @Option(
@@ -698,7 +702,7 @@ package struct TraitOptions: ParsableArguments {
     package var _enabledTraits: String?
 
     /// The set of enabled traits for the package.
-    package var enabledTraits: Set<String>? {
+    public var enabledTraits: Set<String>? {
         self._enabledTraits.flatMap { Set($0.components(separatedBy: ",")) }
     }
 
@@ -707,7 +711,7 @@ package struct TraitOptions: ParsableArguments {
         name: .customLong("enable-all-traits"),
         help: "Enables all traits of the package."
     )
-    package var enableAllTraits: Bool = false
+    public var enableAllTraits: Bool = false
 
     /// Disables all default traits of the package.
     @Flag(
@@ -718,7 +722,7 @@ package struct TraitOptions: ParsableArguments {
 }
 
 extension TraitConfiguration {
-    package init(traitOptions: TraitOptions) {
+    public init(traitOptions: TraitOptions) {
         var enabledTraits = traitOptions.enabledTraits
         if traitOptions.disableDefaultTraits {
             // If there are no enabled traits specified we can disable the

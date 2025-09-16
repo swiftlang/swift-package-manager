@@ -12,10 +12,11 @@
 
 import Basics
 import Foundation
-import PackageModel
 import TSCBasic
 import TSCUtility
 import Workspace
+@_spi(PackageRefactor) import SwiftRefactor
+
 
 /// A protocol for building `MappablePackageDependency.Kind` instances from provided dependency information.
 ///
@@ -34,7 +35,7 @@ protocol PackageDependencyBuilder {
     ///
     /// - Throws: A `StringError` if required inputs (e.g., Git URL, Package ID) are missing or invalid for the selected
     /// source type.
-    func makePackageDependency() throws -> MappablePackageDependency.Kind
+    func makePackageDependency() throws -> PackageDependency
 }
 
 /// Default implementation of `PackageDependencyBuilder` that builds a package dependency
@@ -70,11 +71,10 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// - Returns: A `MappablePackageDependency.Kind` representing the dependency.
     ///
     /// - Throws: A `StringError` if necessary information is missing or mismatched for the selected template source.
-    func makePackageDependency() throws -> MappablePackageDependency.Kind {
+    func makePackageDependency() throws -> PackageDependency {
         switch self.templateSource {
         case .local:
-            return .fileSystem(name: self.packageName, path: resolvedTemplatePath.asURL.path)
-
+            return .fileSystem(.init(path: resolvedTemplatePath.asURL.path))
         case .git:
             guard let url = templateURL else {
                 throw PackageDependencyBuilderError.missingGitURLOrPath
@@ -82,7 +82,7 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
             guard let requirement = sourceControlRequirement else {
                 throw PackageDependencyBuilderError.missingGitRequirement
             }
-            return .sourceControl(name: self.packageName, location: url, requirement: requirement)
+            return .sourceControl(.init(location: url, requirement: requirement))
 
         case .registry:
             guard let id = templatePackageID else {
@@ -91,7 +91,7 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
             guard let requirement = registryRequirement else {
                 throw PackageDependencyBuilderError.missingRegistryRequirement
             }
-            return .registry(id: id, requirement: requirement)
+            return .registry(.init(identity: id, requirement: requirement))
         }
     }
 

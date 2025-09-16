@@ -102,7 +102,8 @@ extension BuildPlan {
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) },
                     packageAccess: true, // test target is allowed access to package decls by default
                     testDiscoverySrc: Sources(paths: discoveryPaths, root: discoveryDerivedDir),
-                    buildSettings: discoveryBuildSettings
+                    buildSettings: discoveryBuildSettings,
+                    implicit: true
                 )
                 let discoveryResolvedModule = ResolvedModule(
                     packageIdentity: testProduct.packageIdentity,
@@ -288,7 +289,8 @@ private extension PackageModel.SwiftModule {
             packageAccess: packageAccess,
             buildSettings: buildSettings,
             usesUnsafeFlags: false,
-            template: false // test entry points are not templates
+            template: false, // test entry points are not templates
+            implicit: true
         )
     }
 }

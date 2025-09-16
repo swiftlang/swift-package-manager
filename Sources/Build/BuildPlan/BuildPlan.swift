@@ -36,59 +36,6 @@ extension String {
     }
 }
 
-extension [String] {
-    /// Converts a set of C compiler flags into an equivalent set to be
-    /// indirected through the Swift compiler instead.
-    func asSwiftcCCompilerFlags() -> Self {
-        self.flatMap { ["-Xcc", $0] }
-    }
-
-    /// Converts a set of C++ compiler flags into an equivalent set to be
-    /// indirected through the Swift compiler instead.
-    func asSwiftcCXXCompilerFlags() -> Self {
-        _ = self.flatMap { ["-Xcxx", $0] }
-        // TODO: Pass -Xcxx flags to swiftc (#6491)
-        // Remove fatal error when downstream support arrives.
-        fatalError("swiftc does support -Xcxx flags yet.")
-    }
-
-    /// Converts a set of linker flags into an equivalent set to be indirected
-    /// through the Swift compiler instead.
-    ///
-    /// Some arguments can be passed directly to the Swift compiler. We omit
-    /// prefixing these arguments (in both the "-option value" and
-    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
-    /// prefixed with "-Xlinker".
-    func asSwiftcLinkerFlags() -> Self {
-        // Arguments that can be passed directly to the Swift compiler and
-        // doesn't require -Xlinker prefix.
-        //
-        // We do this to avoid sending flags like linker search path at the end
-        // of the search list.
-        let directSwiftLinkerArgs = ["-L"]
-
-        var flags: [String] = []
-        var it = self.makeIterator()
-        while let flag = it.next() {
-            if directSwiftLinkerArgs.contains(flag) {
-                // `<option> <value>` variant.
-                flags.append(flag)
-                guard let nextFlag = it.next() else {
-                    // We expected a flag but don't have one.
-                    continue
-                }
-                flags.append(nextFlag)
-            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
-                // `<option>[=]<value>` variant.
-                flags.append(flag)
-            } else {
-                flags += ["-Xlinker", flag]
-            }
-        }
-        return flags
-    }
-}
-
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
     public var moduleCache: Basics.AbsolutePath {
@@ -585,8 +532,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
         // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
-        let buildPath = self.destinationBuildParameters.buildPath.pathString
-        var arguments = ["-I", buildPath]
+        var arguments: [String] = []
 
         // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
         // will silently error failing the operation.  Filter out this flag
@@ -610,7 +556,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for target in self.targets {
             switch target {
             case .swift(let targetDescription):
-                arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                if target.destination == .target {
+                    // Include in the analysis surface target destination. That way auxiliary
+                    // modules from building a build tool (destination == .host) won't conflict
+                    // with the modules intended to analyze.
+                    arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                }
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
@@ -633,13 +584,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
-    public func createREPLArguments() throws -> [String] {
+    public func createREPLArguments() throws -> CLIArguments {
         let buildPath = self.toolsBuildParameters.buildPath.pathString
         var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
-        let replProductName = self.graph.rootPackages[self.graph.rootPackages.startIndex].identity.description +
-            Product.replProductSuffix
+        let replProductName = try self.graph.getReplProductName()
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.
@@ -1116,13 +1066,40 @@ extension BuildPlan {
             guard visited.insert(.package(package)).inserted else {
                 return []
             }
-            return package.modules.compactMap {
-                if case .test = $0.underlying.type,
-                   !self.graph.rootPackages.contains(id: package.id)
+
+            var successors: [TraversalNode] = []
+            for product in package.products {
+                if case .test = product.underlying.type,
+                   !graph.rootPackages.contains(id: package.id)
                 {
-                    return nil
+                    continue
                 }
-                return .init(module: $0, context: .target)
+
+                successors.append(.init(product: product, context: .target))
+            }
+
+            for module in package.modules {
+                // Tests are discovered through an aggregate product which also
+                // informs their destination.
+                if case .test = module.type {
+                    continue
+                }
+                successors.append(.init(module: module, context: .target))
+            }
+
+            return successors
+        }
+
+        func successors(
+            for product: ResolvedProduct,
+            destination: Destination
+        ) -> [TraversalNode] {
+            guard destination == .host || product.underlying.type == .test else {
+                return []
+            }
+
+            return product.modules.map { module in
+                TraversalNode(module: module, context: destination)
             }
         }
 
@@ -1152,8 +1129,8 @@ extension BuildPlan {
                 successors(for: package)
             case .module(let module, let destination):
                 successors(for: module, destination: destination)
-            case .product:
-                []
+            case .product(let product, let destination):
+                successors(for: product, destination: destination)
             }
         } onNext: { current, parent in
             let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {

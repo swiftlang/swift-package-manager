@@ -14,7 +14,7 @@ Overview of package manager commands here...
 
 ## Topics 
 
-### Adding a package colleciton
+### Adding a package collection
 - <doc:PackageCollectionAdd>
 
 ### Finding package collections

@@ -90,7 +90,7 @@ final class PackageCollectionsModelTests: XCTestCase {
     }
 
     func testSourceValidation_localFile() throws {
-        try fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             // File must exist in local FS
             let path = fixturePath.appending(components: "JSON", "good.json")
 

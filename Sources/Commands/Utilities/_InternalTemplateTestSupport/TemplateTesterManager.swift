@@ -1,9 +1,9 @@
 import ArgumentParserToolInfo
 
 import Basics
-
+import SPMBuildCore
 import CoreCommands
-
+import SPMBuildCore
 import Workspace
 import Foundation
 import PackageGraph
@@ -20,6 +20,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     private let packageGraph: ModulesGraph
     private let branches: [String]
     private let coordinator: TemplatePluginCoordinator
+    private let buildSystem: BuildSystemProvider.Kind
 
     private var rootPackage: ResolvedPackage {
         guard let root = packageGraph.rootPackages.first else {
@@ -28,8 +29,9 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         return root
     }
 
-    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String], branches: [String]) async throws {
+    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String], branches: [String], buildSystem: BuildSystemProvider.Kind) async throws {
         let coordinator = TemplatePluginCoordinator(
+            buildSystem: buildSystem,
             swiftCommandState: swiftCommandState,
             scratchDirectory: scratchDirectory,
             template: template,
@@ -44,6 +46,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         self.args = args
         self.coordinator = coordinator
         self.branches = branches
+        self.buildSystem = buildSystem
     }
 
     func run() async throws -> [CommandPath] {

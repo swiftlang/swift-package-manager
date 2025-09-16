@@ -50,6 +50,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
+        hostToolchain: UserToolchain,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
@@ -58,6 +59,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
 
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },

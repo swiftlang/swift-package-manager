@@ -103,6 +103,18 @@ public func XCTAssertNoDiagnostics(
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
 
+public func expectNoDiagnostics(
+    _ diagnostics: [Basics.Diagnostic],
+    problemsOnly: Bool = true,
+    sourceLocation: SourceLocation = #_sourceLocation
+) {
+    let diagnostics = problemsOnly ? diagnostics.filter { $0.severity >= .warning } : diagnostics
+    if diagnostics.isEmpty { return }
+
+    let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
+    Issue.record("Found unexpected diagnostics: \n\(description)", sourceLocation: sourceLocation)
+}
+
 public func testDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     problemsOnly: Bool = true,

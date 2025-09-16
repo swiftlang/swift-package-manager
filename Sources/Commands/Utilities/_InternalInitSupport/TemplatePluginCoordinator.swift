@@ -17,6 +17,7 @@ import PackageGraph
 
 
 struct TemplatePluginCoordinator {
+    let buildSystem: BuildSystemProvider.Kind
     let swiftCommandState: SwiftCommandState
     let scratchDirectory: Basics.AbsolutePath
     let template: String?
@@ -63,6 +64,7 @@ struct TemplatePluginCoordinator {
             plugin: plugin,
             package: rootPackage,
             packageGraph: packageGraph,
+            buildSystem: buildSystem,
             arguments: EXPERIMENTAL_DUMP_HELP,
             swiftCommandState: swiftCommandState,
             requestPermission: true

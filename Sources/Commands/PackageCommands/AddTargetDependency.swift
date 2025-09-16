@@ -16,8 +16,8 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
-import PackageModelSyntax
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
@@ -66,17 +66,19 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let dependency: TargetDescription.Dependency
+            let dependency: PackageTarget.Dependency
             if let package {
                 dependency = .product(name: dependencyName, package: package)
             } else {
-                dependency = .target(name: dependencyName, condition: nil)
+                dependency = .target(name: dependencyName)
             }
 
-            let editResult = try PackageModelSyntax.AddTargetDependency.addTargetDependency(
-                dependency,
-                targetName: targetName,
-                to: manifestSyntax
+            let editResult = try SwiftRefactor.AddTargetDependency.textRefactor(
+                syntax: manifestSyntax,
+                in: .init(
+                    dependency: dependency,
+                    targetName: targetName
+                )
             )
 
             try editResult.applyEdits(

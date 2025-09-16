@@ -135,7 +135,7 @@ final class UniversalArchiverTests: XCTestCase {
     }
 
     func testCompress() async throws {
-        #if os(Linux)
+        #if !os(Windows)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
         }

@@ -3,7 +3,7 @@ import ArgumentParserToolInfo
 import Basics
 
 import CoreCommands
-
+import SPMBuildCore
 import Workspace
 import Foundation
 import PackageGraph
@@ -18,6 +18,7 @@ enum TemplatePluginExecutor {
         plugin: ResolvedModule,
         rootPackage: ResolvedPackage,
         packageGraph: ModulesGraph,
+        buildSystemKind: BuildSystemProvider.Kind,
         arguments: [String],
         swiftCommandState: SwiftCommandState,
         requestPermission: Bool = false
@@ -26,6 +27,7 @@ enum TemplatePluginExecutor {
             plugin: plugin,
             package: rootPackage,
             packageGraph: packageGraph,
+            buildSystem: buildSystemKind,
             arguments: arguments,
             swiftCommandState: swiftCommandState,
             requestPermission: requestPermission
@@ -44,6 +46,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     private let args: [String]
     private let packageGraph: ModulesGraph
     private let coordinator: TemplatePluginCoordinator
+    private let buildSystem: BuildSystemProvider.Kind
 
     private var rootPackage: ResolvedPackage {
         get throws {
@@ -54,8 +57,9 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
         }
     }
 
-    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String]) async throws {
+    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String], buildSystem: BuildSystemProvider.Kind) async throws {
         let coordinator = TemplatePluginCoordinator(
+            buildSystem: buildSystem,
             swiftCommandState: swiftCommandState,
             scratchDirectory: scratchDirectory,
             template: template,
@@ -69,6 +73,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
         self.scratchDirectory = scratchDirectory
         self.args = args
         self.coordinator = coordinator
+        self.buildSystem = buildSystem
     }
 
     /// Manages the logic of running a template and executing on the information provided by the JSON representation of a template's arguments.
@@ -121,6 +126,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
             plugin: plugin,
             rootPackage: rootPackage,
             packageGraph: packageGraph,
+            buildSystemKind: buildSystem,
             arguments: arguments,
             swiftCommandState: swiftCommandState,
             requestPermission: false

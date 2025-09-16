@@ -33,7 +33,8 @@ public final class SwiftModule: Module {
         dependencies: [Module.Dependency],
         packageAccess: Bool,
         testDiscoverySrc: Sources,
-        buildSettings: BuildSettings.AssignmentTable = .init()) {
+        buildSettings: BuildSettings.AssignmentTable = .init(),
+        implicit: Bool) {
         self.declaredSwiftVersions = []
 
         super.init(
@@ -47,7 +48,8 @@ public final class SwiftModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            template: false // test modules cannot be templates
+            template: false, // test modules cannot be templates
+            implicit: implicit
         )
     }
 
@@ -70,7 +72,8 @@ public final class SwiftModule: Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool,
-        template: Bool
+        template: Bool,
+        implicit: Bool
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
@@ -88,7 +91,8 @@ public final class SwiftModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
-            template: template
+            template: template,
+            implicit: implicit
         )
     }
 
@@ -137,7 +141,8 @@ public final class SwiftModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            template: false // Modules from test entry point files are not templates
+            template: false, // Modules from test entry point files are not templates
+            implicit: true
         )
     }
 

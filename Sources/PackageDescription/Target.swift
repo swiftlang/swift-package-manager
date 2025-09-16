@@ -210,8 +210,7 @@ public final class Target {
     /// package compute-checksum path/to/MyFramework.zip` at the command line to
     /// make sure you create a correct SHA256 checksum.
     ///
-    /// For more information, see
-    /// <doc:distributing-binary-frameworks-as-swift-packages>.
+    /// For more information, see [Distributing binary frameworks as Swift packages](https://developer.apple.com/documentation/xcode/distributing-binary-frameworks-as-swift-packages).
     @available(_PackageDescription, introduced: 5.3)
     public var checksum: String?
 

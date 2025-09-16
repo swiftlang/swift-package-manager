@@ -104,7 +104,7 @@ struct APIDigesterBaselineDumper {
         // Clone the current package in a sandbox and checkout the baseline revision.
         let repositoryProvider = GitRepositoryProvider()
         let specifier = RepositorySpecifier(path: baselinePackageRoot)
-        let workingCopy = try repositoryProvider.createWorkingCopy(
+        let workingCopy = try await repositoryProvider.createWorkingCopy(
             repository: specifier,
             sourcePath: packageRoot,
             at: baselinePackageRoot,
@@ -140,13 +140,16 @@ struct APIDigesterBaselineDumper {
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: .native,
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: { graph }
         )
-        try await buildSystem.build()
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
+
+        guard let buildPlan = buildResult.buildPlan else {
+            throw Diagnostics.fatalError
+        }
 
         // Dump the SDK JSON.
         try swiftCommandState.fileSystem.createDirectory(baselineDir, recursive: true)
@@ -158,7 +161,7 @@ struct APIDigesterBaselineDumper {
                         try apiDigesterTool.emitAPIBaseline(
                             to: baselinePath(module),
                             for: module,
-                            buildPlan: buildSystem.buildPlan
+                            buildPlan: buildPlan
                         )
                         return nil
                     } catch {
@@ -208,7 +211,7 @@ public struct SwiftAPIDigester {
         let result = try runTool(args)
 
         if !self.fileSystem.exists(outputPath) {
-            throw Error.failedToGenerateBaseline(module: module)
+            throw Error.failedToGenerateBaseline(module: module, output: (try? result.utf8Output()) ?? "", error: (try? result.utf8stderrOutput()) ?? "")
         }
 
         try self.fileSystem.readFileContents(outputPath).withData { data in
@@ -272,14 +275,14 @@ public struct SwiftAPIDigester {
 
 extension SwiftAPIDigester {
     public enum Error: Swift.Error, CustomStringConvertible {
-        case failedToGenerateBaseline(module: String)
+        case failedToGenerateBaseline(module: String, output: String, error: String)
         case failedToValidateBaseline(module: String)
         case noSymbolsInBaseline(module: String, toolOutput: String)
 
         public var description: String {
             switch self {
-            case .failedToGenerateBaseline(let module):
-                return "failed to generate baseline for \(module)"
+            case .failedToGenerateBaseline(let module, let output, let error):
+                return "failed to generate baseline for \(module) (output: \(output), error: \(error)"
             case .failedToValidateBaseline(let module):
                 return "failed to validate baseline for \(module)"
             case .noSymbolsInBaseline(let module, let toolOutput):

@@ -8,12 +8,13 @@
 
 add_library(Commands
   PackageCommands/AddDependency.swift
-  PackageCommands/AddProduct.swift 
+  PackageCommands/AddProduct.swift
   PackageCommands/AddTarget.swift
   PackageCommands/AddTargetDependency.swift
   PackageCommands/AddSetting.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
+  PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/CompletionCommand.swift
   PackageCommands/ComputeChecksum.swift
   PackageCommands/Config.swift
@@ -52,18 +53,20 @@ add_library(Commands
   Utilities/MultiRootSupport.swift
   Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
+  Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
+  SwiftSyntax::SwiftRefactor
   ArgumentParser
   Basics
+  BinarySymbols
   Build
   CoreCommands
   LLBuildManifest
   PackageGraph
-  PackageModelSyntax
   SourceControl
   SwiftFixIt
   TSCBasic

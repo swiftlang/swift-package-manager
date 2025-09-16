@@ -50,7 +50,8 @@ public final class BinaryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            template: false
+            template: false,
+            implicit: false
         )
     }
 

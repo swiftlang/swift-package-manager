@@ -19,8 +19,3 @@
 ### Creating a Value
 
 - <doc:/documentation/PackageDescription/Product/Library/LibraryType/init(rawValue:)>
-
-### Accessing the Raw Value
-
-- ``rawValue-swift.property``
-- ``RawValue-swift.typealias``

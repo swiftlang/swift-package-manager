@@ -24,6 +24,16 @@ public struct EnvironmentKey {
 extension EnvironmentKey {
     package static let path: Self = "PATH"
 
+    package static var libraryPath: Self {
+        #if os(Windows)
+        path
+        #elseif canImport(Darwin)
+        "DYLD_LIBRARY_PATH"
+        #else
+        "LD_LIBRARY_PATH"
+        #endif
+    }
+
     /// A set of known keys which should not be included in cache keys.
     package static let nonCachable: Set<Self> = [
         "TERM",

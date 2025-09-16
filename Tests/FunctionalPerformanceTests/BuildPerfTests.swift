@@ -24,11 +24,11 @@
 //    @discardableResult
 //    func execute(args: [String] = [], packagePath: AbsolutePath) async throws -> (stdout: String, stderr: String) {
 //        // FIXME: We should pass the SWIFT_EXEC at lower level.
-//        try await SwiftPM.Build.execute(args + [], packagePath: packagePath, env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString])
+//        try await executeSwiftBuild(packagePath, extraArgs: args + [], env: ["SWIFT_EXEC": UserToolchain.default.swiftCompilerPath.pathString], buildSystem: .native)
 //    }
 //
 //    func clean(packagePath: AbsolutePath) async throws {
-//        _ = try await SwiftPM.Package.execute(["clean"], packagePath: packagePath)
+//        _ = try await executeSwiftPackage(packagePath, extraArgs: ["clean"], buildSystem: .native)
 //    }
 //
 //    func testTrivialPackageFullBuild() throws {
@@ -60,7 +60,7 @@
 //    }
 //
 //    func runFullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
-//        try fixture(name: name) { fixturePath in
+//        try fixtureXCTest(name: name) { fixturePath in
 //            let app = fixturePath.appending(components: (appString ?? ""))
 //            let triple = try UserToolchain.default.targetTriple
 //            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)
@@ -74,7 +74,7 @@
 //    }
 //
 //    func runNullBuildTest(for name: String, app appString: String? = nil, product productString: String) throws {
-//        try fixture(name: name) { fixturePath in
+//        try fixtureXCTest(name: name) { fixturePath in
 //            let app = fixturePath.appending(components: (appString ?? ""))
 //            let triple = try UserToolchain.default.targetTriple
 //            let product = app.appending(components: ".build", triple.platformBuildPathComponent, "debug", productString)

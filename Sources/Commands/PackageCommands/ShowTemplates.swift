@@ -18,6 +18,8 @@ import PackageGraph
 import PackageModel
 import TSCUtility
 import Workspace
+@_spi(PackageRefactor) import SwiftRefactor
+
 
 /// A Swift command that lists the available executable templates from a package.
 ///
@@ -112,8 +114,8 @@ struct ShowTemplates: AsyncSwiftCommand {
             to: to
         )
 
-        var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
-        var registryRequirement: PackageDependency.Registry.Requirement?
+        var sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl.Requirement?
+        var registryRequirement: SwiftRefactor.PackageDependency.Registry.Requirement?
 
 
         switch source {

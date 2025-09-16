@@ -20,7 +20,10 @@ func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) 
 
     graph.node(
         id: workspace.id,
-        label: "<workspace>\n\(workspace.id)",
+        label: """
+            <workspace>
+            \(workspace.id)
+            """,
         shape: "box3d",
         color: .black,
         fontsize: 7
@@ -30,7 +33,10 @@ func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) 
         graph.edge(from: workspace.id, to: project.id, color: .lightskyblue)
         graph.node(
             id: project.id,
-            label: "<project>\n\(project.id)",
+            label: """
+                <project>
+                \(project.id)
+                """,
             shape: "box3d",
             color: .gray56,
             fontsize: 7
@@ -43,7 +49,13 @@ func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) 
             case .target(let target):
                 graph.node(
                     id: target.id,
-                    label: "<target>\n\(target.id)\nproduct type: \(target.productType)\n\(target.buildPhases.summary)",
+                    label: """
+                        <target>
+                        \(target.id)
+                        name: \(target.name)
+                        product type: \(target.productType)
+                        \(target.buildPhases.summary)
+                        """,
                     shape: "box",
                     color: .gray88,
                     fontsize: 5
@@ -52,7 +64,10 @@ func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) 
             case .aggregate:
                 graph.node(
                     id: target.id,
-                    label: "<aggregate target>\n\(target.id)",
+                    label: """
+                        <aggregate target>
+                        \(target.id)
+                        """,
                     shape: "folder",
                     color: .gray88,
                     fontsize: 5,

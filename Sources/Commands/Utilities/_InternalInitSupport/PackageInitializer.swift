@@ -6,7 +6,7 @@ import Basics
 @_spi(SwiftPMInternal)
 import CoreCommands
 
-import PackageModel
+@_spi(PackageRefactor) import SwiftRefactor
 import Workspace
 import SPMBuildCore
 import TSCBasic
@@ -14,6 +14,7 @@ import TSCUtility
 import Foundation
 import PackageGraph
 
+import class PackageModel.Manifest
 protocol PackageInitializer {
     func run() async throws
 }
@@ -96,11 +97,16 @@ struct TemplatePackageInitializer: PackageInitializer {
 
             swiftCommandState.observabilityScope.emit(debug: "Running plugin steps, including prompting and running the template package's plugin.")
 
+            let buildSystem = globalOptions.build.buildSystem != .native ?
+            globalOptions.build.buildSystem :
+            swiftCommandState.options.build.buildSystem
+
             try await TemplateInitializationPluginManager(
                 swiftCommandState: swiftCommandState,
                 template: templateName,
                 scratchDirectory: stagingPath,
-                args: args
+                args: args,
+                buildSystem: buildSystem
             ).run()
 
             try await directoryManager.finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: swiftCommandState)

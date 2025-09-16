@@ -281,7 +281,7 @@ extension InMemoryGitRepository: FileSystem {
             try self.head.fileSystem.createDirectory(path, recursive: recursive)
         }
     }
-    
+
     public func createSymbolicLink(_ path: TSCAbsolutePath, pointingAt destination: TSCAbsolutePath, relative: Bool) throws {
         throw FileSystemError(.unsupported, path)
     }
@@ -402,7 +402,7 @@ extension InMemoryGitRepository: WorkingCheckout {
 extension InMemoryGitRepository: @unchecked Sendable {}
 
 /// This class implement provider for in memory git repository.
-public final class InMemoryGitRepositoryProvider: RepositoryProvider {
+public final class InMemoryGitRepositoryProvider: RepositoryProvider, @unchecked Sendable {
     /// Contains the repository added to this provider.
     public var specifierMap = ThreadSafeKeyValueStore<RepositorySpecifier, InMemoryGitRepository>()
 
@@ -437,7 +437,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
     // MARK: - RepositoryProvider conformance
     // Note: These methods use force unwrap (instead of throwing) to honor their preconditions.
 
-    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) throws {
+    public func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) async throws {
         guard let repo = specifierMap[RepositorySpecifier(location: repository.location)] else {
             throw InternalError("unknown repo at \(repository.location)")
         }
@@ -464,7 +464,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         sourcePath: AbsolutePath,
         at destinationPath: AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
+    ) async throws -> WorkingCheckout {
         guard let checkout = fetchedMap[sourcePath] else {
             throw InternalError("unknown checkout at \(sourcePath)")
         }
@@ -477,7 +477,7 @@ public final class InMemoryGitRepositoryProvider: RepositoryProvider {
         return checkoutsMap.contains(path)
     }
 
-    public func openWorkingCopy(at path: AbsolutePath) throws -> WorkingCheckout {
+    public func openWorkingCopy(at path: AbsolutePath) async throws -> WorkingCheckout {
         guard let checkout = checkoutsMap[path] else {
             throw InternalError("unknown checkout at \(path)")
         }

@@ -53,7 +53,7 @@ public enum SwiftSDKError: Swift.Error {
     case unserializableMetadata
 
     /// No configuration values are available for this Swift SDK and target triple.
-    case swiftSDKNotFound(artifactID: String, hostTriple: Triple, targetTriple: Triple)
+    case swiftSDKNotFound(artifactID: String, hostTriple: Triple, targetTriple: Triple?)
 
     /// A Swift SDK bundle with this name is already installed, can't install a new bundle with the same name.
     case swiftSDKBundleAlreadyInstalled(bundleName: String)
@@ -108,10 +108,16 @@ extension SwiftSDKError: CustomStringConvertible {
             properties required for initialization
             """
         case .swiftSDKNotFound(let artifactID, let hostTriple, let targetTriple):
-            return """
-            Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
-            currently installed.
-            """
+            if let targetTriple {
+                return """
+                Swift SDK with ID `\(artifactID)`, host triple \(hostTriple), and target triple \(targetTriple) is not \
+                currently installed.
+                """
+            } else {
+                return """
+                Swift SDK with ID `\(artifactID)` is not currently installed.
+                """
+            }
         case .swiftSDKBundleAlreadyInstalled(let bundleName):
             return """
             Swift SDK bundle with name `\(bundleName)` is already installed. Can't install a new bundle \
@@ -259,14 +265,17 @@ public struct SwiftSDK: Equatable {
     /// deserialization.
     public private(set) var toolset: Toolset
 
-    public struct PathsConfiguration: Equatable {
+    /// The paths associated with a Swift SDK. The Path type can be a `String`
+    /// to encapsulate the arguments for the `SwiftSDKConfigurationStore.configure`
+    /// function, or can be a fully-realized `AbsolutePath` when deserialized from a configuration.
+    public struct PathsConfiguration<Path: Equatable>: Equatable {
         public init(
-            sdkRootPath: Basics.AbsolutePath?,
-            swiftResourcesPath: Basics.AbsolutePath? = nil,
-            swiftStaticResourcesPath: Basics.AbsolutePath? = nil,
-            includeSearchPaths: [Basics.AbsolutePath]? = nil,
-            librarySearchPaths: [Basics.AbsolutePath]? = nil,
-            toolsetPaths: [Basics.AbsolutePath]? = nil
+            sdkRootPath: Path? = nil,
+            swiftResourcesPath: Path? = nil,
+            swiftStaticResourcesPath: Path? = nil,
+            includeSearchPaths: [Path]? = nil,
+            librarySearchPaths: [Path]? = nil,
+            toolsetPaths: [Path]? = nil
         ) {
             self.sdkRootPath = sdkRootPath
             self.swiftResourcesPath = swiftResourcesPath
@@ -277,22 +286,22 @@ public struct SwiftSDK: Equatable {
         }
 
         /// Root directory path of the SDK used to compile for the target triple.
-        public var sdkRootPath: Basics.AbsolutePath?
+        public var sdkRootPath: Path?
 
         /// Path containing Swift resources for dynamic linking.
-        public var swiftResourcesPath: Basics.AbsolutePath?
+        public var swiftResourcesPath: Path?
 
         /// Path containing Swift resources for static linking.
-        public var swiftStaticResourcesPath: Basics.AbsolutePath?
+        public var swiftStaticResourcesPath: Path?
 
         /// Array of paths containing headers.
-        public var includeSearchPaths: [Basics.AbsolutePath]?
+        public var includeSearchPaths: [Path]?
 
         /// Array of paths containing libraries.
-        public var librarySearchPaths: [Basics.AbsolutePath]?
+        public var librarySearchPaths: [Path]?
 
         /// Array of paths containing toolset files.
-        public var toolsetPaths: [Basics.AbsolutePath]?
+        public var toolsetPaths: [Path]?
 
         /// Initialize paths configuration from values deserialized using v3 schema.
         /// - Parameters:
@@ -301,92 +310,55 @@ public struct SwiftSDK: Equatable {
         fileprivate init(
             _ properties: SerializedDestinationV3.TripleProperties,
             swiftSDKDirectory: Basics.AbsolutePath? = nil
-        ) throws {
-            if let swiftSDKDirectory {
-                self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    }
-                )
-            } else {
-                self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    }
-                )
-            }
+        ) throws where Path == Basics.AbsolutePath {
+            self.init(
+                sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
+                swiftResourcesPath: try properties.swiftResourcesPath.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                includeSearchPaths: try properties.includeSearchPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                librarySearchPaths: try properties.librarySearchPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                toolsetPaths: try properties.toolsetPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                }
+            )
         }
 
         /// Initialize paths configuration from values deserialized using v4 schema.
         /// - Parameters:
         ///   - properties: properties of a Swift SDK for the given triple.
         ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
-        fileprivate init(_ properties: SwiftSDKMetadataV4.TripleProperties, swiftSDKDirectory: Basics.AbsolutePath? = nil) throws {
-            if let swiftSDKDirectory {
-                self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath, relativeTo: swiftSDKDirectory),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
-                    }
-                )
-            } else {
-                self.init(
-                    sdkRootPath: try AbsolutePath(validating: properties.sdkRootPath),
-                    swiftResourcesPath: try properties.swiftResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    includeSearchPaths: try properties.includeSearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    librarySearchPaths: try properties.librarySearchPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    },
-                    toolsetPaths: try properties.toolsetPaths?.map {
-                        try AbsolutePath(validating: $0)
-                    }
-                )
-            }
+        fileprivate init(
+            _ properties: SwiftSDKMetadataV4.TripleProperties, 
+            swiftSDKDirectory: Basics.AbsolutePath? = nil
+        ) throws where Path == Basics.AbsolutePath {
+            self.init(
+                sdkRootPath: try properties.sdkRootPath.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                swiftResourcesPath: try properties.swiftResourcesPath.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                swiftStaticResourcesPath: try properties.swiftStaticResourcesPath.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                includeSearchPaths: try properties.includeSearchPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                librarySearchPaths: try properties.librarySearchPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                },
+                toolsetPaths: try properties.toolsetPaths?.map {
+                    try AbsolutePath(validating: $0, relativeTo: swiftSDKDirectory)
+                }
+            )
         }
 
         public mutating func merge(with newConfiguration: Self) {
@@ -414,10 +386,48 @@ public struct SwiftSDK: Equatable {
                 self.toolsetPaths = toolsetPaths
             }
         }
+
+        mutating func merge(
+            with newConfiguration: PathsConfiguration<String>,
+            relativeTo basePath: Path?
+        ) throws -> [String] where Path == Basics.AbsolutePath {
+            var updatedProperties: [String] = []
+            if let sdkRootPath = newConfiguration.sdkRootPath {
+                self.sdkRootPath = try AbsolutePath(validating: sdkRootPath, relativeTo: basePath)
+                updatedProperties.append("sdkRootPath")
+            }
+
+            if let swiftResourcesPath = newConfiguration.swiftResourcesPath {
+                self.swiftResourcesPath = try AbsolutePath(validating: swiftResourcesPath, relativeTo: basePath)
+                updatedProperties.append("swiftResourcesPath")
+            }
+
+            if let swiftStaticResourcesPath = newConfiguration.swiftStaticResourcesPath {
+                self.swiftResourcesPath = try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: basePath)
+                updatedProperties.append("swiftStaticResourcesPath")
+            }
+
+            if let includeSearchPaths = newConfiguration.includeSearchPaths, !includeSearchPaths.isEmpty {
+                self.includeSearchPaths = try includeSearchPaths.map { try AbsolutePath(validating: $0, relativeTo: basePath) }
+                updatedProperties.append("includeSearchPath")
+            }
+
+            if let librarySearchPaths = newConfiguration.librarySearchPaths, !librarySearchPaths.isEmpty {
+                self.librarySearchPaths = try librarySearchPaths.map { try AbsolutePath(validating: $0, relativeTo: basePath) }
+                updatedProperties.append("librarySearchPath")
+            }
+
+            if let toolsetPaths = newConfiguration.toolsetPaths, !toolsetPaths.isEmpty {
+                self.toolsetPaths = try toolsetPaths.map { try AbsolutePath(validating: $0, relativeTo: basePath) }
+                updatedProperties.append("toolsetPath")
+            }
+
+            return updatedProperties
+        }
     }
 
     /// Configuration of file system paths used by this Swift SDK when building.
-    public var pathsConfiguration: PathsConfiguration
+    public var pathsConfiguration: PathsConfiguration<Basics.AbsolutePath>
 
     /// Creates a Swift SDK with the specified properties.
     @available(*, deprecated, message: "use `init(targetTriple:sdkRootDir:toolset:)` instead")
@@ -464,7 +474,7 @@ public struct SwiftSDK: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
-        pathsConfiguration: PathsConfiguration,
+        pathsConfiguration: PathsConfiguration<Basics.AbsolutePath>,
         supportsTesting: Bool
     ) {
         let xctestSupport: XCTestSupport
@@ -489,7 +499,7 @@ public struct SwiftSDK: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
-        pathsConfiguration: PathsConfiguration,
+        pathsConfiguration: PathsConfiguration<Basics.AbsolutePath>,
         xctestSupport: XCTestSupport = .supported
     ) {
         self.hostTriple = hostTriple
@@ -730,6 +740,7 @@ public struct SwiftSDK: Equatable {
         if let customDestination = customCompileDestination {
             let swiftSDKs = try SwiftSDK.decode(
                 fromFile: customDestination,
+                hostToolchainBinDir: store.hostToolchainBinDir,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope
             )
@@ -853,6 +864,7 @@ extension SwiftSDK {
     /// Load a ``SwiftSDK`` description from a JSON representation from disk.
     public static func decode(
         fromFile path: Basics.AbsolutePath,
+        hostToolchainBinDir: Basics.AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> [SwiftSDK] {
@@ -862,6 +874,7 @@ extension SwiftSDK {
             return try Self.decode(
                 semanticVersion: version,
                 fromFile: path,
+                hostToolchainBinDir: hostToolchainBinDir,
                 fileSystem: fileSystem,
                 decoder: decoder,
                 observabilityScope: observabilityScope
@@ -876,10 +889,16 @@ extension SwiftSDK {
     private static func decode(
         semanticVersion: SemanticVersionInfo,
         fromFile path: Basics.AbsolutePath,
+        hostToolchainBinDir: Basics.AbsolutePath,
         fileSystem: FileSystem,
         decoder: JSONDecoder,
         observabilityScope: ObservabilityScope
     ) throws -> [SwiftSDK] {
+        let wasmKitProperties = Toolset.ToolProperties(
+            path: hostToolchainBinDir.appending("wasmkit"),
+            extraCLIOptions: ["run"]
+        )
+
         switch semanticVersion.schemaVersion {
         case Version(3, 0, 0):
             let swiftSDKs = try decoder.decode(path: path, fileSystem: fileSystem, as: SerializedDestinationV3.self)
@@ -889,7 +908,12 @@ extension SwiftSDK {
                 let triple = try Triple(triple)
 
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
+                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                } else {
+                    [:]
+                }
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),
@@ -914,8 +938,13 @@ extension SwiftSDK {
             return try swiftSDKs.targetTriples.map { triple, properties in
                 let triple = try Triple(triple)
 
+                let defaultTools: [Toolset.KnownTool: Toolset.ToolProperties] = if triple.isWasm {
+                    [.debugger: wasmKitProperties, .testRunner: wasmKitProperties]
+                } else {
+                    [:]
+                }
                 let pathStrings = properties.toolsetPaths ?? []
-                let toolset = try pathStrings.reduce(into: Toolset(knownTools: [:], rootPaths: [])) {
+                let toolset = try pathStrings.reduce(into: Toolset(knownTools: defaultTools, rootPaths: [])) {
                     try $0.merge(
                         with: Toolset(
                             from: .init(validating: $1, relativeTo: swiftSDKDirectory),
@@ -1148,7 +1177,7 @@ struct SerializedDestinationV3: Decodable {
 struct SwiftSDKMetadataV4: Decodable {
     struct TripleProperties: Codable {
         /// Path relative to `swift-sdk.json` containing SDK root.
-        var sdkRootPath: String
+        var sdkRootPath: String?
 
         /// Path relative to `swift-sdk.json` containing Swift resources for dynamic linking.
         var swiftResourcesPath: String?
@@ -1182,7 +1211,7 @@ extension Optional where Wrapped == [Basics.AbsolutePath] {
     }
 }
 
-extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
+extension SwiftSDK.PathsConfiguration: CustomStringConvertible where Path == Basics.AbsolutePath {
     public var description: String {
         """
         sdkRootPath: \(sdkRootPath.configurationString)
@@ -1192,5 +1221,15 @@ extension SwiftSDK.PathsConfiguration: CustomStringConvertible {
         librarySearchPaths: \(librarySearchPaths.configurationString)
         toolsetPaths: \(toolsetPaths.configurationString)
         """
+    }
+}
+
+extension Basics.AbsolutePath {
+    fileprivate init(validating string: String, relativeTo basePath: Basics.AbsolutePath?) throws {
+        if let basePath {
+            try self.init(validating: string, relativeTo: basePath)
+        } else {
+            try self.init(validating: string)
+        }
     }
 }

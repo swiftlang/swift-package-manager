@@ -28,19 +28,30 @@ import SPMBuildCore
 import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
+import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
 
+import class TSCBasic.Process
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
-@_exported import func TSCTestSupport.systemQuietly
 @_exported import enum TSCTestSupport.StringPattern
 
-public let isInCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
-public let isSelfHostedCiEnvironment = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+@available(*, deprecated, message: "Use CiEnvironment.runningInSmokeTestPipeline")
+public let isInCiEnvironment = CiEnvironment.runningInSmokeTestPipeline
+
+@available(*, deprecated, message: "Use CiEnvironment.isSelfHostedCiEnvironment")
+public let isSelfHostedCiEnvironment = CiEnvironment.runningInSelfHostedPipeline
+
+public struct CiEnvironmentStruct {
+    public let runningInSmokeTestPipeline = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
+    public let runningInSelfHostedPipeline = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+}
+
+public let CiEnvironment = CiEnvironmentStruct()
 
 public let isRealSigningIdentyEcLabelEnvVarSet =
     ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_EC_LABEL"] != nil
@@ -51,6 +62,14 @@ public let isRealSigningIdentitTestDefined = {
     #else
         return false
     #endif
+}()
+
+public let duplicateSymbolRegex: Regex<AnyRegexOutput>? = {
+    do {
+        return try Regex(".*One of the duplicates must be removed or renamed.")
+    } catch {
+        return nil
+    }
 }()
 
 /// Test helper utility for executing a block with a temporary directory.
@@ -94,7 +113,8 @@ public func testWithTemporaryDirectory<Result>(
 /// The temporary copy is deleted after the block returns.  The fixture name may
 /// contain `/` characters, which are treated as path separators, exactly as if
 /// the name were a relative path.
-@discardableResult public func fixture<T>(
+@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
+@discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -132,11 +152,57 @@ public func testWithTemporaryDirectory<Result>(
     }
 }
 
+@discardableResult public func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    body: (AbsolutePath) throws -> T
+) throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit,
+        ) { tmpDirPath in
+
+            defer {
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, sourceLocation: sourceLocation)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
 public enum TestError: Error {
     case platformNotSupported
 }
 
-@discardableResult public func fixture<T>(
+@available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
+@discardableResult public func fixtureXCTest<T>(
     name: String,
     createGitRepo: Bool = true,
     file: StaticString = #file,
@@ -174,13 +240,70 @@ public enum TestError: Error {
     }
 }
 
-fileprivate func verifyFixtureExists(at fixtureSubpath: RelativePath, file: StaticString = #file, line: UInt = #line) throws -> AbsolutePath {
+@discardableResult public func fixture<T>(
+    name: String,
+    createGitRepo: Bool = true,
+    removeFixturePathOnDeinit: Bool = true,
+    file: StaticString = #file,
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
+    body: (AbsolutePath) async throws -> T
+) async throws -> T {
+    do {
+        // Make a suitable test directory name from the fixture subpath.
+        let fixtureSubpath = try RelativePath(validating: name)
+        let copyName = fixtureSubpath.components.joined(separator: "_")
+
+        // Create a temporary directory for the duration of the block.
+        return try await withTemporaryDirectory(
+            prefix: copyName,
+            removeTreeOnDeinit: removeFixturePathOnDeinit
+        ) { tmpDirPath in
+
+            defer {
+                if removeFixturePathOnDeinit {
+                    // Unblock and remove the tmp dir on deinit.
+                    try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
+                    try? localFileSystem.removeFileTree(tmpDirPath)
+                }
+            }
+
+            let fixtureDir = try verifyFixtureExists(at: fixtureSubpath, file: file, line: line, sourceLocation: sourceLocation)
+            let preparedFixture = try setup(
+                fixtureDir: fixtureDir,
+                in: tmpDirPath,
+                copyName: copyName,
+                createGitRepo:createGitRepo
+            )
+            return try await body(preparedFixture)
+        }
+    } catch SwiftPMError.executionFailure(let error, let output, let stderr) {
+        print("**** FAILURE EXECUTING SUBPROCESS ****")
+        print("output:", output)
+        print("stderr:", stderr)
+        throw error
+    }
+}
+
+fileprivate func verifyFixtureExists(
+    at fixtureSubpath: RelativePath,
+    file: StaticString = #file,
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws -> AbsolutePath {
     let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
         .appending(fixtureSubpath)
 
     // Check that the fixture is really there.
     guard localFileSystem.isDirectory(fixtureDir) else {
-        XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        if Test.current != nil {
+            Issue.record(
+                "No such fixture: \(fixtureDir)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTFail("No such fixture: \(fixtureDir)", file: file, line: line)
+        }
         throw SwiftPMError.packagePathNotFound
     }
 
@@ -197,7 +320,7 @@ fileprivate func setup(
         #if os(Windows)
         try localFileSystem.copy(from: srcDir, to: dstDir)
         #else
-        try systemQuietly("cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
+        try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
         
         // Ensure we get a clean test fixture.
@@ -245,7 +368,8 @@ public func initGitRepo(
     tags: [String],
     addFile: Bool = true,
     file: StaticString = #file,
-    line: UInt = #line
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
         if addFile {
@@ -253,19 +377,26 @@ public func initGitRepo(
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
-        try systemQuietly([Git.tool, "-C", dir.pathString, "init"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example"])
-        try systemQuietly([Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "init")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example")
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false")
         let repo = GitRepository(path: dir)
         try repo.stageEverything()
         try repo.commit(message: "msg")
         for tag in tags {
             try repo.tag(name: tag)
         }
-        try systemQuietly([Git.tool, "-C", dir.pathString, "branch", "-m", "main"])
+        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
-        XCTFail("\(error.interpolationDescription)", file: file, line: line)
+        if Test.current != nil {
+            Issue.record(
+                "\(error.interpolationDescription)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTFail("\(error.interpolationDescription)", file: file, line: line)
+        }
     }
 }
 
@@ -281,13 +412,14 @@ public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [S
 @discardableResult
 public func executeSwiftBuild(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
+    throwIfCommandFails: Bool = true,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -297,20 +429,20 @@ public func executeSwiftBuild(
         Xswiftc: Xswiftc,
         buildSystem: buildSystem
     )
-    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
 @discardableResult
 public func executeSwiftRun(
     _ packagePath: AbsolutePath?,
     _ executable: String?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(
         configuration: configuration,
@@ -329,13 +461,13 @@ public func executeSwiftRun(
 @discardableResult
 public func executeSwiftPackage(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -351,13 +483,13 @@ public func executeSwiftPackage(
 @discardableResult
 public func executeSwiftPackageRegistry(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -373,14 +505,14 @@ public func executeSwiftPackageRegistry(
 @discardableResult
 public func executeSwiftTest(
     _ packagePath: AbsolutePath?,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
     env: Environment? = nil,
     throwIfCommandFails: Bool = false,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async throws -> (stdout: String, stderr: String) {
     let args = swiftArgs(
         configuration: configuration,
@@ -394,7 +526,7 @@ public func executeSwiftTest(
 }
 
 private func swiftArgs(
-    configuration: Configuration,
+    configuration: BuildConfiguration,
     extraArgs: [String],
     Xcc: [String],
     Xld: [String],
@@ -403,9 +535,9 @@ private func swiftArgs(
 ) -> [String] {
     var args = ["--configuration"]
     switch configuration {
-    case .Debug:
+    case .debug:
         args.append("debug")
-    case .Release:
+    case .release:
         args.append("release")
     }
 
@@ -558,4 +690,21 @@ extension AbsolutePath: ExpressibleByStringInterpolation {}
 public func getNumberOfMatches(of match: String, in value: String) -> Int {
     guard match.count != 0 else { return 0 }
     return value.ranges(of: match).count
+}
+
+public extension String {
+    var withSwiftLineEnding: String {   
+        return replacingOccurrences(of: "\r\n", with: "\n")
+    }
+}
+
+public func executableName(_ name: String) -> String {
+#if os(Windows)
+  if name.count > 4, name.suffix(from: name.index(name.endIndex, offsetBy: -4)) == ProcessInfo.exeSuffix {
+    return name
+  }
+  return "\(name)\(ProcessInfo.exeSuffix)"
+#else
+  return name
+#endif
 }

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
+@_spi(PackageRefactor) import SwiftRefactor
 import PackageRegistry
 import TSCBasic
 import TSCUtility
@@ -19,11 +19,14 @@ import Workspace
 import PackageFingerprint
 import PackageSigning
 
+import class PackageModel.Manifest
+import struct PackageModel.PackageIdentity
+
 /// A protocol defining interfaces for resolving package dependency requirements
 /// based on versioning input (e.g., version, branch, or revision).
 protocol DependencyRequirementResolving {
-    func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement
-    func resolveRegistry() async throws -> PackageDependency.Registry.Requirement?
+    func resolveSourceControl() throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement
+    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement?
 }
 
 
@@ -66,37 +69,64 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.SourceControl.Requirement`.
     /// - Throws: `StringError` if multiple or no input fields are set, or if `to` is used without `from` or
     /// `upToNextMinorFrom`.
-    func resolveSourceControl() throws -> PackageDependency.SourceControl.Requirement {
+    func resolveSourceControl() throws -> SwiftRefactor.PackageDependency.SourceControl.Requirement {
 
-        var specifiedRequirements: [PackageDependency.SourceControl.Requirement] = []
+        var specifiedRequirements: [SwiftRefactor.PackageDependency.SourceControl.Requirement] = []
 
-        if let v = exact { specifiedRequirements.append(.exact(v)) }
-        if let b = branch { specifiedRequirements.append(.branch(b)) }
-        if let r = revision { specifiedRequirements.append(.revision(r)) }
-        if let f = from { specifiedRequirements.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { specifiedRequirements.append(.range(.upToNextMinor(from: u))) }
+        if let exact {
+            specifiedRequirements.append(.exact(exact.description))
+        }
+
+        if let branch {
+            specifiedRequirements.append(.branch(branch))
+        }
+
+        if let revision {
+            specifiedRequirements.append(.revision(revision))
+        }
+
+        if let from {
+            specifiedRequirements.append(.rangeFrom(from.description))
+        }
+
+        if let upToNextMinorFrom {
+            let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+            specifiedRequirements.append(
+                .range(
+                    lowerBound: range.lowerBound.description,
+                    upperBound: range.upperBound.description
+                )
+            )
+        }
 
         guard !specifiedRequirements.isEmpty else {
             throw DependencyRequirementError.noRequirementSpecified
         }
 
-        guard specifiedRequirements.count == 1, let specifiedRequirements = specifiedRequirements.first else {
+        guard specifiedRequirements.count == 1, let firstRequirement = specifiedRequirements.first else {
             throw DependencyRequirementError.multipleRequirementsSpecified
         }
 
-        if case .range(let range) = specifiedRequirements {
-            if let to {
-                return .range(range.lowerBound ..< to)
+
+        let requirement: PackageDependency.SourceControl.Requirement
+        switch firstRequirement {
+        case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+            requirement = if let to {
+                .range(lowerBound: lowerBound, upperBound: to.description)
             } else {
-                return .range(range)
+                firstRequirement
             }
-        } else {
+        default:
+            requirement = firstRequirement
+
             if self.to != nil {
                 throw DependencyRequirementError.invalidToParameterWithoutFrom
+
             }
+
         }
 
-        return specifiedRequirements
+        return requirement
     }
 
     /// Internal helper for resolving a registry-based requirement.
@@ -104,7 +134,7 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// - Returns: A valid `PackageDependency.Registry.Requirement`.
     /// - Throws: `StringError` if more than one registry versioning input is provided or if `to` is used without a base
     /// range.
-    func resolveRegistry() async throws -> PackageDependency.Registry.Requirement? {
+    func resolveRegistry() async throws -> SwiftRefactor.PackageDependency.Registry.Requirement? {
         if exact == nil, from == nil, upToNextMinorFrom == nil, to == nil {
             let config = try RegistryTemplateFetcher.getRegistriesConfig(self.swiftCommandState, global: true)
             let auth = try swiftCommandState.getRegistryAuthorizationProvider()
@@ -126,36 +156,55 @@ struct DependencyRequirementResolver: DependencyRequirementResolving {
             )
 
             let resolvedVersion = try await resolveVersion(for: identity, using: registryClient)
-            return (.exact(resolvedVersion))
+            return (.exact(resolvedVersion.description))
         }
 
-        var specifiedRequirements: [PackageDependency.Registry.Requirement] = []
+        var specifiedRequirements: [SwiftRefactor.PackageDependency.Registry.Requirement] = []
 
-        if let v = exact { specifiedRequirements.append(.exact(v)) }
-        if let f = from { specifiedRequirements.append(.range(.upToNextMajor(from: f))) }
-        if let u = upToNextMinorFrom { specifiedRequirements.append(.range(.upToNextMinor(from: u))) }
+        if let exact {
+            specifiedRequirements.append(.exact(exact.description))
+        }
+
+        if let from {
+            specifiedRequirements.append(.rangeFrom(from.description))
+        }
+
+        if let upToNextMinorFrom {
+            let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+            specifiedRequirements.append(
+                .range(
+                    lowerBound: range.lowerBound.description,
+                    upperBound: range.upperBound.description
+                )
+            )
+        }
 
         guard !specifiedRequirements.isEmpty else {
             throw DependencyRequirementError.noRequirementSpecified
         }
 
-        guard specifiedRequirements.count == 1, let specifiedRequirements = specifiedRequirements.first else {
+        guard specifiedRequirements.count == 1, let firstRequirement = specifiedRequirements.first else {
             throw DependencyRequirementError.multipleRequirementsSpecified
         }
 
-        if case .range(let range) = specifiedRequirements {
-            if let to {
-                return .range(range.lowerBound ..< to)
+
+        let requirement: SwiftRefactor.PackageDependency.Registry.Requirement
+        switch firstRequirement {
+        case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+            requirement = if let to {
+                .range(lowerBound: lowerBound, upperBound: to.description)
             } else {
-                return .range(range)
+                firstRequirement
             }
-        } else {
+        default:
+            requirement = firstRequirement
+
             if self.to != nil {
                 throw DependencyRequirementError.invalidToParameterWithoutFrom
             }
         }
 
-        return specifiedRequirements
+        return requirement
     }
     
     /// Resolves the version to use for registry packages, fetching latest if none specified

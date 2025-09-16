@@ -75,6 +75,7 @@ final class URLSessionHTTPClient: Sendable {
                 self.downloadTaskManager.register(
                     task: downloadTask,
                     urlRequest: urlRequest,
+                    authorizationProvider: request.options.authorizationProvider,
                     // FIXME: always using synchronous filesystem, because `URLSessionDownloadDelegate`
                     // needs temporary files to moved out of temporary locations synchronously in delegate callbacks.
                     fileSystem: localFileSystem,
@@ -112,6 +113,7 @@ final class URLSessionHTTPClient: Sendable {
             self.downloadTaskManager.register(
                 task: downloadTask,
                 urlRequest: urlRequest,
+                authorizationProvider: request.options.authorizationProvider,
                 fileSystem: fileSystem,
                 destination: destination,
                 progress: progress,
@@ -255,6 +257,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
     func register(
         task: URLSessionDownloadTask,
         urlRequest: URLRequest,
+        authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?,
         fileSystem: FileSystem,
         destination: AbsolutePath,
         progress: LegacyHTTPClient.ProgressHandler?,
@@ -266,7 +269,8 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             destination: destination,
             downloadTaskManager: self,
             progressHandler: progress,
-            completionHandler: completion
+            completionHandler: completion,
+            authorizationProvider: authorizationProvider
         )
     }
 
@@ -337,12 +341,35 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         }
     }
 
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard let task = self.tasks[task.taskIdentifier] else {
+            return
+        }
+
+        // Add new authorization header for a redirect if there is one, otherwise remove
+        var redirectRequest = request
+        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL) {
+            redirectRequest.setValue(authorization, forHTTPHeaderField: "Authorization")
+        } else {
+            redirectRequest.setValue(nil, forHTTPHeaderField: "Authorization")
+        }
+
+        completionHandler(redirectRequest)
+    }
+
     struct DownloadTask: Sendable {
         let task: URLSessionDownloadTask
         let fileSystem: FileSystem
         let destination: AbsolutePath
         let progressHandler: LegacyHTTPClient.ProgressHandler?
         let completionHandler: LegacyHTTPClient.CompletionHandler
+        let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
         var moveFileError: Error?
 
@@ -352,13 +379,15 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             destination: AbsolutePath,
             downloadTaskManager: DownloadTaskManager,
             progressHandler: LegacyHTTPClient.ProgressHandler?,
-            completionHandler: @escaping LegacyHTTPClient.CompletionHandler
+            completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
+            authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
         ) {
             self.task = task
             self.fileSystem = fileSystem
             self.destination = destination
             self.progressHandler = progressHandler
             self.completionHandler = completionHandler
+            self.authorizationProvider = authorizationProvider
         }
     }
 }

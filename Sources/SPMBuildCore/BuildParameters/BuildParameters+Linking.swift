@@ -63,3 +63,56 @@ extension BuildParameters {
         }
     }
 }
+
+extension [String] {
+    /// Converts a set of C compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    public func asSwiftcCCompilerFlags() -> Self {
+        self.flatMap { ["-Xcc", $0] }
+    }
+
+    /// Converts a set of C++ compiler flags into an equivalent set to be
+    /// indirected through the Swift compiler instead.
+    public func asSwiftcCXXCompilerFlags() -> Self {
+        _ = self.flatMap { ["-Xcxx", $0] }
+        // TODO: Pass -Xcxx flags to swiftc (#6491)
+        // Remove fatal error when downstream support arrives.
+        fatalError("swiftc does support -Xcxx flags yet.")
+    }
+
+    /// Converts a set of linker flags into an equivalent set to be indirected
+    /// through the Swift compiler instead.
+    ///
+    /// Some arguments can be passed directly to the Swift compiler. We omit
+    /// prefixing these arguments (in both the "-option value" and
+    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
+    /// prefixed with "-Xlinker".
+    public func asSwiftcLinkerFlags() -> Self {
+        // Arguments that can be passed directly to the Swift compiler and
+        // doesn't require -Xlinker prefix.
+        //
+        // We do this to avoid sending flags like linker search path at the end
+        // of the search list.
+        let directSwiftLinkerArgs = ["-L"]
+
+        var flags: [String] = []
+        var it = self.makeIterator()
+        while let flag = it.next() {
+            if directSwiftLinkerArgs.contains(flag) {
+                // `<option> <value>` variant.
+                flags.append(flag)
+                guard let nextFlag = it.next() else {
+                    // We expected a flag but don't have one.
+                    continue
+                }
+                flags.append(nextFlag)
+            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
+                // `<option>[=]<value>` variant.
+                flags.append(flag)
+            } else {
+                flags += ["-Xlinker", flag]
+            }
+        }
+        return flags
+    }
+}

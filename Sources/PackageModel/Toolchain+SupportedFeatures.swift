@@ -13,47 +13,64 @@
 import Basics
 
 import enum TSCBasic.JSON
+import protocol TSCBasic.JSONMappable
 import TSCUtility
 
 public enum SwiftCompilerFeature {
-    case upcoming(name: String, migratable: Bool, enabledIn: SwiftLanguageVersion)
-    case experimental(name: String, migratable: Bool)
+    case optional(name: String, migratable: Bool, categories: [String], flagName: String)
+    case upcoming(name: String, migratable: Bool, categories: [String], enabledIn: SwiftLanguageVersion)
+    case experimental(name: String, migratable: Bool, categories: [String])
 
+    public var optional: Bool {
+        switch self {
+        case .optional: true
+        case .upcoming, .experimental: false
+        }
+    }
     public var upcoming: Bool {
         switch self {
         case .upcoming: true
-        case .experimental: false
+        case .optional, .experimental: false
         }
     }
 
     public var experimental: Bool {
         switch self {
-        case .upcoming: false
+        case .optional, .upcoming: false
         case .experimental: true
         }
     }
 
     public var name: String {
         switch self {
-        case .upcoming(name: let name, migratable: _, enabledIn: _):
-            name
-        case .experimental(name: let name, migratable: _):
+        case .optional(name: let name, migratable: _, categories: _, flagName: _),
+                .upcoming(name: let name, migratable: _, categories: _, enabledIn: _),
+                .experimental(name: let name, migratable: _, categories: _):
             name
         }
     }
 
     public var migratable: Bool {
         switch self {
-        case .upcoming(name: _, migratable: let migratable, enabledIn: _):
+        case .optional(name: _, migratable: let migratable, categories: _, flagName: _),
+             .upcoming(name: _, migratable: let migratable, categories: _, enabledIn: _),
+             .experimental(name: _, migratable: let migratable, categories: _):
             migratable
-        case .experimental(name: _, migratable: let migratable):
-            migratable
+        }
+    }
+
+    public var categories: [String] {
+        switch self {
+        case .optional(name: _, migratable: _, categories: let categories, flagName: _),
+             .upcoming(name: _, migratable: _, categories: let categories, enabledIn: _),
+             .experimental(name: _, migratable: _, categories: let categories):
+            categories
         }
     }
 }
 
 extension Toolchain {
-    public var supportesSupportedFeatures: Bool {
+    public var supportsSupportedFeatures: Bool {
         guard let features = try? swiftCompilerSupportedFeatures else {
             return false
         }
@@ -85,10 +102,31 @@ extension Toolchain {
 
             let features: JSON = try parsedSupportedFeatures.get("features")
 
+            let optionalFeatures = (try? features.getArray("optional")) ?? []
+
+            let optional: [SwiftCompilerFeature] = try optionalFeatures.map { json in
+                let name: String = try json.get("name")
+                let categories: [String]? = try json.getArrayIfAvailable("categories")
+                let migratable: Bool? = json.get("migratable")
+                let flagName: String = try json.get("flag_name")
+
+                return .optional(
+                    name: name,
+                    migratable: migratable ?? false,
+                    categories: categories ?? [name],
+                    flagName: flagName
+                )
+            }
+
             let upcoming: [SwiftCompilerFeature] = try features.getArray("upcoming").map {
                 let name: String = try $0.get("name")
+                let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
-                let enabledIn: String = try $0.get("enabled_in")
+                let enabledIn = if let version = try? $0.get(String.self, forKey: "enabled_in") {
+                    version
+                } else {
+                    try String($0.get(Int.self, forKey: "enabled_in"))
+                }
 
                 guard let mode = SwiftLanguageVersion(string: enabledIn) else {
                     throw InternalError("Unknown swift language mode: \(enabledIn)")
@@ -97,21 +135,34 @@ extension Toolchain {
                 return .upcoming(
                     name: name,
                     migratable: migratable ?? false,
+                    categories: categories ?? [name],
                     enabledIn: mode
                 )
             }
 
             let experimental: [SwiftCompilerFeature] = try features.getArray("experimental").map {
                 let name: String = try $0.get("name")
+                let categories: [String]? = try $0.getArrayIfAvailable("categories")
                 let migratable: Bool? = $0.get("migratable")
 
                 return .experimental(
                     name: name,
-                    migratable: migratable ?? false
+                    migratable: migratable ?? false,
+                    categories: categories ?? [name]
                 )
             }
 
-            return upcoming + experimental
+            return optional + upcoming + experimental
+        }
+    }
+}
+
+fileprivate extension JSON {
+    func getArrayIfAvailable<T: JSONMappable>(_ key: String) throws -> [T]? {
+        do {
+            return try get(key)
+        } catch MapError.missingKey(key) {
+            return nil
         }
     }
 }

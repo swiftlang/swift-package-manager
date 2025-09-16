@@ -58,7 +58,7 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: packageRoot) { _, _ in
             do {
-                try await buildSystem.build(subset: subset)
+                try await buildSystem.build(subset: subset, buildOutputs: [.buildPlan])
             } catch let diagnostics as Diagnostics {
                 throw ExitCode.failure
             }
@@ -91,7 +91,7 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
             do {
-                try await buildSystem.build(subset: subset)
+                try await buildSystem.build(subset: subset, buildOutputs: [.buildPlan])
             } catch let diagnostics as Diagnostics {
                 throw ExitCode.failure
             }
@@ -131,7 +131,6 @@ enum TemplateBuildSupport {
         return try await swiftCommandState.withTemporaryWorkspace(switchingTo: folder) { _, _ in
             try await swiftCommandState.createBuildSystem(
                 explicitProduct: buildOptions.product,
-                traitConfiguration: .init(traitOptions: buildOptions.traits),
                 shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
                 productsBuildParameters: productsParams,
                 toolsBuildParameters: toolsParams,

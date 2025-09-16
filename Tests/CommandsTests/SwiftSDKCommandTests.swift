@@ -2,18 +2,19 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+// import Foundation
 
 import Basics
 import Commands
 import _InternalTestSupport
-import XCTest
+import Testing
 
 import class Basics.AsyncProcess
 
@@ -23,250 +24,278 @@ private let sdkCommandDeprecationWarning = """
 
     """
 
+@Suite(
+    .serialized,
+    .tags(
+        .Feature.Command.Sdk,
+        .TestSize.large,
+    ),
+)
+struct SwiftSDKCommandTests {
+    @Test(
+        arguments: [SwiftPM.sdk, SwiftPM.experimentalSDK],
+    )
+    func usage(
+        command: SwiftPM,
+    ) async throws {
 
-final class SwiftSDKCommandTests: CommandsTestCase {
-    func testUsage() async throws {
-        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            let stdout = try await command.execute(["-help"]).stdout
-            XCTAssert(stdout.contains("USAGE: swift sdk <subcommand>") || stdout.contains("USAGE: swift sdk [<subcommand>]"), "got stdout:\n" + stdout)
-        }
+        let stdout = try await command.execute(["-help"]).stdout
+        #expect(
+            stdout.contains("USAGE: swift sdk <subcommand>") || stdout.contains("USAGE: swift sdk [<subcommand>]"),
+            "got stdout:\n\(stdout)",
+        )
     }
 
-    func testCommandDoesNotEmitDuplicateSymbols() async throws {
-        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            let (stdout, stderr) = try await command.execute(["--help"])
-            XCTAssertNoMatch(stdout, duplicateSymbolRegex)
-            XCTAssertNoMatch(stderr, duplicateSymbolRegex)
-        }
+    @Test(
+        arguments: [SwiftPM.sdk, SwiftPM.experimentalSDK],
+    )
+    func commandDoesNotEmitDuplicateSymbols(
+        command: SwiftPM,
+    ) async throws {
+        let (stdout, stderr) = try await command.execute(["--help"])
+        let duplicateSymbolRegex = try Regex(#"objc[83768]: (.*) is implemented in both .* \(.*\) and .* \(.*\) . One of the two will be used. Which one is undefined."#)
+        #expect(!stdout.contains(duplicateSymbolRegex))
+        #expect(!stderr.contains(duplicateSymbolRegex))
+
     }
 
-    func testVersionS() async throws {
+    @Test(
+        arguments: [SwiftPM.sdk, SwiftPM.experimentalSDK],
+    )
+    func version(
+        command: SwiftPM,
+    ) async throws {
         for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
             let stdout = try await command.execute(["--version"]).stdout
-            XCTAssertMatch(stdout, .regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#))
+            let versionRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
+            #expect(stdout.contains(versionRegex))
         }
     }
 
-    func testInstallSubcommand() async throws {
-        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            try await fixture(name: "SwiftSDKs") { fixturePath in
-                for bundle in ["test-sdk.artifactbundle.tar.gz", "test-sdk.artifactbundle.zip"] {
-                    var (stdout, stderr) = try await command.execute(
-                        [
-                            "install",
-                            "--swift-sdks-path", fixturePath.pathString,
-                            fixturePath.appending(bundle).pathString
-                        ]
-                    )
+    @Test(
+        arguments: [SwiftPM.sdk, SwiftPM.experimentalSDK],
+        ["test-sdk.artifactbundle.tar.gz", "test-sdk.artifactbundle.zip"],
+    )
+    func installSubcommand(
+        command: SwiftPM,
+        bundle: String,
+    ) async throws {
+        try await fixture(name: "SwiftSDKs") { fixturePath in
+            let bundlePath = fixturePath.appending(bundle)
+            expectFileExists(at: bundlePath)
+            var (stdout, stderr) = try await command.execute(
+                [
+                    "install",
+                    "--swift-sdks-path", fixturePath.pathString,
+                    bundlePath.pathString,
+                ]
+            )
 
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                        XCTAssertNoMatch(stdout, .contains(sdkCommandDeprecationWarning))
-                    }
-
-                    // We only expect tool's output on the stdout stream.
-                    XCTAssertMatch(
-                        stdout,
-                        .contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
-                    )
-
-                    (stdout, stderr) = try await command.execute(
-                        ["list", "--swift-sdks-path", fixturePath.pathString])
-
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                        XCTAssertNoMatch(stdout, .contains(sdkCommandDeprecationWarning))
-                    }
-
-                    // We only expect tool's output on the stdout stream.
-                    XCTAssertMatch(stdout, .contains("test-artifact"))
-
-                    await XCTAssertAsyncThrowsError(try await command.execute(
-                        [
-                            "install",
-                            "--swift-sdks-path", fixturePath.pathString,
-                            fixturePath.appending(bundle).pathString
-                        ]
-                    )) { error in
-                        guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
-                            XCTFail()
-                            return
-                        }
-
-                        XCTAssertTrue(
-                            stderr.contains(
-                                "Error: Swift SDK bundle with name `test-sdk.artifactbundle` is already installed. Can't install a new bundle with the same name."
-                            ),
-                            "got stderr: \(stderr)"
-                        )
-                    }
-
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                    }
-
-                    (stdout, stderr) = try await command.execute(
-                        ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
-
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                        XCTAssertNoMatch(stdout, .contains(sdkCommandDeprecationWarning))
-                    }
-
-                    // We only expect tool's output on the stdout stream.
-                    XCTAssertMatch(stdout, .contains("test-sdk.artifactbundle` was successfully removed from the file system."))
-
-                    (stdout, stderr) = try await command.execute(
-                        ["list", "--swift-sdks-path", fixturePath.pathString])
-
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                        XCTAssertNoMatch(stdout, .contains(sdkCommandDeprecationWarning))
-                    }
-
-                    // We only expect tool's output on the stdout stream.
-                    XCTAssertNoMatch(stdout, .contains("test-artifact"))
-                }
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+                #expect(!stdout.contains(sdkCommandDeprecationWarning))
             }
+
+            // We only expect tool's output on the stdout stream.
+            #expect(
+                (stdout + "\nstderr:\n" + stderr).contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
+            )
+
+            (stdout, stderr) = try await command.execute(
+                ["list", "--swift-sdks-path", fixturePath.pathString])
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+                #expect(!stdout.contains(sdkCommandDeprecationWarning))
+            }
+
+            // We only expect tool's output on the stdout stream.
+            #expect(stdout.contains("test-artifact"))
+
+            await expectThrowsCommandExecutionError(
+                try await command.execute(
+                    [
+                        "install",
+                        "--swift-sdks-path", fixturePath.pathString,
+                        bundlePath.pathString,
+                    ]
+                )
+            ) { error in
+                let stderr = error.stderr
+                #expect(
+                    stderr.contains(
+                        "Error: Swift SDK bundle with name `test-sdk.artifactbundle` is already installed. Can't install a new bundle with the same name."
+                    ),
+                )
+            }
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+            }
+
+            (stdout, stderr) = try await command.execute(
+                ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+                #expect(!stdout.contains(sdkCommandDeprecationWarning))
+            }
+
+            // We only expect tool's output on the stdout stream.
+            #expect(stdout.contains("test-sdk.artifactbundle` was successfully removed from the file system."))
+
+            (stdout, stderr) = try await command.execute(
+                ["list", "--swift-sdks-path", fixturePath.pathString])
+
+            if command == .experimentalSDK {
+                #expect(stderr.contains(sdkCommandDeprecationWarning))
+                #expect(!stdout.contains(sdkCommandDeprecationWarning))
+            }
+
+            // We only expect tool's output on the stdout stream.
+            #expect(!stdout.contains("test-artifact"))
         }
     }
 
-    func testConfigureSubcommand() async throws {
+    @Test(
+        arguments: [SwiftPM.sdk, SwiftPM.experimentalSDK],
+    )
+    func configureSubcommand(
+        command: SwiftPM,
+    ) async throws {
         let deprecationWarning = """
             warning: `swift sdk configuration` command is deprecated and will be removed in a future version of \
             SwiftPM. Use `swift sdk configure` instead.
 
             """
 
-        for command in [SwiftPM.sdk, SwiftPM.experimentalSDK] {
-            try await fixture(name: "SwiftSDKs") { fixturePath in
-                let bundle = "test-sdk.artifactbundle.zip"
+        try await fixture(name: "SwiftSDKs") { fixturePath in
+            let bundle = "test-sdk.artifactbundle.zip"
 
-                var (stdout, stderr) = try await command.execute([
-                    "install",
-                    "--swift-sdks-path", fixturePath.pathString,
-                    fixturePath.appending(bundle).pathString
-                ])
+            var (stdout, stderr) = try await command.execute([
+                "install",
+                "--swift-sdks-path", fixturePath.pathString,
+                fixturePath.appending(bundle).pathString,
+            ])
 
-                // We only expect tool's output on the stdout stream.
-                XCTAssertMatch(
-                    stdout,
-                    .contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
-                )
+            // We only expect tool's output on the stdout stream.
+            #expect(
+                stdout.contains("\(bundle)` successfully installed as test-sdk.artifactbundle.")
+            )
 
-                let deprecatedShowSubcommand = ["configuration", "show"]
+            let deprecatedShowSubcommand = ["configuration", "show"]
 
-                for showSubcommand in [deprecatedShowSubcommand, ["configure", "--show-configuration"]] {
-                    let invocation = showSubcommand + [
+            for showSubcommand in [deprecatedShowSubcommand, ["configure", "--show-configuration"]] {
+                let invocation =
+                    showSubcommand + [
                         "--swift-sdks-path", fixturePath.pathString,
                         "test-artifact",
                         "aarch64-unknown-linux-gnu",
                     ]
-                    (stdout, stderr) = try await command.execute(invocation)
+                (stdout, stderr) = try await command.execute(invocation)
 
-                    if command == .experimentalSDK {
-                        XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                    }
+                if command == .experimentalSDK {
+                    #expect(stderr.contains(sdkCommandDeprecationWarning))
+                }
 
-                    if showSubcommand == deprecatedShowSubcommand {
-                        XCTAssertMatch(stderr, .contains(deprecationWarning))
-                    }
+                if showSubcommand == deprecatedShowSubcommand {
+                    #expect(stderr.contains(deprecationWarning))
+                }
 
-                    let sdkSubpath = "test-sdk.artifactbundle/sdk/sdk"
+                let sdkSubpath = ["test-sdk.artifactbundle", "sdk", "sdk"]
 
-                    XCTAssertEqual(stdout,
-                        """
-                        sdkRootPath: \(fixturePath.pathString)/\(sdkSubpath)
+                #expect(
+                    stdout == """
+                        sdkRootPath: \(fixturePath.appending(components: sdkSubpath))
                         swiftResourcesPath: not set
                         swiftStaticResourcesPath: not set
                         includeSearchPaths: not set
                         librarySearchPaths: not set
                         toolsetPaths: not set
 
-                        """,
-                        invocation.joined(separator: " ")
-                    )
+                        """
+                )
 
-                    let deprecatedSetSubcommand = ["configuration", "set"]
-                    let deprecatedResetSubcommand = ["configuration", "reset"]
-                    for setSubcommand in [deprecatedSetSubcommand, ["configure"]] {
-                        for resetSubcommand in [deprecatedResetSubcommand, ["configure", "--reset"]] {
-                            var invocation = setSubcommand + [
+                let deprecatedSetSubcommand = ["configuration", "set"]
+                let deprecatedResetSubcommand = ["configuration", "reset"]
+                for setSubcommand in [deprecatedSetSubcommand, ["configure"]] {
+                    for resetSubcommand in [deprecatedResetSubcommand, ["configure", "--reset"]] {
+                        var invocation =
+                            setSubcommand + [
                                 "--swift-resources-path", fixturePath.appending("foo").pathString,
                                 "--swift-sdks-path", fixturePath.pathString,
                                 "test-artifact",
                                 "aarch64-unknown-linux-gnu",
                             ]
-                            (stdout, stderr) = try await command.execute(invocation)
+                        (stdout, stderr) = try await command.execute(invocation)
 
-                            XCTAssertEqual(stdout, """
+                        #expect(
+                            stdout == """
                                 info: These properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` \
                                 were successfully updated: swiftResourcesPath.
 
-                                """,
-                                invocation.joined(separator: " ")
-                            )
+                                """
+                        )
 
-                            if command == .experimentalSDK {
-                                XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                            }
+                        if command == .experimentalSDK {
+                            #expect(stderr.contains(sdkCommandDeprecationWarning))
+                        }
 
-                            if setSubcommand == deprecatedSetSubcommand {
-                                XCTAssertMatch(stderr, .contains(deprecationWarning))
-                            }
+                        if setSubcommand == deprecatedSetSubcommand {
+                            #expect(stderr.contains(deprecationWarning))
+                        }
 
-                            invocation = showSubcommand + [
+                        invocation =
+                            showSubcommand + [
                                 "--swift-sdks-path", fixturePath.pathString,
                                 "test-artifact",
                                 "aarch64-unknown-linux-gnu",
                             ]
-                            (stdout, stderr) = try await command.execute(invocation)
+                        (stdout, stderr) = try await command.execute(invocation)
 
-                            XCTAssertEqual(stdout,
-                                """
-                                sdkRootPath: \(fixturePath.pathString)/\(sdkSubpath)
-                                swiftResourcesPath: \(fixturePath.pathString)/foo
+                        #expect(
+                            stdout == """
+                                sdkRootPath: \(fixturePath.appending(components: sdkSubpath).pathString)
+                                swiftResourcesPath: \(fixturePath.appending("foo"))
                                 swiftStaticResourcesPath: not set
                                 includeSearchPaths: not set
                                 librarySearchPaths: not set
                                 toolsetPaths: not set
 
-                                """,
-                                invocation.joined(separator: " ")
-                            )
+                                """
+                        )
 
-                            invocation = resetSubcommand + [
+                        invocation =
+                            resetSubcommand + [
                                 "--swift-sdks-path", fixturePath.pathString,
                                 "test-artifact",
                                 "aarch64-unknown-linux-gnu",
                             ]
-                            (stdout, stderr) = try await command.execute(invocation)
+                        (stdout, stderr) = try await command.execute(invocation)
 
-                            if command == .experimentalSDK {
-                                XCTAssertMatch(stderr, .contains(sdkCommandDeprecationWarning))
-                            }
+                        if command == .experimentalSDK {
+                            #expect(stderr.contains(sdkCommandDeprecationWarning))
+                        }
 
-                            if resetSubcommand == deprecatedResetSubcommand {
-                                XCTAssertMatch(stderr, .contains(deprecationWarning))
-                            }
+                        if resetSubcommand == deprecatedResetSubcommand {
+                            #expect(stderr.contains(deprecationWarning))
+                        }
 
-                            XCTAssertEqual(stdout,
-                                """
+                        #expect(
+                            stdout == """
                                 info: All configuration properties of Swift SDK `test-artifact` for target triple `aarch64-unknown-linux-gnu` were successfully reset.
 
-                                """,
-                                invocation.joined(separator: " ")
-                            )
-                        }
+                                """
+                        )
                     }
                 }
-
-                (stdout, stderr) = try await command.execute(
-                    ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
-
-                // We only expect tool's output on the stdout stream.
-                XCTAssertMatch(stdout, .contains("test-sdk.artifactbundle` was successfully removed from the file system."))
             }
+
+            (stdout, stderr) = try await command.execute(
+                ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
+
+            // We only expect tool's output on the stdout stream.
+            #expect(stdout.contains("test-sdk.artifactbundle` was successfully removed from the file system."))
         }
     }
 }

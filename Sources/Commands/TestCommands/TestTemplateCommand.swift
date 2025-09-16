@@ -12,7 +12,7 @@ import CoreCommands
 import Dispatch
 import Foundation
 import PackageGraph
-
+@_spi(PackageRefactor) import SwiftRefactor
 @_spi(SwiftPMInternal)
 import PackageModel
 
@@ -104,12 +104,17 @@ extension SwiftTestCommand {
             let directoryManager = TemplateTestingDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
             try directoryManager.createOutputDirectory(outputDirectoryPath: outputDirectory, swiftCommandState: swiftCommandState)
 
+            let buildSystem = globalOptions.build.buildSystem != .native ?
+            globalOptions.build.buildSystem :
+            swiftCommandState.options.build.buildSystem
+
             let pluginManager = try await TemplateTesterPluginManager(
                 swiftCommandState: swiftCommandState,
                 template: templateName,
                 scratchDirectory: cwd,
                 args: args,
-                branches: branches
+                branches: branches,
+                buildSystem: buildSystem,
             )
 
             let commandPlugin = try pluginManager.loadTemplatePlugin()
@@ -130,7 +135,7 @@ extension SwiftTestCommand {
 
                 let folderName = commandLine.fullPathKey
 
-                buildMatrix[folderName] = try await testDecisionTreeBranch(folderName: folderName, commandLine: commandLine.commandChain, swiftCommandState: swiftCommandState, packageType: packageType, commandPlugin: commandPlugin, cwd: cwd)
+                buildMatrix[folderName] = try await testDecisionTreeBranch(folderName: folderName, commandLine: commandLine.commandChain, swiftCommandState: swiftCommandState, packageType: packageType, commandPlugin: commandPlugin, cwd: cwd, buildSystem: buildSystem)
 
             }
 
@@ -142,7 +147,7 @@ extension SwiftTestCommand {
             }
         }
 
-        private func testDecisionTreeBranch(folderName: String, commandLine: [CommandComponent], swiftCommandState: SwiftCommandState, packageType: InitPackage.PackageType, commandPlugin: ResolvedModule, cwd: AbsolutePath) async throws -> BuildInfo {
+        private func testDecisionTreeBranch(folderName: String, commandLine: [CommandComponent], swiftCommandState: SwiftCommandState, packageType: InitPackage.PackageType, commandPlugin: ResolvedModule, cwd: AbsolutePath, buildSystem: BuildSystemProvider.Kind) async throws -> BuildInfo {
             let destinationPath = outputDirectory.appending(component: folderName)
 
             swiftCommandState.observabilityScope.emit(debug: "Generating \(folderName)")
@@ -156,7 +161,8 @@ extension SwiftTestCommand {
                 testingFolderName: folderName,
                 argumentPath: commandLine,
                 initialPackageType: packageType,
-                cwd: cwd
+                cwd: cwd,
+                buildSystem: buildSystem
             )
         }
 
@@ -257,7 +263,8 @@ extension SwiftTestCommand {
             testingFolderName: String,
             argumentPath: [CommandComponent],
             initialPackageType: InitPackage.PackageType,
-            cwd: AbsolutePath
+            cwd: AbsolutePath,
+            buildSystem: BuildSystemProvider.Kind
         ) async throws -> BuildInfo {
 
             let startGen = DispatchTime.now()
@@ -275,7 +282,7 @@ extension SwiftTestCommand {
 
                 let initTemplate = try InitTemplatePackage(
                     name: testingFolderName,
-                    initMode: .fileSystem(name: templateName, path: cwd.pathString),
+                    initMode: .fileSystem(.init(path: cwd.pathString)),
                     templatePath: cwd,
                     fileSystem: swiftCommandState.fileSystem,
                     packageType: initialPackageType,
@@ -308,6 +315,7 @@ extension SwiftTestCommand {
                             plugin: commandPlugin,
                             rootPackage: graph.rootPackages.first!,
                             packageGraph: graph,
+                            buildSystemKind: buildSystem,
                             arguments: fullCommand,
                             swiftCommandState: swiftCommandState,
                             requestPermission: false

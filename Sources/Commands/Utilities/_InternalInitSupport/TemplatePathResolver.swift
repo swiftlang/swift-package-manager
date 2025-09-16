@@ -16,13 +16,14 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageFingerprint
-import PackageModel
+@_spi(PackageRefactor) import SwiftRefactor
 import PackageRegistry
 import PackageSigning
 import SourceControl
 import TSCBasic
 import TSCUtility
 import Workspace
+import struct PackageModel.PackageIdentity
 
 /// A protocol representing a generic package template fetcher.
 ///
@@ -166,12 +167,12 @@ struct GitTemplateFetcher: TemplateFetcher {
 
     /// Fetches a bare clone of the Git repository to the specified path.
     func fetch() async throws -> Basics.AbsolutePath {
-        try withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
+        try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
             let bareCopyPath = tempDir.appending(component: "bare-copy")
             let workingCopyPath = tempDir.appending(component: "working-copy")
 
 
-            try cloneBareRepository(into: bareCopyPath)
+            try await cloneBareRepository(into: bareCopyPath)
             try validateBareRepository(at: bareCopyPath)
 
             try FileManager.default.createDirectory(
@@ -191,12 +192,12 @@ struct GitTemplateFetcher: TemplateFetcher {
     /// Clones a bare git repository.
     ///
     /// - Throws: An error is thrown if fetching fails.
-    private func cloneBareRepository(into path: Basics.AbsolutePath) throws {
+    private func cloneBareRepository(into path: Basics.AbsolutePath) async throws {
         let url = SourceControlURL(source)
         let repositorySpecifier = RepositorySpecifier(url: url)
         let provider = GitRepositoryProvider()
         do {
-            try provider.fetch(repository: repositorySpecifier, to: path)
+            try await provider.fetch(repository: repositorySpecifier, to: path)
         } catch {
             if isSSHPermissionError(error) {
                 throw GitTemplateFetcherError.sshAuthenticationRequired(source: source)
@@ -245,8 +246,8 @@ struct GitTemplateFetcher: TemplateFetcher {
     /// - Throws: An error if no matching version is found in a version range, or if checkout fails.
     private func checkout(repository: WorkingCheckout) throws {
         switch self.requirement {
-        case .exact(let version):
-            try repository.checkout(tag: version.description)
+        case .exact(let versionString):
+            try repository.checkout(tag: versionString)
 
         case .branch(let name):
             try repository.checkout(branch: name)
@@ -254,12 +255,33 @@ struct GitTemplateFetcher: TemplateFetcher {
         case .revision(let revision):
             try repository.checkout(revision: .init(identifier: revision))
 
-        case .range(let range):
+        case .range(let lowerBound, let upperBound):
             let tags = try repository.getTags()
             let versions = tags.compactMap { Version($0) }
-            let filteredVersions = versions.filter { range.contains($0) }
+            
+            guard let lowerVersion = Version(lowerBound),
+                  let upperVersion = Version(upperBound) else {
+                throw GitTemplateFetcherError.invalidVersionRange(lowerBound: lowerBound, upperBound: upperBound)
+            }
+            
+            let versionRange = lowerVersion..<upperVersion
+            let filteredVersions = versions.filter { versionRange.contains($0) }
             guard let latestVersion = filteredVersions.max() else {
-                throw GitTemplateFetcherError.noMatchingTagInRange(range)
+                throw GitTemplateFetcherError.noMatchingTagInVersionRange(lowerBound: lowerBound, upperBound: upperBound)
+            }
+            try repository.checkout(tag: latestVersion.description)
+            
+        case .rangeFrom(let versionString):
+            let tags = try repository.getTags()
+            let versions = tags.compactMap { Version($0) }
+            
+            guard let lowerVersion = Version(versionString) else {
+                throw GitTemplateFetcherError.invalidVersion(versionString)
+            }
+            
+            let filteredVersions = versions.filter { $0 >= lowerVersion }
+            guard let latestVersion = filteredVersions.max() else {
+                throw GitTemplateFetcherError.noMatchingTagFromVersion(versionString)
             }
             try repository.checkout(tag: latestVersion.description)
         }
@@ -270,7 +292,10 @@ struct GitTemplateFetcher: TemplateFetcher {
         case invalidRepositoryDirectory(path: Basics.AbsolutePath)
         case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
         case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
-        case noMatchingTagInRange(Range<Version>)
+        case noMatchingTagInVersionRange(lowerBound: String, upperBound: String)
+        case noMatchingTagFromVersion(String)
+        case invalidVersionRange(lowerBound: String, upperBound: String)
+        case invalidVersion(String)
         case sshAuthenticationRequired(source: String)
 
         var errorDescription: String? {
@@ -283,8 +308,14 @@ struct GitTemplateFetcher: TemplateFetcher {
                 return "Failed to create working copy at '\(path)': \(error.localizedDescription)"
             case .checkoutFailed(let requirement, let error):
                 return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
-            case .noMatchingTagInRange(let range):
-                return "No Git tags found within version range \(range)"
+            case .noMatchingTagInVersionRange(let lowerBound, let upperBound):
+                return "No Git tags found within version range \(lowerBound)..<\(upperBound)"
+            case .noMatchingTagFromVersion(let version):
+                return "No Git tags found from version \(version) or later"
+            case .invalidVersionRange(let lowerBound, let upperBound):
+                return "Invalid version range: \(lowerBound)..<\(upperBound)"
+            case .invalidVersion(let version):
+                return "Invalid version string: \(version)"
             case .sshAuthenticationRequired(let source):
                 return "SSH authentication required for '\(source)'.\nEnsure SSH agent is running and key is loaded:\n\nhttps://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
             }
@@ -341,7 +372,7 @@ struct RegistryTemplateFetcher: TemplateFetcher {
             let dest = tempDir.appending(component: self.packageIdentity)
             try await registryClient.downloadSourceArchive(
                 package: identity,
-                version: version,
+                version: self.version,
                 destinationPath: dest,
                 progressHandler: nil,
                 timeout: nil,
@@ -356,8 +387,21 @@ struct RegistryTemplateFetcher: TemplateFetcher {
     /// Extract the version from the registry requirements
     private var version: Version {
         switch requirement {
-        case .exact(let v): return v
-        case .range(let r): return r.upperBound
+        case .exact(let versionString):
+            guard let version = Version(versionString) else {
+                fatalError("Invalid version string: \(versionString)")
+            }
+            return version
+        case .range(let lowerBound, let upperBound):
+            guard let version = Version(upperBound) else {
+                fatalError("Invalid version string: \(upperBound)")
+            }
+            return version
+        case .rangeFrom(let versionString):
+            guard let version = Version(versionString) else {
+                fatalError("Invalid version string: \(versionString)")
+            }
+            return version
         }
     }
 

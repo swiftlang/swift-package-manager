@@ -63,6 +63,7 @@ enum TemplatePluginRunner {
         plugin: ResolvedModule,
         package: ResolvedPackage,
         packageGraph: ModulesGraph,
+        buildSystem buildSystemKind: BuildSystemProvider.Kind,
         arguments: [String],
         swiftCommandState: SwiftCommandState,
         allowNetworkConnections: [SandboxNetworkPermission] = [],
@@ -93,8 +94,7 @@ enum TemplatePluginRunner {
 
         let buildParams = try swiftCommandState.toolsBuildParameters
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native, // FIXME: This should be based on BuildSystemProvider.
-            traitConfiguration: .init(),
+            explicitBuildSystem: buildSystemKind, // FIXME: This should be based on BuildSystemProvider.
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParams,
@@ -103,24 +103,27 @@ enum TemplatePluginRunner {
 
         let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: swiftCommandState.fileSystem,
-            environment: swiftCommandState.toolsBuildParameters.buildEnvironment,
-            for: pluginScriptRunner.hostTriple
-        ) { name, _ in
-            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies
-            // are not supported within a package, so if the tool happens to be from the same package, we instead find
-            // the executable that corresponds to the product. There is always one, because of autogeneraxtion of
-            // implicit executables with the same name as the target if there isn't an explicit one.
-            try await buildSystem.build(subset: .product(name, for: .host))
-            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
-                $0.product.name == name && $0.buildParameters.destination == .host
-            }) {
-                return try builtTool.binaryPath
+            environment: buildParams.buildEnvironment,
+            for: try pluginScriptRunner.hostTriple
+        ) { name, path in
+            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
+            let buildResult = try await buildSystem.build(subset: .product(name, for: .host), buildOutputs: [.buildPlan])
+
+            if let buildPlan = buildResult.buildPlan {
+                if let builtTool = buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.buildParameters.destination == .host
+                }) {
+                    return try builtTool.binaryPath
+                } else {
+                    return nil
+                }
             } else {
-                return nil
+                return buildParams.buildPath.appending(path)
             }
         }
 
-        let delegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget, echoOutput: false)
+
+        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget, echoOutput: false)
 
         let workingDir = try swiftCommandState.options.locations.packageDirectory
             ?? swiftCommandState.fileSystem.currentWorkingDirectory
@@ -143,11 +146,11 @@ enum TemplatePluginRunner {
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
             callbackQueue: DispatchQueue(label: "plugin-invocation"),
-            delegate: delegate
+            delegate: pluginDelegate
         )
         
         guard success else {
-            let stringError = delegate.diagnostics
+            let stringError = pluginDelegate.diagnostics
                 .map { $0.message }
                 .joined(separator: "\n")
 
@@ -156,7 +159,7 @@ enum TemplatePluginRunner {
                 command: arguments
             )
         }
-        return delegate.lineBufferedOutput
+        return pluginDelegate.lineBufferedOutput
     }
 
     /// Safely casts a `ResolvedModule` to a `PluginModule`, or throws if invalid.

@@ -15,13 +15,14 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
-import PackageModel
-import PackageModelSyntax
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
 import Workspace
+
+import class PackageModel.Manifest
 
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
@@ -98,7 +99,7 @@ extension SwiftPackageCommand {
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.SourceControl.Requirement] = []
             if let exact {
-                requirements.append(.exact(exact))
+                requirements.append(.exact(exact.description))
             }
 
             if let branch {
@@ -110,11 +111,17 @@ extension SwiftPackageCommand {
             }
 
             if let from {
-                requirements.append(.range(.upToNextMajor(from: from)))
+                requirements.append(.rangeFrom(from.description))
             }
 
             if let upToNextMinorFrom {
-                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+                let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+                requirements.append(
+                    .range(
+                        lowerBound: range.lowerBound.description,
+                        upperBound: range.upperBound.description
+                    )
+                )
             }
 
             if requirements.count > 1 {
@@ -130,13 +137,14 @@ extension SwiftPackageCommand {
             }
 
             let requirement: PackageDependency.SourceControl.Requirement
-            if case .range(let range) = firstRequirement {
-                if let to {
-                    requirement = .range(range.lowerBound ..< to)
+            switch firstRequirement {
+            case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+                requirement = if let to {
+                    .range(lowerBound: lowerBound, upperBound: to.description)
                 } else {
-                    requirement = .range(range)
+                    firstRequirement
                 }
-            } else {
+            default:
                 requirement = firstRequirement
 
                 if self.to != nil {
@@ -147,7 +155,7 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .sourceControl(name: nil, location: url, requirement: requirement)
+                packageDependency: .sourceControl(.init(location: url, requirement: requirement))
             )
         }
 
@@ -159,15 +167,21 @@ extension SwiftPackageCommand {
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.Registry.Requirement] = []
             if let exact {
-                requirements.append(.exact(exact))
+                requirements.append(.exact(exact.description))
             }
 
             if let from {
-                requirements.append(.range(.upToNextMajor(from: from)))
+                requirements.append(.rangeFrom(from.description))
             }
 
             if let upToNextMinorFrom {
-                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+                let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+                requirements.append(
+                    .range(
+                        lowerBound: range.lowerBound.description,
+                        upperBound: range.upperBound.description
+                    )
+                )
             }
 
             if requirements.count > 1 {
@@ -183,13 +197,14 @@ extension SwiftPackageCommand {
             }
 
             let requirement: PackageDependency.Registry.Requirement
-            if case .range(let range) = firstRequirement {
-                if let to {
-                    requirement = .range(range.lowerBound ..< to)
+            switch firstRequirement {
+            case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+                requirement = if let to {
+                    .range(lowerBound: lowerBound, upperBound: to.description)
                 } else {
-                    requirement = .range(range)
+                    firstRequirement
                 }
-            } else {
+            default:
                 requirement = firstRequirement
 
                 if self.to != nil {
@@ -200,7 +215,7 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .registry(id: id, requirement: requirement)
+                packageDependency: .registry(.init(identity: id, requirement: requirement))
             )
         }
 
@@ -212,14 +227,14 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .fileSystem(name: nil, path: directory)
+                packageDependency: .fileSystem(.init(path: directory))
             )
         }
 
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
             workspace: Workspace,
-            packageDependency: MappablePackageDependency.Kind
+            packageDependency: PackageDependency
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem
@@ -240,9 +255,9 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let editResult = try AddPackageDependency.addPackageDependency(
-                packageDependency,
-                to: manifestSyntax
+            let editResult = try AddPackageDependency.textRefactor(
+                syntax: manifestSyntax,
+                in: .init(dependency: packageDependency)
             )
 
             try editResult.applyEdits(

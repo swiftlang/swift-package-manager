@@ -111,10 +111,6 @@ struct BuildCommandOptions: ParsableArguments {
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
 */
-    /// Specifies the traits to build.
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
-
     /// If should link the Swift stdlib statically.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Link Swift stdlib statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
@@ -145,7 +141,6 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             // FIXME: Doesn't seem ideal that we need an explicit build operation, but this concretely uses the `LLBuildManifest`.
             guard let buildOperation = try await swiftCommandState.createBuildSystem(
                 explicitBuildSystem: .native,
-                traitConfiguration: .init(traitOptions: self.options.traits)
             ) as? BuildOperation else {
                 throw StringError("asked for native build system but did not get it")
             }
@@ -195,7 +190,6 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     ) async throws {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitProduct: options.product,
-            traitConfiguration: .init(traitOptions: self.options.traits),
             shouldLinkStaticSwiftStdlib: options.shouldLinkStaticSwiftStdlib,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
@@ -204,7 +198,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             outputStream: TSCBasic.stdoutStream
         )
         do {
-            try await buildSystem.build(subset: subset)
+            try await buildSystem.build(subset: subset, buildOutputs: [])
         } catch _ as Diagnostics {
             throw ExitCode.failure
         }

@@ -10,11 +10,50 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A struct representing a package's trait.
+/// A package trait.
 ///
-/// Traits can be used for expressing conditional compilation and optional dependencies.
+/// A trait is a package feature that expresses conditional compilation and potentially optional dependencies.
+/// It is typically used to expose additional or extended API for the package.
 ///
-/// - Important: Traits must be strictly additive and enabling a trait **must not** remove API.
+/// When you define a trait on a package, the package manager uses the name of that trait as a conditional block for the package's code.
+/// Use the conditional block to enable imports or code paths for that trait.
+/// For example, a trait with the canonical name `MyTrait` allows you to use the name as a conditional block:
+///
+/// ```swift
+/// #if MyTrait
+/// // additional imports or APIs that MyTrait enables
+/// #endif // MyTrait
+/// ```
+///
+/// - Important: Traits must be strictly additive. Enabling a trait **must not** remove API.
+///
+/// If your conditional code requires a dependency that you want to enable only when the trait is enabled,
+/// add a conditional declaration to the target dependencies,
+/// then include the import statement within the conditional block.
+/// The following example illustrates enabling the dependency `MyDependency` when the trait `Trait1` is enabled:
+///
+/// ```swift
+/// targets: [
+///    .target(
+///        name: "MyTarget",
+///        dependencies: [
+///            .product(
+///                name: "MyAPI",
+///                package: "MyDependency",
+///                condition: .when(traits: ["Trait1"])
+///            )
+///        ]
+///    ),
+/// ]
+/// ```
+///
+/// Coordinate a declaration like the example above with code that imports the dependency in a conditional block:
+///
+/// ```swift
+/// #if Trait1
+/// import MyAPI
+/// #endif // Trait1
+/// ```
 @available(_PackageDescription, introduced: 6.1)
 public struct Trait: Hashable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
@@ -28,25 +67,26 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
 
     /// The trait's canonical name.
     ///
-    /// This is used when enabling the trait or when referring to it from other modifiers in the manifest.
+    /// Use the trait's name to enable the trait or when referring to it from other modifiers in the manifest.
+    /// The trait's name also defines the conditional block that the compiler supports when the trait is active.
     ///
     /// The following rules are enforced on trait names:
     /// - The first character must be a [Unicode XID start character](https://unicode.org/reports/tr31/#Figure_Code_Point_Categories_for_Identifier_Parsing)
     /// (most letters), a digit, or `_`.
     /// - Subsequent characters must be a [Unicode XID continue character](https://unicode.org/reports/tr31/#Figure_Code_Point_Categories_for_Identifier_Parsing)
     /// (a digit, `_`, or most letters), `-`, or `+`.
-    /// - `default` and `defaults` (in any letter casing combination) are not allowed as trait names to avoid confusion with default traits.
+    /// - The names `default` and `defaults` (in any letter casing combination) aren't allowed as trait names to avoid confusion with default traits.
     public var name: String
 
     /// The trait's description.
     ///
-    /// Use this to explain what functionality this trait enables.
+    /// Use the description to explain the additional functionality that the trait enables.
     public var description: String?
 
     /// A set of other traits of this package that this trait enables.
     public var enabledTraits: Set<String>
 
-    /// Initializes a new trait.
+    /// Creates a trait with a name, a description, and set of additional traits it enables.
     ///
     /// - Parameters:
     ///   - name: The trait's canonical name.
@@ -62,11 +102,13 @@ public struct Trait: Hashable, ExpressibleByStringLiteral {
         self.enabledTraits = enabledTraits
     }
 
+    /// Creates a trait with the name you provide.
+    /// - Parameter value: The trait's canonical name.
     public init(stringLiteral value: StringLiteralType) {
         self.init(name: value)
     }
 
-    /// Initializes a new trait.
+    /// Creates a trait with a name, a description, and set of additional traits it enables.
     ///
     /// - Parameters:
     ///   - name: The trait's canonical name.

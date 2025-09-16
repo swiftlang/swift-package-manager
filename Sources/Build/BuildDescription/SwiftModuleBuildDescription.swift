@@ -198,6 +198,10 @@ public final class SwiftModuleBuildDescription {
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
     var needsToBeParsedAsLibrary: Bool {
+        if buildParameters.sanitizers.sanitizers.contains(.fuzzer) {
+            return true
+        }
+
         switch self.target.type {
         case .library, .test:
             return true
@@ -634,11 +638,27 @@ public final class SwiftModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args += ["-suppress-warnings"]
-            // suppress-warnings and warnings-as-errors are mutually exclusive
-            if let index = args.firstIndex(of: "-warnings-as-errors") {
-                args.remove(at: index)
+            // suppress-warnings and the other warning control flags are mutually exclusive
+            var removeNextArg = false
+            args = args.filter { arg in
+                if removeNextArg {
+                    removeNextArg = false
+                    return false
+                }
+                switch arg {
+                case "-warnings-as-errors", "-no-warnings-as-errors":
+                    return false
+                case "-Wwarning", "-Werror":
+                    removeNextArg = true
+                    return false
+                default:
+                    return true
+                }
             }
+            guard !removeNextArg else {
+                throw InternalError("Unexpected '-Wwarning' or '-Werror' at the end of args")
+            }
+            args += ["-suppress-warnings"]
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
@@ -801,7 +821,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.triple.isDarwin() && self.target.type == .library
+        self.target.type == .library
     }
 
     func writeOutputFileMap(to path: AbsolutePath) throws {
@@ -890,15 +910,20 @@ public final class SwiftModuleBuildDescription {
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
     }
 
+    /// Directory for the the compatibility header and module map generated for this target.
+    /// The whole directory should be usable as a header search path.
+    private var compatibilityHeaderDirectory: AbsolutePath {
+        tempsPath.appending("include")
+    }
+
     /// Generates the module map for the Swift target and returns its path.
     private func generateModuleMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending(component: moduleMapFilename)
+        let path = self.compatibilityHeaderDirectory.appending(component: moduleMapFilename)
 
         let bytes = ByteString(
             #"""
             module \#(self.target.c99name) {
                 header "\#(self.objCompatibilityHeaderPath.pathString)"
-                requires objc
             }
 
             """#.utf8
@@ -917,7 +942,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns the path to the ObjC compatibility header for this Swift target.
     var objCompatibilityHeaderPath: AbsolutePath {
-        self.tempsPath.appending("\(self.target.name)-Swift.h")
+        self.compatibilityHeaderDirectory.appending("\(self.target.name)-Swift.h")
     }
 
     /// Returns the build flags from the declared build settings.
@@ -1034,10 +1059,35 @@ public final class SwiftModuleBuildDescription {
         return arguments
     }
 
+    package var isEmbeddedSwift: Bool {
+        // If the target explicitly declares that it should build with Embedded
+        // Swift, then true.
+        let buildSettings = self.target.underlying.buildSettingsDescription
+        let swiftSettings = buildSettings.swiftSettings.map(\.kind)
+        for case .enableExperimentalFeature("Embedded") in swiftSettings {
+            return true
+        }
+
+        // Otherwise dig through flags looking for -enable-experimental-feature
+        // Embedded. This is needed to handle Embedded being set via:
+        // - unsafeFlags
+        // - swift build cli flags
+        // - toolset flags
+        let queryFlags = ["-enable-experimental-feature", "Embedded"]
+
+        let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        if toolchainFlags.contains(queryFlags) { return true }
+        
+        let generalFlags = self.buildParameters.flags.swiftCompilerFlags
+        if generalFlags.contains(queryFlags) { return true }
+
+        return false
+    }
+
     /// Whether to build Swift code with whole module optimization (WMO)
     /// enabled.
     package var useWholeModuleOptimization: Bool {
-        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+        if self.isEmbeddedSwift { return true }
 
         switch self.buildParameters.configuration {
         case .debug:
@@ -1050,7 +1100,7 @@ public final class SwiftModuleBuildDescription {
     // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
     /// Whether to build Swift code with -Xfrontend -mergeable-symbols.
     package var useMergeableSymbols: Bool {
-        return self.target.underlying.isEmbeddedSwiftTarget
+        return self.isEmbeddedSwift
     }
 }
 
@@ -1076,10 +1126,22 @@ extension SwiftModuleBuildDescription {
 
 extension SwiftModuleBuildDescription {
     package var diagnosticFiles: [AbsolutePath] {
-        self.sources.compactMap { self.diagnosticFile(sourceFile: $0) }
+        // WMO builds have a single frontend invocation and produce a single
+        // diagnostic file named after the module.
+        if self.useWholeModuleOptimization {
+            return [
+                self.diagnosticFile(name: self.target.name)
+            ]
+        }
+
+        return self.sources.map(self.diagnosticFile(sourceFile:))
+    }
+
+    private func diagnosticFile(name: String) -> AbsolutePath {
+        self.tempsPath.appending(component: "\(name).dia")
     }
 
     private func diagnosticFile(sourceFile: AbsolutePath) -> AbsolutePath {
-        self.tempsPath.appending(component: "\(sourceFile.basenameWithoutExt).dia")
+        self.diagnosticFile(name: sourceFile.basenameWithoutExt)
     }
 }

@@ -17,7 +17,14 @@ import XCTest
 
 final class ResourcesTests: XCTestCase {
     func testSimpleResources() async throws {
-        try await fixture(name: "Resources/Simple") { fixturePath in
+        try XCTSkipOnWindows(
+            because: """
+            Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602
+            """,
+            skipPlatformCi: true,
+        )
+
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -27,19 +34,26 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             for execName in executables {
-                let (output, _) = try await executeSwiftRun(fixturePath, execName)
+                let (output, _) = try await executeSwiftRun(
+                    fixturePath,
+                    execName,
+                    buildSystem: .native,
+                )
                 XCTAssertTrue(output.contains("foo"), output)
             }
         }
     }
 
     func testLocalizedResources() async throws {
-        try await fixture(name: "Resources/Localized") { fixturePath in
-            try await executeSwiftBuild(fixturePath)
+        try await fixtureXCTest(name: "Resources/Localized") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .native,
+            )
 
             let exec = AbsolutePath(".build/debug/exe", relativeTo: fixturePath)
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
-            let output = try await AsyncProcess.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)")
+            let output = try await AsyncProcess.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)").withSwiftLineEnding
             XCTAssertEqual(output, """
                 ¡Hola Mundo!
                 Hallo Welt!
@@ -55,13 +69,17 @@ final class ResourcesTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
-        try await fixture(name: "Resources/Simple") { fixturePath in
-            await XCTAssertBuilds(fixturePath, extraArgs: ["--target", "MixedClangResource"])
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
+            await XCTAssertBuilds(
+                fixturePath,
+                extraArgs: ["--target", "MixedClangResource"],
+                buildSystem: .native,
+            )
         }
     }
 
     func testMovedBinaryResources() async throws {
-        try await fixture(name: "Resources/Moved") { fixturePath in
+        try await fixtureXCTest(name: "Resources/Moved") { fixturePath in
             var executables = ["SwiftyResource"]
 
             // Objective-C module requires macOS
@@ -70,12 +88,22 @@ final class ResourcesTests: XCTestCase {
             #endif
 
             let binPath = try AbsolutePath(validating:
-                await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--show-bin-path"]).stdout
+                await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .release,
+                    extraArgs: ["--show-bin-path"],
+                    buildSystem: .native,
+                ).stdout
                     .trimmingCharacters(in: .whitespacesAndNewlines)
             )
 
             for execName in executables {
-                _ = try await executeSwiftBuild(fixturePath, configuration: .Release, extraArgs: ["--product", execName])
+                _ = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .release,
+                    extraArgs: ["--product", execName],
+                    buildSystem: .native,
+                )
 
                 try await withTemporaryDirectory(prefix: execName) { tmpDirPath in
                     defer {
@@ -84,27 +112,29 @@ final class ResourcesTests: XCTestCase {
                         try? localFileSystem.removeFileTree(tmpDirPath)
                     }
 
-                    let destBinPath = tmpDirPath.appending(component: execName)
+                    let destBinPath = tmpDirPath.appending(component: executableName(execName))
                     // Move the binary
-                    try localFileSystem.move(from: binPath.appending(component: execName), to: destBinPath)
+                    try localFileSystem.move(from: binPath.appending(component: executableName(execName)), to: destBinPath)
                     // Move the resources
                     try localFileSystem
                         .getDirectoryContents(binPath)
-                        .filter { $0.contains(execName) && $0.hasSuffix(".bundle") || $0.hasSuffix(".resources") }
+                        .filter { $0.contains(executableName(execName)) && $0.hasSuffix(".bundle") || $0.hasSuffix(".resources") }
                         .forEach { try localFileSystem.move(from: binPath.appending(component: $0), to: tmpDirPath.appending(component: $0)) }
                     // Run the binary
                     let output = try await AsyncProcess.checkNonZeroExit(args: destBinPath.pathString)
-                    XCTAssertTrue(output.contains("foo"))
+                    XCTAssertMatch(output, .contains("foo"))
                 }
             }
         }
     }
 
     func testSwiftResourceAccessorDoesNotCauseInconsistentImportWarning() async throws {
-        try await fixture(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
+        try XCTSkipOnWindows(because: "fails to build, need investigation")
+        try await fixtureXCTest(name: "Resources/FoundationlessClient/UtilsWithFoundationPkg") { fixturePath in
             await XCTAssertBuilds(
                 fixturePath,
-                Xswiftc: ["-warnings-as-errors"]
+                Xswiftc: ["-warnings-as-errors"],
+                buildSystem: .native,
             )
         }
     }
@@ -115,29 +145,39 @@ final class ResourcesTests: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
 
-        try await fixture(name: "Resources/Simple") { fixturePath in
-            await XCTAssertSwiftTest(fixturePath, extraArgs: ["--filter", "ClangResourceTests"])
+        try await fixtureXCTest(name: "Resources/Simple") { fixturePath in
+            await XCTAssertSwiftTest(
+                fixturePath,
+                extraArgs: ["--filter", "ClangResourceTests"],
+                buildSystem: .native,
+            )
         }
     }
 
     func testResourcesEmbeddedInCode() async throws {
-        try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
+        try await fixtureXCTest(name: "Resources/EmbedInCodeSimple") { fixturePath in
             let execPath = fixturePath.appending(components: ".build", "debug", "EmbedInCodeSimple")
-            try await executeSwiftBuild(fixturePath)
+            try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .native,
+            )
             let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
-            XCTAssertEqual(result, "hello world\n\n")
+            XCTAssertMatch(result, .contains("hello world"))
             let resourcePath = fixturePath.appending(
                 components: "Sources", "EmbedInCodeSimple", "best.txt")
 
             // Check incremental builds
             for i in 0..<2 {
-              let content = "Hi there \(i)!"
-              // Update the resource file.
-              try localFileSystem.writeFileContents(resourcePath, string: content)
-              try await executeSwiftBuild(fixturePath)
-              // Run the executable again.
-              let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
-              XCTAssertEqual(result2, "\(content)\n")
+                let content = "Hi there \(i)!"
+                // Update the resource file.
+                try localFileSystem.writeFileContents(resourcePath, string: content)
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: .native,
+                )
+                 // Run the executable again.
+                let result2 = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+                XCTAssertMatch(result2, .contains("\(content)"))
             }
         }
     }
@@ -173,7 +213,11 @@ final class ResourcesTests: XCTestCase {
             try localFileSystem.createDirectory(resource.parentDirectory, recursive: true)
             try localFileSystem.writeFileContents(resource, string: "best")
 
-            let (_, stderr) = try await executeSwiftBuild(packageDir, env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"])
+            let (_, stderr) = try await executeSwiftBuild(
+                packageDir,
+                env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                buildSystem: .native,
+            )
             // Filter some unrelated output that could show up on stderr.
             let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
                                                                      .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
