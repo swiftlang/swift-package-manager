@@ -113,7 +113,7 @@ struct ModulesGraphTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect),
+        .IssueWindowsPathTestsFailures,
     )
     func basic() throws {
         try withKnownIssue {

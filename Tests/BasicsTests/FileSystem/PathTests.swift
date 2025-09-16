@@ -43,6 +43,7 @@ struct PathTests {
         }
 
         @Test(
+            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "/ab/cd/ef/", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
                 (path: "/ab/cd/ef//", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
@@ -110,6 +111,7 @@ struct PathTests {
             }
 
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/./a", expected: (windows ? #"\"# : "/")),
                     (path: "/../..", expected: (windows ? #"\"# : "/")),
@@ -143,6 +145,7 @@ struct PathTests {
             }
 
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/../..", expected: "/"),
                 ]
@@ -178,6 +181,7 @@ struct PathTests {
             }
 
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/../..", expected:  "/"),
                 ]
@@ -204,6 +208,7 @@ struct PathTests {
                 #expect(actual == expectedPath)
             }
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/", numParentDirectoryCalls: 1, expected: "/"),
                     (path: "/", numParentDirectoryCalls: 2, expected: "/"),
@@ -215,6 +220,7 @@ struct PathTests {
             }
 
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
                     (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
@@ -231,6 +237,7 @@ struct PathTests {
         }
 
         @Test(
+            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "/", expected: ["/"]),
                 (path: "/.", expected: ["/"]),
@@ -329,6 +336,87 @@ struct PathTests {
             }
         }
 
+        struct absolutePathValidationWithPathContainsLeadingAndTrailingWhitespacesReturnsExpectedValue {
+            func testImplementation(
+                data: (String, String),
+                whitespaces: String,
+            ) throws {
+                let path = data.0
+                let expected = data.1
+                do {
+                    // Leading whitespaces
+                    let actual = try AbsolutePath(validating: "\(whitespaces)\(path)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+
+                do {
+                    // Training whitespaces
+                    let actual = try AbsolutePath(validating: "\(path)\(whitespaces)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+
+                do {
+                    // Leading and trailing whitespaces
+                    let actual = try AbsolutePath(validating: "\(whitespaces)\(path)\(whitespaces)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+            }
+            @Test(
+                arguments: [
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                ], [
+                    " ",
+                    "  ",
+                    "\t",
+                    "\t\t",
+                    "\n",
+                    "\n\n",
+                    "\t ",
+                    " \t",
+                    " \n\t",
+                    "\n \t",
+                ],
+            )
+            func absolutePathValidationWithPathContainsLeadingAndTrailingWhitespaces(
+                data: (String, String),
+                whitespaces: String,
+            ) throws {
+                try testImplementation(data: data, whitespaces: whitespaces)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/.", expected: (windows ? #"\"# : "/")),
+                    (path: "/..", expected: (windows ? #"\"# : "/")),
+                    (path: "/bar/", expected: (windows ? #"\bar"# : "/bar")),
+                ], [
+                    " ",
+                    "  ",
+                    "\t",
+                    "\t\t",
+                    "\n",
+                    "\n\n",
+                    "\t ",
+                    " \t",
+                    " \n\t",
+                    "\n \t",
+                ],
+            )
+            func absolutePathValidationWithPathContainsLeadingAndTrailingWhitespacesFailsOnWindows(
+                data: (String, String),
+                whitespaces: String,
+            ) throws {
+                try withKnownIssue(": Path \(data.0) is not handled properly") {
+                    try testImplementation(data: data, whitespaces: whitespaces)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+
         @Test
         func comparison() {
             #expect(AbsolutePath("/") <= AbsolutePath("/"));
@@ -368,6 +456,7 @@ struct PathTests {
         }
 
         @Test(
+            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "ab//cd//ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
                 (path: "ab//cd///ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
@@ -440,7 +529,8 @@ struct PathTests {
             }
 
             @Test(
-                arguments: [
+             .IssueWindowsPathTestsFailures,
+               arguments: [
                     (path: "../a/..", expected: "."),
                     (path: "a/..", expected: "."),
                     (path: "a/../////../////./////", expected: "."),
@@ -481,6 +571,7 @@ struct PathTests {
             }
 
             @Test(
+                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "a/..", expected:  "."),
                     (path: "a/../////../////./////", expected:  ".."),
@@ -519,6 +610,7 @@ struct PathTests {
             }
 
             @Test(
+            .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "../..", expected:  ".."),
                     (path: "../a/..", expected:  ".."),
@@ -560,7 +652,8 @@ struct PathTests {
             }
 
             @Test(
-                arguments:[
+             .IssueWindowsPathTestsFailures,
+               arguments:[
                     "a.",
                     ".a",
                     "",
@@ -601,6 +694,7 @@ struct PathTests {
             }
 
             @Test(
+            .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "foo/bar/..", expected: ["foo"]),
                     (path: "bar/../foo", expected: ["foo"]),
@@ -622,18 +716,101 @@ struct PathTests {
             }
         }
         
-        @Test
+        @Test(
+            .IssueWindowsPathTestsFailures,
+        )
         func relativePathValidation() throws {
             #expect(throws: Never.self) { 
                 try RelativePath(validating: "a/b/c/d")
             }
 
-            withKnownIssue {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: \\") {
                 #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
                     ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        struct relativePathValidationWithPathContainsLeadingAndTrailingWhitespacesReturnsExpectedValue {
+            func testImplementation(
+                data: (String, String),
+                whitespaces: String,
+            ) async throws {
+                let path = data.0
+                let expected = data.1
+                do {
+                    // Leading whitespaces
+                    let actual = try RelativePath(validating: "\(whitespaces)\(path)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+
+                do {
+                    // Training whitespaces
+                    let actual = try RelativePath(validating: "\(path)\(whitespaces)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+
+                do {
+                    // Leading and trailing whitespaces
+                    let actual = try RelativePath(validating: "\(whitespaces)\(path)\(whitespaces)").pathString
+                    #expect(actual == expected, "Actual is not as expected. Path is: '\(path)'")
+                }
+            }
+
+            @Test(
+                arguments: [
+                    (path: ".", expected: "."),
+                    (path: "bar/", expected: (windows ? #"bar\"# : "bar")),
+                    (path: "bar/baz", expected: (windows ? #"bar\baz"# :"bar/baz")),
+                ], [
+                    " ",
+                    "  ",
+                    "\t",
+                    "\t\t",
+                    "\n",
+                    "\n\n",
+                    "\t ",
+                    " \t",
+                    " \n\t",
+                    "\n \t",
+                ],
+            )
+            func relativePathValidationWithPathContainsLeadingAndTrailingWhitespaces(
+                data: (String, String),
+                whitespaces: String,
+            ) async throws {
+                try await testImplementation(data: data, whitespaces: whitespaces)
+            }
+
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "bar/", expected: "bar"),
+                ] as [(String, String)], [
+                    " ",
+                    "  ",
+                    "\t",
+                    "\t\t",
+                    "\n",
+                    "\n\n",
+                    "\t ",
+                    " \t",
+                    " \n\t",
+                    "\n \t",
+                ],
+            )
+            func relativePathValidationWithPathContainsLeadingAndTrailingWhitespacesFailsOnWindows(
+                data: (String, String),
+                whitespaces: String,
+            ) async throws {
+                try await  withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(data.0) is not properly") {
+                    try await testImplementation(data: data, whitespaces: whitespaces)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
             }
         }
 
