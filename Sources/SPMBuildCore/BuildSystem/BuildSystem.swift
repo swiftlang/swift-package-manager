@@ -40,7 +40,7 @@ public enum BuildSubset {
 /// result for indication that the output was produced.
 public enum BuildOutput: Equatable {
     public static func == (lhs: BuildOutput, rhs: BuildOutput) -> Bool {
-        switch lhs {    
+        switch lhs {
         case .symbolGraph(let leftOptions):
             switch rhs {
                 case .symbolGraph(let rightOptions):
@@ -58,6 +58,13 @@ public enum BuildOutput: Equatable {
         case .replArguments:
             switch rhs {
                 case .replArguments:
+                    return true
+                default:
+                    return false
+            }
+        case .coverage:
+            switch rhs {
+                case .buildPlan:
                     return true
                 default:
                     return false
@@ -93,6 +100,7 @@ public enum BuildOutput: Equatable {
     case symbolGraph(SymbolGraphOptions)
     case buildPlan
     case replArguments
+    case coverage
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the

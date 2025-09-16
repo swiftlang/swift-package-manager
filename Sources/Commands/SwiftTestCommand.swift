@@ -619,7 +619,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
-
         try await AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
@@ -659,7 +658,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
+            traitConfiguration: .init(traitOptions: self.globalOptions.traits),
         )
     }
 
@@ -847,7 +846,7 @@ extension SwiftTestCommand {
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
-                traitConfiguration: .init(traitOptions: self.globalOptions.traits)
+                traitConfiguration: .init(traitOptions: self.globalOptions.traits),
             )
         }
     }
@@ -1555,7 +1554,7 @@ private func buildTestsIfNeeded(
     productsBuildParameters: BuildParameters,
     toolsBuildParameters: BuildParameters,
     testProduct: String?,
-    traitConfiguration: TraitConfiguration
+    traitConfiguration: TraitConfiguration,
 ) async throws -> [BuiltTestProduct] {
     let buildSystem = try await swiftCommandState.createBuildSystem(
         productsBuildParameters: productsBuildParameters,
@@ -1567,8 +1566,8 @@ private func buildTestsIfNeeded(
     } else {
         .allIncludingTests
     }
-
-    try await buildSystem.build(subset: subset, buildOutputs: [])
+    let buildOutputs: [BuildOutput] = productsBuildParameters.testingParameters.enableCodeCoverage ? [.coverage] : []
+    try await buildSystem.build(subset: subset, buildOutputs: buildOutputs)
 
     // Find the test product.
     let testProducts = await buildSystem.builtTestProducts

@@ -235,20 +235,29 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireSwift6_2)
-    func testCodeCoverageMergedAcrossSubprocesses() async throws {
-        try await withTemporaryDirectory { tmpDir in
+    @Test(
+        .requireSwift6_2,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func testCodeCoverageMergedAcrossSubprocesses(
+        buildData: BuildData,
+    ) async throws {
+        let buildSystem = buildData.buildSystem
+        let config = buildData.config
+        try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
+                configuration: config,
                 extraArgs: ["init", "--type", "empty"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             try await executeSwiftPackage(
                 packagePath,
+                configuration: config,
                 extraArgs: ["add-target", "--type", "test", "ReproTests"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             try localFileSystem.writeFileContents(
                 AbsolutePath(validating: "Tests/ReproTests/Subject.swift", relativeTo: packagePath),
@@ -276,18 +285,20 @@ private struct SwiftPMTests {
             )
             let expectedCoveragePath = try await executeSwiftTest(
                 packagePath,
+                configuration: config,
                 extraArgs: ["--show-coverage-path"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             try await executeSwiftTest(
                 packagePath,
+                configuration: config,
                 extraArgs: ["--enable-code-coverage", "--disable-xctest"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.
-            #expect(localFileSystem.exists(coveragePath))
+            expectFileExists(at: coveragePath)
 
             // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
             struct Coverage: Codable {
@@ -311,10 +322,10 @@ private struct SwiftPMTests {
             let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
 
             // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
-            let subjectCoverage = coverage.data.first?.files.first(where: { $0.filename.hasSuffix("Subject.swift") })
-            #expect(subjectCoverage?.summary.functions.count == 2)
-            #expect(subjectCoverage?.summary.functions.covered == 2)
-            #expect(subjectCoverage?.summary.functions.percent == 100)
+            let subjectCoverage = try #require(coverage.data.first?.files.first(where: { $0.filename.hasSuffix("Subject.swift") }))
+            #expect(subjectCoverage.summary.functions.count == 2)
+            #expect(subjectCoverage.summary.functions.covered == 2)
+            #expect(subjectCoverage.summary.functions.percent == 100)
 
             // Check the directory with the coverage path contains the profraw files.
             let coverageDirectory = coveragePath.parentDirectory

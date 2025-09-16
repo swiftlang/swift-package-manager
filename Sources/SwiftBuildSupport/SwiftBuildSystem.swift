@@ -351,11 +351,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: buildParameters)
 
+        var shouldBuildWithCoverage = false
         var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
         for output in buildOutputs {
             switch output {
             case .symbolGraph(let options):
                 symbolGraphOptions = options
+            case .coverage:
+                shouldBuildWithCoverage = true
             default:
                 continue
             }
@@ -365,13 +368,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             pifTargetName: subset.pifTargetName,
             symbolGraphOptions: symbolGraphOptions,
             generateReplArguments: buildOutputs.contains(.replArguments),
+            buildWithCoverage: shouldBuildWithCoverage,
         )
     }
 
     private func startSWBuildOperation(
         pifTargetName: String,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
-        generateReplArguments: Bool
+        generateReplArguments: Bool,
+        buildWithCoverage: Bool,
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
         var replArguments: CLIArguments?
@@ -423,7 +428,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
+                    let request = try await self.makeBuildRequest(
+                        session: session,
+                        configuredTargets: configuredTargets,
+                        derivedDataPath: derivedDataPath,
+                        symbolGraphOptions: symbolGraphOptions,
+                        buildWithCoverage: buildWithCoverage,
+                    )
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -641,7 +652,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(
+        session: SWBBuildServiceSession,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        buildWithCoverage: Bool,
+    ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -664,6 +679,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
             // native build system.
             settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        }
+
+        if buildWithCoverage {
+            settings["CLANG_COVERAGE_MAPPING"] = "YES"
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -781,9 +800,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
+    public func makeBuildRequest(
+        session: SWBBuildServiceSession,
+        configuredTargets: [SWBTargetGUID],
+        derivedDataPath: Basics.AbsolutePath,
+        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
+        buildWithCoverage: Bool,
+    ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
+        request.parameters = try await makeBuildParameters(
+            session: session,
+            symbolGraphOptions: symbolGraphOptions,
+            buildWithCoverage: buildWithCoverage,
+        )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
