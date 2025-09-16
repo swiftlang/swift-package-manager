@@ -44,6 +44,8 @@ private struct BasicTests {
 
             // Do not run the test when the git clone operation failed
             if !FileManager.default.fileExists(atPath: packagePath.pathString) {
+                //TODO: use Test Cancellation when available
+                //https://forums.swift.org/t/pitch-test-cancellation/81847/18
                 #if compiler(>=6.3)
                     Issue.record("Can't clone the repository \(repoToClone), abording the test.", severity: .warning)
                 #endif
