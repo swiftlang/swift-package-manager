@@ -17,7 +17,6 @@ import TSCUtility
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
-import func Build.containsAtMain
 
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
@@ -139,18 +138,9 @@ extension PackagePIFProjectBuilder {
                 settings[.INSTALL_PATH] = "/usr/local/bin"
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
-        } else if mainModule.type == .snippet {
-            let hasMainModule: Bool
-            if let mainModule = product.mainModule {
-                // Check if any source file in the main module contains @main
-                hasMainModule = mainModule.sources.paths.contains { (sourcePath: AbsolutePath) in
-                    (try? containsAtMain(fileSystem: pifBuilder.fileSystem, path: sourcePath)) ?? false
-                }
-            } else {
-                hasMainModule = false
-            }
-            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = hasMainModule ? "NO" : "YES"
         }
+
+        mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
 
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
 

@@ -1278,6 +1278,22 @@ struct BuildCommandTestCases {
         }
     }
 
+    @Test(arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+     func parseAsLibraryCriteria(buildSystem: BuildSystemProvider.Kind) async throws {
+         try await withKnownIssue {
+             try await fixture(name: "Miscellaneous/ParseAsLibrary") { fixturePath in
+                _ =  try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+            }
+         } when: {
+             ProcessInfo.hostOperatingSystem == .windows &&
+             buildSystem == .swiftbuild
+         }
+    }
+
     @Test(
         arguments: SupportedBuildSystemOnPlatform,
     )

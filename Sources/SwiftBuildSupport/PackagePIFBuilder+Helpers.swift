@@ -55,6 +55,8 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
+import SPMBuildCore
+
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -768,6 +770,27 @@ extension PackageGraph.ResolvedProduct {
 extension PackageGraph.ResolvedModule {
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
         [self].recursivelyTraverseDependencies(with: block)
+    }
+
+    func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
+        if toolsVersion > .v5_5 && [.executable, .snippet, .macro].contains(self.type) {
+            let usesAtMainAttr = self.sources.paths.contains { sourcePath in
+                (try? containsAtMain(fileSystem: fileSystem, path: sourcePath)) ?? false
+            }
+            if usesAtMainAttr {
+                // Always pass -parse-as-library if @main is used
+                settings[.SWIFT_LIBRARIES_ONLY] = "YES"
+                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+            } else {
+                // Never pass -parse-as-library if @main isn't used, fall back to compiler heuristics
+                settings[.SWIFT_LIBRARIES_ONLY] = "NO"
+                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
+            }
+        } else if [.library, .test].contains(self.type) {
+            // Always pass -parse-as-library for libraries and tests
+            settings[.SWIFT_LIBRARIES_ONLY] = "YES"
+            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+        }
     }
 }
 
