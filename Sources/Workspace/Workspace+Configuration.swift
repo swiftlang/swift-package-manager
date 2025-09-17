@@ -105,6 +105,11 @@ extension Workspace {
             self.sharedConfigurationDirectory.map { DefaultLocations.mirrorsConfigurationFile(at: $0) }
         }
 
+        /// Path to the LLVM Cov Show argument file
+        public var llvmCovShowArgumentFile: AbsolutePath {
+            self.localConfigurationDirectory.appending("coverage.html.report.args.txt")
+        }
+
         /// Path to the local registries configuration.
         public var localRegistriesConfigurationFile: AbsolutePath {
             DefaultLocations.registriesConfigurationFile(at: self.localConfigurationDirectory)
