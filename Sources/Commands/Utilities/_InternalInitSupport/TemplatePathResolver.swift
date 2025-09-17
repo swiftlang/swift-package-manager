@@ -392,7 +392,7 @@ struct RegistryTemplateFetcher: TemplateFetcher {
                 fatalError("Invalid version string: \(versionString)")
             }
             return version
-        case .range(let lowerBound, let upperBound):
+        case .range(_, let upperBound):
             guard let version = Version(upperBound) else {
                 fatalError("Invalid version string: \(upperBound)")
             }

@@ -230,14 +230,11 @@ public final class TemplatePromptingSystem {
     ///   - subcommandTrail: An internal list of command names to build the final CLI path (used recursively).
     ///   - inheritedResponses: Argument responses collected from parent commands that should be passed down.
     ///
-    /// - Returns: A list of command line invocations (`[[String]]`), each representing a full CLI command.
-    ///            Each entry includes only arguments relevant to the specific command or subcommand level.
+    /// - Returns: A single command line invocation representing the full CLI command with all arguments.
     ///
     /// - Throws: An error if argument parsing or user prompting fails.
 
-    public func promptUser(command: CommandInfoV0, arguments: [String], subcommandTrail: [String] = [], inheritedResponses: [ArgumentResponse] = []) throws -> [[String]] {
-
-        var commandLines = [[String]]()
+    public func promptUser(command: CommandInfoV0, arguments: [String], subcommandTrail: [String] = [], inheritedResponses: [ArgumentResponse] = []) throws -> [String] {
 
         let allArgs = try convertArguments(from: command)
         let (providedResponses, leftoverArgs) = try self.parseAndMatchArgumentsWithLeftovers(arguments, definedArgs: allArgs)
@@ -254,9 +251,7 @@ public final class TemplatePromptingSystem {
         let currentCommandResponses = allCurrentResponses.filter { currentArgNames.contains($0.argument.valueName) }
 
         let currentArgs = self.buildCommandLine(from: currentCommandResponses)
-        let fullCommand = subcommandTrail + currentArgs
-
-        commandLines.append(fullCommand)
+        var fullCommand = subcommandTrail + currentArgs
 
 
         if let subCommands = getSubCommand(from: command) {
@@ -278,14 +273,14 @@ public final class TemplatePromptingSystem {
                 var newArgs = leftoverArgs
                 newArgs.remove(at: index)
 
-                let subCommandLines = try self.promptUser(
+                let subCommandLine = try self.promptUser(
                     command: matchedSubcommand,
                     arguments: newArgs,
                     subcommandTrail: newTrail,
                     inheritedResponses: allCurrentResponses
                 )
 
-                commandLines.append(contentsOf: subCommandLines)
+                return subCommandLine
             } else {
                 // Fall back to interactive prompt
                 let chosenSubcommand = try self.promptUserForSubcommand(for: subCommands)
@@ -293,18 +288,18 @@ public final class TemplatePromptingSystem {
                 var newTrail = subcommandTrail
                 newTrail.append(chosenSubcommand.commandName)
 
-                let subCommandLines = try self.promptUser(
+                let subCommandLine = try self.promptUser(
                     command: chosenSubcommand,
                     arguments: leftoverArgs,
                     subcommandTrail: newTrail,
                     inheritedResponses: allCurrentResponses
                 )
 
-                commandLines.append(contentsOf: subCommandLines)
+                return subCommandLine
             }
         }
 
-        return commandLines
+        return fullCommand
     }
 
     /// Prompts the user to select a subcommand from a list of available options.

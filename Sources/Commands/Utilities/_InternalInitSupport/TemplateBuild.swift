@@ -59,7 +59,7 @@ enum TemplateBuildSupport {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: packageRoot) { _, _ in
             do {
                 try await buildSystem.build(subset: subset, buildOutputs: [.buildPlan])
-            } catch let diagnostics as Diagnostics {
+            } catch {
                 throw ExitCode.failure
             }
         }

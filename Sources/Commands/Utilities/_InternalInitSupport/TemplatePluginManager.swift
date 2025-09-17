@@ -87,11 +87,9 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
         let plugin = try loadTemplatePlugin()
         let toolInfo = try await coordinator.dumpToolInfo(using: plugin, from: packageGraph, rootPackage: rootPackage)
 
-        let cliResponses: [[String]] = try promptUserForTemplateArguments(using: toolInfo)
+        let cliResponses: [String] = try promptUserForTemplateArguments(using: toolInfo)
 
-        for response in cliResponses {
-            _ = try await runTemplatePlugin(plugin, with: response)
-        }
+        _ = try await runTemplatePlugin(plugin, with: cliResponses)
     }
 
     /// Utilizes the prompting system defined by the struct to prompt user.
@@ -105,7 +103,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Parameter toolInfo: The JSON representation of the template's decision tree
     /// - Returns: A 2D array of arguments provided by the user for template generation
     /// - Throws: Any errors during user prompting
-    private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [[String]] {
+    private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [String] {
         return try TemplatePromptingSystem().promptUser(command: toolInfo.command, arguments: args)
     }
 

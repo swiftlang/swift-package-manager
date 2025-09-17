@@ -81,7 +81,7 @@ extension SwiftTestCommand {
 
             name: .customLong("branches"),
             parsing: .upToNextOption,
-            help: "Specify the branch of the template you want to test.",
+            help: "Specify the branch of the template you want to test. Format: --branches branch1 branch2",
         )
         public var branches: [String] = []
 
@@ -96,7 +96,6 @@ extension SwiftTestCommand {
 
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw ValidationError("Could not determine current working directory.")
             }
@@ -127,7 +126,6 @@ extension SwiftTestCommand {
                 return
             }
             let packageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
-
 
             var buildMatrix: [String: BuildInfo] = [:]
 
@@ -299,30 +297,24 @@ extension SwiftTestCommand {
 
                 try await TemplateBuildSupport.buildForTesting(swiftCommandState: swiftCommandState, buildOptions: buildOptions, testingFolder: destinationAbsolutePath)
 
-                var subCommandPath: [String] = []
-                for (index, command) in argumentPath.enumerated() {
+                // Build flat command with all subcommands and arguments
+                let flatCommand = buildFlatCommand(from: argumentPath)
 
-                    subCommandPath.append(contentsOf: (index == 0 ? [] : [command.commandName]))
+                print("Running plugin with args:", flatCommand)
 
-                    let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
-                    let fullCommand = subCommandPath + commandArgs
+                try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
 
-                    print("Running plugin with args:", fullCommand)
-
-                    try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
-
-                        let output = try await TemplatePluginExecutor.execute(
-                            plugin: commandPlugin,
-                            rootPackage: graph.rootPackages.first!,
-                            packageGraph: graph,
-                            buildSystemKind: buildSystem,
-                            arguments: fullCommand,
-                            swiftCommandState: swiftCommandState,
-                            requestPermission: false
-                        )
-                        pluginOutput = String(data: output, encoding: .utf8) ?? "[Invalid UTF-8 output]"
-                        print(pluginOutput)
-                    }
+                    let output = try await TemplatePluginExecutor.execute(
+                        plugin: commandPlugin,
+                        rootPackage: graph.rootPackages.first!,
+                        packageGraph: graph,
+                        buildSystemKind: buildSystem,
+                        arguments: flatCommand,
+                        swiftCommandState: swiftCommandState,
+                        requestPermission: false
+                    )
+                    pluginOutput = String(data: output, encoding: .utf8) ?? "[Invalid UTF-8 output]"
+                    print(pluginOutput)
                 }
 
                 genDuration = startGen.distance(to: .now())
@@ -381,6 +373,20 @@ extension SwiftTestCommand {
                 buildSuccess: buildSuccess,
                 logFilePath: logPath
             )
+        }
+
+        private func buildFlatCommand(from argumentPath: [CommandComponent]) -> [String] {
+            var result: [String] = []
+
+            for (index, command) in argumentPath.enumerated() {
+                if index > 0 {
+                    result.append(command.commandName)
+                }
+                let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
+                result.append(contentsOf: commandArgs)
+            }
+
+            return result
         }
 
         private func captureAndWriteError(to path: AbsolutePath, error: Error, context: String) throws -> String {

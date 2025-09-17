@@ -81,29 +81,30 @@ extension CommandPath {
         let commandNames = commandChain.map { $0.commandName }
         let fullPath = commandNames.joined(separator: " ")
 
-        var result = "Command Path: \(fullPath) \nExecution Steps: \n\n"
+        var result = "Command Path: \(fullPath) \nExecution Format: \n\n"
 
-        // Build progressive commands
-        for i in 0..<commandChain.count {
-            let currentPath = Array(commandNames[0...i]).joined(separator: " ")
-
-            // Only add arguments from the final (current) command component
-            let currentComponent = commandChain[i]
-            let args = formatArguments(currentComponent.arguments)
-
-            if args.isEmpty {
-                result += "\(currentPath)\n"
-            } else {
-                result += "\(currentPath) \\\n\(args)\n"
-            }
-
-            if i < commandChain.count - 1 {
-                result += "\n"
-            }
-        }
-
-        result += "\n\n"
+        // Build flat command format: [Command command-args sub-command sub-command-args ...]
+        let flatCommand = buildFlatCommandDisplay()
+        result += "\(flatCommand)\n\n"
+        
         return result
+    }
+    
+    private func buildFlatCommandDisplay() -> String {
+        var result: [String] = []
+        
+        for (index, command) in commandChain.enumerated() {
+            // Add command name (skip the first command name as it's the root)
+            if index > 0 {
+                result.append(command.commandName)
+            }
+            
+            // Add all arguments for this command level
+            let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
+            result.append(contentsOf: commandArgs)
+        }
+        
+        return result.joined(separator: " ")
     }
 
     private func formatArguments(_ argumentResponses:
@@ -148,8 +149,7 @@ public class TemplateTestPromptingSystem {
     ///   - subcommandTrail: An internal list of command names to build the final CLI path (used recursively).
     ///   - inheritedResponses: Argument responses collected from parent commands that should be passed down.
     ///
-    /// - Returns: A list of command line invocations (`[[String]]`), each representing a full CLI command.
-    ///            Each entry includes only arguments relevant to the specific command or subcommand level.
+    /// - Returns: A list of command paths, each representing a full CLI command path with arguments.
     ///
     /// - Throws: An error if argument parsing or user prompting fails.
 
@@ -236,6 +236,9 @@ public class TemplateTestPromptingSystem {
 
         try dfs(command: rootCommand, path: [], visitedArgs: &visitedArgs, paths: &paths, predefinedArgs: args, branches: branches, branchDepth: 0)
 
+        for path in paths{
+            print(path.displayFormat())
+        }
         return paths
     }
 
@@ -286,7 +289,7 @@ public class TemplateTestPromptingSystem {
                 } else if branchDepth < (branches.count - 1) {
                     shouldTraverse = sub.commandName == branches[branchDepth + 1]
                 } else {
-                    shouldTraverse = true
+                    shouldTraverse = sub.commandName == branches[branchDepth]
                 }
                 
                 if shouldTraverse {

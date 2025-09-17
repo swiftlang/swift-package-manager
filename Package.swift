@@ -557,7 +557,7 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt"],
-            swiftSettings: swift6CompatibleExperimentalFeatures + [
+            swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
             ]
         ),
