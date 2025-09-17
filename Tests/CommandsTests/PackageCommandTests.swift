@@ -6285,33 +6285,38 @@ struct PackageCommandTests {
                         #expect(stdout.contains("executable"))
                     }
 
-                    // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
-                    do {
-                        let (stdout, _) = try await execute(
-                            ["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"],
-                            packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
-                        )
-                        #expect(stdout.contains("Building for production..."))
-                        #expect(!stdout.contains("Building for debug..."))
-                        #expect(!stdout.contains("-module-name MyLibrary"))
-                        if buildSystemProvider == .native {
-                            #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
+                    // SwiftBuild is currently not producing a static archive for static products unless they are linked into some other binary.
+                    try await withKnownIssue {
+                        // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
+                        do {
+                            let (stdout, _) = try await execute(
+                                ["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"],
+                                packagePath: packageDir,
+                                configuration: data.config,
+                                buildSystem: data.buildSystem,
+                            )
+                            #expect(stdout.contains("Building for production..."))
+                            #expect(!stdout.contains("Building for debug..."))
+                            #expect(!stdout.contains("-module-name MyLibrary"))
+                            if buildSystemProvider == .native {
+                                #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
+                            }
+                            #expect(stdout.contains("succeeded: true"))
+                            switch buildSystemProvider {
+                            case .native:
+                                #expect(stdout.contains("artifact-path:"))
+                                #expect(stdout.contains(RelativePath("release/libMyStaticLibrary").pathString))
+                            case .swiftbuild:
+                                #expect(stdout.contains("artifact-path:"))
+                                #expect(stdout.contains(RelativePath("MyStaticLibrary").pathString))
+                            case .xcode:
+                                Issue.record("unimplemented assertion for --build-system xcode")
+                            }
+                            #expect(stdout.contains("artifact-kind:"))
+                            #expect(stdout.contains("staticLibrary"))
                         }
-                        #expect(stdout.contains("succeeded: true"))
-                        switch buildSystemProvider {
-                        case .native:
-                            #expect(stdout.contains("artifact-path:"))
-                            #expect(stdout.contains(RelativePath("release/libMyStaticLibrary").pathString))
-                        case .swiftbuild:
-                            #expect(stdout.contains("artifact-path:"))
-                            #expect(stdout.contains(RelativePath("MyStaticLibrary").pathString))
-                        case .xcode:
-                            Issue.record("unimplemented assertion for --build-system xcode")
-                        }
-                        #expect(stdout.contains("artifact-kind:"))
-                        #expect(stdout.contains("staticLibrary"))
+                    } when: {
+                        data.buildSystem == .swiftbuild
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -6352,6 +6357,36 @@ struct PackageCommandTests {
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            }
+        }
+
+        @Test(
+            .IssueWindowsRelativePathAssert,
+            arguments: [BuildSystemProvider.Kind.native, .swiftbuild],
+        )
+        func commandPluginBuildingCallbacksExcludeUnbuiltArtifacts(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await withKnownIssue {
+                try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
+                    let (stdout, _) = try await execute(
+                        ["dump-artifacts-plugin"],
+                        packagePath: fixturePath,
+                        configuration: .debug,
+                        buildSystem: buildSystem
+                    )
+                    // The build should succeed
+                    #expect(stdout.contains("succeeded: true"))
+                    // The artifacts corresponding to the executable and dylib we built should be reported
+                    #expect(stdout.contains(#/artifact-path: [^\n]+MyExecutable(.*)?\nartifact-kind: executable/#))
+                    #expect(stdout.contains(#/artifact-path: [^\n]+MyDynamicLibrary(.*)?\nartifact-kind: dynamicLibrary/#))
+                    // The not-built executable in the dependency should not be reported. The native build system fails to exclude it.
+                    withKnownIssue {
+                        #expect(!stdout.contains("MySupportExecutable"))
+                    } when: {
+                        buildSystem == .native
+                    }
+                }
+            } when: {
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 

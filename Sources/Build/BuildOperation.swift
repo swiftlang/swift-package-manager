@@ -461,11 +461,37 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildResultBuildPlan = buildOutputs.contains(.buildPlan) ? try buildPlan : nil
         let buildResultReplArgs = buildOutputs.contains(.replArguments) ? try buildPlan.createREPLArguments() : nil
 
+        let artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        if buildOutputs.contains(.builtArtifacts) {
+            let builtProducts = try buildPlan.buildProducts
+            artifacts = try builtProducts.compactMap {
+                switch $0.product.type {
+                case .library(let kind):
+                    let artifactKind: PluginInvocationBuildResult.BuiltArtifact.Kind
+                    switch kind {
+                        case .dynamic: artifactKind = .dynamicLibrary
+                        case .static, .automatic: artifactKind = .staticLibrary
+                    }
+                    return try ($0.product.name, .init(
+                        path: $0.binaryPath.pathString,
+                        kind: artifactKind)
+                    )
+                case .executable:
+                    return try ($0.product.name, .init(path: $0.binaryPath.pathString, kind: .executable))
+                default:
+                    return nil
+                }
+            }
+        } else {
+            artifacts = nil
+        }
+
         result = BuildResult(
             serializedDiagnosticPathsByTargetName: result.serializedDiagnosticPathsByTargetName,
             symbolGraph: result.symbolGraph,
             buildPlan: buildResultBuildPlan,
             replArguments: buildResultReplArgs,
+            builtArtifacts: artifacts
         )
         var serializedDiagnosticPaths: [String: [AbsolutePath]] = [:]
         do {
