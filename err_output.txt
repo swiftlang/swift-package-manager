@@ -1,0 +1,3 @@
+Building for debugging...
+[0/3] Write swift-version-4C9A2395E9159513.txt
+Build of product 'swift-build' complete! (0.31s)
