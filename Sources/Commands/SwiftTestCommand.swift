@@ -166,9 +166,6 @@ struct TestCommandOptions: ParsableArguments {
           help: "Lists test methods in specifier format.")
     var _deprecated_shouldListTests: Bool = false
 
-    @OptionGroup(title: "Coverage Options")
-    var coverageOptions: CoverageOptions
-
     var testCaseSpecifier: TestCaseSpecifier {
         if !filter.isEmpty {
             return .regex(filter)
@@ -232,12 +229,6 @@ public struct CoverageOptions: ParsableArguments {
           help: "Print the path of the exported code coverage JSON file.")
     var shouldPrintPath: Bool = false
 
-    /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
-    var isEnabled: Bool = false
-
     @Option(
         name: [
             .customLong("codecov-format"),
@@ -277,29 +268,20 @@ public enum TestOutput: String, ExpressibleByArgument {
     case experimentalParseable
 }
 
-/// swift-test tool namespace
-public struct SwiftTestCommand: AsyncSwiftCommand {
-    public static var configuration = CommandConfiguration(
-        commandName: "test",
-        _superCommandName: "swift",
-        abstract: "Build and run tests.",
-        discussion: "SEE ALSO: swift build, swift run, swift package",
-        version: SwiftVersion.current.completeDisplayString,
-        subcommands: [
-            List.self, Last.self
-        ],
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+protocol SwiftExecuteTestAsyncCommand: AsyncSwiftCommand {
+    var isCodeCoverageEnabled: Bool { get }
+    var shouldSkipTestExecution: Bool { get }
+}
 
-    public var globalOptions: GlobalOptions {
-        options.globalOptions
-    }
-
-    @OptionGroup()
-    var options: TestCommandOptions
-
-    private func run(_ swiftCommandState: SwiftCommandState, buildParameters: BuildParameters, testProducts: [BuiltTestProduct]) async throws {
+extension SwiftExecuteTestAsyncCommand {
+    private func run(
+        _ swiftCommandState: SwiftCommandState,
+        buildParameters: BuildParameters,
+        testProducts: [BuiltTestProduct],
+        options: TestCommandOptions,
+    ) async throws {
         // Remove test output from prior runs and validate priors.
-        if self.options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
+        if options.enableExperimentalTestOutput && buildParameters.triple.supportsTestSummary {
             _ = try? localFileSystem.removeFileTree(buildParameters.testOutputPath)
         }
 
@@ -321,14 +303,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 throw TestError.xcodeNotInstalled
             }
 
-            if !self.options.shouldRunInParallel {
-                let (xctestArgs, testCount) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
+            if !options.shouldRunInParallel {
+                let (xctestArgs, testCount) = try xctestArgs(
+                    for: testProducts,
+                    swiftCommandState: swiftCommandState,
+                    options: options,
+                )
                 let result = try await runTestProducts(
                     testProducts,
                     additionalArguments: xctestArgs,
                     productsBuildParameters: buildParameters,
                     swiftCommandState: swiftCommandState,
-                    library: .xctest
+                    library: .xctest,
+                    options: options,
                 )
                 if result == .success, testCount == 0 {
                     results.append(.noMatchingTests)
@@ -339,7 +326,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 let testSuites = try TestingSupport.getTestSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: options.coverageOptions.isEnabled,
+                    enableCodeCoverage: self.isCodeCoverageEnabled,
                     shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                     experimentalTestOutput: options.enableExperimentalTestOutput,
                     sanitizers: globalOptions.build.sanitizers
@@ -370,7 +357,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     result = runner.ranSuccessfully ? .success : .failure
                 }
 
-                try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
+                try generateXUnitOutputIfRequested(
+                    for: testResults,
+                    swiftCommandState: swiftCommandState,
+                    xUnitOutput: options.xUnitOutput,
+                    detailsFailureMessage: options.enableExperimentalTestOutput,
+                )
                 results.append(result)
             }
         }
@@ -385,7 +377,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         additionalArguments: [],
                         productsBuildParameters: buildParameters,
                         swiftCommandState: swiftCommandState,
-                        library: .swiftTesting
+                        library: .swiftTesting,
+                        options: options,
                     )
                 )
             } else if let testEntryPointPath {
@@ -403,7 +396,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             break
         case .failure:
             swiftCommandState.executionStatus = .failure
-            if self.options.enableExperimentalTestOutput {
+            if options.enableExperimentalTestOutput {
                 try Self.handleTestOutput(productsBuildParameters: buildParameters, packagePath: testProducts[0].packagePath)
             }
         case .noMatchingTests:
@@ -411,7 +404,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int?) {
+    private func xctestArgs(
+        for testProducts: [BuiltTestProduct],
+        swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
+    ) throws -> (arguments: [String], testCount: Int?) {
         switch options.testCaseSpecifier {
         case .none:
             if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
@@ -430,7 +427,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let testSuites = try TestingSupport.getTestSuites(
                 in: testProducts,
                 swiftCommandState: swiftCommandState,
-                enableCodeCoverage: options.coverageOptions.isEnabled,
+                enableCodeCoverage: self.isCodeCoverageEnabled,
                 shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                 experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers
@@ -446,9 +443,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Generate xUnit file if requested.
     private func generateXUnitOutputIfRequested(
         for testResults: [ParallelTestRunner.TestResult],
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        xUnitOutput: AbsolutePath?,
+        detailsFailureMessage: Bool,
+
     ) throws {
-        guard let xUnitOutput = options.xUnitOutput else {
+        guard let xUnitOutput = xUnitOutput else {
             return
         }
 
@@ -458,46 +458,61 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         )
         try generator.generate(
             at: xUnitOutput,
-            detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
+            detailedFailureMessage: detailsFailureMessage,
         )
     }
 
     // MARK: - Common implementation
 
-    public func run(_ swiftCommandState: SwiftCommandState) async throws {
+    public func run(
+        _ swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
+        coverageOptions: CoverageOptions,
+    ) async throws {
         do {
             // Validate commands arguments
-            try self.validateArguments(swiftCommandState: swiftCommandState)
+            try self.validateArguments(swiftCommandState: swiftCommandState, options: options,)
         } catch {
             swiftCommandState.observabilityScope.emit(error)
             throw ExitCode.failure
         }
 
-        if self.options.coverageOptions.shouldPrintPath {
-            try await printCodeCovPath(swiftCommandState, format: options.coverageOptions.format)
-        } else if self.options._deprecated_shouldListTests {
+        if coverageOptions.shouldPrintPath {
+            try await printCodeCovPath(swiftCommandState, format: coverageOptions.format)
+        } else if options._deprecated_shouldListTests {
             // backward compatibility 6/2022 for deprecation of flag into a subcommand
-            let command = try List.parse()
+            let command = try SwiftTestCommand.List.parse()
             try await command.run(swiftCommandState)
         } else {
-            let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
-            let testProducts = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState)
+            let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(
+                options: options,
+                enableCodeCoverage: self.isCodeCoverageEnabled,
+            )
+            let testProducts = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState, options: options)
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if self.options.coverageOptions.isEnabled {
+            if self.isCodeCoverageEnabled {
                 try swiftCommandState.fileSystem.removeFileTree(productsBuildParameters.codeCovPath)
             }
 
-            try await run(swiftCommandState, buildParameters: productsBuildParameters, testProducts: testProducts)
+            if self.shouldSkipTestExecution {
+                try await run(
+                    swiftCommandState,
+                    buildParameters: productsBuildParameters,
+                    testProducts: testProducts,
+                    options: options,
+                )
+            }
 
             // Process code coverage if requested. We do not process it if the test run failed.
             // See https://github.com/swiftlang/swift-package-manager/pull/6894 for more info.
-            if self.options.coverageOptions.isEnabled, swiftCommandState.executionStatus != .failure {
+            if self.isCodeCoverageEnabled, (self.shouldSkipTestExecution || swiftCommandState.executionStatus != .failure) {
                 try await processCodeCoverage(
                     testProducts,
                     swiftCommandState: swiftCommandState,
-                    format: options.coverageOptions.format,
+                    format: coverageOptions.format,
+                    options: options,
                 )
             }
         }
@@ -508,7 +523,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         additionalArguments: [String],
         productsBuildParameters: BuildParameters,
         swiftCommandState: SwiftCommandState,
-        library: TestingLibrary
+        library: TestingLibrary,
+        options: TestCommandOptions,
     ) async throws -> TestRunner.Result {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
@@ -573,7 +589,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         })
     }
 
-    private static func handleTestOutput(productsBuildParameters: BuildParameters, packagePath: AbsolutePath) throws {
+    static func handleTestOutput(productsBuildParameters: BuildParameters, packagePath: AbsolutePath) throws {
         guard localFileSystem.exists(productsBuildParameters.testOutputPath) else {
             print("No existing test output found.")
             return
@@ -609,6 +625,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         _ testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         format coverageFormat: CoverageFormat,
+        options: TestCommandOptions,
     ) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
@@ -621,7 +638,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
 
         // Merge all the profraw files to produce a single profdata file.
-        let profData = try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState)
+        let profData = try await mergeCodeCovRawDataFiles(
+            swiftCommandState: swiftCommandState,
+            options: options,
+        )
 
         switch coverageFormat {
             case .json:
@@ -629,7 +649,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 for product in testProducts {
                     // Export the codecov data as JSON.
                     let jsonPath = try await self.getCodeCoverageConfiguration(swiftCommandState, format: .json).outputDir
-                    try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
+                    try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState, options: options)
                 }
             case .html:
                 let toolchain = try swiftCommandState.getHostToolchain()
@@ -692,12 +712,18 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     /// Merges all profraw profiles in codecoverage directory into default.profdata file.
-    private func mergeCodeCovRawDataFiles(swiftCommandState: SwiftCommandState) async throws -> AbsolutePath {
+    private func mergeCodeCovRawDataFiles(
+        swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
+    ) async throws -> AbsolutePath {
         // Get the llvm-prof tool.
         let llvmProf = try swiftCommandState.getTargetToolchain().getLLVMProf()
 
         // Get the profraw files.
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
+        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(
+            options: options,
+            enableCodeCoverage: self.isCodeCoverageEnabled,
+        )
         let covPath = productsBuildParameters.codeCovPath
         let codeCovFiles: [String] = if swiftCommandState.fileSystem.exists(covPath) {
             try swiftCommandState.fileSystem.getDirectoryContents(covPath)
@@ -725,11 +751,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func exportCodeCovAsJSON(
         to path: AbsolutePath,
         testBinary: AbsolutePath,
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
     ) async throws {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
+        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(
+            options: options,
+            enableCodeCoverage: self.isCodeCoverageEnabled,
+        )
         let args = [
             llvmCov.pathString,
             "export",
@@ -806,14 +836,18 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
     ) async throws -> [BuiltTestProduct] {
-        let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
+        let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(
+            options: options,
+            enableCodeCoverage: self.isCodeCoverageEnabled,
+        )
         return try await Commands.buildTestsIfNeeded(
             swiftCommandState: swiftCommandState,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
-            testProduct: self.options.sharedOptions.testProduct,
+            testProduct: options.sharedOptions.testProduct,
             traitConfiguration: .init(traitOptions: self.globalOptions.traits),
         )
     }
@@ -821,7 +855,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Private function that validates the commands arguments
     ///
     /// - Throws: if a command argument is invalid
-    private func validateArguments(swiftCommandState: SwiftCommandState) throws {
+    private func validateArguments(
+        swiftCommandState: SwiftCommandState,
+        options: TestCommandOptions,
+    ) throws {
         // Validation for --num-workers.
         if let workers = options.numberOfWorkers {
             // The --num-worker option should be called with --parallel. Since
@@ -844,8 +881,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             swiftCommandState.observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
         }
     }
-
-    public init() {}
 }
 
 package func getOutputDir(
@@ -908,7 +943,113 @@ struct CodeCoverageConfiguration {
     let outputDir: AbsolutePath
     let htmlArgumentFile: AbsolutePath
 }
+
+/// swift-test tool namespace
+public struct SwiftTestCommand: SwiftExecuteTestAsyncCommand {
+
+    public static var configuration = CommandConfiguration(
+        commandName: "test",
+        _superCommandName: "swift",
+        abstract: "Build and run tests.",
+        discussion: "SEE ALSO: swift build, swift run, swift package",
+        version: SwiftVersion.current.completeDisplayString,
+        subcommands: [
+            Coverage.self,
+            List.self,
+            Last.self,
+        ],
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
+
+    public var globalOptions: GlobalOptions {
+        options.globalOptions
+    }
+
+    @OptionGroup()
+    var options: TestCommandOptions
+
+    /// Whether to enable code coverage.
+    @Flag(name: .customLong("code-coverage"),
+          inversion: .prefixedEnableDisable,
+          help: "Enable code coverage.")
+    var isCovEnabled: Bool = false
+
+    @OptionGroup(title: "Coverage Options")
+    var coverageOptions: CoverageOptions
+
+
+    var isCodeCoverageEnabled: Bool {
+        self.isCovEnabled
+    }
+
+    var shouldSkipTestExecution: Bool { false }
+
+    public func run(_ swiftCommandState: CoreCommands.SwiftCommandState) async throws {
+        try await self.run(
+            swiftCommandState,
+            options: self.options,
+            coverageOptions: self.coverageOptions,
+        )
+    }
+
+    public init() {}
+}
+
 extension SwiftTestCommand {
+    struct Coverage: SwiftExecuteTestAsyncCommand {
+
+        public static var configuration = CommandConfiguration(
+            commandName: "coverage",
+            _superCommandName: "test",
+            abstract: "Build and run tests.",
+            discussion: "SEE ALSO: swift test, swift build",
+            version: SwiftVersion.current.completeDisplayString,
+            helpNames: [
+                .short,
+                .long,
+                .customLong("help",
+                withSingleDash: true),
+            ]
+        )
+
+        public var globalOptions: GlobalOptions {
+            options.globalOptions
+        }
+
+        @OptionGroup()
+        var options: TestCommandOptions
+
+        /// Whether to enable code coverage.
+        @Flag(
+            name: .customLong("skip-test-execution"),
+            help: "Skip test execution.",
+        )
+        var skipTestExecution: Bool = false
+
+        @OptionGroup(title: "Coverage Options")
+        var coverageOptions: CoverageOptions
+
+
+        var isCodeCoverageEnabled: Bool { true }
+
+        var shouldSkipTestExecution: Bool {
+            !skipTestExecution
+        }
+
+        public func run(_ swiftCommandState: CoreCommands.SwiftCommandState) async throws {
+            try await self.run(
+                swiftCommandState,
+                options: self.options,
+                coverageOptions: self.coverageOptions,
+            )
+        }
+
+        public init() {}
+
+    }
+
+}
+
+extension SwiftExecuteTestAsyncCommand {
 
     func getCodeCoverageConfiguration(
         _ swiftCommandState: SwiftCommandState,
@@ -1715,10 +1856,11 @@ private func _escapeForXML(_ character: Character) -> String {
 
 extension SwiftCommandState {
     func buildParametersForTest(
-        options: TestCommandOptions
+        options: TestCommandOptions,
+        enableCodeCoverage: Bool,
     ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
         try self.buildParametersForTest(
-            enableCodeCoverage: options.coverageOptions.isEnabled,
+            enableCodeCoverage: enableCodeCoverage,
             enableTestability: options.enableTestableImports,
             shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
             experimentalTestOutput: options.enableExperimentalTestOutput
