@@ -122,7 +122,7 @@ struct ModuleAliasingFixtureTests {
             )
         }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            buildSystem == .swiftbuild
         }
     }
 
