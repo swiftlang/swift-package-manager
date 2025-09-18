@@ -597,6 +597,8 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"
         }
 
+        sourceModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
+
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         sourceModule.recursivelyTraverseDependencies { dependency in
