@@ -1134,7 +1134,7 @@ struct PackageCommandTests {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(result.stdout == "MySnippet\n")
+                #expect(result.stdout == "ContainsMain\nImportsProductTarget\nMySnippet\nmain\n")
             }
         }
 
@@ -2722,7 +2722,7 @@ struct PackageCommandTests {
                 #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
             }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
         }
 
     }
@@ -2738,40 +2738,36 @@ struct PackageCommandTests {
     func packageClean(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-                let packageRoot = fixturePath.appending("Bar")
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
 
-                // Build it.
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                let buildPath = packageRoot.appending(".build")
-                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
-                let binFile = binPath.appending(executableName("Bar"))
-                expectFileExists(at: binFile)
-                #expect(localFileSystem.isDirectory(buildPath))
+            // Build it.
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            let buildPath = packageRoot.appending(".build")
+            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
+            let binFile = binPath.appending(executableName("Bar"))
+            expectFileExists(at: binFile)
+            #expect(localFileSystem.isDirectory(buildPath))
 
-                // Clean, and check for removal of the build directory but not Packages.
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                expectFileDoesNotExists(at: binFile)
-                // Clean again to ensure we get no error.
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            // Clean, and check for removal of the build directory but not Packages.
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            expectFileDoesNotExists(at: binFile)
+            // Clean again to ensure we get no error.
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
         }
     }
 
@@ -2787,53 +2783,49 @@ struct PackageCommandTests {
     func packageReset(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-                let packageRoot = fixturePath.appending("Bar")
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
 
-                // Build it.
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem
-                )
-                let buildPath = packageRoot.appending(".build")
-                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
-                let binFile = binPath.appending(executableName("Bar"))
-                expectFileExists(at: binFile)
-                #expect(localFileSystem.isDirectory(buildPath))
-                // Clean, and check for removal of the build directory but not Packages.
+            // Build it.
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem
+            )
+            let buildPath = packageRoot.appending(".build")
+            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
+            let binFile = binPath.appending(executableName("Bar"))
+            expectFileExists(at: binFile)
+            #expect(localFileSystem.isDirectory(buildPath))
+            // Clean, and check for removal of the build directory but not Packages.
 
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                expectFileDoesNotExists(at: binFile)
-                try #expect(
-                    !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
-                )
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            expectFileDoesNotExists(at: binFile)
+            try #expect(
+                !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
+            )
 
-                // Fully clean.
-                _ = try await execute(
-                    ["reset"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                #expect(!localFileSystem.isDirectory(buildPath))
+            // Fully clean.
+            _ = try await execute(
+                ["reset"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!localFileSystem.isDirectory(buildPath))
 
-                // Test that we can successfully run reset again.
-                _ = try await execute(
-                    ["reset"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            // Test that we can successfully run reset again.
+            _ = try await execute(
+                ["reset"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
         }
     }
 
@@ -3071,7 +3063,7 @@ struct PackageCommandTests {
                 }
             }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
         }
     }
 
