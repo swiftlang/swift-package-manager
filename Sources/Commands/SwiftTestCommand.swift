@@ -704,6 +704,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         } else {
             []
         }
+        print("covPath: \(covPath)")
+        print("codeCoveFiles: \(codeCovFiles)")
 
         // Construct arguments for invoking the llvm-prof tool.
         var args = [llvmProf.pathString, "merge", "-sparse"]
@@ -714,6 +716,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
+        print("Merging raw data files.. calling >> \(args)")
         try await AsyncProcess.checkNonZeroExit(arguments: args)
         return productsBuildParameters.codeCovDataFile
     }
@@ -786,6 +789,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         // Add all the production source files of the test targets
         args.append(contentsOf: sourceFiles.map { $0.pathString })
 
+        print("Generating HTML report. calling >>> \(args)")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
