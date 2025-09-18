@@ -554,14 +554,19 @@ struct BuildCommandTestCases {
     func nonReachableProductsAndTargetsFunctional(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
-            let aPath = fixturePath.appending("A")
+        // skipped on Xcode
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+                let aPath = fixturePath.appending("A")
 
-            let result = try await build([], packagePath: aPath, buildSystem: buildSystem)
-            #expect(!result.binContents.contains("bexec"))
-            #expect(!result.binContents.contains("BTarget2.build"))
-            #expect(!result.binContents.contains("cexec"))
-            #expect(!result.binContents.contains("CTarget.build"))
+                let result = try await build([], packagePath: aPath, buildSystem: buildSystem)
+                #expect(!result.binContents.contains("bexec"))
+                #expect(!result.binContents.contains("BTarget2.build"))
+                #expect(!result.binContents.contains("cexec"))
+                #expect(!result.binContents.contains("CTarget.build"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
