@@ -15,6 +15,7 @@
 
 import Foundation
 import Basics
+import Commands
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 import PackageModel
@@ -1417,13 +1418,11 @@ struct TestCommandTests {
         }
 
         @Test(
-            .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
                 Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
@@ -1458,19 +1457,16 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
-                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
             }
         }
 
         @Test(
-            .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
             arguments: SupportedBuildSystemOnAllPlatforms
         )
         func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
                 Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
@@ -1505,19 +1501,16 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
-                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
             }
         }
 
         @Test(
-            .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
             arguments: SupportedBuildSystemOnAllPlatforms
         )
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(
                 """
-                MacOS, .swiftbuild: Could not find or use auto-linked library 'Testing': library 'Testing' not found
                 Windows: Missing LLDB DLLs w/ ARM64 toolchain
                 """
             ) {
@@ -1551,8 +1544,7 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS && CiEnvironment.runningInSelfHostedPipeline)
-                    || (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline)
+                ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
             }
         }
 
