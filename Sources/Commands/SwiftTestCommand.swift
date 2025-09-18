@@ -496,7 +496,7 @@ extension SwiftExecuteTestAsyncCommand {
                 try swiftCommandState.fileSystem.removeFileTree(productsBuildParameters.codeCovPath)
             }
 
-            if self.shouldSkipTestExecution {
+            if !self.shouldSkipTestExecution {
                 try await run(
                     swiftCommandState,
                     buildParameters: productsBuildParameters,
@@ -656,9 +656,12 @@ extension SwiftExecuteTestAsyncCommand {
                 let llvmCov = try toolchain.getLLVMCov()
 
                 // Get all production source files from test targets
+                let buildSystem = try await swiftCommandState.createBuildSystem()
+                let packageGraph = try await buildSystem.getPackageGraph()
+
                 let sourceFiles = try await getProductionSourceFiles(
                     testProducts: testProducts,
-                    swiftCommandState: swiftCommandState
+                    packageGraph: packageGraph,
                 )
                 let configuration = try await self.getCodeCoverageConfiguration(swiftCommandState, format: .html)
                 for product in testProducts {
@@ -681,11 +684,8 @@ extension SwiftExecuteTestAsyncCommand {
     /// Gets all production source files from test targets and their dependencies.
     private func getProductionSourceFiles(
         testProducts: [BuiltTestProduct],
-        swiftCommandState: SwiftCommandState
+        packageGraph: ModulesGraph,
     ) async throws -> [AbsolutePath] {
-        let buildSystem = try await swiftCommandState.createBuildSystem()
-        let packageGraph = try await buildSystem.getPackageGraph()
-        
         var sourceFiles = Set<AbsolutePath>()
                 
         // Get all modules from root packages that are not test modules
@@ -819,7 +819,7 @@ extension SwiftExecuteTestAsyncCommand {
         // Add all the production source files of the test targets
         args.append(contentsOf: sourceFiles.map { $0.pathString })
 
-        print("Generating HTML report. calling >>> \(args)")
+        // print("Generating HTML report. calling >>> \(args)")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
@@ -968,18 +968,16 @@ public struct SwiftTestCommand: SwiftExecuteTestAsyncCommand {
     var options: TestCommandOptions
 
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
-    var isCovEnabled: Bool = false
+    @Flag(
+        name: .customLong("code-coverage"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage.",
+    )
+    var isCodeCoverageEnabled: Bool = false
 
     @OptionGroup(title: "Coverage Options")
     var coverageOptions: CoverageOptions
 
-
-    var isCodeCoverageEnabled: Bool {
-        self.isCovEnabled
-    }
 
     var shouldSkipTestExecution: Bool { false }
 
@@ -1023,17 +1021,13 @@ extension SwiftTestCommand {
             name: .customLong("skip-test-execution"),
             help: "Skip test execution.",
         )
-        var skipTestExecution: Bool = false
+        var shouldSkipTestExecution: Bool = false
 
         @OptionGroup(title: "Coverage Options")
         var coverageOptions: CoverageOptions
 
 
         var isCodeCoverageEnabled: Bool { true }
-
-        var shouldSkipTestExecution: Bool {
-            !skipTestExecution
-        }
 
         public func run(_ swiftCommandState: CoreCommands.SwiftCommandState) async throws {
             try await self.run(
