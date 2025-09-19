@@ -39,32 +39,6 @@ public enum BuildSubset {
 /// build systems can produce all possible build outputs. Check the build
 /// result for indication that the output was produced.
 public enum BuildOutput: Equatable {
-    public static func == (lhs: BuildOutput, rhs: BuildOutput) -> Bool {
-        switch lhs {    
-        case .symbolGraph(let leftOptions):
-            switch rhs {
-                case .symbolGraph(let rightOptions):
-                    return leftOptions == rightOptions
-                default:
-                    return false
-            }
-        case .buildPlan:
-            switch rhs {
-                case .buildPlan:
-                    return true
-                default:
-                    return false
-            }
-        case .replArguments:
-            switch rhs {
-                case .replArguments:
-                    return true
-                default:
-                    return false
-            }
-        }
-    }
-
     public enum SymbolGraphAccessLevel: String {
         case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
@@ -93,6 +67,7 @@ public enum BuildOutput: Equatable {
     case symbolGraph(SymbolGraphOptions)
     case buildPlan
     case replArguments
+    case builtArtifacts
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -144,12 +119,14 @@ public struct BuildResult {
         serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>,
         symbolGraph: SymbolGraphResult? = nil,
         buildPlan: BuildPlan? = nil,
-        replArguments: CLIArguments?
+        replArguments: CLIArguments?,
+        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil
     ) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
         self.symbolGraph = symbolGraph
         self.buildPlan = buildPlan
         self.replArguments = replArguments
+        self.builtArtifacts = builtArtifacts
     }
     
     public let replArguments: CLIArguments?
@@ -157,6 +134,7 @@ public struct BuildResult {
     public let buildPlan: BuildPlan?
 
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
+    public var builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
 }
 
 public protocol ProductBuildDescription {
