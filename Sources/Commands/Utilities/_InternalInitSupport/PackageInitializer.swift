@@ -70,6 +70,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             swiftCommandState.observabilityScope.emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
             let packageType = try await TemplatePackageInitializer.inferPackageType(from: resolvedTemplatePath, templateName: templateName, swiftCommandState: swiftCommandState)
+
             let builder = DefaultPackageDependencyBuilder(
                 templateSource: templateSource,
                 packageName: packageName,
@@ -79,7 +80,6 @@ struct TemplatePackageInitializer: PackageInitializer {
                 registryRequirement: registryRequirement,
                 resolvedTemplatePath: resolvedTemplatePath
             )
-
 
             let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
 
@@ -152,7 +152,6 @@ struct TemplatePackageInitializer: PackageInitializer {
                     return try .init(from: type)
                 }
             }
-
             throw TemplatePackageInitializerError.templateNotFound(templateName ?? "<unspecified>")
         }
     }
@@ -185,7 +184,6 @@ struct TemplatePackageInitializer: PackageInitializer {
         let templatePackage = try InitTemplatePackage(
             name: packageName,
             initMode: try builder.makePackageDependency(),
-            templatePath: builder.resolvedTemplatePath,
             fileSystem: swiftCommandState.fileSystem,
             packageType: packageType,
             supportedTestingLibraries: [],

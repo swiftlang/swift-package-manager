@@ -1770,7 +1770,50 @@ struct PackageCommandTests {
                 #expect(localFileSystem.exists(destinationPath.appending("Sources").appending("foo")))
             }
         }
+
+        @Test(
+            .tags(
+                .Feature.Command.Package.Init,
+                .Feature.PackageType.LocalTemplate,
+            ),
+            .skipHostOS(.windows, "Git operations not fully supported in test environment"),
+            .requireUnrestrictedNetworkAccess("Test needs to create and access local git repositories"),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func initGitTemplate(
+            data: BuildData
+        ) async throws {
+            try await testWithTemporaryDirectory { tempDir in
+                let templateRepoPath = tempDir.appending("template-repo")
+                let destinationPath = tempDir.appending("Foo")
+                try localFileSystem.createDirectory(destinationPath)
+
+                try fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { fixturePath in
+                    try localFileSystem.copy(from: fixturePath, to: templateRepoPath)
+                }
+
+                initGitRepo(templateRepoPath, tag: "1.0.0")
+
+                _ = try await execute(
+                    ["--package-path", destinationPath.pathString,
+                        "init", "--type", "ExecutableTemplate",
+                     "--url", templateRepoPath.pathString,
+                     "--exact", "1.0.0", "--", "--name", "foo", "--include-readme"],
+                    packagePath: templateRepoPath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+
+                let manifest = destinationPath.appending("Package.swift")
+                let readMe = destinationPath.appending("README.md")
+                expectFileExists(at: manifest)
+                expectFileExists(at: readMe)
+                #expect(localFileSystem.exists(destinationPath.appending("Sources").appending("foo")))
+            }
+        }
     }
+
+
 
     @Suite(
         .tags(

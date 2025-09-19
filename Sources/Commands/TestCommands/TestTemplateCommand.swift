@@ -281,7 +281,6 @@ extension SwiftTestCommand {
                 let initTemplate = try InitTemplatePackage(
                     name: testingFolderName,
                     initMode: .fileSystem(.init(path: cwd.pathString)),
-                    templatePath: cwd,
                     fileSystem: swiftCommandState.fileSystem,
                     packageType: initialPackageType,
                     supportedTestingLibraries: [],

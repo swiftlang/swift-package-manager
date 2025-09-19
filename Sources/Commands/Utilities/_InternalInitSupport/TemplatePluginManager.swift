@@ -104,7 +104,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Returns: A 2D array of arguments provided by the user for template generation
     /// - Throws: Any errors during user prompting
     private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [String] {
-        return try TemplatePromptingSystem().promptUser(command: toolInfo.command, arguments: args)
+        return try TemplatePromptingSystem(hasTTY: swiftCommandState.outputStream.isTTY).promptUser(command: toolInfo.command, arguments: args)
     }
 
 
