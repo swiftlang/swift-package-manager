@@ -71,6 +71,7 @@ public enum BuildOutput: Equatable {
     public struct SymbolGraphOptions: Equatable {
         public var prettyPrint: Bool
         public var minimumAccessLevel: SymbolGraphAccessLevel
+        public var includeInheritedDocs: Bool
         public var includeSynthesized: Bool
         public var includeSPI: Bool
         public var emitExtensionBlocks: Bool
@@ -78,12 +79,14 @@ public enum BuildOutput: Equatable {
         public init(
             prettyPrint: Bool = false,
             minimumAccessLevel: SymbolGraphAccessLevel,
+            includeInheritedDocs: Bool,
             includeSynthesized: Bool,
             includeSPI: Bool,
             emitExtensionBlocks: Bool
         ) {
             self.prettyPrint = prettyPrint
             self.minimumAccessLevel = minimumAccessLevel
+            self.includeInheritedDocs = includeInheritedDocs
             self.includeSynthesized = includeSynthesized
             self.includeSPI = includeSPI
             self.emitExtensionBlocks = emitExtensionBlocks

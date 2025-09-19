@@ -60,10 +60,10 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             BuildOutput.SymbolGraphOptions(
                 prettyPrint: prettyPrint,
                 minimumAccessLevel: .accessLevel(minimumAccessLevel),
+                includeInheritedDocs: !skipInheritedDocs,
                 includeSynthesized: !skipSynthesizedMembers,
                 includeSPI: includeSPISymbols,
                 emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
-                // TODO skip inherited docs
             )
         ), .buildPlan])
 
