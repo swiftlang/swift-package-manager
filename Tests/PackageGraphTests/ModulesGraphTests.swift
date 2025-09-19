@@ -4463,6 +4463,164 @@ final class ModulesGraphTests: XCTestCase {
             }
         }
     }
+
+    func testTraits_whenConditionalDependencies() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Lunch/Sources/Drink/source.swift",
+            "/Caffeine/Sources/CoffeeTarget/source.swift",
+            "/Juice/Sources/AppleJuiceTarget/source.swift",
+        )
+
+        let manifests = try [
+            Manifest.createRootManifest(
+                displayName: "Lunch",
+                path: "/Lunch",
+                toolsVersion: .v5_9,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/Caffeine",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                    ),
+                    .localSourceControl(
+                        path: "/Juice",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "Drink",
+                        dependencies: [
+                            .product(
+                                name: "Coffee",
+                                package: "Caffeine",
+                                condition: .init(traits: ["EnableCoffeeDep"])
+                            ),
+                            .product(
+                                name: "AppleJuice",
+                                package: "Juice",
+                                condition: .init(traits: ["EnableAppleJuiceDep"])
+                            )
+                        ],
+                    ),
+                ],
+                traits: [
+                    .init(name: "default", enabledTraits: ["EnableCoffeeDep"]),
+                    .init(name: "EnableCoffeeDep"),
+                    .init(name: "EnableAppleJuiceDep"),
+                ],
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Caffeine",
+                path: "/Caffeine",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "Coffee",
+                        type: .library(.automatic),
+                        targets: ["CoffeeTarget"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "CoffeeTarget",
+                    ),
+                ],
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "Juice",
+                path: "/Juice",
+                toolsVersion: .v5_9,
+                products: [
+                    .init(
+                        name: "AppleJuice",
+                        type: .library(.automatic),
+                        targets: ["AppleJuiceTarget"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "AppleJuiceTarget",
+                    ),
+                ],
+            )
+        ]
+
+        // Test graph with default trait configuration
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(observability.diagnostics.count, 0)
+        PackageGraphTester(graph) { result in
+            result.checkPackage("Lunch") { package in
+                XCTAssertEqual(package.enabledTraits, ["EnableCoffeeDep"])
+                XCTAssertEqual(package.dependencies.count, 1)
+            }
+            result.checkTarget("Drink") { target in
+                target.check(dependencies: "Coffee")
+            }
+            result.checkPackage("Caffeine") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+            result.checkPackage("Juice") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+        }
+
+        // Test graph when disabling all traits
+        let graphWithTraitsDisabled = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope,
+            traitConfiguration: .disableAllTraits
+        )
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graphWithTraitsDisabled) { result in
+            result.checkPackage("Lunch") { package in
+                XCTAssertEqual(package.enabledTraits, [])
+                XCTAssertEqual(package.dependencies.count, 0)
+            }
+            result.checkTarget("Drink") { target in
+                XCTAssertTrue(target.target.dependencies.isEmpty)
+            }
+            result.checkPackage("Caffeine") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+            result.checkPackage("Juice") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+        }
+
+        // Test graph when we set a trait configuration that enables different traits than the defaults
+        let graphWithDifferentEnabledTraits = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: observability.topScope,
+            traitConfiguration: .enabledTraits(["EnableAppleJuiceDep"])
+        )
+        XCTAssertEqual(observability.diagnostics.count, 0)
+
+        PackageGraphTester(graphWithDifferentEnabledTraits) { result in
+            result.checkPackage("Lunch") { package in
+                XCTAssertEqual(package.enabledTraits, ["EnableAppleJuiceDep"])
+                XCTAssertEqual(package.dependencies.count, 1)
+            }
+            result.checkTarget("Drink") { target in
+                target.check(dependencies: "AppleJuice")
+            }
+            result.checkPackage("Caffeine") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+            result.checkPackage("Juice") { package in
+                XCTAssertEqual(package.enabledTraits, ["default"])
+            }
+        }
+    }
 }
 
 extension Manifest {
