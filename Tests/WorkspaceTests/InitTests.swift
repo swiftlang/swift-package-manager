@@ -316,6 +316,8 @@ final class InitTests: XCTestCase {
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .contains(".testTarget("))
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
             XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
@@ -344,6 +346,8 @@ final class InitTests: XCTestCase {
             // Verify basic file system content that we expect in the package
             let manifest = path.appending("Package.swift")
             XCTAssertFileExists(manifest)
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .contains(".testTarget("))
             let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
             let testFileContents: String = try localFileSystem.readFileContents(testFile)
             XCTAssertMatch(testFileContents, .contains(#"import Testing"#))
