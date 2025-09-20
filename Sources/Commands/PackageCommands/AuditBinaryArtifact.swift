@@ -37,7 +37,7 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         let hostToolchain = try swiftCommandState.getHostToolchain()
         let clang = try hostToolchain.getClangCompiler()
         let objdump = try hostToolchain.getLLVMObjdump()
-        let hostTriple = try Triple.getHostTriple(
+        let hostTriple = try Triple.getVersionedHostTriple(
             usingSwiftCompiler: hostToolchain.swiftCompilerPath)
         let fileSystem = swiftCommandState.fileSystem
 
