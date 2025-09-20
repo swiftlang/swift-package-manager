@@ -945,13 +945,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    public func writePIF(buildParameters: BuildParameters) async throws {
-        let pifBuilder = try await getPIFBuilder()
-        let pif = try await pifBuilder.generatePIF(
+    public func generatePIF(preserveStructure: Bool) async throws -> String {
+        return try await getPIFBuilder().generatePIF(
+            preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
+            buildParameters: buildParameters
         )
+    }
 
+    public func writePIF(buildParameters: BuildParameters) async throws {
+        let pif = try await generatePIF(preserveStructure: false)
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
     }
 
