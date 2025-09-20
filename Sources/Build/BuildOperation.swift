@@ -903,6 +903,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
         return true
     }
+
+    public func generatePIF(preserveStructure: Bool) async throws -> String {
+        throw StringError("PIF generation is not supported for the native build system.")
+    }
 }
 
 public struct PluginConfiguration {

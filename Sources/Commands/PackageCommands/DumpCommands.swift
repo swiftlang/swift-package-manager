@@ -183,13 +183,8 @@ struct DumpPIF: AsyncSwiftCommand {
     var preserveStructure: Bool = false
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
-        let graph = try await swiftCommandState.loadPackageGraph()
-        let pif = try PIFBuilder.generatePIF(
-            buildParameters: swiftCommandState.productsBuildParameters,
-            packageGraph: graph,
-            fileSystem: swiftCommandState.fileSystem,
-            observabilityScope: swiftCommandState.observabilityScope,
-            preservePIFModelStructure: preserveStructure)
+        let buildSystem = try await swiftCommandState.createBuildSystem()
+        let pif = try await buildSystem.generatePIF(preserveStructure: preserveStructure)
         print(pif)
     }
 
