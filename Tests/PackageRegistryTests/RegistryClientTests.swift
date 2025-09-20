@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+@testable import Basics
 import _Concurrency
 import Foundation
 import PackageFingerprint
@@ -438,6 +438,126 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             )
         }
         assert(metadataSync)
+    }
+
+    @Test func getPackageVersionMetadataInCache() async throws {
+        let checksumAlgorithm: HashAlgorithm = MockHashAlgorithm()
+        let expectedChecksums: [Version: String] = [
+            Version("1.1.1"): "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812",
+            Version("1.1.0"): checksumAlgorithm.hash(emptyZipFile).hexadecimalRepresentation
+        ]
+
+        let counter = SendableBox(0)
+        let handler: HTTPClient.Implementation = { request, _ in
+            await counter.increment()
+            switch (request.method, request.url) {
+            case (.get, releasesURL.appending(component: "1.1.1")):
+                let expectedChecksum = expectedChecksums[Version("1.1.1")]!
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.1",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(expectedChecksum)"
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            case (.get, releasesURL.appending(component: "1.1.0")):
+                let expectedChecksum = expectedChecksums[Version("1.1.0")]!
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+
+                let data = """
+                {
+                    "id": "mona.LinkedList",
+                    "version": "1.1.0",
+                    "resources": [
+                        {
+                            "name": "source-archive",
+                            "type": "application/zip",
+                            "checksum": "\(expectedChecksum)",
+                        }
+                    ],
+                    "metadata": {
+                        "author": {
+                            "name": "J. Appleseed"
+                        },
+                        "licenseURL": "https://github.com/mona/LinkedList/license",
+                        "readmeURL": "https://github.com/mona/LinkedList/readme",
+                        "repositoryURLs": [
+                            "https://github.com/mona/LinkedList",
+                            "ssh://git@github.com:mona/LinkedList.git",
+                            "git@github.com:mona/LinkedList.git"
+                        ]
+                    }
+                }
+                """.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let registryClient = makeRegistryClient(configuration: configuration, httpClient: httpClient)
+
+        var expectedRequestCount = 0
+        try await check(version: Version("1.1.1"), expectCached: false)
+        try await check(version: Version("1.1.0"), expectCached: false)
+        try await check(version: Version("1.1.1"), expectCached: true)
+        try await check(version: Version("1.1.0"), expectCached: true)
+
+        func check(version: Version, expectCached: Bool) async throws {
+            let metadata = try await registryClient.getPackageVersionMetadata(package: identity, version: version)
+
+            if !expectCached {
+                expectedRequestCount += 1
+            }
+
+            let count = await counter.value
+            #expect(count == expectedRequestCount)
+            #expect(metadata.author?.name == "J. Appleseed")
+            #expect(metadata.resources[0].checksum == expectedChecksums[version]!)
+        }
     }
 
     func getPackageVersionMetadata_404() async throws {
@@ -3699,6 +3819,87 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
 
         await #expect(throws: StringError("registry \(registry.url) does not support availability checks.")) {
             try await registryClient.checkAvailability(registry: registry)
+        }
+    }
+
+    @Test func withAvailabilityCheck() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .okay()
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: httpClient
+        )
+
+        try await registryClient.withAvailabilityCheck(
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+    }
+
+    @Test func withAvailabilityCheckServerError() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .serverError(reason: "boom")
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: httpClient
+        )
+
+        await #expect(throws: StringError("unknown server error (500)")) {
+            try await registryClient.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        }
+    }
+
+    @Test func withAvailabilityCheckInCache() async throws {
+        let counter = SendableBox(0)
+        let handler: HTTPClient.Implementation = { request, _ in
+            await counter.increment()
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .okay()
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: httpClient
+        )
+
+        // Request count should not increase after first check
+        for _ in 0..<5 {
+            try await registryClient.withAvailabilityCheck(
+                registry: registry,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+            let count = await counter.value
+            #expect(count == 1)
         }
     }
 }
