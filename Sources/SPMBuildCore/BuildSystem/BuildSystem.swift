@@ -116,6 +116,8 @@ public protocol BuildSystem: Cancellable {
     func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
+
+    func generatePIF(preserveStructure: Bool) async throws -> String
 }
 
 extension BuildSystem {
