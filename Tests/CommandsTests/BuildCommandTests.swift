@@ -1415,8 +1415,11 @@ struct BuildCommandTestCases {
         let hostArch: String
         #if arch(arm64)
         hostArch = "arm64"
-        #else
+        #elseif arch(x86_64)
         hostArch = "x86_64"
+        #else
+        Issue.record("test is not supported on host arch")
+        return
         #endif
 
         // Unversioned triple - build should pass
