@@ -1459,8 +1459,11 @@ struct BuildCommandTestCases {
         let hostArch: String
         #if arch(arm64)
         hostArch = "arm64"
-        #else
+        #elseif arch(x86_64)
         hostArch = "x86_64"
+        #else
+        Issue.record("test is not supported on host arch")
+        return
         #endif
 
         // Unversioned triple - build should pass
@@ -1483,9 +1486,9 @@ struct BuildCommandTestCases {
                 )
         }
 
-        if buildSystem == .swiftbuild {
-            // Versioned triple with unsupported deployment target - build should fail
-            try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
+        // Versioned triple with unsupported deployment target - build should fail
+        try await withKnownIssue {
+            _ = try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
                 await #expect(throws: Error.self) {
                     try await executeSwiftBuild(
                         path,
@@ -1495,6 +1498,9 @@ struct BuildCommandTestCases {
                     )
                 }
             }
+        } when: {
+            // The native build system does not correctly pass the elevated deployment target
+            buildSystem != .swiftbuild
         }
     }
 }
