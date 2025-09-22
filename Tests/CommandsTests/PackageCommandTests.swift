@@ -1003,11 +1003,16 @@ struct PackageCommandTests {
                 Issue.record("unexpected result")
                 return
             }
+            guard case .string(let defaultLocalization)? = contents["defaultLocalization"] else {
+                Issue.record("unexpected result")
+                return
+            }
             guard case .array(let platforms)? = contents["platforms"] else {
                 Issue.record("unexpected result")
                 return
             }
             #expect(name == "Dealer")
+            #expect(defaultLocalization == "en")
             #expect(
                 platforms == [
                     .dictionary([
