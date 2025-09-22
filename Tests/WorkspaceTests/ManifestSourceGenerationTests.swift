@@ -503,7 +503,8 @@ final class ManifestSourceGenerationTests: XCTestCase {
                         dependencies: [
                             .target(name: "MyLib", condition: .when(platforms: [
                                 .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS,
-                                .driverKit, .linux, .windows, .android, .wasi, .openbsd
+                                .driverKit, .linux, .windows, .android, .wasi, .openbsd,
+                                .custom("freebsd"), .custom("toasterOS")
                             ]))
                         ]
                     ),
