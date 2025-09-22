@@ -33,6 +33,11 @@ final class PkgConfigParserTests: XCTestCase {
         }
     }
 
+    func testWindowsZlibPCFile() throws {
+        try! loadPCFile("zlib.pc") { parser in
+        }
+    }
+
     func testGTK3PCFile() throws {
         try! loadPCFile("gtk+-3.0.pc") { parser in
             XCTAssertEqual(parser.variables, [
