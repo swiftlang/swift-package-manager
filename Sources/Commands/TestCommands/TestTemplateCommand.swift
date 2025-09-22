@@ -30,8 +30,6 @@ import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
 
-
-
 extension DispatchTimeInterval {
     var seconds: TimeInterval {
         switch self {
@@ -44,7 +42,6 @@ extension DispatchTimeInterval {
         }
     }
 }
-
 
 extension SwiftTestCommand {
     struct Template: AsyncSwiftCommand {
@@ -66,7 +63,7 @@ extension SwiftTestCommand {
             help: "Specify the output path of the created templates.",
             completion: .directory
         )
-        public var outputDirectory: AbsolutePath
+        var outputDirectory: AbsolutePath
 
         @OptionGroup(visibility: .hidden)
         var buildOptions: BuildCommandOptions
@@ -78,12 +75,11 @@ extension SwiftTestCommand {
         var args: [String] = []
 
         @Option(
-
             name: .customLong("branches"),
             parsing: .upToNextOption,
             help: "Specify the branch of the template you want to test. Format: --branches branch1 branch2",
         )
-        public var branches: [String] = []
+        var branches: [String] = []
 
         @Flag(help: "Dry-run to display argument tree")
         var dryRun: Bool = false
@@ -94,18 +90,23 @@ extension SwiftTestCommand {
         @Option(help: "Set the output format.")
         var format: ShowTestTemplateOutput = .matrix
 
-
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw ValidationError("Could not determine current working directory.")
             }
 
-            let directoryManager = TemplateTestingDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
-            try directoryManager.createOutputDirectory(outputDirectoryPath: outputDirectory, swiftCommandState: swiftCommandState)
+            let directoryManager = TemplateTestingDirectoryManager(
+                fileSystem: swiftCommandState.fileSystem,
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+            try directoryManager.createOutputDirectory(
+                outputDirectoryPath: self.outputDirectory,
+                swiftCommandState: swiftCommandState
+            )
 
-            let buildSystem = globalOptions.build.buildSystem != .native ?
-            globalOptions.build.buildSystem :
-            swiftCommandState.options.build.buildSystem
+            let buildSystem = self.globalOptions.build.buildSystem != .native ?
+                self.globalOptions.build.buildSystem :
+                swiftCommandState.options.build.buildSystem
 
             let pluginManager = try await TemplateTesterPluginManager(
                 swiftCommandState: swiftCommandState,
@@ -119,7 +120,7 @@ extension SwiftTestCommand {
             let commandPlugin = try pluginManager.loadTemplatePlugin()
             let commandLineFragments = try await pluginManager.run()
 
-            if dryRun {
+            if self.dryRun {
                 for commandLine in commandLineFragments {
                     print(commandLine.displayFormat())
                 }
@@ -130,31 +131,45 @@ extension SwiftTestCommand {
             var buildMatrix: [String: BuildInfo] = [:]
 
             for commandLine in commandLineFragments {
-
                 let folderName = commandLine.fullPathKey
 
-                buildMatrix[folderName] = try await testDecisionTreeBranch(folderName: folderName, commandLine: commandLine.commandChain, swiftCommandState: swiftCommandState, packageType: packageType, commandPlugin: commandPlugin, cwd: cwd, buildSystem: buildSystem)
-
+                buildMatrix[folderName] = try await self.testDecisionTreeBranch(
+                    folderName: folderName,
+                    commandLine: commandLine.commandChain,
+                    swiftCommandState: swiftCommandState,
+                    packageType: packageType,
+                    commandPlugin: commandPlugin,
+                    cwd: cwd,
+                    buildSystem: buildSystem
+                )
             }
 
             switch self.format {
             case .matrix:
-                printBuildMatrix(buildMatrix)
+                self.printBuildMatrix(buildMatrix)
             case .json:
-                printJSONMatrix(buildMatrix)
+                self.printJSONMatrix(buildMatrix)
             }
         }
 
-        private func testDecisionTreeBranch(folderName: String, commandLine: [CommandComponent], swiftCommandState: SwiftCommandState, packageType: InitPackage.PackageType, commandPlugin: ResolvedModule, cwd: AbsolutePath, buildSystem: BuildSystemProvider.Kind) async throws -> BuildInfo {
-            let destinationPath = outputDirectory.appending(component: folderName)
+        private func testDecisionTreeBranch(
+            folderName: String,
+            commandLine: [CommandComponent],
+            swiftCommandState: SwiftCommandState,
+            packageType: InitPackage.PackageType,
+            commandPlugin: ResolvedModule,
+            cwd: AbsolutePath,
+            buildSystem: BuildSystemProvider.Kind
+        ) async throws -> BuildInfo {
+            let destinationPath = self.outputDirectory.appending(component: folderName)
 
             swiftCommandState.observabilityScope.emit(debug: "Generating \(folderName)")
             try FileManager.default.createDirectory(at: destinationPath.asURL, withIntermediateDirectories: true)
 
-            return try await testTemplateInitialization(
+            return try await self.testTemplateInitialization(
                 commandPlugin: commandPlugin,
                 swiftCommandState: swiftCommandState,
-                buildOptions: buildOptions,
+                buildOptions: self.buildOptions,
                 destinationAbsolutePath: destinationPath,
                 testingFolderName: folderName,
                 argumentPath: commandLine,
@@ -171,7 +186,7 @@ extension SwiftTestCommand {
                 "Gen Time(s)".padding(toLength: 12, withPad: " ", startingAt: 0),
                 "Build Success".padding(toLength: 14, withPad: " ", startingAt: 0),
                 "Build Time(s)".padding(toLength: 14, withPad: " ", startingAt: 0),
-                "Log File"
+                "Log File",
             ]
             print(header.joined(separator: " "))
 
@@ -179,10 +194,18 @@ extension SwiftTestCommand {
                 let row = [
                     folder.padding(toLength: 30, withPad: " ", startingAt: 0),
                     String(info.generationSuccess).padding(toLength: 12, withPad: " ", startingAt: 0),
-                    String(format: "%.2f", info.generationDuration.seconds).padding(toLength: 12, withPad: " ", startingAt: 0),
+                    String(format: "%.2f", info.generationDuration.seconds).padding(
+                        toLength: 12,
+                        withPad: " ",
+                        startingAt: 0
+                    ),
                     String(info.buildSuccess).padding(toLength: 14, withPad: " ", startingAt: 0),
-                    String(format: "%.2f", info.buildDuration.seconds).padding(toLength: 14, withPad: " ", startingAt: 0),
-                    info.logFilePath ?? "-"
+                    String(format: "%.2f", info.buildDuration.seconds).padding(
+                        toLength: 14,
+                        withPad: " ",
+                        startingAt: 0
+                    ),
+                    info.logFilePath ?? "-",
                 ]
                 print(row.joined(separator: " "))
             }
@@ -199,10 +222,12 @@ extension SwiftTestCommand {
             } catch {
                 print("Failed to encode JSON: \(error)")
             }
-
         }
 
-        private func inferPackageType(swiftCommandState: SwiftCommandState, from templatePath: Basics.AbsolutePath) async throws -> InitPackage.PackageType {
+        private func inferPackageType(
+            swiftCommandState: SwiftCommandState,
+            from templatePath: Basics.AbsolutePath
+        ) async throws -> InitPackage.PackageType {
             let workspace = try swiftCommandState.getActiveWorkspace()
             let root = try swiftCommandState.getWorkspaceRoot()
 
@@ -215,16 +240,17 @@ extension SwiftTestCommand {
                 throw ValidationError("")
             }
 
-            var targetName = templateName
+            var targetName = self.templateName
 
             if targetName == nil {
-                targetName = try findTemplateName(from: manifest)
+                targetName = try self.findTemplateName(from: manifest)
             }
 
             for target in manifest.targets {
                 if target.name == targetName,
                    let options = target.templateInitializationOptions,
-                   case .packageInit(let type, _, _) = options {
+                   case .packageInit(let type, _, _) = options
+                {
                     return try .init(from: type)
                 }
             }
@@ -232,11 +258,11 @@ extension SwiftTestCommand {
             throw ValidationError("")
         }
 
-
         private func findTemplateName(from manifest: Manifest) throws -> String {
             let templateTargets = manifest.targets.compactMap { target -> String? in
                 if let options = target.templateInitializationOptions,
-                   case .packageInit = options {
+                   case .packageInit = options
+                {
                     return target.name
                 }
                 return nil
@@ -252,7 +278,6 @@ extension SwiftTestCommand {
             }
         }
 
-
         private func testTemplateInitialization(
             commandPlugin: ResolvedModule,
             swiftCommandState: SwiftCommandState,
@@ -264,7 +289,6 @@ extension SwiftTestCommand {
             cwd: AbsolutePath,
             buildSystem: BuildSystemProvider.Kind
         ) async throws -> BuildInfo {
-
             let startGen = DispatchTime.now()
             var genSuccess = false
             var buildSuccess = false
@@ -290,19 +314,23 @@ extension SwiftTestCommand {
 
                 try initTemplate.setupTemplateManifest()
 
-                let graph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
-                    try await swiftCommandState.loadPackageGraph()
-                }
+                let graph = try await swiftCommandState
+                    .withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
+                        try await swiftCommandState.loadPackageGraph()
+                    }
 
-                try await TemplateBuildSupport.buildForTesting(swiftCommandState: swiftCommandState, buildOptions: buildOptions, testingFolder: destinationAbsolutePath)
+                try await TemplateBuildSupport.buildForTesting(
+                    swiftCommandState: swiftCommandState,
+                    buildOptions: buildOptions,
+                    testingFolder: destinationAbsolutePath
+                )
 
                 // Build flat command with all subcommands and arguments
-                let flatCommand = buildFlatCommand(from: argumentPath)
+                let flatCommand = self.buildFlatCommand(from: argumentPath)
 
                 print("Running plugin with args:", flatCommand)
 
                 try await swiftCommandState.withTemporaryWorkspace(switchingTo: destinationAbsolutePath) { _, _ in
-
                     let output = try await TemplatePluginExecutor.execute(
                         plugin: commandPlugin,
                         rootPackage: graph.rootPackages.first!,
@@ -328,7 +356,7 @@ extension SwiftTestCommand {
                 genSuccess = false
 
                 let errorLog = destinationAbsolutePath.appending("generation-output.log")
-                logPath = try? captureAndWriteError(
+                logPath = try? self.captureAndWriteError(
                     to: errorLog,
                     error: error,
                     context: "Plugin Output (before failure)"
@@ -357,7 +385,7 @@ extension SwiftTestCommand {
                     buildSuccess = false
 
                     let errorLog = destinationAbsolutePath.appending("build-output.log")
-                    logPath = try? captureAndWriteError(
+                    logPath = try? self.captureAndWriteError(
                         to: errorLog,
                         error: error,
                         context: "Build Output (before failure)"
@@ -381,7 +409,7 @@ extension SwiftTestCommand {
                 if index > 0 {
                     result.append(command.commandName)
                 }
-                let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
+                let commandArgs = command.arguments.flatMap(\.commandLineFragments)
                 result.append(contentsOf: commandArgs)
             }
 
@@ -391,22 +419,26 @@ extension SwiftTestCommand {
         private func captureAndWriteError(to path: AbsolutePath, error: Error, context: String) throws -> String {
             let existingOutput = (try? String(contentsOf: path.asURL)) ?? ""
             let logContent =
-            """
-            Error:
-            --------------------------------
-            \(error.localizedDescription)
-            
-            \(context):
-            --------------------------------
-            \(existingOutput)
-            """
+                """
+                Error:
+                --------------------------------
+                \(error.localizedDescription)
+
+                \(context):
+                --------------------------------
+                \(existingOutput)
+                """
             try logContent.write(to: path.asURL, atomically: true, encoding: .utf8)
             return path.pathString
         }
 
         private func redirectStdoutAndStderr(to path: String) throws -> (originalStdout: Int32, originalStderr: Int32) {
             guard let file = fopen(path, "w") else {
-                throw NSError(domain: "RedirectError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot open file for writing"])
+                throw NSError(
+                    domain: "RedirectError",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Cannot open file for writing"]
+                )
             }
 
             let originalStdout = dup(STDOUT_FILENO)
@@ -427,13 +459,14 @@ extension SwiftTestCommand {
             close(originalStderr)
         }
 
-        enum ShowTestTemplateOutput: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
+        enum ShowTestTemplateOutput: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument,
+            CaseIterable
+        {
             case matrix
             case json
 
-            public var description: String { rawValue }
+            var description: String { rawValue }
         }
-
 
         struct BuildInfo: Encodable {
             var generationDuration: DispatchTimeInterval
@@ -448,19 +481,18 @@ extension SwiftTestCommand {
 
             func encode(to encoder: Encoder) throws {
                 var container = encoder.container(keyedBy: CodingKeys.self)
-                try container.encode(generationDuration.seconds, forKey: .generationDuration)
-                try container.encode(buildDuration.seconds, forKey: .buildDuration)
-                try container.encode(generationSuccess, forKey: .generationSuccess)
-                try container.encode(buildSuccess, forKey: .buildSuccess)
-                try container.encodeIfPresent(logFilePath, forKey: .logFilePath)
+                try container.encode(self.generationDuration.seconds, forKey: .generationDuration)
+                try container.encode(self.buildDuration.seconds, forKey: .buildDuration)
+                try container.encode(self.generationSuccess, forKey: .generationSuccess)
+                try container.encode(self.buildSuccess, forKey: .buildSuccess)
+                try container.encodeIfPresent(self.logFilePath, forKey: .logFilePath)
             }
         }
     }
 }
 
-private extension String {
-    func padded(_ toLength: Int) -> String {
+extension String {
+    private func padded(_ toLength: Int) -> String {
         self.padding(toLength: toLength, withPad: " ", startingAt: 0)
     }
 }
-

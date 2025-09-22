@@ -1,12 +1,11 @@
 import ArgumentParserToolInfo
 
 import Basics
-import SPMBuildCore
 import CoreCommands
-import SPMBuildCore
-import Workspace
 import Foundation
 import PackageGraph
+import SPMBuildCore
+import Workspace
 
 /// A utility for obtaining and running a template's plugin .
 ///
@@ -29,7 +28,14 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
         return root
     }
 
-    init(swiftCommandState: SwiftCommandState, template: String?, scratchDirectory: Basics.AbsolutePath, args: [String], branches: [String], buildSystem: BuildSystemProvider.Kind) async throws {
+    init(
+        swiftCommandState: SwiftCommandState,
+        template: String?,
+        scratchDirectory: Basics.AbsolutePath,
+        args: [String],
+        branches: [String],
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
         let coordinator = TemplatePluginCoordinator(
             buildSystem: buildSystem,
             swiftCommandState: swiftCommandState,
@@ -50,21 +56,28 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     }
 
     func run() async throws -> [CommandPath] {
-        let plugin = try coordinator.loadTemplatePlugin(from: packageGraph)
-        let toolInfo = try await coordinator.dumpToolInfo(using: plugin, from: packageGraph, rootPackage: rootPackage)
+        let plugin = try coordinator.loadTemplatePlugin(from: self.packageGraph)
+        let toolInfo = try await coordinator.dumpToolInfo(
+            using: plugin,
+            from: self.packageGraph,
+            rootPackage: self.rootPackage
+        )
 
-        return try promptUserForTemplateArguments(using: toolInfo)
+        return try self.promptUserForTemplateArguments(using: toolInfo)
     }
 
     private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [CommandPath] {
-        try TemplateTestPromptingSystem(hasTTY: swiftCommandState.outputStream.isTTY).generateCommandPaths(rootCommand: toolInfo.command, args: args, branches: branches)
+        try TemplateTestPromptingSystem(hasTTY: self.swiftCommandState.outputStream.isTTY).generateCommandPaths(
+            rootCommand: toolInfo.command,
+            args: self.args,
+            branches: self.branches
+        )
     }
 
     public func loadTemplatePlugin() throws -> ResolvedModule {
-        return try coordinator.loadTemplatePlugin(from: packageGraph)
+        try self.coordinator.loadTemplatePlugin(from: self.packageGraph)
     }
 }
-
 
 public struct CommandPath {
     public let fullPathKey: String
@@ -78,41 +91,42 @@ public struct CommandComponent {
 
 extension CommandPath {
     func displayFormat() -> String {
-        let commandNames = commandChain.map { $0.commandName }
+        let commandNames = self.commandChain.map(\.commandName)
         let fullPath = commandNames.joined(separator: " ")
 
         var result = "Command Path: \(fullPath) \nExecution Format: \n\n"
 
         // Build flat command format: [Command command-args sub-command sub-command-args ...]
-        let flatCommand = buildFlatCommandDisplay()
+        let flatCommand = self.buildFlatCommandDisplay()
         result += "\(flatCommand)\n\n"
-        
+
         return result
     }
-    
+
     private func buildFlatCommandDisplay() -> String {
         var result: [String] = []
-        
-        for (index, command) in commandChain.enumerated() {
+
+        for (index, command) in self.commandChain.enumerated() {
             // Add command name (skip the first command name as it's the root)
             if index > 0 {
                 result.append(command.commandName)
             }
-            
+
             // Add all arguments for this command level
-            let commandArgs = command.arguments.flatMap { $0.commandLineFragments }
+            let commandArgs = command.arguments.flatMap(\.commandLineFragments)
             result.append(contentsOf: commandArgs)
         }
-        
+
         return result.joined(separator: " ")
     }
 
     private func formatArguments(_ argumentResponses:
-                                 [Commands.TemplateTestPromptingSystem.ArgumentResponse]) -> String {
+        [Commands.TemplateTestPromptingSystem.ArgumentResponse]
+    ) -> String {
         let formattedArgs = argumentResponses.compactMap { response ->
             String? in
             guard let preferredName =
-                    response.argument.preferredName?.name else { return nil }
+                response.argument.preferredName?.name else { return nil }
 
             let values = response.values.joined(separator: " ")
             return values.isEmpty ? nil : "  --\(preferredName) \(values)"
@@ -122,16 +136,13 @@ extension CommandPath {
     }
 }
 
-
-
-
 public class TemplateTestPromptingSystem {
-
     private let hasTTY: Bool
 
     public init(hasTTY: Bool = true) {
         self.hasTTY = hasTTY
     }
+
     /// Prompts the user for input based on the given command definition and arguments.
     ///
     /// This method collects responses for a command's arguments by first validating any user-provided
@@ -155,36 +166,38 @@ public class TemplateTestPromptingSystem {
     ///
     /// - Throws: An error if argument parsing or user prompting fails.
 
-
-
     // resolve arguments at this level
     // append arguments to the current path
     // if subcommands exist, then for each subcommand, pass the function again, where we deepCopy a path
     // if not, then jointhe command names of all the paths, and append CommandPath()
 
-    private func parseAndMatchArguments(_ input: [String], definedArgs: [ArgumentInfoV0], subcommands: [CommandInfoV0] = []) throws -> (Set<ArgumentResponse>, [String]) {
+    private func parseAndMatchArguments(
+        _ input: [String],
+        definedArgs: [ArgumentInfoV0],
+        subcommands: [CommandInfoV0] = []
+    ) throws -> (Set<ArgumentResponse>, [String]) {
         var responses = Set<ArgumentResponse>()
         var providedMap: [String: [String]] = [:]
         var leftover: [String] = []
         var tokens = input
         var terminatorSeen = false
         var postTerminatorArgs: [String] = []
-        
-        let subcommandNames = Set(subcommands.map { $0.commandName })
+
+        let subcommandNames = Set(subcommands.map(\.commandName))
         let positionalArgs = definedArgs.filter { $0.kind == .positional }
-        
+
         // Handle terminator (--) for post-terminator parsing
         if let terminatorIndex = tokens.firstIndex(of: "--") {
             postTerminatorArgs = Array(tokens[(terminatorIndex + 1)...])
             tokens = Array(tokens[..<terminatorIndex])
             terminatorSeen = true
         }
-        
+
         // Phase 1: Parse named arguments (--flags, --options)
         var i = 0
         while i < tokens.count {
             let token = tokens[i]
-            
+
             if token.starts(with: "--") {
                 let name = String(token.dropFirst(2))
                 guard let arg = definedArgs.first(where: { $0.valueName == name }) else {
@@ -198,7 +211,7 @@ public class TemplateTestPromptingSystem {
                     }
                     continue
                 }
-                
+
                 switch arg.kind {
                 case .flag:
                     providedMap[arg.valueName ?? name, default: []].append("true")
@@ -214,26 +227,26 @@ public class TemplateTestPromptingSystem {
                 i += 1
             }
         }
-        
+
         // Phase 2: Parse positional arguments in order
         var positionalIndex = 0
         var tokenIndex = 0
-        
+
         while tokenIndex < tokens.count && positionalIndex < positionalArgs.count {
             let token = tokens[tokenIndex]
-            
+
             // Skip subcommands for now
             if subcommandNames.contains(token) {
                 leftover.append(token)
                 tokens.remove(at: tokenIndex)
                 continue
             }
-            
+
             let arg = positionalArgs[positionalIndex]
             let argName = arg.valueName ?? "__positional"
-            
+
             var values: [String] = []
-            
+
             // Handle different parsing strategies for positional args
             switch arg.parsingStrategy {
             case .allRemainingInput:
@@ -268,7 +281,7 @@ public class TemplateTestPromptingSystem {
                     tokens.remove(at: tokenIndex)
                 }
             }
-            
+
             // Validate values if restrictions exist
             if let allowed = arg.allValues {
                 let invalid = values.filter { !allowed.contains($0) }
@@ -280,21 +293,25 @@ public class TemplateTestPromptingSystem {
                     )
                 }
             }
-            
+
             responses.insert(ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false))
             positionalIndex += 1
         }
-        
+
         // Add remaining tokens to leftover
         leftover.append(contentsOf: tokens)
-        
+
         // Phase 3: Handle special parsing strategies
         for arg in definedArgs {
             let argName = arg.valueName ?? "__unknown"
             switch arg.parsingStrategy {
             case .postTerminator:
                 if terminatorSeen {
-                    responses.insert(ArgumentResponse(argument: arg, values: postTerminatorArgs, isExplicitlyUnset: false))
+                    responses.insert(ArgumentResponse(
+                        argument: arg,
+                        values: postTerminatorArgs,
+                        isExplicitlyUnset: false
+                    ))
                 }
             case .allRemainingInput:
                 // Only process if not already handled in positional parsing
@@ -310,14 +327,14 @@ public class TemplateTestPromptingSystem {
                 break
             }
         }
-        
+
         // Phase 4: Build responses for named arguments
         for arg in definedArgs.filter({ $0.kind != .positional }) {
             let name = arg.valueName ?? "__unknown"
             guard let values = providedMap[name] else {
                 continue
             }
-            
+
             if let allowed = arg.allValues {
                 let invalid = values.filter { !allowed.contains($0) }
                 if !invalid.isEmpty {
@@ -328,17 +345,21 @@ public class TemplateTestPromptingSystem {
                     )
                 }
             }
-            
+
             responses.insert(ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false))
         }
-        
+
         return (responses, leftover)
     }
-    
+
     /// Helper method to parse option values based on parsing strategy
-    private func parseOptionValues(arg: ArgumentInfoV0, tokens: inout [String], currentIndex: inout Int) throws -> [String] {
+    private func parseOptionValues(
+        arg: ArgumentInfoV0,
+        tokens: inout [String],
+        currentIndex: inout Int
+    ) throws -> [String] {
         var values: [String] = []
-        
+
         switch arg.parsingStrategy {
         case .default:
             // Expect the next token to be a value and parse it
@@ -351,7 +372,7 @@ public class TemplateTestPromptingSystem {
             }
             values.append(tokens[currentIndex])
             tokens.remove(at: currentIndex)
-            
+
         case .scanningForValue:
             // Parse the next token as a value if it exists and isn't an option
             if currentIndex < tokens.count && !tokens[currentIndex].starts(with: "--") {
@@ -360,7 +381,7 @@ public class TemplateTestPromptingSystem {
             } else if let defaultValue = arg.defaultValue {
                 values.append(defaultValue)
             }
-            
+
         case .unconditional:
             // Parse the next token as a value, regardless of its type
             guard currentIndex < tokens.count else {
@@ -371,7 +392,7 @@ public class TemplateTestPromptingSystem {
             }
             values.append(tokens[currentIndex])
             tokens.remove(at: currentIndex)
-            
+
         case .upToNextOption:
             // Parse multiple values up to the next option
             while currentIndex < tokens.count && !tokens[currentIndex].starts(with: "--") {
@@ -382,12 +403,12 @@ public class TemplateTestPromptingSystem {
             if values.isEmpty && arg.defaultValue != nil {
                 values.append(arg.defaultValue!)
             }
-            
+
         case .allRemainingInput:
             // Collect all remaining tokens
             values = Array(tokens[currentIndex...])
             tokens.removeSubrange(currentIndex...)
-            
+
         case .postTerminator, .allUnrecognized:
             // These are handled separately in the main parsing logic
             if currentIndex < tokens.count {
@@ -395,7 +416,7 @@ public class TemplateTestPromptingSystem {
                 tokens.remove(at: currentIndex)
             }
         }
-        
+
         // Validate values against allowed values if specified
         if let allowed = arg.allValues {
             let invalid = values.filter { !allowed.contains($0) }
@@ -407,16 +428,29 @@ public class TemplateTestPromptingSystem {
                 )
             }
         }
-        
+
         return values
     }
 
-    public func generateCommandPaths(rootCommand: CommandInfoV0, args: [String], branches: [String]) throws -> [CommandPath] {
+    public func generateCommandPaths(
+        rootCommand: CommandInfoV0,
+        args: [String],
+        branches: [String]
+    ) throws -> [CommandPath] {
         var paths: [CommandPath] = []
         var visitedArgs = Set<ArgumentResponse>()
         var inheritedResponses: [ArgumentResponse] = []
 
-        try dfsWithInheritance(command: rootCommand, path: [], visitedArgs: &visitedArgs, inheritedResponses: &inheritedResponses, paths: &paths, predefinedArgs: args, branches: branches, branchDepth: 0)
+        try dfsWithInheritance(
+            command: rootCommand,
+            path: [],
+            visitedArgs: &visitedArgs,
+            inheritedResponses: &inheritedResponses,
+            paths: &paths,
+            predefinedArgs: args,
+            branches: branches,
+            branchDepth: 0
+        )
 
         for path in paths {
             print(path.displayFormat())
@@ -424,22 +458,34 @@ public class TemplateTestPromptingSystem {
         return paths
     }
 
-    func dfsWithInheritance(command: CommandInfoV0, path: [CommandComponent], visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>, inheritedResponses: inout [ArgumentResponse], paths: inout [CommandPath], predefinedArgs: [String], branches: [String], branchDepth: Int = 0) throws {
-
+    func dfsWithInheritance(
+        command: CommandInfoV0,
+        path: [CommandComponent],
+        visitedArgs: inout Set<TemplateTestPromptingSystem.ArgumentResponse>,
+        inheritedResponses: inout [ArgumentResponse],
+        paths: inout [CommandPath],
+        predefinedArgs: [String],
+        branches: [String],
+        branchDepth: Int = 0
+    ) throws {
         let allArgs = try convertArguments(from: command)
-        let subCommands = getSubCommand(from: command) ?? []
+        let subCommands = self.getSubCommand(from: command) ?? []
 
-        let (answeredArgs, leftoverArgs) = try parseAndMatchArguments(predefinedArgs, definedArgs: allArgs, subcommands: subCommands)
+        let (answeredArgs, leftoverArgs) = try parseAndMatchArguments(
+            predefinedArgs,
+            definedArgs: allArgs,
+            subcommands: subCommands
+        )
 
         // Combine inherited responses with current parsed responses
-        let currentArgNames = Set(allArgs.map { $0.valueName })
+        let currentArgNames = Set(allArgs.map(\.valueName))
         let relevantInheritedResponses = inheritedResponses.filter { !currentArgNames.contains($0.argument.valueName) }
-        
+
         var allCurrentResponses = Array(answeredArgs) + relevantInheritedResponses
         visitedArgs.formUnion(answeredArgs)
 
         // Find missing arguments that need prompting
-        let providedArgNames = Set(allCurrentResponses.map { $0.argument.valueName })
+        let providedArgNames = Set(allCurrentResponses.map(\.argument.valueName))
         let missingArgs = allArgs.filter { arg in
             !providedArgNames.contains(arg.valueName) && arg.valueName != "help" && arg.shouldDisplay
         }
@@ -454,7 +500,7 @@ public class TemplateTestPromptingSystem {
 
         // Filter to only include arguments defined at this command level
         let currentLevelResponses = allCurrentResponses.filter { currentArgNames.contains($0.argument.valueName) }
-        
+
         let currentComponent = CommandComponent(
             commandName: command.commandName, arguments: currentLevelResponses
         )
@@ -470,45 +516,61 @@ public class TemplateTestPromptingSystem {
             // Try to auto-detect a subcommand from leftover args
             if let (index, matchedSubcommand) = leftoverArgs
                 .enumerated()
-                .compactMap({ (i, token) -> (Int, CommandInfoV0)? in
+                .compactMap({ i, token -> (Int, CommandInfoV0)? in
                     if let match = subcommands.first(where: { $0.commandName == token }) {
                         print("Detected subcommand '\(match.commandName)' from user input.")
                         return (i, match)
                     }
                     return nil
                 })
-                .first {
-                
+                .first
+            {
                 var newLeftoverArgs = leftoverArgs
                 newLeftoverArgs.remove(at: index)
-                
-                let shouldTraverse: Bool
-                if branches.isEmpty {
-                    shouldTraverse = true
+
+                let shouldTraverse: Bool = if branches.isEmpty {
+                    true
                 } else if branchDepth < (branches.count - 1) {
-                    shouldTraverse = matchedSubcommand.commandName == branches[branchDepth + 1]
+                    matchedSubcommand.commandName == branches[branchDepth + 1]
                 } else {
-                    shouldTraverse = matchedSubcommand.commandName == branches[branchDepth]
+                    matchedSubcommand.commandName == branches[branchDepth]
                 }
-                
+
                 if shouldTraverse {
-                    try dfsWithInheritance(command: matchedSubcommand, path: newPath, visitedArgs: &visitedArgs, inheritedResponses: &newInheritedResponses, paths: &paths, predefinedArgs: newLeftoverArgs, branches: branches, branchDepth: branchDepth + 1)
+                    try self.dfsWithInheritance(
+                        command: matchedSubcommand,
+                        path: newPath,
+                        visitedArgs: &visitedArgs,
+                        inheritedResponses: &newInheritedResponses,
+                        paths: &paths,
+                        predefinedArgs: newLeftoverArgs,
+                        branches: branches,
+                        branchDepth: branchDepth + 1
+                    )
                 }
             } else {
                 // No subcommand detected, process all available subcommands based on branch filter
                 for sub in subcommands {
-                    let shouldTraverse: Bool
-                    if branches.isEmpty {
-                        shouldTraverse = true
+                    let shouldTraverse: Bool = if branches.isEmpty {
+                        true
                     } else if branchDepth < (branches.count - 1) {
-                        shouldTraverse = sub.commandName == branches[branchDepth + 1]
+                        sub.commandName == branches[branchDepth + 1]
                     } else {
-                        shouldTraverse = sub.commandName == branches[branchDepth]
+                        sub.commandName == branches[branchDepth]
                     }
-                    
+
                     if shouldTraverse {
                         var branchInheritedResponses = newInheritedResponses
-                        try dfsWithInheritance(command: sub, path: newPath, visitedArgs: &visitedArgs, inheritedResponses: &branchInheritedResponses, paths: &paths, predefinedArgs: leftoverArgs, branches: branches, branchDepth: branchDepth + 1)
+                        try dfsWithInheritance(
+                            command: sub,
+                            path: newPath,
+                            visitedArgs: &visitedArgs,
+                            inheritedResponses: &branchInheritedResponses,
+                            paths: &paths,
+                            predefinedArgs: leftoverArgs,
+                            branches: branches,
+                            branchDepth: branchDepth + 1
+                        )
                     }
                 }
             }
@@ -522,12 +584,9 @@ public class TemplateTestPromptingSystem {
         }
 
         func joinCommandNames(_ path: [CommandComponent]) -> String {
-            path.map { $0.commandName }.joined(separator: "-")
+            path.map(\.commandName).joined(separator: "-")
         }
     }
-
-
-
 
     /// Retrieves the list of subcommands for a given command, excluding common utility commands.
     ///
@@ -574,7 +633,7 @@ public class TemplateTestPromptingSystem {
             collected: inout [String: ArgumentResponse],
             hasTTY: Bool = true
         ) throws -> [ArgumentResponse] {
-            return try arguments
+            try arguments
                 .filter { $0.valueName != "help" && $0.shouldDisplay }
                 .compactMap { arg in
                     let key = arg.preferredName?.name ?? arg.valueName ?? UUID().uuidString
@@ -588,8 +647,8 @@ public class TemplateTestPromptingSystem {
 
                     let defaultText = arg.defaultValue.map { " (default: \($0))" } ?? ""
                     let allValuesText = (arg.allValues?.isEmpty == false) ?
-                    " [\(arg.allValues!.joined(separator: ", "))]" : ""
-                    let completionText = generateCompletionHint(for: arg)
+                        " [\(arg.allValues!.joined(separator: ", "))]" : ""
+                    let completionText = self.generateCompletionHint(for: arg)
                     let promptMessage = "\(arg.abstract ?? "")\(allValuesText)\(completionText)\(defaultText):"
 
                     var values: [String] = []
@@ -597,9 +656,11 @@ public class TemplateTestPromptingSystem {
                     switch arg.kind {
                     case .flag:
                         if !hasTTY && arg.isOptional == false && arg.defaultValue == nil {
-                            fatalError("Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available")
+                            fatalError(
+                                "Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available"
+                            )
                         }
-                        
+
                         var confirmed: Bool? = nil
                         if hasTTY {
                             confirmed = try promptForConfirmation(
@@ -610,7 +671,7 @@ public class TemplateTestPromptingSystem {
                         } else if let defaultValue = arg.defaultValue {
                             confirmed = defaultValue.lowercased() == "true"
                         }
-                        
+
                         if let confirmed {
                             values = [confirmed ? "true" : "false"]
                         } else if arg.isOptional {
@@ -624,11 +685,14 @@ public class TemplateTestPromptingSystem {
 
                     case .option, .positional:
                         if !hasTTY && arg.isOptional == false && arg.defaultValue == nil {
-                            fatalError("Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available")
+                            fatalError(
+                                "Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available"
+                            )
                         }
-                        
+
                         if hasTTY {
-                            let nilSuffix = arg.isOptional && arg.defaultValue == nil ? " (or enter \"nil\" to unset)" : ""
+                            let nilSuffix = arg.isOptional && arg
+                                .defaultValue == nil ? " (or enter \"nil\" to unset)" : ""
                             print(promptMessage + nilSuffix)
                         }
 
@@ -638,12 +702,18 @@ public class TemplateTestPromptingSystem {
                                     if input.lowercased() == "nil" && arg.isOptional {
                                         // Clear the values array to explicitly unset
                                         values = []
-                                        let response = ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: true)
+                                        let response = ArgumentResponse(
+                                            argument: arg,
+                                            values: values,
+                                            isExplicitlyUnset: true
+                                        )
                                         collected[key] = response
                                         return response
                                     }
                                     if let allowed = arg.allValues, !allowed.contains(input) {
-                                        print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
+                                        print(
+                                            "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
+                                        )
                                         continue
                                     }
                                     values.append(input)
@@ -657,17 +727,29 @@ public class TemplateTestPromptingSystem {
                             if let input, !input.isEmpty {
                                 if input.lowercased() == "nil" && arg.isOptional {
                                     values = []
-                                    let response = ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: true)
+                                    let response = ArgumentResponse(
+                                        argument: arg,
+                                        values: values,
+                                        isExplicitlyUnset: true
+                                    )
                                     collected[key] = response
                                     return response
                                 } else {
                                     if let allowed = arg.allValues, !allowed.contains(input) {
                                         if hasTTY {
-                                            print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
-                                            print("Or try completion suggestions: \(generateCompletionSuggestions(for: arg, input: input))")
+                                            print(
+                                                "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
+                                            )
+                                            print(
+                                                "Or try completion suggestions: \(self.generateCompletionSuggestions(for: arg, input: input))"
+                                            )
                                             fatalError("Invalid value provided")
                                         } else {
-                                            throw TemplateError.invalidValue(argument: arg.valueName ?? "", invalidValues: [input], allowed: allowed)
+                                            throw TemplateError.invalidValue(
+                                                argument: arg.valueName ?? "",
+                                                invalidValues: [input],
+                                                allowed: allowed
+                                            )
                                         }
                                     }
                                     values = [input]
@@ -689,11 +771,11 @@ public class TemplateTestPromptingSystem {
                     return response
                 }
         }
-        
+
         /// Generates completion hint text based on CompletionKindV0
         private static func generateCompletionHint(for arg: ArgumentInfoV0) -> String {
             guard let completionKind = arg.completionKind else { return "" }
-            
+
             switch completionKind {
             case .list(let values):
                 return " (suggestions: \(values.joined(separator: ", ")))"
@@ -713,13 +795,13 @@ public class TemplateTestPromptingSystem {
                 return " (custom completions available)"
             }
         }
-        
+
         /// Generates completion suggestions based on input and CompletionKindV0
         private static func generateCompletionSuggestions(for arg: ArgumentInfoV0, input: String) -> String {
             guard let completionKind = arg.completionKind else {
                 return "No completions available"
             }
-            
+
             switch completionKind {
             case .list(let values):
                 let suggestions = values.filter { $0.hasPrefix(input) }
@@ -739,7 +821,11 @@ public class TemplateTestPromptingSystem {
     /// - Returns: `true` if the user confirmed, `false` if denied, `nil` if explicitly unset.
     /// - Throws: TemplateError if required argument missing without TTY
 
-    private static func promptForConfirmation(prompt: String, defaultBehavior: Bool?, isOptional: Bool) throws -> Bool? {
+    private static func promptForConfirmation(
+        prompt: String,
+        defaultBehavior: Bool?,
+        isOptional: Bool
+    ) throws -> Bool? {
         var suffix = defaultBehavior == true ? " [Y/n]" : defaultBehavior == false ? " [y/N]" : " [y/n]"
 
         if isOptional && defaultBehavior == nil {
@@ -759,7 +845,7 @@ public class TemplateTestPromptingSystem {
         switch input {
         case "y", "yes": return true
         case "n", "no": return false
-        case "nil": 
+        case "nil":
             if isOptional {
                 return nil
             } else {
@@ -773,7 +859,7 @@ public class TemplateTestPromptingSystem {
             } else {
                 throw TemplateError.missingRequiredArgumentWithoutTTY(name: "confirmation")
             }
-        default: 
+        default:
             if let defaultBehavior {
                 return defaultBehavior
             } else if isOptional {
@@ -792,15 +878,15 @@ public class TemplateTestPromptingSystem {
 
         /// The values provided by the user.
         public let values: [String]
-        
+
         /// Whether the argument was explicitly unset (nil) by the user.
         public let isExplicitlyUnset: Bool
 
         /// Returns the command line fragments representing this argument and its values.
         public var commandLineFragments: [String] {
             // If explicitly unset, don't generate any command line fragments
-            guard !isExplicitlyUnset else { return [] }
-            
+            guard !self.isExplicitlyUnset else { return [] }
+
             guard let name = argument.valueName else {
                 return self.values
             }
@@ -809,7 +895,7 @@ public class TemplateTestPromptingSystem {
             case .flag:
                 return self.values.first == "true" ? ["--\(name)"] : []
             case .option:
-                if argument.isRepeating {
+                if self.argument.isRepeating {
                     return self.values.flatMap { ["--\(name)", $0] }
                 } else {
                     return self.values.flatMap { ["--\(name)", $0] }
@@ -818,7 +904,7 @@ public class TemplateTestPromptingSystem {
                 return self.values
             }
         }
-        
+
         /// Initialize with explicit unset state
         public init(argument: ArgumentInfoV0, values: [String], isExplicitlyUnset: Bool = false) {
             self.argument = argument
@@ -827,15 +913,13 @@ public class TemplateTestPromptingSystem {
         }
 
         public func hash(into hasher: inout Hasher) {
-            hasher.combine(argument.valueName)
+            hasher.combine(self.argument.valueName)
         }
 
         public static func == (lhs: ArgumentResponse, rhs: ArgumentResponse) -> Bool {
-            return lhs.argument.valueName == rhs.argument.valueName
+            lhs.argument.valueName == rhs.argument.valueName
         }
     }
-
-
 }
 
 /// An error enum representing various template-related errors.

@@ -7,14 +7,13 @@ import Basics
 @_spi(SwiftPMInternal)
 import CoreCommands
 
+import Foundation
+import PackageGraph
 import PackageModel
-import Workspace
 import SPMBuildCore
 import TSCBasic
 import TSCUtility
-import Foundation
-import PackageGraph
-
+import Workspace
 
 struct TemplatePluginCoordinator {
     let buildSystem: BuildSystemProvider.Kind
@@ -27,16 +26,18 @@ struct TemplatePluginCoordinator {
     private let EXPERIMENTAL_DUMP_HELP = ["--", "--experimental-dump-help"]
 
     func loadPackageGraph() async throws -> ModulesGraph {
-        try await swiftCommandState.withTemporaryWorkspace(switchingTo: scratchDirectory) { _, _ in
-            try await swiftCommandState.loadPackageGraph()
+        try await self.swiftCommandState.withTemporaryWorkspace(switchingTo: self.scratchDirectory) { _, _ in
+            try await self.swiftCommandState.loadPackageGraph()
         }
     }
 
     /// Loads the plugin that corresponds to the template's name.
     ///
     /// - Throws:
-    ///   - `PluginError.noMatchingTemplate(name: String?)` if there are no plugins corresponding to the desired template.
-    ///   - `PluginError.multipleMatchingTemplates(names: [String]` if the search returns more than one plugin given a desired template
+    ///   - `PluginError.noMatchingTemplate(name: String?)` if there are no plugins corresponding to the desired
+    /// template.
+    ///   - `PluginError.multipleMatchingTemplates(names: [String]` if the search returns more than one plugin given a
+    /// desired template
     ///
     /// - Returns: A data representation of the result of the execution of the template's plugin.
     func loadTemplatePlugin(from packageGraph: ModulesGraph) throws -> ResolvedModule {
@@ -57,16 +58,21 @@ struct TemplatePluginCoordinator {
     /// Manages the logic of dumping the JSON representation of a template's decision tree.
     ///
     /// - Throws:
-    ///   - `TemplatePluginError.failedToDecodeToolInfo(underlying: error)` If there is a change in representation between the JSON and the current version of the ToolInfoV0 struct
+    ///   - `TemplatePluginError.failedToDecodeToolInfo(underlying: error)` If there is a change in representation
+    /// between the JSON and the current version of the ToolInfoV0 struct
 
-    func dumpToolInfo(using plugin: ResolvedModule, from packageGraph: ModulesGraph, rootPackage: ResolvedPackage) async throws -> ToolInfoV0 {
+    func dumpToolInfo(
+        using plugin: ResolvedModule,
+        from packageGraph: ModulesGraph,
+        rootPackage: ResolvedPackage
+    ) async throws -> ToolInfoV0 {
         let output = try await TemplatePluginRunner.run(
             plugin: plugin,
             package: rootPackage,
             packageGraph: packageGraph,
-            buildSystem: buildSystem,
-            arguments: EXPERIMENTAL_DUMP_HELP,
-            swiftCommandState: swiftCommandState,
+            buildSystem: self.buildSystem,
+            arguments: self.EXPERIMENTAL_DUMP_HELP,
+            swiftCommandState: self.swiftCommandState,
             requestPermission: true
         )
 
@@ -84,19 +90,19 @@ struct TemplatePluginCoordinator {
 
         var description: String {
             switch self {
-            case let .noMatchingTemplate(name):
+            case .noMatchingTemplate(let name):
                 "No templates found matching '\(name ?? "<none>")'"
-            case let .multipleMatchingTemplates(names):
+            case .multipleMatchingTemplates(let names):
                 "Multiple templates matched: \(names.joined(separator: ", "))"
-            case let .failedToDecodeToolInfo(underlying):
+            case .failedToDecodeToolInfo(let underlying):
                 "Failed to decode tool info: \(underlying.localizedDescription)"
             }
         }
     }
 }
 
-private extension PluginCapability {
-    var commandInvocationVerb: String? {
+extension PluginCapability {
+    fileprivate var commandInvocationVerb: String? {
         guard case .command(let intent, _) = self else { return nil }
         return intent.invocationVerb
     }

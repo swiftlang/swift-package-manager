@@ -20,7 +20,6 @@ import TSCUtility
 import Workspace
 @_spi(PackageRefactor) import SwiftRefactor
 
-
 /// A Swift command that lists the available executable templates from a package.
 ///
 /// The command can work with either a local package or a remote Git-based package template.
@@ -75,21 +74,37 @@ struct ShowTemplates: AsyncSwiftCommand {
     var to: Version?
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
-
         guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
             throw InternalError("Could not find the current working directory")
         }
 
         // precheck() needed, extremely similar to the Init precheck, can refactor possibly
-        let source = try resolveSource(cwd: cwd, fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+        let source = try resolveSource(
+            cwd: cwd,
+            fileSystem: swiftCommandState.fileSystem,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
         let resolvedPath = try await resolveTemplatePath(using: swiftCommandState, source: source)
         let templates = try await loadTemplates(from: resolvedPath, swiftCommandState: swiftCommandState)
         try await displayTemplates(templates, at: resolvedPath, using: swiftCommandState)
-        try cleanupTemplate(source: source, path: resolvedPath, fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+        try cleanupTemplate(
+            source: source,
+            path: resolvedPath,
+            fileSystem: swiftCommandState.fileSystem,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
     }
 
-    private func resolveSource(cwd: AbsolutePath, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws -> InitTemplatePackage.TemplateSource {
-        guard let source = DefaultTemplateSourceResolver(cwd: cwd, fileSystem: fileSystem, observabilityScope: observabilityScope).resolveSource(
+    private func resolveSource(
+        cwd: AbsolutePath,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> InitTemplatePackage.TemplateSource {
+        guard let source = DefaultTemplateSourceResolver(
+            cwd: cwd,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
+        ).resolveSource(
             directory: cwd,
             url: self.templateURL,
             packageID: self.templatePackageID
@@ -99,10 +114,10 @@ struct ShowTemplates: AsyncSwiftCommand {
         return source
     }
 
-
-
-    private func resolveTemplatePath(using swiftCommandState: SwiftCommandState, source: InitTemplatePackage.TemplateSource) async throws -> Basics.AbsolutePath {
-
+    private func resolveTemplatePath(
+        using swiftCommandState: SwiftCommandState,
+        source: InitTemplatePackage.TemplateSource
+    ) async throws -> Basics.AbsolutePath {
         let requirementResolver = DependencyRequirementResolver(
             packageIdentity: templatePackageID,
             swiftCommandState: swiftCommandState,
@@ -116,7 +131,6 @@ struct ShowTemplates: AsyncSwiftCommand {
 
         var sourceControlRequirement: SwiftRefactor.PackageDependency.SourceControl.Requirement?
         var registryRequirement: SwiftRefactor.PackageDependency.Registry.Requirement?
-
 
         switch source {
         case .local:
@@ -141,18 +155,23 @@ struct ShowTemplates: AsyncSwiftCommand {
         ).resolve()
     }
 
-    private func loadTemplates(from path: AbsolutePath, swiftCommandState: SwiftCommandState) async throws -> [Template] {
+    private func loadTemplates(
+        from path: AbsolutePath,
+        swiftCommandState: SwiftCommandState
+    ) async throws -> [Template] {
         let graph = try await swiftCommandState.withTemporaryWorkspace(switchingTo: path) { _, _ in
             try await swiftCommandState.loadPackageGraph()
         }
 
-        let rootPackages = graph.rootPackages.map{ $0.identity }
+        let rootPackages = graph.rootPackages.map(\.identity)
 
-        return graph.allModules.filter({$0.underlying.template}).map {
-            Template(package: rootPackages.contains($0.packageIdentity) ? nil : $0.packageIdentity.description, name: $0.name)
+        return graph.allModules.filter(\.underlying.template).map {
+            Template(
+                package: rootPackages.contains($0.packageIdentity) ? nil : $0.packageIdentity.description,
+                name: $0.name
+            )
         }
     }
-
 
     private func getDescription(_ swiftCommandState: SwiftCommandState, template: String) async throws -> String {
         let workspace = try swiftCommandState.getActiveWorkspace()
@@ -170,7 +189,8 @@ struct ShowTemplates: AsyncSwiftCommand {
 
         if let target = targets.first(where: { $0.name == template }),
            let options = target.templateInitializationOptions,
-           case .packageInit(_, _, let description) = options {
+           case .packageInit(_, _, let description) = options
+        {
             return description
         }
 
@@ -188,7 +208,7 @@ struct ShowTemplates: AsyncSwiftCommand {
         case .flatlist:
             for template in templates.sorted(by: { $0.name < $1.name }) {
                 let description = try await swiftCommandState.withTemporaryWorkspace(switchingTo: path) { _, _ in
-                    try await getDescription(swiftCommandState, template: template.name)
+                    try await self.getDescription(swiftCommandState, template: template.name)
                 }
                 if let package = template.package {
                     print("\(template.name) (\(package)) : \(description)")
@@ -207,14 +227,15 @@ struct ShowTemplates: AsyncSwiftCommand {
         }
     }
 
-    private func cleanupTemplate(source: InitTemplatePackage.TemplateSource, path: AbsolutePath, fileSystem: FileSystem, observabilityScope: ObservabilityScope) throws {
+    private func cleanupTemplate(
+        source: InitTemplatePackage.TemplateSource,
+        path: AbsolutePath,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws {
         try TemplateInitializationDirectoryManager(fileSystem: fileSystem, observabilityScope: observabilityScope)
             .cleanupTemporary(templateSource: source, path: path, temporaryDirectory: nil)
     }
-
-
-
-
 
     /// Represents a discovered template.
     struct Template: Codable {
@@ -231,7 +252,7 @@ struct ShowTemplates: AsyncSwiftCommand {
         /// Output as a JSON array of template objects.
         case json
 
-        public init?(rawValue: String) {
+        init?(rawValue: String) {
             switch rawValue.lowercased() {
             case "flatlist":
                 self = .flatlist
@@ -242,7 +263,7 @@ struct ShowTemplates: AsyncSwiftCommand {
             }
         }
 
-        public var description: String {
+        var description: String {
             switch self {
             case .flatlist: "flatlist"
             case .json: "json"

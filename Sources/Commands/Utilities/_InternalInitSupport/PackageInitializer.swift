@@ -6,15 +6,16 @@ import Basics
 @_spi(SwiftPMInternal)
 import CoreCommands
 
-@_spi(PackageRefactor) import SwiftRefactor
-import Workspace
-import SPMBuildCore
-import TSCBasic
-import TSCUtility
 import Foundation
 import PackageGraph
+import SPMBuildCore
+@_spi(PackageRefactor) import SwiftRefactor
+import TSCBasic
+import TSCUtility
+import Workspace
 
 import class PackageModel.Manifest
+
 protocol PackageInitializer {
     func run() async throws
 }
@@ -39,18 +40,19 @@ struct TemplatePackageInitializer: PackageInitializer {
             var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
             var registryRequirement: PackageDependency.Registry.Requirement?
 
-            swiftCommandState.observabilityScope.emit(debug: "Fetching versioning requirements and resolving path of template on local disk.")
+            self.swiftCommandState.observabilityScope
+                .emit(debug: "Fetching versioning requirements and resolving path of template on local disk.")
 
-            switch templateSource {
+            switch self.templateSource {
             case .local:
                 sourceControlRequirement = nil
                 registryRequirement = nil
             case .git:
-                sourceControlRequirement = try? versionResolver.resolveSourceControl()
+                sourceControlRequirement = try? self.versionResolver.resolveSourceControl()
                 registryRequirement = nil
             case .registry:
                 sourceControlRequirement = nil
-                registryRequirement = try? await versionResolver.resolveRegistry()
+                registryRequirement = try? await self.versionResolver.resolveRegistry()
             }
 
             // Resolve version requirements
@@ -64,12 +66,20 @@ struct TemplatePackageInitializer: PackageInitializer {
                 swiftCommandState: swiftCommandState
             ).resolve()
 
-            let directoryManager = TemplateInitializationDirectoryManager(fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+            let directoryManager = TemplateInitializationDirectoryManager(
+                fileSystem: swiftCommandState.fileSystem,
+                observabilityScope: self.swiftCommandState.observabilityScope
+            )
             let (stagingPath, cleanupPath, tempDir) = try directoryManager.createTemporaryDirectories()
 
-            swiftCommandState.observabilityScope.emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
+            self.swiftCommandState.observabilityScope
+                .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
-            let packageType = try await TemplatePackageInitializer.inferPackageType(from: resolvedTemplatePath, templateName: templateName, swiftCommandState: swiftCommandState)
+            let packageType = try await TemplatePackageInitializer.inferPackageType(
+                from: resolvedTemplatePath,
+                templateName: self.templateName,
+                swiftCommandState: self.swiftCommandState
+            )
 
             let builder = DefaultPackageDependencyBuilder(
                 templateSource: templateSource,
@@ -83,52 +93,67 @@ struct TemplatePackageInitializer: PackageInitializer {
 
             let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
 
-            swiftCommandState.observabilityScope.emit(debug: "Finished setting up initial package: \(templatePackage.packageName).")
+            self.swiftCommandState.observabilityScope
+                .emit(debug: "Finished setting up initial package: \(templatePackage.packageName).")
 
-            swiftCommandState.observabilityScope.emit(debug: "Building package with dependency on template.")
+            self.swiftCommandState.observabilityScope.emit(debug: "Building package with dependency on template.")
 
             try await TemplateBuildSupport.build(
-                swiftCommandState: swiftCommandState,
-                buildOptions: buildOptions,
-                globalOptions: globalOptions,
+                swiftCommandState: self.swiftCommandState,
+                buildOptions: self.buildOptions,
+                globalOptions: self.globalOptions,
                 cwd: stagingPath,
                 transitiveFolder: stagingPath
             )
 
-            swiftCommandState.observabilityScope.emit(debug: "Running plugin steps, including prompting and running the template package's plugin.")
+            self.swiftCommandState.observabilityScope
+                .emit(debug: "Running plugin steps, including prompting and running the template package's plugin.")
 
-            let buildSystem = globalOptions.build.buildSystem != .native ?
-            globalOptions.build.buildSystem :
-            swiftCommandState.options.build.buildSystem
+            let buildSystem = self.globalOptions.build.buildSystem != .native ?
+                self.globalOptions.build.buildSystem :
+                self.swiftCommandState.options.build.buildSystem
 
             try await TemplateInitializationPluginManager(
-                swiftCommandState: swiftCommandState,
-                template: templateName,
+                swiftCommandState: self.swiftCommandState,
+                template: self.templateName,
                 scratchDirectory: stagingPath,
-                args: args,
+                args: self.args,
                 buildSystem: buildSystem
             ).run()
 
-            try await directoryManager.finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: swiftCommandState)
+            try await directoryManager.finalize(
+                cwd: self.cwd,
+                stagingPath: stagingPath,
+                cleanupPath: cleanupPath,
+                swiftCommandState: self.swiftCommandState
+            )
 
-            if validatePackage {
+            if self.validatePackage {
                 try await TemplateBuildSupport.build(
-                    swiftCommandState: swiftCommandState,
-                    buildOptions: buildOptions,
-                    globalOptions: globalOptions,
-                    cwd: cwd
+                    swiftCommandState: self.swiftCommandState,
+                    buildOptions: self.buildOptions,
+                    globalOptions: self.globalOptions,
+                    cwd: self.cwd
                 )
             }
 
-            try directoryManager.cleanupTemporary(templateSource: templateSource, path: resolvedTemplatePath, temporaryDirectory: tempDir)
+            try directoryManager.cleanupTemporary(
+                templateSource: self.templateSource,
+                path: resolvedTemplatePath,
+                temporaryDirectory: tempDir
+            )
 
         } catch {
-            swiftCommandState.observabilityScope.emit(error)
+            self.swiftCommandState.observabilityScope.emit(error)
         }
     }
 
-    //Will have to add checking for git + registry too
-    static func inferPackageType(from templatePath: Basics.AbsolutePath, templateName: String?, swiftCommandState: SwiftCommandState) async throws -> InitPackage.PackageType {
+    // Will have to add checking for git + registry too
+    static func inferPackageType(
+        from templatePath: Basics.AbsolutePath,
+        templateName: String?,
+        swiftCommandState: SwiftCommandState
+    ) async throws -> InitPackage.PackageType {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
                 packages: root.packages,
@@ -142,13 +167,14 @@ struct TemplatePackageInitializer: PackageInitializer {
             var targetName = templateName
 
             if targetName == nil {
-                targetName = try findTemplateName(from: manifest)
+                targetName = try self.findTemplateName(from: manifest)
             }
 
             for target in manifest.targets {
                 if target.name == targetName,
-                    let options = target.templateInitializationOptions,
-                    case .packageInit(let type, _, _) = options {
+                   let options = target.templateInitializationOptions,
+                   case .packageInit(let type, _, _) = options
+                {
                     return try .init(from: type)
                 }
             }
@@ -159,7 +185,8 @@ struct TemplatePackageInitializer: PackageInitializer {
     static func findTemplateName(from manifest: Manifest) throws -> String {
         let templateTargets = manifest.targets.compactMap { target -> String? in
             if let options = target.templateInitializationOptions,
-               case .packageInit = options {
+               case .packageInit = options
+            {
                 return target.name
             }
             return nil
@@ -175,7 +202,6 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
-
     private func setUpPackage(
         builder: DefaultPackageDependencyBuilder,
         packageType: InitPackage.PackageType,
@@ -183,12 +209,12 @@ struct TemplatePackageInitializer: PackageInitializer {
     ) throws -> InitTemplatePackage {
         let templatePackage = try InitTemplatePackage(
             name: packageName,
-            initMode: try builder.makePackageDependency(),
-            fileSystem: swiftCommandState.fileSystem,
+            initMode: builder.makePackageDependency(),
+            fileSystem: self.swiftCommandState.fileSystem,
             packageType: packageType,
             supportedTestingLibraries: [],
             destinationPath: stagingPath,
-            installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
+            installedSwiftPMConfiguration: self.swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
         )
 
         try templatePackage.setupTemplateManifest()
@@ -204,21 +230,17 @@ struct TemplatePackageInitializer: PackageInitializer {
         var description: String {
             switch self {
             case .invalidManifestInTemplate(let path):
-                return "Invalid manifest found in template at \(path)."
+                "Invalid manifest found in template at \(path)."
             case .templateNotFound(let templateName):
-                return "Could not find template \(templateName)."
+                "Could not find template \(templateName)."
             case .noTemplatesInManifest:
-                return "No templates with packageInit options were found in the manifest."
+                "No templates with packageInit options were found in the manifest."
             case .multipleTemplatesFound(let templates):
-                return "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template."
-
+                "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template."
             }
         }
     }
-
 }
-
-
 
 struct StandardPackageInitializer: PackageInitializer {
     let packageName: String
@@ -228,7 +250,6 @@ struct StandardPackageInitializer: PackageInitializer {
     let swiftCommandState: SwiftCommandState
 
     func run() async throws {
-
         guard let initModeString = self.initMode else {
             throw StandardPackageInitializerError.missingInitMode
         }
@@ -237,12 +258,20 @@ struct StandardPackageInitializer: PackageInitializer {
         }
         // Configure testing libraries
         var supportedTestingLibraries = Set<TestingLibrary>()
-        if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
-            (knownType == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
+        if self.testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: self.swiftCommandState) ||
+            (knownType == .macro && self.testLibraryOptions.isEnabled(
+                .xctest,
+                swiftCommandState: self.swiftCommandState
+            ))
+        {
             supportedTestingLibraries.insert(.xctest)
         }
-        if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-            (knownType != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
+        if self.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: self.swiftCommandState) ||
+            (knownType != .macro && self.testLibraryOptions.isEnabled(
+                .swiftTesting,
+                swiftCommandState: self.swiftCommandState
+            ))
+        {
             supportedTestingLibraries.insert(.swiftTesting)
         }
 
@@ -252,7 +281,7 @@ struct StandardPackageInitializer: PackageInitializer {
             supportedTestingLibraries: supportedTestingLibraries,
             destinationPath: cwd,
             installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
-            fileSystem: swiftCommandState.fileSystem
+            fileSystem: self.swiftCommandState.fileSystem
         )
         initPackage.progressReporter = { message in print(message) }
         try initPackage.writePackageStructure()
@@ -265,11 +294,10 @@ struct StandardPackageInitializer: PackageInitializer {
         var description: String {
             switch self {
             case .missingInitMode:
-                return "Specify a package type using the --type option."
+                "Specify a package type using the --type option."
             case .unsupportedPackageType(let type):
-                return "Package type '\(type)' is not supported."
+                "Package type '\(type)' is not supported."
             }
         }
     }
 }
-

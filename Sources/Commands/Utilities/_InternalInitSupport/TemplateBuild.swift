@@ -24,11 +24,11 @@ import TSCUtility
 /// command configuration and workspace context.
 
 enum TemplateBuildSupport {
-
     /// Builds a Swift package using the given command state, options, and working directory.
     ///
     /// - Parameters:
-    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and diagnostics.
+    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and
+    /// diagnostics.
     ///   - buildOptions: Options used to configure what and how to build, including the product and traits.
     ///   - globalOptions: Global configuration such as the package directory and logging verbosity.
     ///   - cwd: The current working directory to use if no package directory is explicitly provided.

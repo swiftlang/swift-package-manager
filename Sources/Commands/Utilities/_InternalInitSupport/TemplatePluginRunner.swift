@@ -78,7 +78,7 @@ enum TemplatePluginRunner {
         var allowedNetworkConnections = allowNetworkConnections
 
         if requestPermission {
-            try requestPluginPermissions(
+            try self.requestPluginPermissions(
                 from: pluginTarget,
                 pluginName: plugin.name,
                 packagePath: package.path,
@@ -104,10 +104,16 @@ enum TemplatePluginRunner {
         let accessibleTools = try await plugin.preparePluginTools(
             fileSystem: swiftCommandState.fileSystem,
             environment: buildParams.buildEnvironment,
-            for: try pluginScriptRunner.hostTriple
+            for: pluginScriptRunner.hostTriple
         ) { name, path in
-            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            let buildResult = try await buildSystem.build(subset: .product(name, for: .host), buildOutputs: [.buildPlan])
+            // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies
+            // are not supported within a package, so if the tool happens to be from the same package, we instead find
+            // the executable that corresponds to the product. There is always one, because of autogeneration of
+            // implicit executables with the same name as the target if there isn't an explicit one.
+            let buildResult = try await buildSystem.build(
+                subset: .product(name, for: .host),
+                buildOutputs: [.buildPlan]
+            )
 
             if let buildPlan = buildResult.buildPlan {
                 if let builtTool = buildPlan.buildProducts.first(where: {
@@ -122,8 +128,12 @@ enum TemplatePluginRunner {
             }
         }
 
-
-        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget, echoOutput: false)
+        let pluginDelegate = PluginDelegate(
+            swiftCommandState: swiftCommandState,
+            buildSystem: buildSystemKind,
+            plugin: pluginTarget,
+            echoOutput: false
+        )
 
         let workingDir = try swiftCommandState.options.locations.packageDirectory
             ?? swiftCommandState.fileSystem.currentWorkingDirectory
@@ -148,10 +158,10 @@ enum TemplatePluginRunner {
             callbackQueue: DispatchQueue(label: "plugin-invocation"),
             delegate: pluginDelegate
         )
-        
+
         guard success else {
             let stringError = pluginDelegate.diagnostics
-                .map { $0.message }
+                .map(\.message)
                 .joined(separator: "\n")
 
             throw DefaultPluginScriptRunnerError.invocationFailed(

@@ -17,7 +17,6 @@ import TSCUtility
 import Workspace
 @_spi(PackageRefactor) import SwiftRefactor
 
-
 /// A protocol for building `MappablePackageDependency.Kind` instances from provided dependency information.
 ///
 /// Conforming types are responsible for converting high-level dependency configuration
@@ -55,11 +54,9 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// The registry package identifier, if the template source is registry-based.
     let templatePackageID: String?
 
-
     let sourceControlRequirement: PackageDependency.SourceControl.Requirement?
     let registryRequirement: PackageDependency.Registry.Requirement?
     let resolvedTemplatePath: Basics.AbsolutePath
-
 
     /// Constructs a package dependency kind based on the selected template source.
     ///
@@ -74,7 +71,8 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     func makePackageDependency() throws -> PackageDependency {
         switch self.templateSource {
         case .local:
-            return .fileSystem(.init(path: resolvedTemplatePath.asURL.path))
+            return .fileSystem(.init(path: self.resolvedTemplatePath.asURL.path))
+
         case .git:
             guard let url = templateURL else {
                 throw PackageDependencyBuilderError.missingGitURLOrPath
@@ -95,7 +93,6 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
         }
     }
 
-
     /// Errors thrown by `TemplatePathResolver` during initialization.
     enum PackageDependencyBuilderError: LocalizedError, Equatable {
         case missingGitURLOrPath
@@ -106,15 +103,14 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
         var errorDescription: String? {
             switch self {
             case .missingGitURLOrPath:
-                return "Missing Git URL or path for template from git."
+                "Missing Git URL or path for template from git."
             case .missingGitRequirement:
-                return "Missing version requirement for template from git."
+                "Missing version requirement for template from git."
             case .missingRegistryIdentity:
-                return "Missing registry package identity for template from registry."
+                "Missing registry package identity for template from registry."
             case .missingRegistryRequirement:
-                return "Missing version requirement for template from registry ."
+                "Missing version requirement for template from registry ."
             }
         }
     }
-
 }

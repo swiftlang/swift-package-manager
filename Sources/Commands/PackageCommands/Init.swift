@@ -18,16 +18,15 @@ import Basics
 import CoreCommands
 
 import PackageModel
-import Workspace
 import SPMBuildCore
 import TSCUtility
-
+import Workspace
 
 extension SwiftPackageCommand {
     struct Init: AsyncSwiftCommand {
-
-        public static let configuration = CommandConfiguration(
-            abstract: "Initialize a new package.")
+        static let configuration = CommandConfiguration(
+            abstract: "Initialize a new package."
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -35,19 +34,20 @@ extension SwiftPackageCommand {
         @Option(
             name: .customLong("type"),
             help: ArgumentHelp("Specifies the package type or template.", discussion: """
-                library           - A package with a library.
-                executable        - A package with an executable.
-                tool              - A package with an executable that uses
-                                    Swift Argument Parser. Use this template if you
-                                    plan to have a rich set of command-line arguments.
-                build-tool-plugin - A package that vends a build tool plugin.
-                command-plugin    - A package that vends a command plugin.
-                macro             - A package that vends a macro.
-                empty             - An empty package with a Package.swift manifest.
-                custom            - When used with --path, --url, or --package-id,
-                                    this resolves to a template from the specified 
-                                    package or location.
-                """))
+            library           - A package with a library.
+            executable        - A package with an executable.
+            tool              - A package with an executable that uses
+                                Swift Argument Parser. Use this template if you
+                                plan to have a rich set of command-line arguments.
+            build-tool-plugin - A package that vends a build tool plugin.
+            command-plugin    - A package that vends a command plugin.
+            macro             - A package that vends a macro.
+            empty             - An empty package with a Package.swift manifest.
+            custom            - When used with --path, --url, or --package-id,
+                                this resolves to a template from the specified 
+                                package or location.
+            """)
+        )
         var initMode: String?
 
         /// Which testing libraries to use (and any related options.)
@@ -99,7 +99,10 @@ extension SwiftPackageCommand {
         var to: Version?
 
         /// Validation step to build package post generation and run if package is of type executable
-        @Flag(name: .customLong("validate-package"), help: "Run 'swift build' after package generation to validate the template.")
+        @Flag(
+            name: .customLong("validate-package"),
+            help: "Run 'swift build' after package generation to validate the template."
+        )
         var validatePackage: Bool = false
 
         /// Predetermined arguments specified by the consumer.
@@ -140,9 +143,7 @@ extension SwiftPackageCommand {
             try await initializer.run()
         }
 
-        init() {
-        }
-
+        init() {}
     }
 }
 
@@ -166,7 +167,6 @@ extension InitPackage.PackageType {
         }
     }
 }
-
 
 struct PackageInitConfiguration {
     let packageName: String
@@ -220,7 +220,11 @@ struct PackageInitConfiguration {
         self.url = url
         self.packageID = packageID
 
-        let sourceResolver = DefaultTemplateSourceResolver(cwd: cwd, fileSystem: swiftCommandState.fileSystem, observabilityScope: swiftCommandState.observabilityScope)
+        let sourceResolver = DefaultTemplateSourceResolver(
+            cwd: cwd,
+            fileSystem: swiftCommandState.fileSystem,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
 
         self.templateSource = sourceResolver.resolveSource(
             directory: directory,
@@ -228,11 +232,15 @@ struct PackageInitConfiguration {
             packageID: packageID
         )
 
-
-        if templateSource != nil {
-            //we force wrap as we already do the the nil check.
+        if self.templateSource != nil {
+            // we force wrap as we already do the the nil check.
             do {
-                try sourceResolver.validate(templateSource: templateSource!, directory: self.directory, url: self.url, packageID: self.packageID)
+                try sourceResolver.validate(
+                    templateSource: self.templateSource!,
+                    directory: self.directory,
+                    url: self.url,
+                    packageID: self.packageID
+                )
             } catch {
                 swiftCommandState.observabilityScope.emit(error)
             }
@@ -253,17 +261,17 @@ struct PackageInitConfiguration {
     }
 
     func makeInitializer() throws -> PackageInitializer {
-        if let templateSource = templateSource,
-           let versionResolver = versionResolver,
-           let buildOptions = buildOptions,
-           let globalOptions = globalOptions,
-           let validatePackage = validatePackage {
-
-            return TemplatePackageInitializer(
-                packageName: packageName,
-                cwd: cwd,
+        if let templateSource,
+           let versionResolver,
+           let buildOptions,
+           let globalOptions,
+           let validatePackage
+        {
+            TemplatePackageInitializer(
+                packageName: self.packageName,
+                cwd: self.cwd,
                 templateSource: templateSource,
-                templateName: initMode,
+                templateName: self.initMode,
                 templateDirectory: self.directory,
                 templateURL: self.url,
                 templatePackageID: self.packageID,
@@ -271,21 +279,20 @@ struct PackageInitConfiguration {
                 buildOptions: buildOptions,
                 globalOptions: globalOptions,
                 validatePackage: validatePackage,
-                args: args,
-                swiftCommandState: swiftCommandState
+                args: self.args,
+                swiftCommandState: self.swiftCommandState
             )
         } else {
-            return StandardPackageInitializer(
-                packageName: packageName,
-                initMode: initMode,
-                testLibraryOptions: testLibraryOptions,
-                cwd: cwd,
-                swiftCommandState: swiftCommandState
+            StandardPackageInitializer(
+                packageName: self.packageName,
+                initMode: self.initMode,
+                testLibraryOptions: self.testLibraryOptions,
+                cwd: self.cwd,
+                swiftCommandState: self.swiftCommandState
             )
         }
     }
 }
-
 
 public struct VersionFlags {
     let exact: Version?
@@ -295,7 +302,6 @@ public struct VersionFlags {
     let upToNextMinorFrom: Version?
     let to: Version?
 }
-
 
 protocol TemplateSourceResolver {
     func resolveSource(
@@ -313,7 +319,6 @@ protocol TemplateSourceResolver {
 }
 
 public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
-
     let cwd: AbsolutePath
     let fileSystem: FileSystem
     let observabilityScope: ObservabilityScope
@@ -337,31 +342,33 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
     ) throws {
         switch templateSource {
         case .git:
-            guard let url = url, isValidGitSource(url, fileSystem: fileSystem) else {
+            guard let url, isValidGitSource(url, fileSystem: fileSystem) else {
                 throw SourceResolverError.invalidGitURL(url ?? "nil")
             }
 
         case .registry:
-            guard let packageID = packageID, isValidRegistryPackageIdentity(packageID) else {
+            guard let packageID, isValidRegistryPackageIdentity(packageID) else {
                 throw SourceResolverError.invalidRegistryIdentity(packageID ?? "nil")
             }
 
         case .local:
-            guard let directory = directory else {
+            guard let directory else {
                 throw SourceResolverError.missingLocalPath
             }
 
-            try isValidSwiftPackage(path: directory)
+            try self.isValidSwiftPackage(path: directory)
         }
     }
 
     private func isValidRegistryPackageIdentity(_ packageID: String) -> Bool {
-        return PackageIdentity.plain(packageID).isRegistry
+        PackageIdentity.plain(packageID).isRegistry
     }
 
     func isValidGitSource(_ input: String, fileSystem: FileSystem) -> Bool {
-        if input.hasPrefix("http://") || input.hasPrefix("https://") || input.hasPrefix("git@") || input.hasPrefix("ssh://") {
-            return true  // likely a remote URL
+        if input.hasPrefix("http://") || input.hasPrefix("https://") || input.hasPrefix("git@") || input
+            .hasPrefix("ssh://")
+        {
+            return true // likely a remote URL
         }
 
         do {
@@ -377,7 +384,7 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
     }
 
     private func isValidSwiftPackage(path: AbsolutePath) throws {
-        if !fileSystem.exists(path) {
+        if !self.fileSystem.exists(path) {
             throw SourceResolverError.invalidDirectoryPath(path)
         }
     }
@@ -391,16 +398,15 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
         var description: String {
             switch self {
             case .invalidDirectoryPath(let path):
-                return "Invalid local path: \(path) does not exist or is not accessible."
+                "Invalid local path: \(path) does not exist or is not accessible."
             case .invalidGitURL(let url):
-                return "Invalid Git URL: \(url) is not a valid Git source."
+                "Invalid Git URL: \(url) is not a valid Git source."
             case .invalidRegistryIdentity(let id):
-                return "Invalid registry package identity: \(id) is not a valid registry package."
+                "Invalid registry package identity: \(id) is not a valid registry package."
             case .missingLocalPath:
-                return "Missing local path for template source."
+                "Missing local path for template source."
             }
         }
-
     }
 }
 
