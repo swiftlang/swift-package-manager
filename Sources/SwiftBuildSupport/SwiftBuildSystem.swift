@@ -351,6 +351,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: buildParameters)
 
+        return try await startSWBuildOperation(
+            pifTargetName: subset.pifTargetName,
+            buildOutputs: buildOutputs,
+        )
+    }
+
+    private func startSWBuildOperation(
+        pifTargetName: String,
+        buildOutputs: [BuildOutput]
+    ) async throws -> BuildResult {
+        let buildStartTime = ContinuousClock.Instant.now
         var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
         for output in buildOutputs {
             switch output {
@@ -360,21 +371,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 continue
             }
         }
-
-        return try await startSWBuildOperation(
-            pifTargetName: subset.pifTargetName,
-            symbolGraphOptions: symbolGraphOptions,
-            generateReplArguments: buildOutputs.contains(.replArguments),
-        )
-    }
-
-    private func startSWBuildOperation(
-        pifTargetName: String,
-        symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
-        generateReplArguments: Bool
-    ) async throws -> BuildResult {
-        let buildStartTime = ContinuousClock.Instant.now
         var replArguments: CLIArguments?
+        var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
@@ -555,11 +553,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate()
+                        delegate: PlanningOperationDelegate(),
+                        retainBuildDescription: true
                     )
 
+                    var buildDescriptionID: SWBBuildDescriptionID? = nil
                     var buildState = BuildState()
                     for try await event in try await operation.start() {
+                        if case .reportBuildDescription(let info) = event {
+                            if buildDescriptionID != nil {
+                                self.observabilityScope.emit(debug: "build unexpectedly reported multiple build description IDs")
+                            }
+                            buildDescriptionID = SWBBuildDescriptionID(info.buildDescriptionID)
+                        }
                         try emitEvent(event, buildState: &buildState)
                     }
 
@@ -585,7 +591,46 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw Diagnostics.fatalError
                     }
 
-                    replArguments = generateReplArguments ? try await self.createREPLArguments(session: session, request: request) : nil
+                    if buildOutputs.contains(.replArguments) {
+                        replArguments = try await self.createREPLArguments(session: session, request: request)
+                    }
+
+                    if buildOutputs.contains(.builtArtifacts) {
+                        if let buildDescriptionID {
+                            let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
+                            artifacts = targetInfo.compactMap { target in
+                                guard let artifactInfo = target.artifactInfo else {
+                                    return nil
+                                }
+                                let kind: PluginInvocationBuildResult.BuiltArtifact.Kind = switch artifactInfo.kind {
+                                case .executable:
+                                    .executable
+                                case .staticLibrary:
+                                    .staticLibrary
+                                case .dynamicLibrary:
+                                    .dynamicLibrary
+                                case .framework:
+                                    // We treat frameworks as dylibs here, but the plugin API should grow to accomodate more product types
+                                    .dynamicLibrary
+                                }
+                                var name = target.name
+                                // FIXME: We need a better way to map between SwiftPM target/product names and PIF target names
+                                if pifTargetName.hasSuffix("-product") {
+                                    name = String(name.dropLast(8))
+                                }
+                                return (name, .init(
+                                    path: artifactInfo.path,
+                                    kind: kind
+                                ))
+                            }
+                        } else {
+                            self.observabilityScope.emit(error: "failed to compute built artifacts list")
+                        }
+                    }
+
+                    if let buildDescriptionID {
+                        await session.releaseBuildDescription(id: buildDescriptionID)
+                    }
                 }
             } catch let sessError as SessionFailedError {
                 for diagnostic in sessError.diagnostics {
@@ -604,6 +649,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
                 ),
                 replArguments: replArguments,
+                builtArtifacts: artifacts
             )
         }
     }
