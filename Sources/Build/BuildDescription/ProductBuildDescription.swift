@@ -318,12 +318,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
             }
 
-            // When deploying to macOS prior to macOS 12, add an rpath to the
-            // back-deployed concurrency libraries.
             if useStdlibRpath, triple.isMacOSX {
                 let macOSSupportedPlatform = self.package.getSupportedPlatform(for: .macOS, usingXCTest: product.isLinkingXCTest)
 
                 if macOSSupportedPlatform.version.major < 12 {
+                    // When deploying to macOS prior to macOS 12, add an rpath to the
+                    // back-deployed concurrency libraries.
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                         .parentDirectory
                         .parentDirectory
@@ -331,6 +331,21 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                         .appending("macosx")
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
+
+                if macOSSupportedPlatform.version.major < 26 {
+                    // When deploying to macOS prior to macOS 26, add an rpath to the
+                    // back-deployed Span library.
+                    let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
+                        .parentDirectory
+                        .parentDirectory
+                        .appending("swift-6.2")
+                        .appending("macosx")
+                    args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
+                }
+
+                // If either back deployment library is used, the driver is responsible for injecting
+                // a /usr/lib/swift -rpath at the front to ensure OS content is preferred when
+                // available.
             }
         } else {
             // Don't link runtime compatibility patch libraries if there are no
