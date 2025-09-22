@@ -834,6 +834,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker",
             buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
@@ -1149,6 +1150,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-g",
         ])
@@ -1243,6 +1245,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-g",
         ])
@@ -1793,6 +1796,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule",
             "-g",
@@ -2352,11 +2356,12 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         #if os(macOS)
         let version = MinimumDeploymentTarget.computeXCTestMinimumDeploymentTarget(for: .macOS).versionString
-        let rpathsForBackdeployment: [String]
+        var rpathsForBackdeployment: [String] = []
         if let version = try? Version(string: version, lenient: true), version.major < 12 {
-            rpathsForBackdeployment = ["-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx"]
-        } else {
-            rpathsForBackdeployment = []
+            rpathsForBackdeployment += ["-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx"]
+        }
+        if let version = try? Version(string: version, lenient: true), version.major < 26 {
+            rpathsForBackdeployment += ["-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx"]
         }
         XCTAssertEqual(
             try result.buildProduct(for: "PkgPackageTests").linkArguments(),
@@ -2474,6 +2479,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", hostTriple.tripleString(forPlatformVersion: "12.0"),
             "-g",
         ])
@@ -2845,6 +2851,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString,
@@ -2991,6 +2998,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString,
@@ -3008,6 +3016,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Modules", "Bar.swiftmodule").pathString,
@@ -3164,6 +3173,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker",
             buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
@@ -7294,6 +7304,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
+            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
