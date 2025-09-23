@@ -1102,7 +1102,7 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 // this right now.
 
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
-let relatedDependenciesBranch = "release/6.2"
+let relatedDependenciesBranch = "release/6.2.1"
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
