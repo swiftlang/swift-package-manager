@@ -508,6 +508,13 @@ fileprivate extension SourceCodeFragment {
         if let configName = condition.config {
             params.append(SourceCodeFragment(key: "configuration", enum: configName))
         }
+        if let traits = condition.traits {
+            params.append(
+                SourceCodeFragment(key: "traits", subnodes: traits.sorted().map { trait in
+                    SourceCodeFragment(string: trait)
+                })
+            )
+        }
         self.init(enum: "when", subnodes: params)
     }
 

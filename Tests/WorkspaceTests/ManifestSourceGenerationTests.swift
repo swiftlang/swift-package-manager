@@ -986,6 +986,18 @@ final class ManifestSourceGenerationTests: XCTestCase {
                             .trait(name: "SomeOtherTrait", condition: .when(traits: ["Foo"])),
                         ]
                     ),
+                ],
+                targets: [
+                    .target(
+                        name: "SomeTarget",
+                        dependencies: [
+                            .product(
+                                name: "SomeProduct",
+                                package: "SomePackage",
+                                condition: .when(traits: ["Foo"])
+                            ),
+                        ]
+                    )
                 ]
             )
             """
