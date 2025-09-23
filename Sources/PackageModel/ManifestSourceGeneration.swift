@@ -102,6 +102,11 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "products", subnodes: nodes))
         }
 
+        if !manifest.traits.isEmpty {
+            let nodes = try manifest.traits.map { SourceCodeFragment(from: $0) }
+            params.append(SourceCodeFragment(key: "traits", subnodes: nodes))
+        }
+
         if !manifest.dependencies.isEmpty {
             let nodes = manifest.dependencies.map{ SourceCodeFragment(from: $0, pathAnchor: packageDirectory) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
@@ -259,6 +264,41 @@ fileprivate extension SourceCodeFragment {
                 self.init(enum: "macro", subnodes: params, multiline: true)
             }
         }
+    }
+
+    init(from trait: TraitDescription) {
+        let enabledTraitsNode = SourceCodeFragment(
+            key: "enabledTraits",
+            subnodes: trait.enabledTraits.sorted().map {
+                SourceCodeFragment(string: $0)
+            }
+        )
+
+        if trait.isDefault {
+            self.init(enum: "default", subnodes: [enabledTraitsNode])
+            return
+        }
+
+        if trait.description == nil, trait.enabledTraits.isEmpty {
+            self.init(string: trait.name)
+            return
+        }
+
+        var params: [SourceCodeFragment] = [
+            SourceCodeFragment(key: "name", string: trait.name)
+        ]
+
+        if let description = trait.description {
+            params.append(
+                SourceCodeFragment(key: "description", string: description)
+            )
+        }
+
+        if !trait.enabledTraits.isEmpty {
+            params.append(enabledTraitsNode)
+        }
+
+        self.init(enum: "trait", subnodes: params)
     }
 
     /// Instantiates a SourceCodeFragment to represent a single target.

@@ -123,11 +123,19 @@ public func XCTRequires(
     }
 }
 
+public func XCTSkipIfCompilerLessThan6_1() throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    #if compiler(>=6.1)
+    #else
+        throw XCTSkip("Skipping as compiler version is less than 6.1")
+    #endif
+}
+
 public func XCTSkipIfCompilerLessThan6_2() throws {
     swiftTestingTestCalledAnXCTestAPI()
     #if compiler(>=6.2)
     #else
-        throw XCTSkip("Skipping as compiler version is less thann 6.2")
+        throw XCTSkip("Skipping as compiler version is less than 6.2")
     #endif
 }
 
