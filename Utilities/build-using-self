@@ -136,6 +136,10 @@ def is_on_darwin() -> bool:
     return platform.system() == "Darwin"
 
 
+def is_on_windows() -> bool:
+    return platform.system() == "Windows"
+
+
 def set_environment(
     *,
     swiftpm_bin_dir: pathlib.Path,
@@ -147,6 +151,10 @@ def set_environment(
         sdk_root = call_output(shlex.split("xcrun --show-sdk-path --sdk macosx"))
         logging.debug("macos sdk root = %r", sdk_root)
         os.environ["SDKROOT"] = sdk_root
+
+    if is_on_windows():
+        # GH #9159: Temprorarily set this environment until we figure out why the Windows internal CI is hanging
+        os.environ["SWIFTPM_TEST_ONLY_DEBUG_BUILD_CONFIGURATION"] = "true"
     log_environment()
 
 
