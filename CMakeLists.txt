@@ -18,6 +18,7 @@ project(SwiftPM LANGUAGES C Swift)
 
 option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
 option(FIND_PM_DEPS "Search for all external Package Manager dependencies" YES)
+option(SwiftPM_ENABLE_RUNTIME "Build the runtime" YES)
 
 set(CMAKE_Swift_LANGUAGE_VERSION 5)
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
