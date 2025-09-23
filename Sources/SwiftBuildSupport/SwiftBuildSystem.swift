@@ -376,13 +376,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
-            let progressAnimation = ProgressAnimation.percent(
-                stream: self.outputStream,
-                verbose: self.logLevel.isVerbose,
-                header: "",
-                isColorized: self.buildParameters.outputParameters.isColorized
-            )
-
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
@@ -463,7 +456,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         guard !self.logLevel.isQuiet else { return }
                         switch message {
                         case .buildCompleted(let info):
-                            progressAnimation.complete(success: info.result == .ok)
                             if info.result == .cancelled {
                                 self.delegate?.buildSystemDidCancel(self)
                             } else {
@@ -477,7 +469,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             } else {
                                 "\(progressInfo.message)"
                             }
-                            progressAnimation.update(step: step, total: 100, text: message)
                             self.delegate?.buildSystem(self, didUpdateTaskProgress: message)
                         case .diagnostic(let info):
                             func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
@@ -574,8 +565,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     switch operation.state {
                     case .succeeded:
                         guard !self.logLevel.isQuiet else { return }
-                        progressAnimation.update(step: 100, total: 100, text: "")
-                        progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
                         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
                         self.outputStream.send("Build complete! (\(formattedDuration))\n")
