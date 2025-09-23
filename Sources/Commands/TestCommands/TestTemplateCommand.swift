@@ -44,6 +44,7 @@ extension DispatchTimeInterval {
 }
 
 extension SwiftTestCommand {
+    /// Test the various outputs of a template.
     struct Template: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Test the various outputs of a template"
@@ -55,9 +56,11 @@ extension SwiftTestCommand {
         @OptionGroup()
         var sharedOptions: SharedOptions
 
+        /// Specify name of the template.
         @Option(help: "Specify name of the template")
         var templateName: String?
 
+        /// Specify the output path of the created templates.
         @Option(
             name: .customLong("output-path"),
             help: "Specify the output path of the created templates.",
@@ -74,6 +77,7 @@ extension SwiftTestCommand {
         )
         var args: [String] = []
 
+        /// Specify the branch of the template you want to test.
         @Option(
             name: .customLong("branches"),
             parsing: .upToNextOption,
@@ -81,6 +85,7 @@ extension SwiftTestCommand {
         )
         var branches: [String] = []
 
+        /// Dry-run to display argument tree.
         @Flag(help: "Dry-run to display argument tree")
         var dryRun: Bool = false
 

@@ -430,7 +430,6 @@ struct PluginCommand: AsyncSwiftCommand {
             let plugin = $0.underlying as! PluginModule
             // Filter out any non-command plugins and any whose verb is different.
             guard case .command(let intent, _) = plugin.capability else { return false }
-
             return verb == intent.invocationVerb
         }
     }

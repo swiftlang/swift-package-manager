@@ -16,10 +16,12 @@ import Workspace
 
 import class PackageModel.Manifest
 
+/// Protocol for package initialization implementations.
 protocol PackageInitializer {
     func run() async throws
 }
 
+/// Initializes a package from a template source.
 struct TemplatePackageInitializer: PackageInitializer {
     let packageName: String
     let cwd: Basics.AbsolutePath
@@ -35,6 +37,7 @@ struct TemplatePackageInitializer: PackageInitializer {
     let args: [String]
     let swiftCommandState: SwiftCommandState
 
+    /// Runs the template initialization process.
     func run() async throws {
         do {
             var sourceControlRequirement: PackageDependency.SourceControl.Requirement?
@@ -156,7 +159,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
-    // Will have to add checking for git + registry too
+    /// Infers the package type from a template at the given path.
     static func inferPackageType(
         from templatePath: Basics.AbsolutePath,
         templateName: String?,
@@ -190,6 +193,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
+    /// Finds the template name from a manifest.
     static func findTemplateName(from manifest: Manifest) throws -> String {
         let templateTargets = manifest.targets.compactMap { target -> String? in
             if let options = target.templateInitializationOptions,
@@ -210,6 +214,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
+    /// Finds the template name from a template path.
     func findTemplateName(from templatePath: Basics.AbsolutePath) async throws -> String {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
@@ -225,6 +230,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         }
     }
 
+    /// Sets up the package with the template dependency.
     private func setUpPackage(
         builder: DefaultPackageDependencyBuilder,
         packageType: InitPackage.PackageType,
@@ -244,6 +250,7 @@ struct TemplatePackageInitializer: PackageInitializer {
         return templatePackage
     }
 
+    /// Errors that can occur during template package initialization.
     enum TemplatePackageInitializerError: Error, CustomStringConvertible {
         case invalidManifestInTemplate(String)
         case templateNotFound(String)
@@ -265,6 +272,7 @@ struct TemplatePackageInitializer: PackageInitializer {
     }
 }
 
+/// Initializes a package using built-in templates.
 struct StandardPackageInitializer: PackageInitializer {
     let packageName: String
     let initMode: String?
@@ -272,6 +280,7 @@ struct StandardPackageInitializer: PackageInitializer {
     let cwd: Basics.AbsolutePath
     let swiftCommandState: SwiftCommandState
 
+    /// Runs the standard package initialization process.
     func run() async throws {
         guard let initModeString = self.initMode else {
             throw StandardPackageInitializerError.missingInitMode
@@ -310,6 +319,7 @@ struct StandardPackageInitializer: PackageInitializer {
         try initPackage.writePackageStructure()
     }
 
+    /// Errors that can occur during standard package initialization.
     enum StandardPackageInitializerError: Error, CustomStringConvertible {
         case missingInitMode
         case unsupportedPackageType(String)

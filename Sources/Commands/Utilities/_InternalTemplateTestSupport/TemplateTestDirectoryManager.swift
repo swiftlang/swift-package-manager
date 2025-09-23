@@ -4,6 +4,7 @@ import Foundation
 import PackageModel
 import Workspace
 
+/// Manages directories for template testing operations.
 public struct TemplateTestingDirectoryManager {
     let fileSystem: FileSystem
     let helper: TemporaryDirectoryHelper
@@ -15,11 +16,13 @@ public struct TemplateTestingDirectoryManager {
         self.observabilityScope = observabilityScope
     }
 
+    /// Creates temporary directories for testing operations.
     public func createTemporaryDirectories(directories: Set<String>) throws -> [Basics.AbsolutePath] {
         let tempDir = try helper.createTemporaryDirectory()
         return try self.helper.createSubdirectories(in: tempDir, names: Array(directories))
     }
 
+    /// Creates the output directory for test results.
     public func createOutputDirectory(
         outputDirectoryPath: Basics.AbsolutePath,
         swiftCommandState: SwiftCommandState

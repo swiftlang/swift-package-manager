@@ -23,6 +23,7 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
+    /// Initialize a new package.
     struct Init: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Initialize a new package."
@@ -54,6 +55,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var testLibraryOptions: TestLibraryOptions
 
+        /// Provide custom package name.
         @Option(name: .customLong("name"), help: "Provide custom package name.")
         var packageName: String?
 
@@ -98,7 +100,7 @@ extension SwiftPackageCommand {
         @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
 
-        /// Validation step to build package post generation and run if package is of type executable
+        /// Validation step to build package post generation and run if package is of type executable.
         @Flag(
             name: .customLong("validate-package"),
             help: "Run 'swift build' after package generation to validate the template."
@@ -168,6 +170,7 @@ extension InitPackage.PackageType {
     }
 }
 
+/// Holds the configuration needed to initialize a package.
 struct PackageInitConfiguration {
     let packageName: String
     let cwd: Basics.AbsolutePath
@@ -294,6 +297,7 @@ struct PackageInitConfiguration {
     }
 }
 
+/// Represents version flags for package dependencies.
 public struct VersionFlags {
     let exact: Version?
     let revision: String?
@@ -303,6 +307,7 @@ public struct VersionFlags {
     let to: Version?
 }
 
+/// Protocol for resolving template sources from configuration parameters.
 protocol TemplateSourceResolver {
     func resolveSource(
         directory: Basics.AbsolutePath?,
@@ -318,6 +323,7 @@ protocol TemplateSourceResolver {
     ) throws
 }
 
+/// Default implementation of template source resolution.
 public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
     let cwd: AbsolutePath
     let fileSystem: FileSystem
@@ -334,6 +340,7 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
         return nil
     }
 
+    /// Validates the provided template source configuration.
     func validate(
         templateSource: InitTemplatePackage.TemplateSource,
         directory: Basics.AbsolutePath?,
@@ -360,10 +367,12 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
         }
     }
 
+    /// Determines if the provided package ID is a valid registry package identity.
     private func isValidRegistryPackageIdentity(_ packageID: String) -> Bool {
         PackageIdentity.plain(packageID).isRegistry
     }
 
+    /// Validates if a given URL or path is a valid Git source.
     func isValidGitSource(_ input: String, fileSystem: FileSystem) -> Bool {
         if input.hasPrefix("http://") || input.hasPrefix("https://") || input.hasPrefix("git@") || input
             .hasPrefix("ssh://")
@@ -383,6 +392,7 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
         return false
     }
 
+    /// Validates that the provided path exists and is accessible.
     private func isValidSwiftPackage(path: AbsolutePath) throws {
         if !self.fileSystem.exists(path) {
             throw SourceResolverError.invalidDirectoryPath(path)
