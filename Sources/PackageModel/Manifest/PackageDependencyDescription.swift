@@ -73,6 +73,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 condition: condition
             )
         }
+
+        // represents `.defaults`
+        public var isDefaultsCase: Bool {
+            name == "default" && condition == nil
+        }
     }
 
     case fileSystem(FileSystem)

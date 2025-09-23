@@ -199,27 +199,34 @@ fileprivate extension SourceCodeFragment {
         }
 
         if let traits = dependency.traits {
-            let traits = traits.sorted { a, b in
-                PackageDependency.Trait.precedes(a, b)
-            }
-            params.append(
-                SourceCodeFragment(
-                    key: "traits",
-                    subnodes: traits.map { SourceCodeFragment(from: $0) }
+            // If only `.defaults` is specified, do not output `traits:` .
+            // This is because `traits:` is not available in toolchains earlier than 6.1.
+            let isDefault = traits.count == 1 &&
+                traits.allSatisfy(\.isDefaultsCase)
+
+            if !isDefault {
+                let traits = traits.sorted { a, b in
+                    PackageDependency.Trait.precedes(a, b)
+                }
+                params.append(
+                    SourceCodeFragment(
+                        key: "traits",
+                        subnodes: traits.map { SourceCodeFragment(from: $0) }
+                    )
                 )
-            )
+            }
         }
 
         self.init(enum: "package", subnodes: params)
     }
 
     init(from trait: PackageDependency.Trait) {
-        guard let condition = trait.condition else {
-            if trait.name == "default" {
-                self.init(enum: "defaults")
-                return
-            }
+        if trait.isDefaultsCase {
+            self.init(enum: "defaults")
+            return
+        }
 
+        guard let condition = trait.condition else {
             self.init(string: trait.name)
             return
         }
