@@ -36,10 +36,6 @@ protocol DependencyRequirementResolving {
 /// - `revision`: A commit hash or VCS revision
 /// - `from` / `upToNextMinorFrom`: Lower bounds for version ranges
 /// - `to`: An optional upper bound that refines a version range
-///
-/// This resolver ensures only one form of versioning input is specified and validates combinations like `to` with
-/// `from`.
-
 struct DependencyRequirementResolver: DependencyRequirementResolving {
     /// Package-id for registry
     let packageIdentity: String?

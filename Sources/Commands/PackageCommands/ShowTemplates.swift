@@ -78,40 +78,37 @@ struct ShowTemplates: AsyncSwiftCommand {
             throw InternalError("Could not find the current working directory")
         }
 
-        // precheck() needed, extremely similar to the Init precheck, can refactor possibly
-        let source = try resolveSource(
+        let sourceResolver = DefaultTemplateSourceResolver(
             cwd: cwd,
             fileSystem: swiftCommandState.fileSystem,
             observabilityScope: swiftCommandState.observabilityScope
         )
-        let resolvedPath = try await resolveTemplatePath(using: swiftCommandState, source: source)
-        let templates = try await loadTemplates(from: resolvedPath, swiftCommandState: swiftCommandState)
-        try await displayTemplates(templates, at: resolvedPath, using: swiftCommandState)
-        try cleanupTemplate(
-            source: source,
-            path: resolvedPath,
-            fileSystem: swiftCommandState.fileSystem,
-            observabilityScope: swiftCommandState.observabilityScope
-        )
-    }
 
-    private func resolveSource(
-        cwd: AbsolutePath,
-        fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
-    ) throws -> InitTemplatePackage.TemplateSource {
-        guard let source = DefaultTemplateSourceResolver(
-            cwd: cwd,
-            fileSystem: fileSystem,
-            observabilityScope: observabilityScope
-        ).resolveSource(
-            directory: cwd,
-            url: self.templateURL,
-            packageID: self.templatePackageID
-        ) else {
-            throw ValidationError("No template source specified. Provide --url or run in a valid package directory.")
+        let templateSource = sourceResolver.resolveSource(
+            directory: cwd, url: self.templateURL, packageID: self.templatePackageID
+        )
+
+        if let source = templateSource {
+            do {
+                try sourceResolver.validate(
+                    templateSource: source,
+                    directory: cwd,
+                    url: self.templateURL,
+                    packageID: self.templatePackageID
+                )
+                let resolvedPath = try await resolveTemplatePath(using: swiftCommandState, source: source)
+                let templates = try await loadTemplates(from: resolvedPath, swiftCommandState: swiftCommandState)
+                try await displayTemplates(templates, at: resolvedPath, using: swiftCommandState)
+                try cleanupTemplate(
+                    source: source,
+                    path: resolvedPath,
+                    fileSystem: swiftCommandState.fileSystem,
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+            } catch {
+                swiftCommandState.observabilityScope.emit(error)
+            }
         }
-        return source
     }
 
     private func resolveTemplatePath(

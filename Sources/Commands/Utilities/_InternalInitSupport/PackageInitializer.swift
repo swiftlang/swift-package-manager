@@ -75,9 +75,16 @@ struct TemplatePackageInitializer: PackageInitializer {
             self.swiftCommandState.observabilityScope
                 .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
+            let resolvedTemplateName: String
+            if self.templateName == nil {
+                resolvedTemplateName = try await self.findTemplateName(from: resolvedTemplatePath)
+            } else {
+                resolvedTemplateName = self.templateName!
+            }
+
             let packageType = try await TemplatePackageInitializer.inferPackageType(
                 from: resolvedTemplatePath,
-                templateName: self.templateName,
+                templateName: resolvedTemplateName,
                 swiftCommandState: self.swiftCommandState
             )
 
@@ -115,7 +122,7 @@ struct TemplatePackageInitializer: PackageInitializer {
 
             try await TemplateInitializationPluginManager(
                 swiftCommandState: self.swiftCommandState,
-                template: self.templateName,
+                template: resolvedTemplateName,
                 scratchDirectory: stagingPath,
                 args: self.args,
                 buildSystem: buildSystem
@@ -145,6 +152,7 @@ struct TemplatePackageInitializer: PackageInitializer {
 
         } catch {
             self.swiftCommandState.observabilityScope.emit(error)
+            throw error
         }
     }
 
@@ -167,7 +175,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             var targetName = templateName
 
             if targetName == nil {
-                targetName = try self.findTemplateName(from: manifest)
+                targetName = try TemplatePackageInitializer.findTemplateName(from: manifest)
             }
 
             for target in manifest.targets {
@@ -199,6 +207,21 @@ struct TemplatePackageInitializer: PackageInitializer {
             return templateTargets[0]
         default:
             throw TemplatePackageInitializerError.multipleTemplatesFound(templateTargets)
+        }
+    }
+
+    func findTemplateName(from templatePath: Basics.AbsolutePath) async throws -> String {
+        try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+
+            guard let manifest = rootManifests.values.first else {
+                throw TemplatePackageInitializerError.invalidManifestInTemplate(root.packages.description)
+            }
+
+            return try TemplatePackageInitializer.findTemplateName(from: manifest)
         }
     }
 

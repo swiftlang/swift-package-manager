@@ -92,63 +92,75 @@ extension SwiftTestCommand {
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
-                throw ValidationError("Could not determine current working directory.")
+                throw InternalError("Could not find the current working directory")
             }
 
-            let directoryManager = TemplateTestingDirectoryManager(
-                fileSystem: swiftCommandState.fileSystem,
-                observabilityScope: swiftCommandState.observabilityScope
-            )
-            try directoryManager.createOutputDirectory(
-                outputDirectoryPath: self.outputDirectory,
-                swiftCommandState: swiftCommandState
-            )
+            do {
+                let directoryManager = TemplateTestingDirectoryManager(
+                    fileSystem: swiftCommandState.fileSystem,
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+                try directoryManager.createOutputDirectory(
+                    outputDirectoryPath: self.outputDirectory,
+                    swiftCommandState: swiftCommandState
+                )
 
-            let buildSystem = self.globalOptions.build.buildSystem != .native ?
+                let buildSystem = self.globalOptions.build.buildSystem != .native ?
                 self.globalOptions.build.buildSystem :
                 swiftCommandState.options.build.buildSystem
 
-            let pluginManager = try await TemplateTesterPluginManager(
-                swiftCommandState: swiftCommandState,
-                template: templateName,
-                scratchDirectory: cwd,
-                args: args,
-                branches: branches,
-                buildSystem: buildSystem,
-            )
-
-            let commandPlugin = try pluginManager.loadTemplatePlugin()
-            let commandLineFragments = try await pluginManager.run()
-
-            if self.dryRun {
-                for commandLine in commandLineFragments {
-                    print(commandLine.displayFormat())
+                let resolvedTemplateName: String
+                if self.templateName == nil {
+                    resolvedTemplateName = try await self.findTemplateName(from: cwd, swiftCommandState: swiftCommandState)
+                } else {
+                    resolvedTemplateName = self.templateName!
                 }
-                return
-            }
-            let packageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
 
-            var buildMatrix: [String: BuildInfo] = [:]
-
-            for commandLine in commandLineFragments {
-                let folderName = commandLine.fullPathKey
-
-                buildMatrix[folderName] = try await self.testDecisionTreeBranch(
-                    folderName: folderName,
-                    commandLine: commandLine.commandChain,
+                let pluginManager = try await TemplateTesterPluginManager(
                     swiftCommandState: swiftCommandState,
-                    packageType: packageType,
-                    commandPlugin: commandPlugin,
-                    cwd: cwd,
-                    buildSystem: buildSystem
+                    template: resolvedTemplateName,
+                    scratchDirectory: cwd,
+                    args: args,
+                    branches: branches,
+                    buildSystem: buildSystem,
                 )
-            }
 
-            switch self.format {
-            case .matrix:
-                self.printBuildMatrix(buildMatrix)
-            case .json:
-                self.printJSONMatrix(buildMatrix)
+                let commandPlugin: ResolvedModule = try pluginManager.loadTemplatePlugin()
+
+                let commandLineFragments: [CommandPath] = try await pluginManager.run()
+
+                if self.dryRun {
+                    for commandLine in commandLineFragments {
+                        print(commandLine.displayFormat())
+                    }
+                    return
+                }
+                let packageType = try await inferPackageType(swiftCommandState: swiftCommandState, from: cwd)
+
+                var buildMatrix: [String: BuildInfo] = [:]
+
+                for commandLine in commandLineFragments {
+                    let folderName = commandLine.fullPathKey
+
+                    buildMatrix[folderName] = try await self.testDecisionTreeBranch(
+                        folderName: folderName,
+                        commandLine: commandLine.commandChain,
+                        swiftCommandState: swiftCommandState,
+                        packageType: packageType,
+                        commandPlugin: commandPlugin,
+                        cwd: cwd,
+                        buildSystem: buildSystem
+                    )
+                }
+
+                switch self.format {
+                case .matrix:
+                    self.printBuildMatrix(buildMatrix)
+                case .json:
+                    self.printJSONMatrix(buildMatrix)
+                }
+            } catch {
+                swiftCommandState.observabilityScope.emit(error)
             }
         }
 
@@ -164,7 +176,11 @@ extension SwiftTestCommand {
             let destinationPath = self.outputDirectory.appending(component: folderName)
 
             swiftCommandState.observabilityScope.emit(debug: "Generating \(folderName)")
-            try FileManager.default.createDirectory(at: destinationPath.asURL, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(at: destinationPath.asURL, withIntermediateDirectories: true)
+            } catch {
+                throw TestTemplateCommandError.directoryCreationFailed(destinationPath.pathString)
+            }
 
             return try await self.testTemplateInitialization(
                 commandPlugin: commandPlugin,
@@ -218,9 +234,11 @@ extension SwiftTestCommand {
                 let data = try encoder.encode(matrix)
                 if let output = String(data: data, encoding: .utf8) {
                     print(output)
+                } else {
+                    print("Failed to convert JSON data to string")
                 }
             } catch {
-                print("Failed to encode JSON: \(error)")
+                print("Failed to encode JSON: \(error.localizedDescription)")
             }
         }
 
@@ -237,7 +255,7 @@ extension SwiftTestCommand {
             )
 
             guard let manifest = rootManifests.values.first else {
-                throw ValidationError("")
+                throw TestTemplateCommandError.invalidManifestInTemplate
             }
 
             var targetName = self.templateName
@@ -255,7 +273,7 @@ extension SwiftTestCommand {
                 }
             }
 
-            throw ValidationError("")
+            throw TestTemplateCommandError.templateNotFound(targetName ?? "<unspecified>")
         }
 
         private func findTemplateName(from manifest: Manifest) throws -> String {
@@ -270,11 +288,26 @@ extension SwiftTestCommand {
 
             switch templateTargets.count {
             case 0:
-                throw ValidationError("")
+                throw TestTemplateCommandError.noTemplatesInManifest
             case 1:
                 return templateTargets[0]
             default:
-                throw ValidationError("")
+                throw TestTemplateCommandError.multipleTemplatesFound(templateTargets)
+            }
+        }
+
+        func findTemplateName(from templatePath: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) async throws -> String {
+            try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
+                let rootManifests = try await workspace.loadRootManifests(
+                    packages: root.packages,
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+
+                guard let manifest = rootManifests.values.first else {
+                    throw TestTemplateCommandError.invalidManifestInTemplate
+                }
+
+                return try findTemplateName(from: manifest)
             }
         }
 
@@ -340,20 +373,21 @@ extension SwiftTestCommand {
                         swiftCommandState: swiftCommandState,
                         requestPermission: false
                     )
-                    pluginOutput = String(data: output, encoding: .utf8) ?? "[Invalid UTF-8 output]"
+                    guard let pluginOutput = String(data: output, encoding: .utf8) else {
+                        throw TestTemplateCommandError.invalidUTF8Encoding(output)
+                    }
                     print(pluginOutput)
                 }
 
                 genDuration = startGen.distance(to: .now())
                 genSuccess = true
-
-                if genSuccess {
-                    try FileManager.default.removeItem(atPath: log)
-                }
-
+                try FileManager.default.removeItem(atPath: log)
             } catch {
                 genDuration = startGen.distance(to: .now())
                 genSuccess = false
+
+                let generationError = TestTemplateCommandError.generationFailed(error.localizedDescription)
+                swiftCommandState.observabilityScope.emit(generationError)
 
                 let errorLog = destinationAbsolutePath.appending("generation-output.log")
                 logPath = try? self.captureAndWriteError(
@@ -383,6 +417,9 @@ extension SwiftTestCommand {
                 } catch {
                     buildDuration = buildStart.distance(to: .now())
                     buildSuccess = false
+
+                    let buildError = TestTemplateCommandError.buildFailed(error.localizedDescription)
+                    swiftCommandState.observabilityScope.emit(buildError)
 
                     let errorLog = destinationAbsolutePath.appending("build-output.log")
                     logPath = try? self.captureAndWriteError(
@@ -433,30 +470,43 @@ extension SwiftTestCommand {
         }
 
         private func redirectStdoutAndStderr(to path: String) throws -> (originalStdout: Int32, originalStderr: Int32) {
-            guard let file = fopen(path, "w") else {
-                throw NSError(
-                    domain: "RedirectError",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Cannot open file for writing"]
-                )
+#if os(Windows)
+            guard let file = _fsopen(path, "w", _SH_DENYWR) else {
+                throw TestTemplateCommandError.outputRedirectionFailed(path)
             }
-
+            let originalStdout = _dup(_fileno(stdout))
+            let originalStderr = _dup(_fileno(stderr))
+            _dup2(_fileno(file), _fileno(stdout))
+            _dup2(_fileno(file), _fileno(stderr))
+            fclose(file)
+            return (originalStdout, originalStderr)
+#else
+            guard let file = fopen(path, "w") else {
+                throw TestTemplateCommandError.outputRedirectionFailed(path)
+            }
             let originalStdout = dup(STDOUT_FILENO)
             let originalStderr = dup(STDERR_FILENO)
             dup2(fileno(file), STDOUT_FILENO)
             dup2(fileno(file), STDERR_FILENO)
             fclose(file)
             return (originalStdout, originalStderr)
+#endif
         }
 
         private func restoreStdoutAndStderr(originalStdout: Int32, originalStderr: Int32) {
             fflush(stdout)
             fflush(stderr)
-
+#if os(Windows)
+            _dup2(originalStdout, _fileno(stdout))
+            _dup2(originalStderr, _fileno(stderr))
+            _close(originalStdout)
+            _close(originalStderr)
+#else
             dup2(originalStdout, STDOUT_FILENO)
             dup2(originalStderr, STDERR_FILENO)
             close(originalStdout)
             close(originalStderr)
+#endif
         }
 
         enum ShowTestTemplateOutput: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument,
@@ -486,6 +536,44 @@ extension SwiftTestCommand {
                 try container.encode(self.generationSuccess, forKey: .generationSuccess)
                 try container.encode(self.buildSuccess, forKey: .buildSuccess)
                 try container.encodeIfPresent(self.logFilePath, forKey: .logFilePath)
+            }
+        }
+
+        enum TestTemplateCommandError: Error, CustomStringConvertible {
+            case invalidManifestInTemplate
+            case templateNotFound(String)
+            case noTemplatesInManifest
+            case multipleTemplatesFound([String])
+            case directoryCreationFailed(String)
+            case buildSystemNotSupported(String)
+            case generationFailed(String)
+            case buildFailed(String)
+            case outputRedirectionFailed(String)
+            case invalidUTF8Encoding(Data)
+
+            var description: String {
+                switch self {
+                case .invalidManifestInTemplate:
+                    "Invalid or missing Package.swift manifest found in template. The template must contain a valid Swift package manifest."
+                case .templateNotFound(let templateName):
+                    "Could not find template '\(templateName)' with packageInit options. Verify the template name and ensure it has proper template configuration."
+                case .noTemplatesInManifest:
+                    "No templates with packageInit options were found in the manifest. The package must contain at least one target with template initialization options."
+                case .multipleTemplatesFound(let templates):
+                    "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template-name option."
+                case .directoryCreationFailed(let path):
+                    "Failed to create output directory at '\(path)'. Check permissions and available disk space."
+                case .buildSystemNotSupported(let system):
+                    "Build system '\(system)' is not supported for template testing. Use a supported build system."
+                case .generationFailed(let details):
+                    "Template generation failed: \(details). Check template configuration and input arguments."
+                case .buildFailed(let details):
+                    "Build failed after template generation: \(details). Check generated code and dependencies."
+                case .outputRedirectionFailed(let path):
+                    "Failed to redirect output to log file at '\(path)'. Check file permissions and disk space."
+                case .invalidUTF8Encoding(let data):
+                    "Failed to encode \(data) into UTF-8."
+                }
             }
         }
     }

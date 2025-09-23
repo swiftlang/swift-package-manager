@@ -196,7 +196,7 @@ public class Product {
 }
 
 public extension [Product] {
-    @available(_PackageDescription, introduced: 999.0.0)
+    @available(_PackageDescription, introduced: 6.3.0)
     static func template(
         name: String,
     ) -> [Product] {

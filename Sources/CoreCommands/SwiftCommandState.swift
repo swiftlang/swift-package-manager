@@ -1314,7 +1314,6 @@ extension Basics.Diagnostic {
 }
 
 extension SwiftCommandState {
-
     public func withTemporaryWorkspace<R>(
         switchingTo packagePath: AbsolutePath,
         createPackagePath: Bool = true,
@@ -1353,7 +1352,6 @@ extension SwiftCommandState {
                 } catch {
                     self.scratchDirectory = (packageRoot ?? cwd).appending(component: ".build")
                 }
-
             }
 
             self._workspace = originalWorkspace
@@ -1363,12 +1361,10 @@ extension SwiftCommandState {
         // Set up new context
         self.packageRoot = findPackageRoot(fileSystem: self.fileSystem)
 
-
         if let cwd = self.fileSystem.currentWorkingDirectory {
-            self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ?? (packageRoot ?? cwd).appending(".build")
-
+            self.scratchDirectory = try BuildSystemUtilities
+                .getEnvBuildPath(workingDir: cwd) ?? (self.packageRoot ?? cwd).appending(".build")
         }
-
 
         let tempWorkspace = try self.getActiveWorkspace()
         let tempRoot = try self.getWorkspaceRoot()
@@ -1376,4 +1372,3 @@ extension SwiftCommandState {
         return try await perform(tempWorkspace, tempRoot)
     }
 }
-

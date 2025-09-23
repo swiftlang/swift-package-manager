@@ -1271,7 +1271,7 @@ public final class Target {
 }
 
 public extension [Target] {
-    @available(_PackageDescription, introduced: 999.0.0)
+    @available(_PackageDescription, introduced: 6.3.0)
     static func template(
         name: String,
         dependencies: [Target.Dependency] = [],
@@ -1290,11 +1290,8 @@ public extension [Target] {
         templatePermissions: [TemplatePermissions]? = nil,
         description: String
     ) -> [Target] {
-
         let templatePluginName = "\(name)Plugin"
         let templateExecutableName = "\(name)"
-
-
         let permissions: [PluginPermission] = {
             return templatePermissions?.compactMap { permission in
                 switch permission {
@@ -1317,7 +1314,6 @@ public extension [Target] {
                 }
             } ?? []
         }()
-
 
         let templateInitializationOptions = Target.TemplateInitializationOptions.packageInit(
             templateType: initialPackageType,
@@ -1686,7 +1682,7 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
 /// The type of permission a plug-in requires.
 ///
 /// Supported types are ``allowNetworkConnections(scope:reason:)`` and ``writeToPackageDirectory(reason:)``.
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 6.3.0)
 public enum TemplatePermissions {
     /// Create a permission to make network connections.
     ///
@@ -1694,7 +1690,7 @@ public enum TemplatePermissions {
     /// to the user at the time of request for approval, explaining why the plug-in is requesting access.
     ///   - Parameter scope: The scope of the permission.
     ///   - Parameter reason: A reason why the permission is needed. This is shown to the user when permission is sought.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.3.0)
     case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
 
 }
@@ -1702,7 +1698,7 @@ public enum TemplatePermissions {
 /// The scope of a network permission.
 ///
 /// The scope can be none, local connections only, or all connections.
-@available(_PackageDescription, introduced: 999.0)
+@available(_PackageDescription, introduced: 6.3.0)
 public enum TemplateNetworkPermissionScope {
     /// Do not allow network access.
     case none

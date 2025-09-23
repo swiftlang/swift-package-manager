@@ -37,11 +37,11 @@ enum TemplatePluginExecutor {
 
 /// A utility for obtaining and running a template's plugin .
 ///
-/// `TemplateIntiializationPluginManager` encapsulates the logic needed to fetch,
+/// `TemplateInitializationPluginManager` encapsulates the logic needed to fetch,
 ///  and run templates' plugins given arguments, based on the template initialization workflow.
 struct TemplateInitializationPluginManager: TemplatePluginManager {
     private let swiftCommandState: SwiftCommandState
-    private let template: String?
+    private let template: String
     private let scratchDirectory: Basics.AbsolutePath
     private let args: [String]
     private let packageGraph: ModulesGraph
@@ -59,7 +59,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
 
     init(
         swiftCommandState: SwiftCommandState,
-        template: String?,
+        template: String,
         scratchDirectory: Basics.AbsolutePath,
         args: [String],
         buildSystem: BuildSystemProvider.Kind
@@ -85,13 +85,7 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// Manages the logic of running a template and executing on the information provided by the JSON representation of
     /// a template's arguments.
     ///
-    /// - Throws:
-    ///   - `TemplatePluginError.executionFailed(underlying: error)` If there was an error during the execution of a
-    /// template's plugin.
-    ///   - `TemplatePluginError.failedToDecodeToolInfo(underlying: error)` If there is a change in representation
-    /// between the JSON and the current version of the ToolInfoV0 struct
-    ///   - `TemplatePluginError.execu`
-
+    /// - Throws: Any error thrown during the loading of the template plugin, the fetching of the JSON representation of the template's arguments, prompting, or execution of the template
     func run() async throws {
         let plugin = try loadTemplatePlugin()
         let toolInfo = try await coordinator.dumpToolInfo(
@@ -133,7 +127,6 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     ///   - Any Errors thrown during the execution of the template's plugin given a 2D of arguments.
     ///
     /// - Returns: A data representation of the result of the execution of the template's plugin.
-
     private func runTemplatePlugin(_ plugin: ResolvedModule, with arguments: [String]) async throws -> Data {
         try await TemplatePluginExecutor.execute(
             plugin: plugin,
@@ -146,16 +139,10 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
         )
     }
 
-    /// Loads the plugin that corresponds to the template's name.
-    ///
-    /// - Throws:
-    ///   - `TempaltePluginError.noMatchingTemplate(name: String?)` if there are no plugins corresponding to the desired
-    /// template.
-    ///   - `TemplatePluginError.multipleMatchingTemplates(names: [String]` if the search returns more than one plugin
-    /// given a desired template
+    /// Loads the plugin that corresponds to the template's name
     ///
     /// - Returns: A data representation of the result of the execution of the template's plugin.
-
+    /// - Throws: Any Errors thrown during the loading of the template's plugin.
     func loadTemplatePlugin() throws -> ResolvedModule {
         try self.coordinator.loadTemplatePlugin(from: self.packageGraph)
     }

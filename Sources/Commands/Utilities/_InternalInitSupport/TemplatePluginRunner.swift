@@ -35,7 +35,6 @@ import XCBuildSupport
 ///
 /// The plugin must be part of a resolved package graph, and the invocation is handled
 /// asynchronously through SwiftPM’s plugin infrastructure.
-
 enum TemplatePluginRunner {
     /// Runs the given plugin target with the specified arguments and environment context.
     ///
@@ -69,7 +68,7 @@ enum TemplatePluginRunner {
         allowNetworkConnections: [SandboxNetworkPermission] = [],
         requestPermission: Bool
     ) async throws -> Data {
-        let pluginTarget = try castToPlugin(plugin)
+        let pluginTarget = try getPluginModule(plugin)
         let pluginsDir = try pluginDirectory(for: plugin.name, in: swiftCommandState)
         let outputDir = pluginsDir.appending("outputs")
         let pluginScriptRunner = try swiftCommandState.getPluginScriptRunner(customPluginsDir: pluginsDir)
@@ -94,7 +93,7 @@ enum TemplatePluginRunner {
 
         let buildParams = try swiftCommandState.toolsBuildParameters
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: buildSystemKind, // FIXME: This should be based on BuildSystemProvider.
+            explicitBuildSystem: buildSystemKind,
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParams,
@@ -173,7 +172,7 @@ enum TemplatePluginRunner {
     }
 
     /// Safely casts a `ResolvedModule` to a `PluginModule`, or throws if invalid.
-    private static func castToPlugin(_ plugin: ResolvedModule) throws -> PluginModule {
+    private static func getPluginModule(_ plugin: ResolvedModule) throws -> PluginModule {
         guard let pluginTarget = plugin.underlying as? PluginModule else {
             throw InternalError("Expected PluginModule")
         }

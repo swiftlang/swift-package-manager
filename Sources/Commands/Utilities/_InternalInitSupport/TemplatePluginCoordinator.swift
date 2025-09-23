@@ -19,7 +19,7 @@ struct TemplatePluginCoordinator {
     let buildSystem: BuildSystemProvider.Kind
     let swiftCommandState: SwiftCommandState
     let scratchDirectory: Basics.AbsolutePath
-    let template: String?
+    let template: String
     let args: [String]
     let branches: [String]
 

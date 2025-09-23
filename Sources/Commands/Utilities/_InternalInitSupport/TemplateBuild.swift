@@ -22,7 +22,6 @@ import TSCUtility
 /// `TemplateBuildSupport` encapsulates the logic needed to initialize the
 /// SwiftPM build system and perform a build operation based on a specific
 /// command configuration and workspace context.
-
 enum TemplateBuildSupport {
     /// Builds a Swift package using the given command state, options, and working directory.
     ///
@@ -58,7 +57,7 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: packageRoot) { _, _ in
             do {
-                try await buildSystem.build(subset: subset, buildOutputs: [.buildPlan])
+                try await buildSystem.build(subset: subset, buildOutputs: [])
             } catch {
                 throw ExitCode.failure
             }
@@ -91,8 +90,8 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
             do {
-                try await buildSystem.build(subset: subset, buildOutputs: [.buildPlan])
-            } catch let diagnostics as Diagnostics {
+                try await buildSystem.build(subset: subset, buildOutputs: [])
+            } catch {
                 throw ExitCode.failure
             }
         }

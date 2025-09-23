@@ -1737,7 +1737,6 @@ struct PackageCommandTests {
             }
         }
 
-
         @Test(
             .tags(
                 .Feature.Command.Package.Init,
@@ -1812,8 +1811,6 @@ struct PackageCommandTests {
             }
         }
     }
-
-
 
     @Suite(
         .tags(

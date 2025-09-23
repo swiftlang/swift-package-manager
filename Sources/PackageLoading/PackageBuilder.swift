@@ -113,7 +113,7 @@ extension ModuleError: CustomStringConvertible {
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
             return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)’; target names need to be unique across the package graph"
         case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir, let expectedLocation):
-            var clauses = ["Source files for target \(target) should be located under '\(expectedLocation)/\(target)'"]
+            var clauses = ["Source files for target \(target) of type \(type) should be located under '\(expectedLocation)/\(target)'"]
             if shouldSuggestRelaxedSourceDir {
                 clauses.append("'\(expectedLocation)'")
             }
@@ -734,7 +734,7 @@ public final class PackageBuilder {
                 missingModuleName,
                 type,
                 shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type),
-                expectedLocation: "Sources" // FIXME: this should provide the expected location of the module here
+                expectedLocation: PackageBuilder.suggestedPredefinedSourceDirectory(type: type)
             )
         }
 
