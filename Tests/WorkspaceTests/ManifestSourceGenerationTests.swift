@@ -975,6 +975,17 @@ final class ManifestSourceGenerationTests: XCTestCase {
                         ]
                     ),
                     .default(enabledTraits: ["Foo"]),
+                ],
+                dependencies: [
+                    .package(
+                        url: "https://github.com/Org/SomePackage.git",
+                        from: "1.0.0",
+                        traits: [
+                            .defaults,
+                            "SomeTrait",
+                            .trait(name: "SomeOtherTrait", condition: .when(traits: ["Foo"])),
+                        ]
+                    ),
                 ]
             )
             """

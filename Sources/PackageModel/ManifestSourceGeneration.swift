@@ -103,7 +103,7 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !manifest.traits.isEmpty {
-            let nodes = try manifest.traits.map { SourceCodeFragment(from: $0) }
+            let nodes = manifest.traits.map { SourceCodeFragment(from: $0) }
             params.append(SourceCodeFragment(key: "traits", subnodes: nodes))
         }
 
@@ -197,9 +197,61 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }
         }
+
+        if let traits = dependency.traits {
+            let traits = traits.sorted { a, b in
+                PackageDependency.Trait.precedes(a, b)
+            }
+            params.append(
+                SourceCodeFragment(
+                    key: "traits",
+                    subnodes: traits.map { SourceCodeFragment(from: $0) }
+                )
+            )
+        }
+
         self.init(enum: "package", subnodes: params)
     }
-    
+
+    init(from trait: PackageDependency.Trait) {
+        guard let condition = trait.condition else {
+            if trait.name == "default" {
+                self.init(enum: "defaults")
+                return
+            }
+
+            self.init(string: trait.name)
+            return
+        }
+
+        let conditionNode = SourceCodeFragment(
+            key: "condition",
+            subnode: SourceCodeFragment(from: condition)
+        )
+
+        self.init(enum: "trait", subnodes: [
+            SourceCodeFragment(key: "name", string: trait.name),
+            conditionNode
+        ])
+    }
+
+    init(from condition: PackageDependency.Trait.Condition) {
+        var params: [SourceCodeFragment] = []
+
+        if let trait = condition.traits {
+            params.append(
+                SourceCodeFragment(
+                    key: "traits",
+                    subnodes: trait.sorted().map {
+                        SourceCodeFragment(string: $0)
+                    }
+                )
+            )
+        }
+
+        self.init(enum: "when", subnodes: params)
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single product. If there's a custom product generator, it gets
     /// a chance to generate the source code fragments before checking the default types.
     init(from product: ProductDescription, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?, toolsVersion: ToolsVersion) rethrows {
@@ -1060,6 +1112,47 @@ public struct SourceCodeFragment {
             }
         }
         return string
+    }
+}
+
+extension Optional {
+    fileprivate static func precedes(
+        _ a: Wrapped?, _ b: Wrapped?,
+        compareWrapped: (Wrapped, Wrapped) -> Bool
+    ) -> Bool {
+        switch (a, b) {
+        case (.none, .none): return false
+        case (.none, .some): return true
+        case (.some, .none): return false
+        case (.some(let a), .some(let b)):
+            return compareWrapped(a, b)
+        }
+    }
+}
+
+extension PackageDependency.Trait {
+    fileprivate static func precedes(_ a: PackageDependency.Trait, _ b: PackageDependency.Trait) -> Bool {
+        if a.name != b.name { return a.name < b.name }
+
+        if a.condition != b.condition {
+            return Optional.precedes(a.condition, b.condition) { a, b in
+                PackageDependency.Trait.Condition.precedes(a, b)
+            }
+        }
+
+        return false
+    }
+}
+
+extension PackageDependency.Trait.Condition {
+    fileprivate static func precedes(_ a: PackageDependency.Trait.Condition, _ b: PackageDependency.Trait.Condition) -> Bool {
+        if a.traits != b.traits {
+            return Optional.precedes(a.traits, b.traits) { a, b in
+                a.sorted().lexicographicallyPrecedes(b.sorted())
+            }
+        }
+
+        return false
     }
 }
 
