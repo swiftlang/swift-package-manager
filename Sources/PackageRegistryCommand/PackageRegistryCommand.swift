@@ -31,7 +31,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
             Unset.self,
             Login.self,
             Logout.self,
-            Publish.self
+            Publish.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )

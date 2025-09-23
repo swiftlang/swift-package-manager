@@ -54,8 +54,13 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// The registry package identifier, if the template source is registry-based.
     let templatePackageID: String?
 
+    /// The version requirements for fetching a template from git.
     let sourceControlRequirement: PackageDependency.SourceControl.Requirement?
+
+    /// The version requirements for fetching a template from registry.
     let registryRequirement: PackageDependency.Registry.Requirement?
+
+    /// The location of the template on disk.
     let resolvedTemplatePath: Basics.AbsolutePath
 
     /// Constructs a package dependency kind based on the selected template source.

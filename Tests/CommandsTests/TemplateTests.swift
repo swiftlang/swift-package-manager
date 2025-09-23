@@ -2361,7 +2361,11 @@ struct TemplateTests {
         func templateInitializationErrorHandling() async throws {
             try await testWithTemporaryDirectory { tempDir in
                 let packagePath = tempDir.appending("TestPackage")
-                try FileManager.default.createDirectory(at: packagePath.asURL, withIntermediateDirectories: true, attributes: nil)
+                try FileManager.default.createDirectory(
+                    at: packagePath.asURL,
+                    withIntermediateDirectories: true,
+                    attributes: nil
+                )
                 let nonexistentPath = tempDir.appending("nonexistent-template")
                 let options = try GlobalOptions.parse(["--package-path", packagePath.pathString])
                 let tool = try SwiftCommandState.makeMockState(options: options)
