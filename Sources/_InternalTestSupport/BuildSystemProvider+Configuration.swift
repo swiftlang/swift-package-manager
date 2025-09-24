@@ -56,11 +56,7 @@ extension BuildSystemProvider.Kind {
         if let triple {
             tripleString = triple
         } else {
-            do {
-                tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
-            } catch {
-                tripleString = ""
-            }
+            tripleString = try UserToolchain.default.targetTriple.platformBuildPathComponent
         }
         switch self {
         case .native:
