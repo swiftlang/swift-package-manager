@@ -995,7 +995,6 @@ struct PackageCommandTests {
                 buildSystem: data.buildSystem,
             )
             let json = try JSON(bytes: ByteString(encodingAsUTF8: dumpOutput))
-            print(json)
             guard case .dictionary(let contents) = json else {
                 Issue.record("unexpected result")
                 return
