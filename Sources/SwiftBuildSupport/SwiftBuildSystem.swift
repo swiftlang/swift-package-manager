@@ -386,6 +386,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchainPath: self.buildParameters.toolchain.toolchainDir, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                    // TODO bp possible duplication of this message being sent to stdout
                     self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
 
                     // Load the workspace, and set the system information to the default
@@ -425,6 +426,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
+                        private var targetsByGUID: [SWBProjectModel.PIF.GUID: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
                         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
 
                         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
@@ -445,7 +447,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             if targetsByID[target.targetID] != nil {
                                 throw Diagnostics.fatalError
                             }
+                            if targetsByGUID[target.targetGUID] != nil {
+                                throw Diagnostics.fatalError
+                            }
                             targetsByID[target.targetID] = target
+                            targetsByGUID[target.targetGUID] = target
+                        }
+
+                        mutating func completed(target: SwiftBuild.SwiftBuildMessage.TargetCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo {
+                            guard let target = targetsByID[target.targetID] else {
+                                // TODO bp better error here?
+                                throw Diagnostics.fatalError
+                            }
+                            return target
                         }
 
                         mutating func target(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
@@ -456,6 +470,27 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 throw Diagnostics.fatalError
                             }
                             return target
+                        }
+
+                        mutating func target(for guid: SWBProjectModel.PIF.GUID) throws -> SwiftBuild.SwiftBuildMessage.TargetStartedInfo? {
+                            guard let target = targetsByGUID[guid] else {
+//                                throw Diagnostics.fatalError
+                                return nil
+                            }
+
+                            return target
+                        }
+
+                        mutating func task(for target: SwiftBuild.SwiftBuildMessage.TargetStartedInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
+
+                            guard let task = activeTasks.values.first(where: { $0.targetID == target.targetID }) else {
+                                // TODO bp: better error message here
+                                throw Diagnostics.fatalError
+                            }
+
+                            // TODO bp should check if targetsByID has entry for this target?
+
+                            return task
                         }
                     }
 
@@ -506,7 +541,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                             emitInfoAsDiagnostic(info: info)
                         case .output(let info):
-                            self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
+                            // TODO bp error code block being emitted under info severity here
+                            let message = "\(String(decoding: info.data, as: UTF8.self))"
+                            self.observabilityScope.emit(info: message)
                         case .taskStarted(let info):
                             try buildState.started(task: info)
 
@@ -540,14 +577,38 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             }
                         case .targetStarted(let info):
                             try buildState.started(target: info)
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
+                        case .targetComplete(let info):
+                            let startedTargetInfo = try buildState.completed(target: info)
+                            let taskInfo = try buildState.task(for: startedTargetInfo) // TODO bp can simplify to passing just targetID
+                            // TODO bp: get task associated with the target id?
+//                            if info.result != .success {
+//
+//                            }
+                            let targetName = startedTargetInfo.targetName
+                            self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(taskInfo, targetInfo: startedTargetInfo))
+                            serializedDiagnosticPathsByTargetName[targetName, default: []].append(contentsOf: taskInfo.serializedDiagnosticsPaths.compactMap {
+                                try? Basics.AbsolutePath(validating: $0.pathString)
+                            })
+                            self.observabilityScope.emit(error: "TARGET COMPLETE: \(message)")
+                        case .targetUpToDate(let info):
+                            let targetInfo = try buildState.target(for: info.guid)
+                            self.observabilityScope.emit(error: "TARGET UP TO DATE \(targetInfo?.targetName ?? "<unknown>")")
+
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, /*.targetUpToDate,*/ /*.targetComplete,*/ .taskUpToDate:
+                            // TODO bp print out every message here for investigation (--vv)
+                            self.observabilityScope.emit(error: "Unhandled message: \(message)")
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
                         case .buildOutput, .targetOutput, .taskOutput:
                             break // deprecated
-                        @unknown default:
-                            break
+
+//                        default:
+//                            self.outputStream.send(<#T##value: ArraySlice<UInt8>##ArraySlice<UInt8>#>)
+//                            self.observabilityScope.emit(info: "\(message)")
+//                        @unknown default:
+//                            break
+                            // TODO bp print(message) instead of switch
                         }
                     }
 
