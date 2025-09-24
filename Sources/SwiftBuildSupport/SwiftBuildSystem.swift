@@ -530,6 +530,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
                                 self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
+                            } else {
+                                self.observabilityScope.emit(severity: .info, message: "\(startedInfo.ruleInfo) - Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -544,8 +546,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
-                        case .buildOutput, .targetOutput, .taskOutput:
+                        case .buildOutput, .targetOutput:
                             break // deprecated
+                        case .taskOutput(let info):
+                            self.observabilityScope.emit(severity: .info, message: info.data)
                         @unknown default:
                             break
                         }

@@ -1689,7 +1689,7 @@ final class PluginTests {
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath,
-                    configuration: .debug,
+                    configuration: .debug, extraArgs: ["--very-verbose"],
                     buildSystem: .swiftbuild,
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
