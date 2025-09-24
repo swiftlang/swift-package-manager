@@ -407,7 +407,19 @@ fileprivate extension SourceCodeFragment {
             case "watchos": return SourceCodeFragment(enum: "watchOS")
             case "visionos": return SourceCodeFragment(enum: "visionOS")
             case "driverkit": return SourceCodeFragment(enum: "driverKit")
-            default: return SourceCodeFragment(enum: platformName)
+
+            // Among known cases, those not requiring capitalization changes
+            case "linux", "windows", "android", "wasi", "openbsd":
+                return SourceCodeFragment(enum: platformName)
+
+            // Known cases but not yet available
+            case "freebsd": fallthrough
+            default:
+                // For unknown cases, output using custom notation
+                return SourceCodeFragment(
+                    enum: "custom",
+                    subnodes: [.init(string: platformName)]
+                )
             }
         }
         if !platformNodes.isEmpty {
