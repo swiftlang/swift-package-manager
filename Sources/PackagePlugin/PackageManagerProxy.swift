@@ -333,6 +333,27 @@ public struct PackageManager {
         @available(_PackageDescription, introduced: 6.0)
         public var directoryURL: URL
     }
+
+    /// Return authorization information for the URL.
+    // FIXME: add a hashing key
+    public func getAuthorizationInfo(
+        for url: String
+    ) throws -> AuthorizationInfo? {
+        // Ask the plugin host for authorization information, and wait for a response.
+        // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
+        return try sendMessageAndWaitForReply(.authorizationInfoRequest(url: url)) {
+            guard case .authorizationInfoResponse(let result) = $0 else { return nil }
+            return result.map{ .init($0) }
+        }
+    }
+
+    /// Represents  authorization information
+    public struct AuthorizationInfo {
+        /// The username
+        public var username: String
+        /// The password
+        public var password: String
+    }
 }
 
 extension PackageManager {
@@ -535,5 +556,12 @@ extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
 extension PackageManager.SymbolGraphResult {
     fileprivate init(_ result: HostToPluginMessage.SymbolGraphResult) {
         self.directoryURL = result.directoryPath
+    }
+}
+
+fileprivate extension PackageManager.AuthorizationInfo {
+    init(_ result: HostToPluginMessage.AuthorizationInfo) {
+        self.username = result.username
+        self.password = result.password
     }
 }
