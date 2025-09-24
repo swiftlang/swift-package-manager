@@ -397,8 +397,8 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope
     ) async throws -> Serialization.VersionMetadata {
-        let cacheKey = MetadataCacheKey(registry: registry, package: package)
-        if let cached = self.metadataCache[cacheKey], cached.expires < .now() {
+        let cacheKey = MetadataCacheKey(registry: registry, package: package, version: version)
+        if let cached = self.metadataCache[cacheKey], cached.expires > .now() {
             return cached.metadata
         }
 
@@ -1403,21 +1403,9 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
-    private func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
-        guard let registryIdentity = package.registry else {
-            throw RegistryError.invalidPackageIdentity(package)
-        }
-
-        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
-            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
-        }
-
-        return (registryIdentity, registry)
-    }
-
     // If the registry is available, the function returns, otherwise an error
     // explaining why the registry is unavailable is thrown.
-    private func withAvailabilityCheck(
+    func withAvailabilityCheck(
         registry: Registry,
         observabilityScope: ObservabilityScope
     ) async throws {
@@ -1438,7 +1426,7 @@ public final class RegistryClient: AsyncCancellable {
             }
         }
 
-        if let cached = self.availabilityCache[registry.url], cached.expires < .now() {
+        if let cached = self.availabilityCache[registry.url], cached.expires > .now() {
             return try availabilityHandler(cached.status)
         }
 
@@ -1451,6 +1439,18 @@ public final class RegistryClient: AsyncCancellable {
 
         self.availabilityCache[registry.url] = (status: result, expires: .now() + Self.availabilityCacheTTL)
         return try availabilityHandler(result)
+    }
+
+    private func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
+        guard let registryIdentity = package.registry else {
+            throw RegistryError.invalidPackageIdentity(package)
+        }
+
+        guard let registry = self.configuration.registry(for: registryIdentity.scope) else {
+            throw RegistryError.registryNotConfigured(scope: registryIdentity.scope)
+        }
+
+        return (registryIdentity, registry)
     }
 
     private func unexpectedStatusError(
@@ -1495,6 +1495,7 @@ public final class RegistryClient: AsyncCancellable {
     private struct MetadataCacheKey: Hashable {
         let registry: Registry
         let package: PackageIdentity.RegistryIdentity
+        let version: Version
     }
 }
 
