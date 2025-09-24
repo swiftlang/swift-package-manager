@@ -1,9 +1,8 @@
-// swift-tools-version:5.3
+// swift-tools-version:5.0
 import PackageDescription
 
 let package = Package(
     name: "Dealer",
-    defaultLocalization: "en",
     platforms: [
         .macOS(.v10_12),
         .iOS(.v10),
