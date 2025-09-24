@@ -63,15 +63,15 @@ extension SwiftPackageCommand {
         var buildOptions: BuildCommandOptions
 
         /// Path to a local template.
-        @Option(name: .customLong("path"), help: "Path to the local template.", completion: .directory)
+        @Option(name: .customLong("path"), help: "Path to the package containing a template.", completion: .directory)
         var templateDirectory: Basics.AbsolutePath?
 
         /// Git URL of the template.
-        @Option(name: .customLong("url"), help: "The git URL of the template.")
+        @Option(name: .customLong("url"), help: "The git URL of the package containing a template.")
         var templateURL: String?
 
         /// Package Registry ID of the template.
-        @Option(name: .customLong("package-id"), help: "The package identifier of the template")
+        @Option(name: .customLong("package-id"), help: "The package identifier of the package containing a template.")
         var templatePackageID: String?
 
         // MARK: - Versioning Options for Remote Git Templates and Registry templates
@@ -103,7 +103,7 @@ extension SwiftPackageCommand {
         /// Validation step to build package post generation and run if package is of type executable.
         @Flag(
             name: .customLong("validate-package"),
-            help: "Run 'swift build' after package generation to validate the template."
+            help: "Run 'swift build' after package generation to validate the template output."
         )
         var validatePackage: Bool = false
 

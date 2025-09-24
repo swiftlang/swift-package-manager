@@ -6,19 +6,17 @@ This guide provides a brief overview of Swift Package Manager templates, describ
 
 User-defined custom _templates_ allow generation of packages whose functionality goes beyond the hard-coded templates provided by Swift Package Manager. Package templates are written in Swift using Swift Argument Parser and the `PackagePlugin` API provided by the Swift Package Manager.
 
-A template is represented in the SwiftPM package manifest as a target of the `templateTarget` type — and should be available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this can be customized. However, as seen below, authors will also need to write the source code for a plugin.
+A template is represented in the SwiftPM package manifest as a target of the `templateTarget` type and should be available to other packages by declaring a corresponding `template` product. Source code for a template is normally located in a directory under the `Templates` directory in the package, but this can be customized. However, as seen below, authors will also need to write the source code for a plugin.
 
 Templates are an abstraction of two types of modules:
 - a template _executable_ that performs the file generation and project setup
 - a command-line _plugin_ that safely invokes the executable
 
-The command-line plugin allows the template executable to run in a separate process, and (on platforms that support sandboxing) it is wrapped in a sandbox that prevents network access as well as attempts to write to arbitrary locations in the file system. Template plugins have access to the representation of the package model, which can be used by the template whenever the context of a package is needed — for example, to infer sensible defaults or validate user inputs against existing package structure.
+The command-line plugin allows the template executable to run in a separate process, and (on platforms that support sandboxing) it is wrapped in a sandbox that prevents network access as well as attempts to write to arbitrary locations in the file system. Template plugins have access to the representation of the package model, which can be used by the template whenever the context of a package is needed; for example, to infer sensible defaults or validate user inputs against existing package structure.
 
 The executable allows authors to define user-facing interfaces which gather important consumer input needed by the template to run, using Swift Argument Parser for a rich command-line experience with subcommands, options, and flags.
 
 ## Using a Package Template
-
-A package template is available to the package that defines it and to any other package that can reference the template package as a source, as it is mandatory to declare it as a product.
 
 Templates are invoked using the `swift package init` command:
 
@@ -52,7 +50,7 @@ swift package init --type MyTemplate --package-id author.template --from 1.0.0
 swift package init --type MyTemplate --url https://github.com/author/template --branch main
 ```
 
-The `--build-package` flag can be used to automatically build the template output:
+The `--validate-package` flag can be used to automatically build the template output:
 
 ```bash
 swift package init --type MyTemplate --package-id author.template --build-package
@@ -60,7 +58,7 @@ swift package init --type MyTemplate --package-id author.template --build-packag
 
 ## Writing a Template
 
-The first step when writing a package template is to decide what kind of template you need and what base package structure it should start with. Templates can generate any kind of Swift package — executables, libraries, plugins, or even empty packages that will be further customized.
+The first step when writing a package template is to decide what kind of template you need and what base package structure it should start with. Templates can build off of any kind of Swift package: executables, libraries, plugins, or even empty packages that will be further customized.
 
 ### Declaring a template in the package manifest
 
@@ -80,7 +78,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
     ],
     targets: [
-        .templateTarget(
+        .template(
             name: "LibraryTemplate",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
@@ -88,7 +86,7 @@ let package = Package(
             initialPackageType: .library,
             description: "Generate a Swift library package"
         ),
-        .templateTarget(
+        .template(
             name: "ExecutableTemplate", 
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
@@ -111,7 +109,7 @@ The `template` product is what makes the template visible to other packages. The
 
 #### Template target dependencies
 
-The dependencies specify the packages that will be available for use by the template executable. Each dependency can be any package product — commonly this includes Swift Argument Parser for command-line interface handling, but can also include utilities for file generation, string processing, or network requests if needed.
+The dependencies specify the packages that will be available for use by the template executable. Each dependency can be any package product. Commonly this includes Swift Argument Parser for command-line interface handling, but can also include utilities for file generation, string processing, or network requests if needed.
 
 #### Template permissions  
 
@@ -322,9 +320,9 @@ enum TemplateError: Error {
 }
 ```
 
-### Using package context for intelligent defaults
+### Using package context for package defaults
 
-Template plugins have access to the package context, which can be used to make intelligent decisions about defaults or validate user inputs. Here's an example of how a template can use context information:
+Template plugins have access to the package context, which can be used by template authors to fill certain arguments to make package generation easier. Here's an example of how a template can use context information:
 
 ```swift
 import PackagePlugin
