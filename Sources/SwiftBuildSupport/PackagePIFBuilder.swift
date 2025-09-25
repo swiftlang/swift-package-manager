@@ -529,11 +529,6 @@ public final class PackagePIFBuilder {
         }
 
         settings[.USE_HEADERMAP] = "NO"
-        settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("-DXcode") }
-
-        // TODO: Might be relevant to make customizable —— Paulo
-        // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
-        settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
         if !self.delegate.isRootPackage {
             if self.suppressWarningsForPackageDependencies {

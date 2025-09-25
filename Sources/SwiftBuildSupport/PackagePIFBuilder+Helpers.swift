@@ -1034,7 +1034,6 @@ extension ProjectModel.BuildSettings {
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
-        self[.CLANG_ENABLE_MODULES] = "YES"
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         if !createDylibForDynamicProducts {

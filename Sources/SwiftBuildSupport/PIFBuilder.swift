@@ -412,7 +412,8 @@ public final class PIFBuilder {
                 }
 
                 let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
-                    package: package
+                    package: package,
+                    buildParameters: buildParameters,
                 )
                 let packagePIFBuilder = PackagePIFBuilder(
                     modulesGraph: self.graph,
@@ -484,9 +485,11 @@ public final class PIFBuilder {
 
 fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelegate {
     let package: ResolvedPackage
+    let buildParameters: BuildParameters
     
-    init(package: ResolvedPackage) {
+    init(package: ResolvedPackage, buildParameters: BuildParameters) {
         self.package = package
+        self.buildParameters = buildParameters
     }
     
     var isRootPackage: Bool {
@@ -522,7 +525,8 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
     
     func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings) {
-        /* empty */
+        // This is parity to the native build, But we should investigate what it would take to get this working on platforms.
+        buildSettings[.CLANG_ENABLE_MODULES] = self.buildParameters.triple.isDarwin() ? "YES" : "NO"
     }
     
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
