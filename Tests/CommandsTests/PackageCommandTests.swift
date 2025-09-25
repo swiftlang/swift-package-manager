@@ -6982,7 +6982,18 @@ struct PackageCommandTests {
             }
         }
 
-        private static func commandPluginCompilationErrorImplementation(
+        @Test(
+            .issue(
+                "https://github.com/swiftlang/swift-package-manager/issues/8977",
+                relationship: .defect,
+            ),
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+            arguments: getBuildData(for: [.swiftbuild]),
+        )
+        func commandPluginCompilationErrorImplementation(
             data: BuildData,
         ) async throws {
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginCompilationError") { packageDir in
@@ -7014,44 +7025,6 @@ struct PackageCommandTests {
                         )
                     }
                 }
-            }
-        }
-
-        @Test(
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.native]),
-        )
-        func commandPluginCompilationError(
-            data: BuildData,
-        ) async throws {
-            try await Self.commandPluginCompilationErrorImplementation(data: data)
-        }
-
-        @Test(
-            .disabled("the swift-build process currently has a fatal error"),
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
-            .SWBINTTODO("Building sample package causes a backtrace on linux"),
-            .requireSwift6_2,
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.swiftbuild]),
-        )
-        func commandPluginCompilationErrorSwiftBuild(
-            data: BuildData,
-        ) async throws {
-            // Once this is fix, merge data iunto commandPluginCompilationError
-            await withKnownIssue {
-                try await Self.commandPluginCompilationErrorImplementation(data: data)
             }
         }
 
