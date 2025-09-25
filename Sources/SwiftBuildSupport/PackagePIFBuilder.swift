@@ -516,16 +516,16 @@ public final class PackagePIFBuilder {
         settings[.MACOSX_DEPLOYMENT_TARGET] = builder.deploymentTargets[.macOS] ?? nil
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.iOS] ?? nil
         if let deploymentTarget_macCatalyst = builder.deploymentTargets[.macCatalyst] ?? nil {
-            settings
-                .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
         }
         settings[.TVOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.tvOS] ?? nil
         settings[.WATCHOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.watchOS] ?? nil
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
         settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
 
-        for machoPlatform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
-            settings.platformSpecificSettings[machoPlatform]![.DYLIB_INSTALL_NAME_BASE]! = ["@rpath"]
+        for machoPlatform: ProjectModel.BuildSettings.Platform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
+            settings[.DYLIB_INSTALL_NAME_BASE, machoPlatform] = "@rpath"
+            settings[.CLANG_ENABLE_MODULES, machoPlatform] = "YES"
         }
 
         settings[.USE_HEADERMAP] = "NO"
@@ -566,8 +566,7 @@ public final class PackagePIFBuilder {
                 log(.warning, "Ignoring options '\(platformOptions.joined(separator: " "))' specified for unknown platform \(platform.name)")
                 continue
             }
-            settings.platformSpecificSettings[pifPlatform]![.SPECIALIZATION_SDK_OPTIONS]!
-                .append(contentsOf: platformOptions)
+            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform]?.append(contentsOf: platformOptions)
         }
 
         let deviceFamilyIDs: Set<Int> = self.delegate.deviceFamilyIDs()
@@ -593,7 +592,7 @@ public final class PackagePIFBuilder {
                 } catch {
                     preconditionFailure("Unhandled arm64e platform: \(error)")
                 }
-                settings.platformSpecificSettings[pifPlatform]![.ARCHS, default: []].append(contentsOf: ["arm64e"])
+                settings[.ARCHS, pifPlatform]?.append(contentsOf: ["arm64e"])
             }
         }
 
