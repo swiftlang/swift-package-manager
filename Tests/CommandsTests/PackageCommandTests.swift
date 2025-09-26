@@ -6831,10 +6831,6 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
             .requiresSwiftConcurrencySupport,
             .IssueWindowsLongPath,
             .tags(
@@ -6961,37 +6957,29 @@ struct PackageCommandTests {
                     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
                 }
 
-                try await withKnownIssue {
-                    // Check that building just one of them just compiles that plugin and doesn't build anything else.
-                    do {
-                        let (stdout, stderr) = try await executeSwiftBuild(
-                            packageDir,
-                            configuration: data.config,
-                            extraArgs: ["--target", "MyCommandPlugin"],
-                            buildSystem: data.buildSystem,
-                        )
-                        if data.buildSystem == .native {
-                            #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
-                            #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
-                        }
-                        #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
+                // Check that building just one of them just compiles that plugin and doesn't build anything else.
+                do {
+                    let (stdout, stderr) = try await executeSwiftBuild(
+                        packageDir,
+                        configuration: data.config,
+                        extraArgs: ["--target", "MyCommandPlugin"],
+                        buildSystem: data.buildSystem,
+                    )
+                    if data.buildSystem == .native {
+                        #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
+                        #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
                     }
-                } when: {
-                    data.buildSystem == .swiftbuild
+                    #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
                 }
             }
         }
 
         @Test(
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect,
-            ),
             .requiresSwiftConcurrencySupport,
             .tags(
                 .Feature.Command.Package.CommandPlugin,
             ),
-            arguments: getBuildData(for: [.swiftbuild]),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
         func commandPluginCompilationErrorImplementation(
             data: BuildData,
