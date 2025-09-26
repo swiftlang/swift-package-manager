@@ -24,7 +24,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependency's trait.
-            private let traits: Set<String>?
+            package let traits: Set<String>?
 
             public init(traits: Set<String>?) {
                 self.traits = traits
@@ -72,6 +72,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 name: name,
                 condition: condition
             )
+        }
+
+        // represents `.defaults`
+        public var isDefaultsCase: Bool {
+            name == "default" && condition == nil
         }
     }
 
