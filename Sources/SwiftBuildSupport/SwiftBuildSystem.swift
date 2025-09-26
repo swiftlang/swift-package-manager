@@ -376,11 +376,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
-            let progressAnimation = ProgressAnimation.percent(
+            let progressAnimation = ProgressAnimation.ninja(
                 stream: self.outputStream,
-                verbose: self.logLevel.isVerbose,
-                header: "",
-                isColorized: self.buildParameters.outputParameters.isColorized
+                verbose: self.logLevel.isVerbose
             )
 
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
