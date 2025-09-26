@@ -619,7 +619,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
-
         try await AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
