@@ -584,7 +584,7 @@ public final class PackagePIFBuilder {
                 default:
                     .init(from: arm64ePlatform)
                 }
-                settings.platformSpecificSettings[pifPlatform]![.ARCHS] = ["arm64e"]
+                settings.platformSpecificSettings[pifPlatform]![.ARCHS, default: []].append(contentsOf: ["arm64e"])
             }
         }
 
