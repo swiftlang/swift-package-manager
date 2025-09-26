@@ -612,7 +612,7 @@ public final class SwiftModuleBuildDescription {
         if self.package.isRemote {
             // suppress-warnings and the other warning control flags are mutually exclusive
             var removeNextArg = false
-            args = args.filter { arg in
+            args = Array(args.lazy.reversed().filter { arg in
                 if removeNextArg {
                     removeNextArg = false
                     return false
@@ -626,7 +626,7 @@ public final class SwiftModuleBuildDescription {
                 default:
                     return true
                 }
-            }
+            }.reversed())
             guard !removeNextArg else {
                 throw InternalError("Unexpected '-Wwarning' or '-Werror' at the end of args")
             }
