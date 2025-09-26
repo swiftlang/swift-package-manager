@@ -202,15 +202,15 @@ extension ManifestLoaderProtocol {
     ) async throws -> Manifest {
         // find the manifest path and parse it's tools-version
         let manifestPath = try ManifestLoader.findManifest(
-            packagePath: packagePath, 
-            fileSystem: fileSystem, 
+            packagePath: packagePath,
+            fileSystem: fileSystem,
             currentToolsVersion: currentToolsVersion
         )
         let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
         // validate the manifest tools-version against the toolchain tools-version
         try manifestToolsVersion.validateToolsVersion(
-            currentToolsVersion, 
-            packageIdentity: packageIdentity, 
+            currentToolsVersion,
+            packageIdentity: packageIdentity,
             packageVersion: packageVersion?.version?.description ?? packageVersion?.revision
         )
 
@@ -259,7 +259,7 @@ actor ManifestCacheActor {
 /// `atexit()` handler) which is then deserialized and loaded.
 public final class ManifestLoader: ManifestLoaderProtocol {
     public typealias Delegate = ManifestLoaderDelegate
-    
+
     private let toolchain: UserToolchain
     private let serializedDiagnostics: Bool
     private let isManifestSandboxEnabled: Bool
@@ -298,7 +298,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         self.databaseCacheDir = try? cacheDir.map(resolveSymlinks)
         self.pruneDependencies = pruneDependencies
     }
-    
+
     public func load(
         manifestPath: AbsolutePath,
         manifestToolsVersion: ToolsVersion,
@@ -476,7 +476,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         delegate: Delegate?,
         delegateQueue: DispatchQueue?
     ) async throws -> ManifestJSONParser.Result {
-        
         let key = try CacheKey(
             packageIdentity: packageIdentity,
             packageLocation: packageLocation,
@@ -677,10 +676,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
             return result
         }
-        
     }
 
     /// Helper method for evaluating the manifest.
+    // TODO: Optimizations are disabled to work around a compiler bug. Remove this attribute when the bug is fixed.
+    // See https://github.com/swiftlang/llvm-project/issues/11377 for details.
+    #if os(Windows)
+    @_optimize(none)
+    #endif
     func evaluateManifest(
         at manifestPath: AbsolutePath,
         vfsOverlayPath: AbsolutePath? = nil,
