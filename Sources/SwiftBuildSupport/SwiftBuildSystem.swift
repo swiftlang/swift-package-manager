@@ -31,6 +31,8 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
+import var TSCBasic.stdoutStream
+
 import Foundation
 import SWBBuildService
 import SwiftBuild
@@ -342,11 +344,22 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
+        // If any plugins are part of the build set, compile them now to surface
+        // any errors up-front. Returns true if we should proceed with the build
+        // or false if not. It will already have thrown any appropriate error.
+        var result = BuildResult(
+            serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
+            replArguments: nil,
+        )
+
         guard !buildParameters.shouldSkipBuilding else {
-            return BuildResult(
-                serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
-                replArguments: nil,
-            )
+            result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))
+            return result
+        }
+
+        guard try await self.compilePlugins(in: subset) else {
+            result.serializedDiagnosticPathsByTargetName = .failure(StringError("Plugin compilation failed"))
+            return result
         }
 
         try await writePIF(buildParameters: buildParameters)
@@ -355,6 +368,145 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             pifTargetName: subset.pifTargetName,
             buildOutputs: buildOutputs,
         )
+    }
+
+    /// Compiles any plugins specified or implied by the build subset, returning
+    /// true if the build should proceed. Throws an error in case of failure. A
+    /// reason why the build might not proceed even on success is if only plugins
+    /// should be compiled.
+    func compilePlugins(in subset: BuildSubset) async throws -> Bool {
+        // Figure out what, if any, plugin descriptions to compile, and whether
+        // to continue building after that based on the subset.
+        let graph = try await getPackageGraph()
+
+        /// Description for a plugin module. This is treated a bit differently from the
+        /// regular kinds of modules, and is not included in the LLBuild description.
+        /// But because the modules graph and build plan are not loaded for incremental
+        /// builds, this information is included in the BuildDescription, and the plugin
+        /// modules are compiled directly.
+        class PluginBuildDescription: Codable {
+            /// The identity of the package in which the plugin is defined.
+            public let package: PackageIdentity
+
+            /// The name of the plugin module in that package (this is also the name of
+            /// the plugin).
+            public let moduleName: String
+
+            /// The language-level module name.
+            public let moduleC99Name: String
+
+            /// The names of any plugin products in that package that vend the plugin
+            /// to other packages.
+            public let productNames: [String]
+
+            /// The tools version of the package that declared the module. This affects
+            /// the API that is available in the PackagePlugin module.
+            public let toolsVersion: ToolsVersion
+
+            /// Swift source files that comprise the plugin.
+            public let sources: Sources
+
+            /// Initialize a new plugin module description. The module is expected to be
+            /// a `PluginTarget`.
+            init(
+                module: ResolvedModule,
+                products: [ResolvedProduct],
+                package: ResolvedPackage,
+                toolsVersion: ToolsVersion,
+                testDiscoveryTarget: Bool = false,
+                fileSystem: FileSystem
+            ) throws {
+                guard module.underlying is PluginModule else {
+                    throw InternalError("underlying target type mismatch \(module)")
+                }
+
+                self.package = package.identity
+                self.moduleName = module.name
+                self.moduleC99Name = module.c99name
+                self.productNames = products.map(\.name)
+                self.toolsVersion = toolsVersion
+                self.sources = module.sources
+            }
+        }
+
+        var allPlugins: [PluginBuildDescription] = []
+
+        for pluginModule in graph.allModules.filter({ ($0.underlying as? PluginModule) != nil }) {
+            guard let package = graph.package(for: pluginModule) else {
+                throw InternalError("Package not found for module: \(pluginModule.name)")
+            }
+
+            let toolsVersion = package.manifest.toolsVersion
+
+            let pluginProducts = package.products.filter { $0.modules.contains(id: pluginModule.id) }
+
+            allPlugins.append(try PluginBuildDescription(
+                module: pluginModule,
+                products: pluginProducts,
+                package: package,
+                toolsVersion: toolsVersion,
+                fileSystem: fileSystem
+            ))
+        }
+
+        let pluginsToCompile: [PluginBuildDescription]
+        let continueBuilding: Bool
+        switch subset {
+        case .allExcludingTests, .allIncludingTests:
+            pluginsToCompile = allPlugins
+            continueBuilding = true
+        case .product(let productName, _):
+            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            continueBuilding = pluginsToCompile.isEmpty
+        case .target(let targetName, _):
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+            continueBuilding = pluginsToCompile.isEmpty
+        }
+
+        final class Delegate: PluginScriptCompilerDelegate {
+            var failed: Bool = false
+            var observabilityScope: ObservabilityScope
+
+            public init(observabilityScope: ObservabilityScope) {
+                self.observabilityScope = observabilityScope
+            }
+
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) { }
+            func didCompilePlugin(result: PluginCompilationResult) {
+                if !result.compilerOutput.isEmpty && !result.succeeded {
+                    print(result.compilerOutput, to: &stdoutStream)
+                } else if !result.compilerOutput.isEmpty {
+                    observabilityScope.emit(info: result.compilerOutput)
+                }
+
+                failed = !result.succeeded
+            }
+
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) { }
+        }
+
+        // Compile any plugins we ended up with. If any of them fails, it will
+        // throw.
+        for plugin in pluginsToCompile {
+            let delegate = Delegate(observabilityScope: observabilityScope)
+
+            _ = try await self.pluginConfiguration.scriptRunner.compilePluginScript(
+                sourceFiles: plugin.sources.paths,
+                pluginName: plugin.moduleName,
+                toolsVersion: plugin.toolsVersion,
+                observabilityScope: observabilityScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: delegate
+            )
+
+            if delegate.failed {
+                throw Diagnostics.fatalError
+            }
+        }
+
+        // If we get this far they all succeeded. Return whether to continue the
+        // build, based on the subset.
+        return continueBuilding
     }
 
     private func startSWBuildOperation(
@@ -371,6 +523,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 continue
             }
         }
+
         var replArguments: CLIArguments?
         var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
