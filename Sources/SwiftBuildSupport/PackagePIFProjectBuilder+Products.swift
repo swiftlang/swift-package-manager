@@ -115,7 +115,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = product.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
-        settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
