@@ -655,6 +655,7 @@ extension Manifest: Encodable {
         }
 
         try container.encode(self.toolsVersion, forKey: .toolsVersion)
+        try container.encode(self.defaultLocalization, forKey: .defaultLocalization)
         try container.encode(self.pkgConfig, forKey: .pkgConfig)
         try container.encode(self.providers, forKey: .providers)
         try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)

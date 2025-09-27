@@ -986,7 +986,7 @@ struct PackageCommandTests {
     func dumpPackage(
         data: BuildData,
     ) async throws {
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixture(name: "Miscellaneous/DumpPackage") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             let (dumpOutput, _) = try await execute(
                 ["dump-package"],
@@ -1000,29 +1000,34 @@ struct PackageCommandTests {
                 return
             }
             guard case .string(let name)? = contents["name"] else {
-                Issue.record("unexpected result")
+                Issue.record("unexpected name")
+                return
+            }
+            guard case .string(let defaultLocalization)? = contents["defaultLocalization"] else {
+                Issue.record("unexpected defaultLocalization")
                 return
             }
             guard case .array(let platforms)? = contents["platforms"] else {
-                Issue.record("unexpected result")
+                Issue.record("unexpected platforms")
                 return
             }
             #expect(name == "Dealer")
+            #expect(defaultLocalization == "en")
             #expect(
                 platforms == [
                     .dictionary([
                         "platformName": .string("macos"),
-                        "version": .string("10.12"),
+                        "version": .string("10.13"),
                         "options": .array([]),
                     ]),
                     .dictionary([
                         "platformName": .string("ios"),
-                        "version": .string("10.0"),
+                        "version": .string("12.0"),
                         "options": .array([]),
                     ]),
                     .dictionary([
                         "platformName": .string("tvos"),
-                        "version": .string("11.0"),
+                        "version": .string("12.0"),
                         "options": .array([]),
                     ]),
                     .dictionary([
@@ -1032,6 +1037,7 @@ struct PackageCommandTests {
                     ]),
                 ]
             )
+            // FIXME: We should also test dependencies and targets here.
         }
     }
 
