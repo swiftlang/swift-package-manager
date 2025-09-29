@@ -384,7 +384,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         /// But because the modules graph and build plan are not loaded for incremental
         /// builds, this information is included in the BuildDescription, and the plugin
         /// modules are compiled directly.
-        class PluginBuildDescription: Codable {
+        struct PluginBuildDescription: Codable {
             /// The identity of the package in which the plugin is defined.
             public let package: PackageIdentity
 
@@ -472,6 +472,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
 
             func willCompilePlugin(commandLine: [String], environment: [String: String]) { }
+
             func didCompilePlugin(result: PluginCompilationResult) {
                 if !result.compilerOutput.isEmpty && !result.succeeded {
                     print(result.compilerOutput, to: &stdoutStream)

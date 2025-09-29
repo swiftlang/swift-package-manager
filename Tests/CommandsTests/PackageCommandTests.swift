@@ -6965,9 +6965,15 @@ struct PackageCommandTests {
                         extraArgs: ["--target", "MyCommandPlugin"],
                         buildSystem: data.buildSystem,
                     )
-                    if data.buildSystem == .native {
-                        #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
-                        #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
+                    switch data.buildSystem {
+                    case .native:
+                            #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
+                            #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
+                        case .swiftbuild:
+                        // nothing specific
+                        break
+                        case .xcode:
+                            Issue.record("Test expected have not been considered")
                     }
                     #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
                 }
