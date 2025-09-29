@@ -265,7 +265,7 @@ public struct CoverageOptions: ParsableArguments {
             .customLong("show-code-coverage-path"),
             .customLong("show-coverage-path"),
         ],
-        help: "Print the path of the exported code coverage JSON file.",
+        help: "Print the path of the exported code coverage files.",
     )
     var shouldPrintPath: Bool = false
 
@@ -399,9 +399,38 @@ package struct CoverageFormatOutput: Encodable {
     package init() {
         self._underlying = [CoverageFormat : AbsolutePath]()
     }
-    
+
     package init(data: [CoverageFormat : AbsolutePath]) {
         self._underlying = data
+    }
+
+    // Custom encoding to ensure the dictionary is encoded as a JSON object, not an array
+    public func encode(to encoder: Encoder) throws {
+        // Use keyed container to encode each format and its path
+        // This will create proper JSON objects and proper plain text "key: value" format
+        var container = encoder.container(keyedBy: DynamicCodingKey.self)
+
+        // Sort entries for consistent output
+        let sortedEntries = _underlying.sorted { $0.key.rawValue < $1.key.rawValue }
+
+        for (format, path) in sortedEntries {
+            let key = DynamicCodingKey(stringValue: format.rawValue)!
+            try container.encode(path.pathString, forKey: key)
+        }
+    }
+
+    // Dynamic coding keys for the formats
+    private struct DynamicCodingKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+
+        init?(stringValue: String) {
+            self.stringValue = stringValue
+        }
+
+        init?(intValue: Int) {
+            return nil
+        }
     }
 
     /// Adds a key/value pair to the underlying dictionary.
@@ -420,7 +449,7 @@ package struct CoverageFormatOutput: Encodable {
     package subscript(format: CoverageFormat) -> AbsolutePath? {
         return _underlying[format]
     }
-    
+
     /// Gets the path for a format, throwing an error if it doesn't exist.
     /// - Parameter format: The coverage format
     /// - Returns: The absolute path for the format
@@ -431,48 +460,17 @@ package struct CoverageFormatOutput: Encodable {
         }
         return path
     }
-    
+
     /// Returns all formats currently stored
     package var formats: [CoverageFormat] {
         return Array(_underlying.keys).sorted()
     }
-    
+
     /// Iterate over format/path pairs
     package func forEach(_ body: (CoverageFormat, AbsolutePath) throws -> Void) rethrows {
         try _underlying.forEach(body)
     }
-    
-    /// Encodes the coverage format output as JSON string
-    /// - Returns: JSON string representation of the format/path mapping
-    /// - Throws: `StringError` if JSON encoding fails
-    package func encodeAsJSON() throws -> String {
-        let sortedData = _underlying.sorted { $0.key.rawValue < $1.key.rawValue }
-        let jsonObject: [String: String] = Dictionary(uniqueKeysWithValues: sortedData.map { ($0.key.rawValue, $0.value.pathString) })
-        
-        do {
-            let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [.prettyPrinted, .sortedKeys])
-            guard let jsonString = String(data: jsonData, encoding: .utf8) else {
-                throw StringError("Failed to convert JSON data to string")
-            }
-            return jsonString
-        } catch {
-            throw StringError("Failed to encode coverage format output as JSON: \(error)")
-        }
-    }
-    
-    /// Encodes the coverage format output as plain text
-    /// - Returns: Text string with format/path pairs, one per line
-    package func encodeAsText() -> String {
-        let sortedFormats = _underlying.keys.sorted()
-        return sortedFormats.map { format in
-            let value = _underlying[format]!.pathString
-            if _underlying.count == 1 {
-                return value
-            } else {
-                return "\(format.rawValue.uppercased()): \(value)"
-            }
-        }.joined(separator: "\n")
-    }
+
 }
 
 struct CodeCoverageConfiguration {
@@ -1122,29 +1120,29 @@ extension SwiftTestCommand {
             let config = try await self.getCodeCoverageConfiguration(swiftCommandState, format: format)
             coverageData[format] = config.outputDir
         }
-        
-        let coverageOutput = CoverageFormatOutput(data: coverageData)
-        
-        switch printMode {
-        case .json:
-            let jsonOutput = try coverageOutput.encodeAsJSON()
-            print(jsonOutput)
-        case .text:
-            let textOutput = coverageOutput.encodeAsText()
-            print(textOutput)
-        }
 
-        print("-----------------------")
         let data: Data
         switch printMode {
             case .json:
+                let coverageOutput = CoverageFormatOutput(data: coverageData)
                 let encoder = JSONEncoder.makeWithDefaults()
                 encoder.keyEncodingStrategy = .convertToSnakeCase
                 data = try encoder.encode(coverageOutput)
             case .text:
-                var encoder = PlainTextEncoder()
-                encoder.formattingOptions = [.prettyPrinted]
-                data = try encoder.encode(coverageOutput)
+                // When there's only one format, don't show the key prefix
+                if formats.count == 1, let singlePath = coverageData.values.first {
+                    swiftCommandState.observabilityScope.emit(
+                        warning: """
+                        The contents of this output are subject to change in the future. Use `--print-coverage-path-mode json` if the output is required in a script.
+                        """,
+                    )
+                    data = Data("\(singlePath.pathString)".utf8)
+                } else {
+                    let coverageOutput = CoverageFormatOutput(data: coverageData)
+                    var encoder = PlainTextEncoder()
+                    encoder.formattingOptions = [.prettyPrinted]
+                    data = try encoder.encode(coverageOutput)
+                }
         }
         print(String(decoding: data, as: UTF8.self))
     }

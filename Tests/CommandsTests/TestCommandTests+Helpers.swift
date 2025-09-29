@@ -18,13 +18,14 @@ import func Commands.getOutputDir
 import enum Commands.CoverageFormat
 import struct Commands.CoverageFormatOutput
 import typealias Basics.StringError
+import struct Commands.PlainTextEncoder
 
 @Suite(
     .tags(
         .TestSize.small,
     )
 )
-struct TestCommmandHelperTests {
+struct TestCommmandHelpersTests {
 
     @Suite
     struct getOutputDirTests {
@@ -404,8 +405,10 @@ struct TestCommmandHelperTests {
             var output = CoverageFormatOutput()
             try output.addFormat(.json, path: path)
 
-            let jsonString = try output.encodeAsJSON()
-            let jsonData = jsonString.data(using: .utf8)!
+            let encoder = JSONEncoder()
+            encoder.keyEncodingStrategy = .convertToSnakeCase
+            let jsonData = try encoder.encode(output)
+            let jsonString = String(decoding: jsonData, as: UTF8.self)
             let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
             #expect(decoded["json"] == "/path/to/coverage.json")
@@ -430,8 +433,11 @@ struct TestCommmandHelperTests {
                     try output.addFormat(.json, path: jsonPath)
                     try output.addFormat(.html, path: htmlPath)
 
-                    let jsonString = try output.encodeAsJSON()
-                    let jsonData = jsonString.data(using: .utf8)!
+                    let encoder = JSONEncoder()
+                    encoder.keyEncodingStrategy = .convertToSnakeCase
+                    encoder.outputFormatting = [.prettyPrinted]
+                    let jsonData = try encoder.encode(output)
+                    let jsonString = String(decoding: jsonData, as: UTF8.self)
                     let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
                     #expect(decoded["json"] == "/path/to/coverage.json")
@@ -447,8 +453,11 @@ struct TestCommmandHelperTests {
                 func encodeAsJSONEmpty() throws {
                     let output = CoverageFormatOutput()
 
-                    let jsonString = try output.encodeAsJSON()
-                    let jsonData = jsonString.data(using: .utf8)!
+                    let encoder = JSONEncoder()
+                    encoder.keyEncodingStrategy = .convertToSnakeCase
+                    encoder.outputFormatting = [.prettyPrinted]
+                    let jsonData = try encoder.encode(output)
+                    let jsonString = String(decoding: jsonData, as: UTF8.self)
                     let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
                     #expect(decoded.isEmpty)
@@ -469,9 +478,14 @@ struct TestCommmandHelperTests {
                     var output = CoverageFormatOutput()
                     try output.addFormat(format, path: path)
 
-                    let textString = output.encodeAsText()
+                    var encoder = PlainTextEncoder()
+                    encoder.formattingOptions = [.prettyPrinted]
+                    let textData = try encoder.encode(output)
+                    let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
-                    #expect(textString == "/path/to/coverage.json")
+                    // PlainTextEncoder capitalizes first letter of keys
+                    let expectedFormat = format.rawValue.prefix(1).uppercased() + format.rawValue.dropFirst()
+                    #expect(textString == "\(expectedFormat): /path/to/coverage.json")
                 }
 
                 @Test("Encode as text with multiple formats")
@@ -483,17 +497,24 @@ struct TestCommmandHelperTests {
                     try output.addFormat(.json, path: jsonPath)
                     try output.addFormat(.html, path: htmlPath)
 
-                    let textString = output.encodeAsText()
+                    var encoder = PlainTextEncoder()
+                    encoder.formattingOptions = [.prettyPrinted]
+                    let textData = try encoder.encode(output)
+                    let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
                     // Should be sorted by format name (html comes before json alphabetically)
-                    #expect(textString == "HTML: /path/to/coverage-html\nJSON: /path/to/coverage.json")
+                    // PlainTextEncoder capitalizes first letter of keys
+                    #expect(textString == "Html: /path/to/coverage-html\nJson: /path/to/coverage.json")
                 }
 
                 @Test("Encode as text with empty data")
                 func encodeAsTextEmpty() throws {
                     let output = CoverageFormatOutput()
 
-                    let textString = output.encodeAsText()
+                    var encoder = PlainTextEncoder()
+                    encoder.formattingOptions = [.prettyPrinted]
+                    let textData = try encoder.encode(output)
+                    let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
                     #expect(textString.isEmpty)
                 }
@@ -510,13 +531,17 @@ struct TestCommmandHelperTests {
                 try output.addFormat(.html, path: htmlPath)  // Add html second
 
                 // Text encoding should show html first (alphabetically)
-                let textString = output.encodeAsText()
-                #expect(textString.hasPrefix("HTML:"))
-                #expect(textString.hasSuffix("JSON: /json/path"))
+                var textEncoder = PlainTextEncoder()
+                textEncoder.formattingOptions = [.prettyPrinted]
+                let textData = try textEncoder.encode(output)
+                let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+                #expect(textString.hasPrefix("Html:"))
+                #expect(textString.hasSuffix("Json: /json/path"))
 
                 // JSON encoding should also maintain consistent ordering
-                let jsonString = try output.encodeAsJSON()
-                let jsonData = jsonString.data(using: .utf8)!
+                let jsonEncoder = JSONEncoder()
+                jsonEncoder.keyEncodingStrategy = .convertToSnakeCase
+                let jsonData = try jsonEncoder.encode(output)
                 let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
                 #expect(decoded["html"] == "/html/path")
@@ -529,9 +554,12 @@ struct TestCommmandHelperTests {
                 var output = CoverageFormatOutput()
                 try output.addFormat(.json, path: specialPath)
 
-                let textString = output.encodeAsText()
+                var encoder = PlainTextEncoder()
+                encoder.formattingOptions = [.prettyPrinted]
+                let textData = try encoder.encode(output)
+                let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
-                #expect(textString == "/path with/spaces & symbols/coverage.json")
+                #expect(textString == "Json: /path with/spaces & symbols/coverage.json")
             }
 
             @Test("JSON encoding handles special characters in paths")
@@ -540,8 +568,9 @@ struct TestCommmandHelperTests {
                 var output = CoverageFormatOutput()
                 try output.addFormat(.json, path: specialPath)
 
-                let jsonString = try output.encodeAsJSON()
-                let jsonData = jsonString.data(using: .utf8)!
+                let encoder = JSONEncoder()
+                encoder.keyEncodingStrategy = .convertToSnakeCase
+                let jsonData = try encoder.encode(output)
                 let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
                 #expect(decoded["json"] == "/path with/spaces & symbols/coverage.json")

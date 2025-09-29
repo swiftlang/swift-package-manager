@@ -128,7 +128,7 @@ struct CoverageTests {
     }
 
     struct GenerateCoverageReportTestData {
-        let buildData: BuildData
+        // let buildData: BuildData
         let fixtureName: String
         let coverageFormat: CoverageFormat
     }
@@ -138,23 +138,24 @@ struct CoverageTests {
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
         ].flatMap { fixturePath in
-            getBuildData(for: SupportedBuildSystemOnAllPlatforms).flatMap { buildData in
+            // getBuildData(for: SupportedBuildSystemOnAllPlatforms).flatMap { buildData in
                 CoverageFormat.allCases.map { format in
                     GenerateCoverageReportTestData(
-                        buildData: buildData,
+                        // buildData: buildData,
                         fixtureName: fixturePath,
                         coverageFormat: format,
                     )
                 }
-            }
+            // }
         },
     )
     func generateSingleCoverageReport(
+        buildData: BuildData,
         testData: GenerateCoverageReportTestData,
     ) async throws {
         let fixtureName = testData.fixtureName
         let coverageFormat = testData.coverageFormat
-        let buildData = testData.buildData
+        // let buildData = testData.buildData
         try await fixture(name: fixtureName) { path in
             let commonCoverageArgs = [
                 "--coverage-format",
@@ -199,13 +200,20 @@ struct CoverageTests {
     @Test
     func htmlReportOutputDirectory() async throws {
         // Verify the output directory argument specified in the response file override the default location.
-        Issue.record("Test needs to be implemented.")
+        Issue.record("""
+        Test needs to be implemented.
+          - Provide output directory that is a relative path
+          - provide output directory that is an absolute path
+        """)
     }
 
     @Test
     func htmlReportResponseFile() async throws {
         // Verify the arguments specified in the response file are used.
-        Issue.record("Test needs to be implemented.")
+        Issue.record("""
+        Test needs to be implemented.
+          - verify command line argument
+        """)
     }
 
     @Suite
