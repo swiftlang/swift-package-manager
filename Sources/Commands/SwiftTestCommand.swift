@@ -238,6 +238,8 @@ package enum CoverageFormat: String, ExpressibleByArgument, CaseIterable, Compar
     }
 }
 
+extension CoverageFormat: Encodable {}
+
 enum CoveragePrintPathMode: String, ExpressibleByArgument, CaseIterable {
     case json
     case text
@@ -391,7 +393,7 @@ package func getOutputDir(from content: String) throws ->  AbsolutePath? {
 
     return returnValue
 }
-package struct CoverageFormatOutput {
+package struct CoverageFormatOutput: Encodable {
     private var _underlying: [CoverageFormat : AbsolutePath]
 
     package init() {
@@ -1115,13 +1117,13 @@ extension SwiftTestCommand {
         formats: [CoverageFormat],
         printMode: CoveragePrintPathMode,
     ) async throws {
-        var data = [CoverageFormat : AbsolutePath]()
+        var coverageData = [CoverageFormat : AbsolutePath]()
         for format in formats {
             let config = try await self.getCodeCoverageConfiguration(swiftCommandState, format: format)
-            data[format] = config.outputDir
+            coverageData[format] = config.outputDir
         }
         
-        let coverageOutput = CoverageFormatOutput(data: data)
+        let coverageOutput = CoverageFormatOutput(data: coverageData)
         
         switch printMode {
         case .json:
@@ -1131,6 +1133,20 @@ extension SwiftTestCommand {
             let textOutput = coverageOutput.encodeAsText()
             print(textOutput)
         }
+
+        print("-----------------------")
+        let data: Data
+        switch printMode {
+            case .json:
+                let encoder = JSONEncoder.makeWithDefaults()
+                encoder.keyEncodingStrategy = .convertToSnakeCase
+                data = try encoder.encode(coverageOutput)
+            case .text:
+                var encoder = PlainTextEncoder()
+                encoder.formattingOptions = [.prettyPrinted]
+                data = try encoder.encode(coverageOutput)
+        }
+        print(String(decoding: data, as: UTF8.self))
     }
 }
 
