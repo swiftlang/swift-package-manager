@@ -6831,10 +6831,6 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
             .requiresSwiftConcurrencySupport,
             .IssueWindowsLongPath,
             .tags(
@@ -6961,28 +6957,37 @@ struct PackageCommandTests {
                     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
                 }
 
-                try await withKnownIssue {
-                    // Check that building just one of them just compiles that plugin and doesn't build anything else.
-                    do {
-                        let (stdout, stderr) = try await executeSwiftBuild(
-                            packageDir,
-                            configuration: data.config,
-                            extraArgs: ["--target", "MyCommandPlugin"],
-                            buildSystem: data.buildSystem,
-                        )
-                        if data.buildSystem == .native {
+                // Check that building just one of them just compiles that plugin and doesn't build anything else.
+                do {
+                    let (stdout, stderr) = try await executeSwiftBuild(
+                        packageDir,
+                        configuration: data.config,
+                        extraArgs: ["--target", "MyCommandPlugin"],
+                        buildSystem: data.buildSystem,
+                    )
+                    switch data.buildSystem {
+                    case .native:
                             #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
                             #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
-                        }
-                        #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
+                        case .swiftbuild:
+                        // nothing specific
+                        break
+                        case .xcode:
+                            Issue.record("Test expected have not been considered")
                     }
-                } when: {
-                    data.buildSystem == .swiftbuild
+                    #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
                 }
             }
         }
 
-        private static func commandPluginCompilationErrorImplementation(
+        @Test(
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func commandPluginCompilationErrorImplementation(
             data: BuildData,
         ) async throws {
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginCompilationError") { packageDir in
@@ -7014,44 +7019,6 @@ struct PackageCommandTests {
                         )
                     }
                 }
-            }
-        }
-
-        @Test(
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.native]),
-        )
-        func commandPluginCompilationError(
-            data: BuildData,
-        ) async throws {
-            try await Self.commandPluginCompilationErrorImplementation(data: data)
-        }
-
-        @Test(
-            .disabled("the swift-build process currently has a fatal error"),
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
-            .SWBINTTODO("Building sample package causes a backtrace on linux"),
-            .requireSwift6_2,
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.swiftbuild]),
-        )
-        func commandPluginCompilationErrorSwiftBuild(
-            data: BuildData,
-        ) async throws {
-            // Once this is fix, merge data iunto commandPluginCompilationError
-            await withKnownIssue {
-                try await Self.commandPluginCompilationErrorImplementation(data: data)
             }
         }
 
