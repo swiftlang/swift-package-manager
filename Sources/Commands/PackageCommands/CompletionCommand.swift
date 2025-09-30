@@ -45,6 +45,7 @@ extension SwiftPackageCommand {
                     SwiftBuildCommand.self,
                     SwiftTestCommand.self,
                     SwiftPackageCommand.self,
+                    SwiftPlayCommand.self,
                 ]
             )
         }
