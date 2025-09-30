@@ -728,23 +728,10 @@ private func createResolvedPackages(
             moduleBuilder.dependencies += implicitSystemLibraryDeps.map { .module($0, conditions: []) }
 
             // Establish product dependencies.
-            for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
+            for case .product(let productRef, var conditions) in moduleBuilder.module.dependencies {
                 if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // See if we're using a prebuilt instead
-                    if moduleBuilder.module.type == .macro {
-                        continue
-                    } else if moduleBuilder.module.type == .test {
-                        // use prebuilt if this is a test that depends a macro target
-                        // these are guaranteed built for host
-                        if moduleBuilder.module.dependencies.contains(where: { dep in
-                            guard let module = dep.module else {
-                                return false
-                            }
-                            return module.type == .macro
-                        }) {
-                            continue
-                        }
-                    }
+                    // Only use the dependency if not on host
+                    conditions.append(.host(.init(isHost: false)))
                 }
 
                 // Find the product in this package's dependency products.

@@ -30,6 +30,7 @@ public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
+    case host(HostCondition)
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
         switch self {
@@ -39,6 +40,8 @@ public enum PackageCondition: Hashable, Sendable {
             return platforms.satisfies(environment)
         case .traits(let traits):
             return traits.satisfies(environment)
+        case .host(let host):
+            return host.satisfies(environment)
         }
     }
 
@@ -107,9 +110,7 @@ public struct ConfigurationCondition: Hashable, Sendable {
     }
 }
 
-
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
+/// A traits condition implies that an assignment is valid in the given build environment
 public struct TraitCondition: Hashable, Sendable {
     public let traits: Set<String>
 
@@ -122,3 +123,15 @@ public struct TraitCondition: Hashable, Sendable {
     }
 }
 
+/// A host condition determines whether the build environment is for host
+public struct HostCondition: Hashable, Sendable {
+    public let isHost: Bool
+
+    public init(isHost: Bool) {
+        self.isHost = isHost
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        environment.isHost == isHost
+    }
+}
