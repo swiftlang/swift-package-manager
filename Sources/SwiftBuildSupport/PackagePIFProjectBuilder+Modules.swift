@@ -14,6 +14,7 @@ import Foundation
 import TSCUtility
 
 import struct Basics.AbsolutePath
+import struct Basics.RelativePath
 import class Basics.ObservabilitySystem
 import func Basics.resolveSymlinks
 import struct Basics.SourceControlURL
@@ -352,8 +353,8 @@ extension PackagePIFProjectBuilder {
 
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
-        var moduleMapFile = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
+        let moduleMapFile = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -366,8 +367,6 @@ extension PackagePIFProjectBuilder {
             export *
             }
             """
-            moduleMapFile = "\(generatedModuleMapDir)/\(sourceModule.name).modulemap"
-
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
         } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
@@ -376,7 +375,7 @@ extension PackagePIFProjectBuilder {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
-                umbrella header "\(path)"
+                umbrella header "\(path.escapedPathString)"
                 export *
                 }
                 """
@@ -384,14 +383,13 @@ extension PackagePIFProjectBuilder {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
-                umbrella "\(path)"
+                umbrella "\(path.escapedPathString)"
                 export *
                 }
                 """
             }
             if moduleMapFileContents.hasContent {
                 // Pass the path of the module map up to all direct and indirect clients.
-                moduleMapFile = "\(generatedModuleMapDir)/\(sourceModule.name).modulemap"
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
             }
