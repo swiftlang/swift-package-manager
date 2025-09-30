@@ -199,8 +199,23 @@ public struct TargetSourcesBuilder {
             additionalResources = []
         }
 
-        let headers = pathToRule.lazy.filter { $0.value == .header }.map { $0.key }.sorted()
-        let compilePaths = pathToRule.lazy.filter { $0.value == .compile }.map { $0.key }
+        var additionalSources: [Basics.AbsolutePath] = []
+        var additionalHeaders: [Basics.AbsolutePath] = []
+        if self.toolsVersion >= .vNext {
+            if let declaredSources = self.declaredSources {
+                let unhandledSources = self.computeContents(for: declaredSources.filter { !$0.isDescendant(of: self.targetPath) })
+                for source in unhandledSources {
+                    if let ext = source.extension, FileRuleDescription.header.fileTypes.contains(ext) {
+                        additionalHeaders.append(source)
+                    } else {
+                        additionalSources.append(source)
+                    }
+                }
+            }
+        }
+
+        let headers = (pathToRule.lazy.filter { $0.value == .header }.map { $0.key } + additionalHeaders).sorted()
+        let compilePaths = (pathToRule.lazy.filter { $0.value == .compile }.map { $0.key } + additionalSources)
         let sources = Sources(paths: Array(compilePaths).sorted(), root: targetPath)
         let resources: [Resource] = (pathToRule.compactMap { resource(for: $0.key, with: $0.value) } + additionalResources).sorted { a, b in
             a.path.pathString < b.path.pathString
@@ -415,9 +430,9 @@ public struct TargetSourcesBuilder {
     ///
     /// This avoids recursing into certain directories like exclude or the
     /// ones that should be copied as-is.
-    public func computeContents() -> [Basics.AbsolutePath] {
+    public func computeContents(for paths: [Basics.AbsolutePath]) -> [Basics.AbsolutePath] {
         var contents: [Basics.AbsolutePath] = []
-        var queue: [Basics.AbsolutePath] = [targetPath]
+        var queue: [Basics.AbsolutePath] = paths
 
         // Ignore xcodeproj and playground directories.
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
@@ -517,6 +532,10 @@ public struct TargetSourcesBuilder {
         }
 
         return contents
+    }
+
+    public func computeContents() -> [Basics.AbsolutePath] {
+        self.computeContents(for: [self.targetPath])
     }
 
     public static func computeContents(for generatedFiles: [Basics.AbsolutePath], toolsVersion: ToolsVersion, additionalFileRules: [FileRuleDescription], defaultLocalization: String?, targetName: String, targetPath: Basics.AbsolutePath, observabilityScope: ObservabilityScope) -> (sources: [Basics.AbsolutePath], resources: [Resource]) {
