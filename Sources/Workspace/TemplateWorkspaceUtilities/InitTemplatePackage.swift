@@ -14,7 +14,7 @@ import Foundation
 import SPMBuildCore
 import SwiftParser
 import SwiftSyntax
-import System
+
 import TSCBasic
 import TSCUtility
 
@@ -631,16 +631,15 @@ public final class TemplatePromptingSystem {
 
                     switch arg.kind {
                     case .flag:
-
                         if !hasTTY && arg.isOptional == false && arg.defaultValue == nil {
                             throw TemplateError.missingRequiredArgumentWithoutTTY(name: arg.valueName ?? "")
-
                         }
+
                         var confirmed: Bool? = nil
                         if hasTTY {
-                            confirmed = TemplatePromptingSystem.promptForConfirmation(
+                            confirmed = try TemplatePromptingSystem.promptForConfirmation(
                                 prompt: promptMessage,
-                                defaultBehavior: arg.defaultValue?.lowercased() == "true",
+                                defaultBehavior: arg.defaultValue?.lowercased(),
                                 isOptional: arg.isOptional
                             )
                         }
@@ -658,7 +657,7 @@ public final class TemplatePromptingSystem {
                         }
                         
                         if hasTTY {
-                            let nilSuffix = arg.isOptional ? " (or enter \"nil\" to unset)" : ""
+                            let nilSuffix = arg.isOptional && arg.defaultValue == nil ? " (or enter \"nil\" to unset)" : ""
                             print(promptMessage + nilSuffix)
                         }
 
@@ -778,22 +777,54 @@ public final class TemplatePromptingSystem {
     ///   - defaultBehavior: The default value if the user provides no input.
     /// - Returns: `true` if the user confirmed, otherwise `false`.
 
-    static func promptForConfirmation(prompt: String, defaultBehavior: Bool?, isOptional: Bool) -> Bool? {
-        var suffix = defaultBehavior == true ? " [Y/n]" : defaultBehavior == false ? " [y/N]" : " [y/n]"
+    static func promptForConfirmation(prompt: String, defaultBehavior: String?, isOptional: Bool) throws -> Bool? {
+        let defaultBool = defaultBehavior?.lowercased() == "true"
+        var suffix = defaultBehavior != nil ? 
+            (defaultBool ? " [Y/n]" : " [y/N]") : " [y/n]"
 
-        if isOptional {
-            suffix = suffix + "or enter \"nil\" to unset."
+        if isOptional && defaultBehavior == nil {
+            suffix = suffix + " or enter \"nil\" to unset."
         }
+
         print(prompt + suffix, terminator: " ")
+
         guard let input = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
-            return defaultBehavior ?? false
+            if let defaultBehavior = defaultBehavior {
+                return defaultBehavior == "true"
+            } else if isOptional {
+                return nil
+            } else {
+                throw TemplateError.missingRequiredArgumentWithoutTTY(name: "confirmation")
+            }
         }
 
         switch input {
-        case "y", "yes": return true
-        case "n", "no": return false
-        case "nil": return nil
-        default: return defaultBehavior ?? false
+        case "y", "yes": 
+            return true
+        case "n", "no": 
+            return false
+        case "nil":
+            if isOptional {
+                return nil
+            } else {
+                throw TemplateError.missingRequiredArgumentWithoutTTY(name: "confirmation")
+            }
+        case "":
+            if let defaultBehavior = defaultBehavior {
+                return defaultBehavior == "true"
+            } else if isOptional {
+                return nil
+            } else {
+                throw TemplateError.missingRequiredArgumentWithoutTTY(name: "confirmation")
+            }
+        default:
+            if let defaultBehavior = defaultBehavior {
+                return defaultBehavior == "true"
+            } else if isOptional {
+                return nil
+            } else {
+                throw TemplateError.missingRequiredArgumentWithoutTTY(name: "confirmation")
+            }
         }
     }
 

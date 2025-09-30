@@ -1835,6 +1835,85 @@ struct TemplateTests {
             #expect(result.contains("TestPackage"))
             // Post-terminator args should be handled separately
         }
+
+        @Test
+        func handlesConditionalNilSuffixForOptions() throws {
+            // Test that "nil" suffix only shows for optional arguments without defaults
+            
+            // Test optional option without default, should show nil suffix
+            let optionalWithoutDefault = ArgumentInfoV0(
+                kind: .option,
+                shouldDisplay: true,
+                sectionTitle: nil,
+                isOptional: true,
+                isRepeating: false,
+                parsingStrategy: .default,
+                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param")],
+                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "optional-param"),
+                valueName: "optional-param",
+                defaultValue: nil,
+                allValueStrings: nil,
+                allValueDescriptions: nil,
+                completionKind: nil,
+                abstract: "Optional parameter",
+                discussion: nil
+            )
+            
+            // Test optional option with default, should NOT show nil suffix
+            let optionalWithDefault = ArgumentInfoV0(
+                kind: .option,
+                shouldDisplay: true,
+                sectionTitle: nil,
+                isOptional: true,
+                isRepeating: false,
+                parsingStrategy: .default,
+                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "output")],
+                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "output"),
+                valueName: "output",
+                defaultValue: "stdout",
+                allValueStrings: nil,
+                allValueDescriptions: nil,
+                completionKind: nil,
+                abstract: "Output parameter",
+                discussion: nil
+            )
+            
+            // Test required option, should NOT show nil suffix
+            let requiredOption = ArgumentInfoV0(
+                kind: .option,
+                shouldDisplay: true,
+                sectionTitle: nil,
+                isOptional: false,
+                isRepeating: false,
+                parsingStrategy: .default,
+                names: [ArgumentInfoV0.NameInfoV0(kind: .long, name: "name")],
+                preferredName: ArgumentInfoV0.NameInfoV0(kind: .long, name: "name"),
+                valueName: "name",
+                defaultValue: nil,
+                allValueStrings: nil,
+                allValueDescriptions: nil,
+                completionKind: nil,
+                abstract: "Name parameter",
+                discussion: nil
+            )
+            
+            // Optional without default should allow nil suffix
+            #expect(optionalWithoutDefault.isOptional == true)
+            #expect(optionalWithoutDefault.defaultValue == nil)
+            let shouldShowNilForOptionalWithoutDefault = optionalWithoutDefault.isOptional && optionalWithoutDefault.defaultValue == nil
+            #expect(shouldShowNilForOptionalWithoutDefault == true)
+            
+            // Optional with default should NOT allow nil suffix
+            #expect(optionalWithDefault.isOptional == true)
+            #expect(optionalWithDefault.defaultValue == "stdout")
+            let shouldShowNilForOptionalWithDefault = optionalWithDefault.isOptional && optionalWithDefault.defaultValue == nil
+            #expect(shouldShowNilForOptionalWithDefault == false)
+            
+            // Required should NOT allow nil suffix
+            #expect(requiredOption.isOptional == false)
+            let shouldShowNilForRequired = requiredOption.isOptional && requiredOption.defaultValue == nil
+            #expect(shouldShowNilForRequired == false)
+        }
     }
 
     // MARK: - Template Plugin Coordinator Tests

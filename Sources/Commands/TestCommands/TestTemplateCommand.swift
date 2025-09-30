@@ -334,7 +334,6 @@ extension SwiftTestCommand {
             var buildDuration: DispatchTimeInterval = .never
             var logPath: String? = nil
 
-            var pluginOutput = ""
             do {
                 let log = destinationAbsolutePath.appending("generation-output.log").pathString
                 let (origOut, origErr) = try redirectStdoutAndStderr(to: log)

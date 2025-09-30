@@ -215,6 +215,7 @@ struct GitTemplateFetcher: TemplateFetcher {
             if self.isPermissionError(error) {
                 throw GitTemplateFetcherError.authenticationRequired(source: self.source, error: error)
             }
+            swiftCommandState.observabilityScope.emit(error)
             throw GitTemplateFetcherError.cloneFailed(source: self.source)
         }
     }
