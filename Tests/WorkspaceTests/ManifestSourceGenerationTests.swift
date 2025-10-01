@@ -107,6 +107,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, "pkgConfig not as expected" + failureDetails, file: file, line: line)
             XCTAssertEqual(newManifest.providers, manifest.providers, "providers not as expected" + failureDetails, file: file, line: line)
             XCTAssertEqual(newManifest.products, manifest.products, "products not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.traits, manifest.traits, "traits not as expected" + failureDetails, file: file, line: line)
             XCTAssertEqual(newManifest.dependencies, manifest.dependencies, "dependencies not as expected" + failureDetails, file: file, line: line)
             XCTAssertEqual(newManifest.targets, manifest.targets, "targets not as expected" + failureDetails, file: file, line: line)
             XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, "swiftLanguageVersions not as expected" + failureDetails, file: file, line: line)
@@ -948,5 +949,59 @@ final class ManifestSourceGenerationTests: XCTestCase {
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
+    }
+
+    func testTraits() async throws {
+        try XCTSkipIfCompilerLessThan6_1()
+
+        let manifestContents = """
+            // swift-tools-version: 6.1
+            import PackageDescription
+
+            let package = Package(
+                name: "TraitExample",
+                traits: [
+                    "Foo",
+                    .trait(
+                        name: "Bar",
+                        enabledTraits: [
+                            "Foo",
+                        ]
+                    ),
+                    .trait(
+                        name: "FooBar",
+                        enabledTraits: [
+                            "Foo",
+                            "Bar",
+                        ]
+                    ),
+                    .default(enabledTraits: ["Foo"]),
+                ],
+                dependencies: [
+                    .package(
+                        url: "https://github.com/Org/SomePackage.git",
+                        from: "1.0.0",
+                        traits: [
+                            .defaults,
+                            "SomeTrait",
+                            .trait(name: "SomeOtherTrait", condition: .when(traits: ["Foo"])),
+                        ]
+                    ),
+                ],
+                targets: [
+                    .target(
+                        name: "SomeTarget",
+                        dependencies: [
+                            .product(
+                                name: "SomeProduct",
+                                package: "SomePackage",
+                                condition: .when(traits: ["Foo"])
+                            ),
+                        ]
+                    )
+                ]
+            )
+            """
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v6_1)
     }
 }
