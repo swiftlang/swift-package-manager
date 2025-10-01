@@ -38,16 +38,36 @@ public enum BuildSubset {
 /// can produce certain extra outputs in the process of building. Not all
 /// build systems can produce all possible build outputs. Check the build
 /// result for indication that the output was produced.
-public enum BuildOutput {
-    case symbolGraph
-    // TODO associated values for the following symbol graph options:
-    // "-skip-inherited-docs"
-    // "-symbol-graph-minimum-access-level", “<LEVEL>”
-    // "-include-spi-symbols"
-    // "-emit-extension-block-symbols"
-    // "-emit-synthesized-members"
+public enum BuildOutput: Equatable {
+    public enum SymbolGraphAccessLevel: String {
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
+    }
+    public struct SymbolGraphOptions: Equatable {
+        public var prettyPrint: Bool
+        public var minimumAccessLevel: SymbolGraphAccessLevel
+        public var includeSynthesized: Bool
+        public var includeSPI: Bool
+        public var emitExtensionBlocks: Bool
+
+        public init(
+            prettyPrint: Bool = false,
+            minimumAccessLevel: SymbolGraphAccessLevel,
+            includeSynthesized: Bool,
+            includeSPI: Bool,
+            emitExtensionBlocks: Bool
+        ) {
+            self.prettyPrint = prettyPrint
+            self.minimumAccessLevel = minimumAccessLevel
+            self.includeSynthesized = includeSynthesized
+            self.includeSPI = includeSPI
+            self.emitExtensionBlocks = emitExtensionBlocks
+        }
+    }
+
+    case symbolGraph(SymbolGraphOptions)
     case buildPlan
     case replArguments
+    case builtArtifacts
 }
 
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
@@ -71,6 +91,8 @@ public protocol BuildSystem: Cancellable {
     func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
     var hasIntegratedAPIDigesterSupport: Bool { get }
+
+    func generatePIF(preserveStructure: Bool) async throws -> String
 }
 
 extension BuildSystem {
@@ -99,12 +121,14 @@ public struct BuildResult {
         serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>,
         symbolGraph: SymbolGraphResult? = nil,
         buildPlan: BuildPlan? = nil,
-        replArguments: CLIArguments?
+        replArguments: CLIArguments?,
+        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil
     ) {
         self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
         self.symbolGraph = symbolGraph
         self.buildPlan = buildPlan
         self.replArguments = replArguments
+        self.builtArtifacts = builtArtifacts
     }
     
     public let replArguments: CLIArguments?
@@ -112,6 +136,7 @@ public struct BuildResult {
     public let buildPlan: BuildPlan?
 
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
+    public var builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
 }
 
 public protocol ProductBuildDescription {

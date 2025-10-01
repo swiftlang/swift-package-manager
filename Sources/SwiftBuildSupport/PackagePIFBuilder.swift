@@ -451,13 +451,13 @@ public final class PackagePIFBuilder {
                     try projectBuilder.makeLibraryProduct(product, type: libraryType)
                 }
 
-            case .executable, .test:
+            case .executable, .test, .snippet:
                 try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
                 try projectBuilder.makePluginProduct(product)
 
-            case .snippet, .macro:
+            case .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
             }
         }

@@ -300,13 +300,36 @@ public final class InitPackage {
 
                 """
                 if packageType == .executable {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)"
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .tool {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)",
@@ -314,6 +337,7 @@ public final class InitPackage {
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .buildToolPlugin {

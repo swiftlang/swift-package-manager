@@ -26,6 +26,7 @@ add_library(SPMBuildCore
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
   CommandPluginResult.swift
+  MainAttrDetection.swift
   ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift
