@@ -1498,6 +1498,27 @@ final class PluginTests {
     }
 
     @Test(
+        .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func testPrebuildDependencyOnExecutableTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+        // Build tool plugins aren't permitted to depend on executable targets and use them in the prebuild commands
+        // that they return. This is because these commands run immediately and the executable doesn't exist yet or
+        // it isn't up-to-date.
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let error = try await #require(throws: Error.self) {
+                try await executeSwiftBuild(
+                    path.appending("PrebuildDependsExecutableTarget"),
+                    extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            #expect("\(error)".contains("a prebuild command cannot use executables built from source"))
+        }
+    }
+
+    @Test(
         .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"),
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
