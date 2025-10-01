@@ -18,7 +18,7 @@ let package = Package(
             .template(name: "Template2") +
             .template(name: "ServerTemplate"),
     dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", exact: "main"),
+        .package(url: "https://github.com/apple/swift-argument-parser", branch: "main"),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.4.2"),
         .package(url: "https://github.com/stencilproject/Stencil.git", from: "0.15.1"),
     ],

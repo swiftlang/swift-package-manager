@@ -726,9 +726,6 @@ public class TemplateTestPromptingSystem {
             branchDepth: 0
         )
 
-        for path in paths {
-            print(path.displayFormat())
-        }
         return paths
     }
 
