@@ -178,40 +178,21 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Run the build. This doesn't return until the build is complete.
-        let success = await buildSystem.buildIgnoringError(subset: buildSubset)
+        let result = await buildSystem.buildIgnoringError(subset: buildSubset, buildOutputs: [.builtArtifacts])
+        let success = result != nil
 
         let packageGraph = try await buildSystem.getPackageGraph()
 
-        var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = []
-
-        for rootPkg in packageGraph.rootPackages {
-            let builtProducts = rootPkg.products.filter {
-                switch subset {
-                case .all(let includingTests):
-                    return includingTests ? true : $0.type != .test
-                case .product(let name):
-                    return $0.name == name
-                case .target(let name):
-                    return $0.name == name
-                }
+        var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
+            switch subset {
+            case .all(let includingTests):
+                return true
+            case .product(let productName):
+                return name == productName
+            case .target(let targetName):
+                return name == targetName
             }
-
-            let artifacts: [PluginInvocationBuildResult.BuiltArtifact] = try builtProducts.compactMap {
-                switch $0.type {
-                case .library(let kind):
-                    return .init(
-                        path: try buildParameters.binaryPath(for: $0).pathString,
-                        kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
-                    )
-                case .executable:
-                    return .init(path: try buildParameters.binaryPath(for: $0).pathString, kind: .executable)
-                default:
-                    return nil
-                }
-            }
-
-            builtArtifacts.append(contentsOf: artifacts)
-        }
+        }.map(\.1)
 
         return PluginInvocationBuildResult(
             succeeded: success,
@@ -413,8 +394,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Build the target, if needed. We are interested in symbol graph (ideally) or a build plan.
-        // TODO pass along the options as associated values to the symbol graph build output (e.g. includeSPI)
-        let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph, .buildPlan])
+        let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
             let path = (try swiftCommandState.productsBuildParameters.buildPath)
@@ -496,12 +476,41 @@ final class PluginDelegate: PluginInvocationDelegate {
 }
 
 extension BuildSystem {
-    fileprivate func buildIgnoringError(subset: BuildSubset) async -> Bool {
+    fileprivate func buildIgnoringError(subset: BuildSubset, buildOutputs: [BuildOutput]) async -> BuildResult? {
         do {
-            try await self.build(subset: subset, buildOutputs: [])
-            return true
+            return try await self.build(subset: subset, buildOutputs: buildOutputs)
         } catch {
-            return false
+            return nil
+        }
+    }
+}
+
+extension BuildOutput {
+    static func symbolGraph(_ options: PluginInvocationSymbolGraphOptions) -> BuildOutput {
+        return .symbolGraph(SymbolGraphOptions(
+                minimumAccessLevel: .accessLevel(options.minimumAccessLevel),
+                includeSynthesized: options.includeSynthesized,
+                includeSPI: options.includeSPI,
+                emitExtensionBlocks: options.emitExtensionBlocks
+        ))
+    }
+}
+
+fileprivate extension BuildOutput.SymbolGraphAccessLevel {
+    fileprivate static func accessLevel(_ accessLevel: PluginInvocationSymbolGraphOptions.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+        return switch accessLevel {
+        case .private:
+            .private
+        case .fileprivate:
+            .fileprivate
+        case .internal:
+            .internal
+        case .package:
+            .package
+        case .public:
+            .public
+        case .open:
+            .open
         }
     }
 }

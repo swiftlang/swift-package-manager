@@ -30,7 +30,7 @@ struct Artifact: Codable {
     var checksum: String
     var libraryName: String?
     var products: [String]?
-    var includePath: [RelativePath]?
+    var includePath: [String]?
     var cModules: [String]? // deprecated, includePath is the way forward
     var swiftVersion: String?
 }
@@ -222,7 +222,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     checksum: checksum,
                     libraryName: libraryName,
                     products: package.products.map(\.name),
-                    includePath: cModules.map({ $0.includeDir.relative(to: repoDir ) }),
+                    includePath: cModules.map({ $0.includeDir.relative(to: repoDir ).pathString.replacingOccurrences(of: "\\", with: "/") }),
                     swiftVersion: swiftVersion
                 )
 

@@ -42,7 +42,7 @@ extension Manifest {
                 return condition.isSatisfied(by: enabledTraits)
             }.map(\.name)
 
-            var enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) ?? ["default"]
+            let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) ?? ["default"]
 
             return PackageContainerConstraint(
                 package: $0.packageRef,

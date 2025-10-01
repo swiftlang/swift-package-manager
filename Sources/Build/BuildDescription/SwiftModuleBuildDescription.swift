@@ -216,38 +216,10 @@ public final class SwiftModuleBuildDescription {
                 return false
             }
             // looking into the file content to see if it is using the @main annotation which requires parse-as-library
-            return (try? self.containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
+            return (try? containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
         default:
             return false
         }
-    }
-
-    // looking into the file content to see if it is using the @main annotation
-    // this is not bullet-proof since theoretically the file can contain the @main string for other reasons
-    // but it is the closest to accurate we can do at this point
-    func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -> Bool {
-        let content: String = try self.fileSystem.readFileContents(path)
-        let lines = content.split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces) }
-
-        var multilineComment = false
-        for line in lines {
-            if line.hasPrefix("//") {
-                continue
-            }
-            if line.hasPrefix("/*") {
-                multilineComment = true
-            }
-            if line.hasSuffix("*/") {
-                multilineComment = false
-            }
-            if multilineComment {
-                continue
-            }
-            if line.hasPrefix("@main") {
-                return true
-            }
-        }
-        return false
     }
 
     /// The filesystem to operate on.

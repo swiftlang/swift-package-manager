@@ -18,12 +18,6 @@ import TSCBasic
 /// Name of the module map file recognized by the Clang and Swift compilers.
 public let moduleMapFilename = "module.modulemap"
 
-extension Basics.AbsolutePath {
-  fileprivate var moduleEscapedPathString: String {
-    return self.pathString.replacing("\\", with: "\\\\")
-  }
-}
-
 /// A protocol for targets which might have a modulemap.
 protocol ModuleMapProtocol {
     var moduleMapPath: Basics.AbsolutePath { get }
@@ -179,9 +173,9 @@ public struct ModuleMapGenerator {
         var moduleMap = "module \(moduleName) {\n"
         switch type {
         case .umbrellaHeader(let hdr):
-            moduleMap.append("    umbrella header \"\(hdr.moduleEscapedPathString)\"\n")
+            moduleMap.append("    umbrella header \"\(hdr.escapedPathString)\"\n")
         case .umbrellaDirectory(let dir):
-            moduleMap.append("    umbrella \"\(dir.moduleEscapedPathString)\"\n")
+            moduleMap.append("    umbrella \"\(dir.escapedPathString)\"\n")
         }
         moduleMap.append(
             """

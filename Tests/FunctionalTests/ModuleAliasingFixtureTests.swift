@@ -30,32 +30,42 @@ struct ModuleAliasingFixtureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func moduleDirectDeps1(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData,
     ) async throws {
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
                 let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
+<<<<<<< HEAD
+=======
+                let expectedModules = [
+                    "GameUtils.swiftmodule",
+                    "Utils.swiftmodule",
+                ]
+>>>>>>> 3cdae8e1c823666739174305cba389e99dffda30
                 try await executeSwiftBuild(
                     pkgPath,
                     configuration: configuration,
                     extraArgs: ["--vv"],
                     buildSystem: buildSystem,
                 )
+
                 expectFileExists(at: buildPath.appending(components: executableName("App")))
-                switch buildSystem {
+                for file in expectedModules {
+                    switch buildSystem {
                     case .native:
-                        expectFileExists(at: buildPath.appending(components: "Modules", "GameUtils.swiftmodule"))
-                        expectFileExists(at: buildPath.appending(components: "Modules", "Utils.swiftmodule"))
+                        expectFileExists(at: buildPath.appending(components: "Modules", file))
                     case .swiftbuild:
-                        expectFileExists(at: buildPath.appending(components: "GameUtils.swiftmodule"))
-                        expectFileExists(at: buildPath.appending(components: "Utils.swiftmodule"))
+                        expectFileExists(at: buildPath.appending(components: file))
                     case .xcode:
-                        #expect(Bool(false), "expectations are not implemented")
+                        Issue.record("expectations are not implemented")
+                    }
                 }
                 _ = try await executeSwiftBuild(
                     pkgPath,
@@ -67,18 +77,21 @@ struct ModuleAliasingFixtureTests {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
-    
+
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
+        .IssueWindowsLongPath,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func moduleDirectDeps2(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData
     ) async throws {
+<<<<<<< HEAD
         try await withKnownIssue {
         try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
@@ -98,26 +111,76 @@ struct ModuleAliasingFixtureTests {
                 buildSystem: buildSystem,
             )
         }
+=======
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
+                let pkgPath = fixturePath.appending(components: "AppPkg")
+                let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
+                let expectedModules = [
+                    "AUtils.swiftmodule",
+                    "BUtils.swiftmodule",
+                ]
+                try await executeSwiftBuild(
+                    pkgPath,
+                    configuration: configuration,
+                    extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: buildPath.appending(components: executableName("App")))
+                for file in expectedModules {
+                    switch buildSystem {
+                    case .native:
+                        expectFileExists(at: buildPath.appending(components: "Modules", file))
+                    case .swiftbuild:
+                        expectFileExists(at: buildPath.appending(components: file))
+                    case .xcode:
+                        Issue.record("expectations are not implemented")
+                    }
+                }
+                _ = try await executeSwiftBuild(
+                    pkgPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+            }
+>>>>>>> 3cdae8e1c823666739174305cba389e99dffda30
         } when: {
-            buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
-    
+
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
+        .IssueWindowsLongPath,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func moduleNestedDeps1(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
+<<<<<<< HEAD
+=======
+            let expectedModules = [
+                "A.swiftmodule",
+                "AFooUtils.swiftmodule",
+                "CarUtils.swiftmodule",
+                "X.swiftmodule",
+                "XFooUtils.swiftmodule",
+                "XUtils.swiftmodule",
+            ]
+>>>>>>> 3cdae8e1c823666739174305cba389e99dffda30
             try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
@@ -125,12 +188,17 @@ struct ModuleAliasingFixtureTests {
                 buildSystem: buildSystem,
             )
             expectFileExists(at: buildPath.appending(components: executableName("App")))
-            expectFileExists(at: buildPath.appending(components: "Modules", "A.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "AFooUtils.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "CarUtils.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "X.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "XFooUtils.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "XUtils.swiftmodule"))
+            for file in expectedModules {
+                switch buildSystem {
+                case .native:
+                    expectFileExists(at: buildPath.appending(components: "Modules", file))
+                case .swiftbuild:
+                    expectFileExists(at: buildPath.appending(components: file))
+                case .xcode:
+                    Issue.record("expectations are not implemented")
+                }
+            }
+
             _ = try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
@@ -138,22 +206,26 @@ struct ModuleAliasingFixtureTests {
             )
         }
         } when: {
-            buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
-    
+
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
+        .IssueWindowsLongPath,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func moduleNestedDeps2(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        data: BuildData,
     ) async throws {
-        try await withKnownIssue {
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
             let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
@@ -163,11 +235,23 @@ struct ModuleAliasingFixtureTests {
                 extraArgs: ["--vv"],
                 buildSystem: buildSystem,
             )
+            let expectedModules = [
+                "A.swiftmodule",
+                "BUtils.swiftmodule",
+                "CUtils.swiftmodule",
+                "XUtils.swiftmodule",
+            ]
             expectFileExists(at: buildPath.appending(components: executableName("App")))
-            expectFileExists(at: buildPath.appending(components: "Modules", "A.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "BUtils.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "CUtils.swiftmodule"))
-            expectFileExists(at: buildPath.appending(components: "Modules", "XUtils.swiftmodule"))
+            for file in expectedModules {
+                switch buildSystem {
+                case .native:
+                    expectFileExists(at: buildPath.appending(components: "Modules", file))
+                case .swiftbuild:
+                    expectFileExists(at: buildPath.appending(components: file))
+                case .xcode:
+                    Issue.record("expectations are not implemented")
+                }
+            }
             _ = try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
@@ -175,7 +259,7 @@ struct ModuleAliasingFixtureTests {
             )
         }
         } when: {
-            buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 }

@@ -55,6 +55,8 @@ import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
+import SPMBuildCore
+
 import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
@@ -104,7 +106,7 @@ extension PackageModel.Product {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forProductName: self.name, suffix: suffix)
+        PackagePIFBuilder.targetGUID(forProductName: self.name, withId:self.identity, suffix: suffix)
     }
 }
 
@@ -134,11 +136,11 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forProductName name: String, suffix: TargetSuffix? = nil) -> GUID {
-        let suffixDescription = suffix.uniqueDescription(forName: name)
-        return "PACKAGE-PRODUCT:\(name)\(suffixDescription)"
+    static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
+        let suffixDescription: String = suffix.uniqueDescription(forName: name)
+        return "PACKAGE-PRODUCT:\(id).\(name)\(suffixDescription)"
     }
-    
+
     /// Helper function to consistently generate a target name string for a product in a package.
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
@@ -769,19 +771,40 @@ extension PackageGraph.ResolvedModule {
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
         [self].recursivelyTraverseDependencies(with: block)
     }
+
+    func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
+        if toolsVersion > .v5_5 && [.executable, .snippet, .macro].contains(self.type) {
+            let usesAtMainAttr = self.sources.paths.contains { sourcePath in
+                (try? containsAtMain(fileSystem: fileSystem, path: sourcePath)) ?? false
+            }
+            if usesAtMainAttr {
+                // Always pass -parse-as-library if @main is used
+                settings[.SWIFT_LIBRARIES_ONLY] = "YES"
+                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+            } else {
+                // Never pass -parse-as-library if @main isn't used, fall back to compiler heuristics
+                settings[.SWIFT_LIBRARIES_ONLY] = "NO"
+                settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
+            }
+        } else if [.library, .test].contains(self.type) {
+            // Always pass -parse-as-library for libraries and tests
+            settings[.SWIFT_LIBRARIES_ONLY] = "YES"
+            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+        }
+    }
 }
 
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        var moduleNamesSeen: Set<String> = []
-        var productNamesSeen: Set<String> = []
+        var moduleGuidsSeen: Set<ResolvedModule.ID> = []
+        var productGuidsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
             case .module(let moduleDependency, _):
-                let (unseenModule, _) = moduleNamesSeen.insert(moduleDependency.name)
+                let (unseenModule, _) = moduleGuidsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
                 if moduleDependency.underlying.type != .macro {
@@ -792,7 +815,7 @@ extension Collection<PackageGraph.ResolvedModule> {
                 block(dependency)
 
             case .product(let productDependency, let conditions):
-                let (unseenProduct, _) = productNamesSeen.insert(productDependency.name)
+                let (unseenProduct, _) = productGuidsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
                 block(dependency)
 
@@ -800,7 +823,7 @@ extension Collection<PackageGraph.ResolvedModule> {
                 // targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
-                    if moduleNamesSeen.contains(moduleDependency.name) { continue }
+                    if moduleGuidsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }
             }
@@ -848,12 +871,13 @@ extension ProjectModel.BuildSettings {
 extension ProjectModel.Project {
     @discardableResult
     public mutating func addTarget(
+        packageProductId: String,
         packageProductName: String,
         productType: ProjectModel.Target.ProductType
     ) throws -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target> {
         let targetKeyPath = try self.addTarget { _ in
             ProjectModel.Target(
-                id: PackagePIFBuilder.targetGUID(forProductName: packageProductName),
+                id: PackagePIFBuilder.targetGUID(forProductName: packageProductName, withId: packageProductId),
                 productType: productType,
                 name: packageProductName,
                 productName: packageProductName
@@ -1000,18 +1024,16 @@ extension ProjectModel.BuildSettings {
     mutating func configureDynamicSettings(
         productName: String,
         targetName: String,
-        executableName: String,
         packageIdentity: PackageIdentity,
         packageName: String?,
         createDylibForDynamicProducts: Bool,
         installPath: String,
-        delegate: PackagePIFBuilder.BuildDelegate
+        delegate: PackagePIFBuilder.BuildDelegate,
     ) {
         self[.TARGET_NAME] = targetName
-        self[.PRODUCT_NAME] = createDylibForDynamicProducts ? productName : executableName
+        self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
-        self[.EXECUTABLE_NAME] = executableName
         self[.CLANG_ENABLE_MODULES] = "YES"
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 

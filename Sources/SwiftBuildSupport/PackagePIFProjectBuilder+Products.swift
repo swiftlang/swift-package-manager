@@ -55,7 +55,7 @@ extension PackagePIFProjectBuilder {
         let synthesizedResourceGeneratingPluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult] =
             []
 
-        if product.type == .executable {
+        if [.executable, .snippet].contains(product.type) {
             if let customPIFProductType = pifBuilder.delegate.customProductType(forExecutable: product.underlying) {
                 pifProductType = customPIFProductType
                 moduleOrProductType = PackagePIFBuilder.ModuleOrProductType(from: customPIFProductType)
@@ -77,7 +77,7 @@ extension PackagePIFProjectBuilder {
                 id: product.pifTargetGUID,
                 productType: pifProductType,
                 name: product.targetName(),
-                productName: product.name
+                productName: "$(EXECUTABLE_NAME)"
             )
         }
         do {
@@ -115,7 +115,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = product.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
-        settings[.EXECUTABLE_NAME] = product.name
         settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
@@ -139,6 +138,8 @@ extension PackagePIFProjectBuilder {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
         }
+
+        mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
 
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
 
@@ -430,7 +431,8 @@ extension PackagePIFProjectBuilder {
                             on: moduleDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
+                            // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
+                            linkProduct: moduleDependency.usesSwift
                         )
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
@@ -595,35 +597,15 @@ extension PackagePIFProjectBuilder {
 
         // FIXME: Cleanup this mess with <rdar://56889224>
 
-        let pifProductName: String
-        let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
-                pifProductName = "lib\(product.name).dylib"
-                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
-                // If a product is explicitly declared dynamic, we preserve its name,
-                // otherwise we will compute an automatic one.
-                if product.libraryType == .dynamic {
-                    if let customExecutableName = pifBuilder.delegate
-                        .customExecutableName(product: product.underlying)
-                    {
-                        executableName = customExecutableName
-                    } else {
-                        executableName = product.name
-                    }
-                } else {
-                    executableName = PackagePIFBuilder.computePackageProductFrameworkName(productName: product.name)
-                }
-                pifProductName = "\(executableName).framework"
                 productType = .framework
             }
         } else {
-            pifProductName = "lib\(product.name).a"
-            executableName = pifProductName
             productType = .packageProduct
         }
 
@@ -631,16 +613,16 @@ extension PackagePIFProjectBuilder {
         // Swift Build will *not* produce a separate artifact for a package product, but will instead consider any
         // dependency on the package product to be a dependency on the whole set of targets
         // on which the package product depends.
-        let librayUmbrellaTargetKeyPath = try self.project.addTarget { _ in
+        let libraryUmbrellaTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target(
                 id: product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: product.targetName(suffix: targetSuffix),
-                productName: pifProductName
+                productName: "$(EXECUTABLE_NAME)"
             )
         }
         do {
-            let librayTarget = self.project[keyPath: librayUmbrellaTargetKeyPath]
+            let librayTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
             log(
                 .debug,
                 "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " +
@@ -655,7 +637,7 @@ extension PackagePIFProjectBuilder {
                 let binaryFileRef = self.binaryGroup.addFileReference { id in
                     FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                 }
-                self.project[keyPath: librayUmbrellaTargetKeyPath].addLibrary { id in
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
                     BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
                 }
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
@@ -664,7 +646,7 @@ extension PackagePIFProjectBuilder {
             // We add these as linked dependencies; because the product type is `.packageProduct`,
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.
-            self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                 on: module.pifTargetGUID,
                 platformFilters: [],
                 linkProduct: true
@@ -675,7 +657,7 @@ extension PackagePIFProjectBuilder {
         for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
             // FIXME: Find a way to determine whether a module has generated resources
             // here so that we can embed resources into dynamic targets.
-            self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                 on: pifTargetIdForResourceBundle(module.name),
                 platformFilters: []
             )
@@ -685,7 +667,7 @@ extension PackagePIFProjectBuilder {
                 FileReference(id: id, path: "$(CONFIGURATION_BUILD_DIR)/\(packageName)_\(module.name).bundle")
             }
             if embedResources {
-                self.project[keyPath: librayUmbrellaTargetKeyPath].addResourceFile { id in
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].addResourceFile { id in
                     BuildFile(id: id, fileRef: fileRef)
                 }
                 log(.debug, indent: 1, "Added use of resource bundle '\(fileRef.path)'")
@@ -705,14 +687,13 @@ extension PackagePIFProjectBuilder {
             settings.configureDynamicSettings(
                 productName: product.name,
                 targetName: product.targetName(),
-                executableName: executableName,
                 packageIdentity: package.identity,
                 packageName: package.identity.c99name,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate
             )
-            self.project[keyPath: librayUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
                 ProjectModel.SourcesBuildPhase(id: id)
             }
         }
@@ -721,7 +702,7 @@ extension PackagePIFProjectBuilder {
         pifBuilder.delegate.configureLibraryProduct(
             product: product.underlying,
             project: &self.project,
-            target: librayUmbrellaTargetKeyPath,
+            target: libraryUmbrellaTargetKeyPath,
             additionalFiles: additionalFilesGroupKeyPath
         )
 
@@ -751,7 +732,7 @@ extension PackagePIFProjectBuilder {
                         FileReference(id: id, path: binaryTarget.path.pathString)
                     }
                     let toolsVersion = package.manifest.toolsVersion
-                    self.project[keyPath: librayUmbrellaTargetKeyPath].addLibrary { id in
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
                         BuildFile(
                             id: id,
                             fileRef: binaryFileRef,
@@ -766,7 +747,7 @@ extension PackagePIFProjectBuilder {
 
                 if moduleDependency.type == .plugin {
                     let dependencyId = moduleDependency.pifTargetGUID
-                    self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -787,7 +768,7 @@ extension PackagePIFProjectBuilder {
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
                     {
-                        self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+                        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                             on: product.pifTargetGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -804,7 +785,7 @@ extension PackagePIFProjectBuilder {
                     }
                 }
 
-                self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                     on: moduleDependency.pifTargetGUID,
                     platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                     linkProduct: true
@@ -822,7 +803,7 @@ extension PackagePIFProjectBuilder {
                     buildSettings: &settings
                 ) {
                     let shouldLinkProduct = productDependency.isLinkable
-                    self.project[keyPath: librayUmbrellaTargetKeyPath].common.addDependency(
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: productDependency.pifTargetGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -857,10 +838,10 @@ extension PackagePIFProjectBuilder {
             settings[.PACKAGE_REGISTRY_SIGNATURE] = String(data: data, encoding: .utf8)
         }
 
-        self.project[keyPath: librayUmbrellaTargetKeyPath].common.addBuildConfig { id in
+        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: settings)
         }
-        self.project[keyPath: librayUmbrellaTargetKeyPath].common.addBuildConfig { id in
+        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Release", settings: settings)
         }
 
@@ -880,7 +861,7 @@ extension PackagePIFProjectBuilder {
             type: moduleOrProductType,
             name: product.name,
             moduleName: product.c99name,
-            pifTarget: .target(self.project[keyPath: librayUmbrellaTargetKeyPath]),
+            pifTarget: .target(self.project[keyPath: libraryUmbrellaTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: linkedPackageBinaries,
@@ -1036,7 +1017,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = moduleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
             .spm_mangledToBundleIdentifier()
-        settings[.EXECUTABLE_NAME] = name
         settings[.SKIP_INSTALL] = "NO"
         settings[.SWIFT_VERSION] = "5.0"
         // This should eventually be set universally for all package targets/products.

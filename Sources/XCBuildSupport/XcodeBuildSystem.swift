@@ -357,6 +357,17 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
             try await packageGraphLoader()
         }
     }
+
+    public func generatePIF(preserveStructure: Bool) async throws -> String {
+        let graph = try await getPackageGraph()
+        return try PIFBuilder.generatePIF(
+            buildParameters: buildParameters,
+            packageGraph: graph,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+            preservePIFModelStructure: preserveStructure
+        )
+    }
 }
 
 struct XCBBuildParameters: Encodable {
