@@ -879,8 +879,9 @@ def get_swiftpm_env_cmd(args):
     if not '-macosx' in args.build_target and args.command == 'install':
         env_cmd.append("SWIFTCI_INSTALL_RPATH_OS=%s" % args.platform_path.group(2))
 
+    libs = []
     if args.bootstrap:
-        libs = [
+        libs += [
             os.path.join(args.bootstrap_dir,                       "lib"),
             os.path.join(args.build_dirs["tsc"],                   "lib"),
             os.path.join(args.build_dirs["llbuild"],               "lib"),
@@ -894,9 +895,10 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-build"],           "lib"),
         ]
 
-        if args.extra_dynamic_library_path:
-            libs.append(args.extra_dynamic_library_path)
+    if args.extra_dynamic_library_path:
+        libs.append(args.extra_dynamic_library_path)
 
+    if libs:
         if platform.system() == 'Darwin':
             env_cmd.append("DYLD_LIBRARY_PATH=%s" % ":".join(libs))
         else:
