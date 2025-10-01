@@ -91,38 +91,38 @@ struct ModuleAliasingFixtureTests {
         let buildSystem = data.buildSystem
         let configuration = data.config
         try await withKnownIssue(isIntermittent: true) {
-        try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
-            let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
-            let expectedModules = [
-                "AUtils.swiftmodule",
-                "BUtils.swiftmodule",
-            ]
-            try await executeSwiftBuild(
-                pkgPath,
-                configuration: configuration,
-                extraArgs: ["--vv"],
-                buildSystem: buildSystem,
-            )
-            expectFileExists(at: buildPath.appending(components: executableName("App")))
-            for file in expectedModules {
-                switch buildSystem {
-                case .native:
-                    expectFileExists(at: buildPath.appending(components: "Modules", file))
-                case .swiftbuild:
-                    expectFileExists(at: buildPath.appending(components: file))
-                case .xcode:
-                    Issue.record("expectations are not implemented")
+            try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
+                let pkgPath = fixturePath.appending(components: "AppPkg")
+                let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
+                let expectedModules = [
+                    "AUtils.swiftmodule",
+                    "BUtils.swiftmodule",
+                ]
+                try await executeSwiftBuild(
+                    pkgPath,
+                    configuration: configuration,
+                    extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: buildPath.appending(components: executableName("App")))
+                for file in expectedModules {
+                    switch buildSystem {
+                    case .native:
+                        expectFileExists(at: buildPath.appending(components: "Modules", file))
+                    case .swiftbuild:
+                        expectFileExists(at: buildPath.appending(components: file))
+                    case .xcode:
+                        Issue.record("expectations are not implemented")
+                    }
                 }
+                _ = try await executeSwiftBuild(
+                    pkgPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
             }
-            _ = try await executeSwiftBuild(
-                pkgPath,
-                configuration: configuration,
-                buildSystem: buildSystem,
-            )
-        }
         } when: {
-            buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 

@@ -1,5 +1,5 @@
 import Basics
-import func Build.containsAtMain
+import SPMBuildCore
 import Testing
 
 struct ContainsAtMainReturnsExpectedValueTestData: CustomStringConvertible {
@@ -14,7 +14,7 @@ struct ContainsAtMainReturnsExpectedValueTestData: CustomStringConvertible {
 }
 
 @Suite
-struct BuildDescriptionTests {
+struct MainAttrDetectionTests {
     @Test(
         .tags(
             .TestSize.small,
