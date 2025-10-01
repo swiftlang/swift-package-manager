@@ -578,7 +578,7 @@ final class SwiftSDKTests: XCTestCase {
 
         let wasmKitProperties = Toolset.ToolProperties(
             path: toolchainBinAbsolutePath.appending("wasmkit"),
-            extraCLIOptions: ["run"]
+            extraCLIOptions: ["run", "--dir", "."]
         )
         XCTAssertEqual(wasiWithoutToolsetsDecoded[0].toolset.knownTools[.debugger], wasmKitProperties)
 

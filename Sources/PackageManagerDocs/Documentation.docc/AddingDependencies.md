@@ -101,7 +101,7 @@ In addition to depending on Swift packages, you can also depend on system librar
 
 For more information on using a library provided by the system as a dependency, see <doc:AddingSystemLibraryDependency>.
 
-### Precomiled Binary Targets for Apple platforms
+### Precompiled Binary Targets for Apple platforms
 
 To add a dependency on a precompiled binary target, specify a `.binaryTarget` in your list of targets, using either 
 [binarytarget(name:url:checksum:)](https://developer.apple.com/documentation/packagedescription/target/binarytarget(name:url:checksum:)) for a downloadable target, 

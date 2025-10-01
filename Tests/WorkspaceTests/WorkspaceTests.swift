@@ -227,8 +227,57 @@ final class WorkspaceTests: XCTestCase {
                     )
                     """
                 )
+                if SwiftVersion.current.isDevelopment {
+                    XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                } else {
+                    XCTAssertThrowsError(
+                        try ws.interpreterFlags(for: packageManifest)
+                    )
+                }
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.0
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.1
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.1.0")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.2
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.2.0")])
             }
 
             do {
@@ -16354,6 +16403,129 @@ final class WorkspaceTests: XCTestCase {
 
         let noSugarForBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
         try await noSugarForBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal")
+                result.check(modules: "Wheat")
+                result.check(products: "YummyBreakfast")
+            }
+        }
+    }
+
+    func testTraitsConditionalDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        func createMockWorkspace(_ traitConfiguration: TraitConfiguration) async throws -> MockWorkspace {
+            try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    MockPackage(
+                        name: "Cereal",
+                        targets: [
+                            MockTarget(
+                                name: "Wheat",
+                                dependencies: [
+                                    .product(
+                                        name: "Icing",
+                                        package: "Sugar",
+                                        condition: .init(traits: ["BreakfastOfChampions"])
+                                    ),
+                                    .product(
+                                        name: "Raisin",
+                                        package: "Fruit",
+                                        condition: .init(traits: ["Healthy"])
+                                    )
+                                ]
+                            ),
+                        ],
+                        products: [
+                            MockProduct(name: "YummyBreakfast", modules: ["Wheat"])
+                        ],
+                        dependencies: [
+                            .sourceControl(path: "./Sugar", requirement: .upToNextMajor(from: "1.0.0")),
+                            .sourceControl(path: "./Fruit", requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        traits: ["Healthy", "BreakfastOfChampions"]
+                    ),
+                ],
+                packages: [
+                    MockPackage(
+                        name: "Sugar",
+                        targets: [
+                            MockTarget(name: "Icing"),
+                        ],
+                        products: [
+                            MockProduct(name: "Icing", modules: ["Icing"]),
+                        ],
+                        versions: ["1.0.0", "1.5.0"]
+                    ),
+                    MockPackage(
+                        name: "Fruit",
+                        targets: [
+                            MockTarget(name: "Raisin"),
+                        ],
+                        products: [
+                            MockProduct(name: "Raisin", modules: ["Raisin"]),
+                        ],
+                        versions: ["1.0.0", "1.2.0"]
+                    ),
+                ],
+                traitConfiguration: traitConfiguration
+            )
+        }
+
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"])),
+            .sourceControl(path: "./Fruit", requirement: .exact("1.0.0"), products: .specific(["Raisin"])),
+        ]
+
+        let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
+        try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar")
+                result.check(modules: "Wheat", "Icing")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing")
+                }
+            }
+        }
+
+        let healthyWorkspace = try await createMockWorkspace(.enabledTraits(["Healthy"]))
+        try await healthyWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "fruit")
+                result.check(modules: "Wheat", "Raisin")
+                result.check(products: "YummyBreakfast", "Raisin")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Raisin")
+                }
+            }
+        }
+
+        let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
+        try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar", "fruit")
+                result.check(modules: "Wheat", "Icing", "Raisin")
+                result.check(products: "YummyBreakfast", "Icing", "Raisin")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing", "Raisin")
+                }
+            }
+        }
+
+        let boringBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
+        try await boringBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Cereal")

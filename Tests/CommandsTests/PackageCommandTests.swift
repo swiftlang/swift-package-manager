@@ -986,7 +986,7 @@ struct PackageCommandTests {
     func dumpPackage(
         data: BuildData,
     ) async throws {
-        try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+        try await fixture(name: "Miscellaneous/DumpPackage") { fixturePath in
             let packageRoot = fixturePath.appending("app")
             let (dumpOutput, _) = try await execute(
                 ["dump-package"],
@@ -1000,29 +1000,34 @@ struct PackageCommandTests {
                 return
             }
             guard case .string(let name)? = contents["name"] else {
-                Issue.record("unexpected result")
+                Issue.record("unexpected name")
+                return
+            }
+            guard case .string(let defaultLocalization)? = contents["defaultLocalization"] else {
+                Issue.record("unexpected defaultLocalization")
                 return
             }
             guard case .array(let platforms)? = contents["platforms"] else {
-                Issue.record("unexpected result")
+                Issue.record("unexpected platforms")
                 return
             }
             #expect(name == "Dealer")
+            #expect(defaultLocalization == "en")
             #expect(
                 platforms == [
                     .dictionary([
                         "platformName": .string("macos"),
-                        "version": .string("10.12"),
+                        "version": .string("10.13"),
                         "options": .array([]),
                     ]),
                     .dictionary([
                         "platformName": .string("ios"),
-                        "version": .string("10.0"),
+                        "version": .string("12.0"),
                         "options": .array([]),
                     ]),
                     .dictionary([
                         "platformName": .string("tvos"),
-                        "version": .string("11.0"),
+                        "version": .string("12.0"),
                         "options": .array([]),
                     ]),
                     .dictionary([
@@ -1032,6 +1037,7 @@ struct PackageCommandTests {
                     ]),
                 ]
             )
+            // FIXME: We should also test dependencies and targets here.
         }
     }
 
@@ -1134,7 +1140,7 @@ struct PackageCommandTests {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(result.stdout == "MySnippet\n")
+                #expect(result.stdout == "ContainsMain\nImportsProductTarget\nMySnippet\nmain\n")
             }
         }
 
@@ -1408,6 +1414,156 @@ struct PackageCommandTests {
                 #expect(traitsProperty.contains(.string("Package3")))
                 #expect(traitsProperty.contains(.string("Package4")))
                 #expect(traitsProperty.contains(.string("BuildCondition1")))
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Package.ShowDependencies,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func showDependenciesWithTraitsGuardingDependencies(
+            data: BuildData,
+        ) async throws {
+            try await fixture(name: "Traits") { fixturePath in
+                let packageRoot = fixturePath.appending("PackageConditionalDeps")
+
+                // Test output with default traits
+                let (textOutputDefault, _) = try await execute(
+                    ["show-dependencies", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputDefault.contains("Package1@"))
+                #expect(!textOutputDefault.contains("Package2"))
+
+                let (jsonOutputDefault, _) = try await execute(
+                    ["show-dependencies", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonDefault = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefault))
+                guard case .dictionary(let contents) = jsonDefault else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage1Dep")))
+
+                // Test output with default traits disabled
+                let (textOutputDefaultDisabled, _) = try await execute(
+                    ["show-dependencies", "--disable-default-traits", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputDefaultDisabled.contains("No external dependencies found"))
+                #expect(!textOutputDefaultDisabled.contains("Package1"))
+                #expect(!textOutputDefaultDisabled.contains("Package2"))
+
+                let (jsonOutputDefaultDisabled, _) = try await execute(
+                    ["show-dependencies", "--disable-default-traits", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonDefaultDisabled = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputDefaultDisabled))
+                guard case .dictionary(let contents) = jsonDefaultDisabled else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.isEmpty)
+
+                // Test output with overridden trait configuration
+                let (textOutputPackage2Dep, _) = try await execute(
+                    ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(!textOutputPackage2Dep.contains("Package1"))
+                #expect(textOutputPackage2Dep.contains("Package2@"))
+
+                let (jsonOutputPackage2Dep, _) = try await execute(
+                    ["show-dependencies", "--traits", "EnablePackage2Dep", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonPackage2Dep = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputPackage2Dep))
+                guard case .dictionary(let contents) = jsonPackage2Dep else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage2Dep")))
+                #expect(!traitsProperty.contains(.string("EnablePackage1Dep")))
+
+                // Test output with all traits enabled
+                let (textOutputAllTraits, _) = try await execute(
+                    ["show-dependencies", "--enable-all-traits", "--format=text"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                #expect(textOutputAllTraits.contains("Package1@"))
+                #expect(textOutputAllTraits.contains("Package2@"))
+
+                let (jsonOutputAllTraits, _) = try await execute(
+                    ["show-dependencies", "--enable-all-traits", "--format=json"],
+                    packagePath: packageRoot,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+                let jsonAllTraits = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutputAllTraits))
+                guard case .dictionary(let contents) = jsonAllTraits else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                guard case .string(let name)? = contents["name"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(name == "PackageConditionalDeps")
+
+                guard case .array(let traitsProperty)? = contents["traits"] else {
+                    Issue.record("unexpected result")
+                    return
+                }
+                #expect(traitsProperty.contains(.string("EnablePackage2Dep")))
+                #expect(traitsProperty.contains(.string("EnablePackage1Dep")))
+
             }
         }
 
@@ -2693,7 +2849,7 @@ struct PackageCommandTests {
                 #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
             }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
         }
 
     }
@@ -2709,40 +2865,36 @@ struct PackageCommandTests {
     func packageClean(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-                let packageRoot = fixturePath.appending("Bar")
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
 
-                // Build it.
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                let buildPath = packageRoot.appending(".build")
-                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
-                let binFile = binPath.appending(executableName("Bar"))
-                expectFileExists(at: binFile)
-                #expect(localFileSystem.isDirectory(buildPath))
+            // Build it.
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            let buildPath = packageRoot.appending(".build")
+            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
+            let binFile = binPath.appending(executableName("Bar"))
+            expectFileExists(at: binFile)
+            #expect(localFileSystem.isDirectory(buildPath))
 
-                // Clean, and check for removal of the build directory but not Packages.
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                expectFileDoesNotExists(at: binFile)
-                // Clean again to ensure we get no error.
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            // Clean, and check for removal of the build directory but not Packages.
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            expectFileDoesNotExists(at: binFile)
+            // Clean again to ensure we get no error.
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
         }
     }
 
@@ -2758,53 +2910,49 @@ struct PackageCommandTests {
     func packageReset(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-                let packageRoot = fixturePath.appending("Bar")
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
 
-                // Build it.
-                try await executeSwiftBuild(
-                    packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem
-                )
-                let buildPath = packageRoot.appending(".build")
-                let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
-                let binFile = binPath.appending(executableName("Bar"))
-                expectFileExists(at: binFile)
-                #expect(localFileSystem.isDirectory(buildPath))
-                // Clean, and check for removal of the build directory but not Packages.
+            // Build it.
+            try await executeSwiftBuild(
+                packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem
+            )
+            let buildPath = packageRoot.appending(".build")
+            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
+            let binFile = binPath.appending(executableName("Bar"))
+            expectFileExists(at: binFile)
+            #expect(localFileSystem.isDirectory(buildPath))
+            // Clean, and check for removal of the build directory but not Packages.
 
-                _ = try await execute(
-                    ["clean"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                expectFileDoesNotExists(at: binFile)
-                try #expect(
-                    !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
-                )
+            _ = try await execute(
+                ["clean"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            expectFileDoesNotExists(at: binFile)
+            try #expect(
+                !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
+            )
 
-                // Fully clean.
-                _ = try await execute(
-                    ["reset"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                #expect(!localFileSystem.isDirectory(buildPath))
+            // Fully clean.
+            _ = try await execute(
+                ["reset"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!localFileSystem.isDirectory(buildPath))
 
-                // Test that we can successfully run reset again.
-                _ = try await execute(
-                    ["reset"],
-                    packagePath: packageRoot,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            // Test that we can successfully run reset again.
+            _ = try await execute(
+                ["reset"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
         }
     }
 
@@ -3042,7 +3190,7 @@ struct PackageCommandTests {
                 }
             }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
         }
     }
 
@@ -5942,7 +6090,7 @@ struct PackageCommandTests {
         func commandPluginSymbolGraphCallbacks(
             data: BuildData,
         ) async throws {
-            try await withKnownIssue {
+            try await withKnownIssue(isIntermittent: true) {
                 try await testWithTemporaryDirectory { tmpPath in
                     // Create a sample package with a library, and executable, and a plugin.
                     let packageDir = tmpPath.appending(components: "MyPackage")
@@ -6073,7 +6221,8 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+                (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                || !CiEnvironment.runningInSmokeTestPipeline
             }
         }
 
@@ -6263,33 +6412,38 @@ struct PackageCommandTests {
                         #expect(stdout.contains("executable"))
                     }
 
-                    // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
-                    do {
-                        let (stdout, _) = try await execute(
-                            ["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"],
-                            packagePath: packageDir,
-                            configuration: data.config,
-                            buildSystem: data.buildSystem,
-                        )
-                        #expect(stdout.contains("Building for production..."))
-                        #expect(!stdout.contains("Building for debug..."))
-                        #expect(!stdout.contains("-module-name MyLibrary"))
-                        if buildSystemProvider == .native {
-                            #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
+                    // SwiftBuild is currently not producing a static archive for static products unless they are linked into some other binary.
+                    try await withKnownIssue {
+                        // Invoke the plugin with parameters choosing a verbose build of MyStaticLibrary for release.
+                        do {
+                            let (stdout, _) = try await execute(
+                                ["my-build-tester", "--product", "MyStaticLibrary", "--print-commands", "--release"],
+                                packagePath: packageDir,
+                                configuration: data.config,
+                                buildSystem: data.buildSystem,
+                            )
+                            #expect(stdout.contains("Building for production..."))
+                            #expect(!stdout.contains("Building for debug..."))
+                            #expect(!stdout.contains("-module-name MyLibrary"))
+                            if buildSystemProvider == .native {
+                                #expect(stdout.contains("Build of product 'MyStaticLibrary' complete!"))
+                            }
+                            #expect(stdout.contains("succeeded: true"))
+                            switch buildSystemProvider {
+                            case .native:
+                                #expect(stdout.contains("artifact-path:"))
+                                #expect(stdout.contains(RelativePath("release/libMyStaticLibrary").pathString))
+                            case .swiftbuild:
+                                #expect(stdout.contains("artifact-path:"))
+                                #expect(stdout.contains(RelativePath("MyStaticLibrary").pathString))
+                            case .xcode:
+                                Issue.record("unimplemented assertion for --build-system xcode")
+                            }
+                            #expect(stdout.contains("artifact-kind:"))
+                            #expect(stdout.contains("staticLibrary"))
                         }
-                        #expect(stdout.contains("succeeded: true"))
-                        switch buildSystemProvider {
-                        case .native:
-                            #expect(stdout.contains("artifact-path:"))
-                            #expect(stdout.contains(RelativePath("release/libMyStaticLibrary").pathString))
-                        case .swiftbuild:
-                            #expect(stdout.contains("artifact-path:"))
-                            #expect(stdout.contains(RelativePath("MyStaticLibrary").pathString))
-                        case .xcode:
-                            Issue.record("unimplemented assertion for --build-system xcode")
-                        }
-                        #expect(stdout.contains("artifact-kind:"))
-                        #expect(stdout.contains("staticLibrary"))
+                    } when: {
+                        data.buildSystem == .swiftbuild
                     }
 
                     // Invoke the plugin with parameters choosing a verbose build of MyDynamicLibrary for release.
@@ -6330,6 +6484,36 @@ struct PackageCommandTests {
                 }
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
+            }
+        }
+
+        @Test(
+            .IssueWindowsRelativePathAssert,
+            arguments: [BuildSystemProvider.Kind.native, .swiftbuild],
+        )
+        func commandPluginBuildingCallbacksExcludeUnbuiltArtifacts(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await withKnownIssue {
+                try await fixture(name: "PartiallyUnusedDependency") { fixturePath in
+                    let (stdout, _) = try await execute(
+                        ["dump-artifacts-plugin"],
+                        packagePath: fixturePath,
+                        configuration: .debug,
+                        buildSystem: buildSystem
+                    )
+                    // The build should succeed
+                    #expect(stdout.contains("succeeded: true"))
+                    // The artifacts corresponding to the executable and dylib we built should be reported
+                    #expect(stdout.contains(#/artifact-path: [^\n]+MyExecutable(.*)?\nartifact-kind: executable/#))
+                    #expect(stdout.contains(#/artifact-path: [^\n]+MyDynamicLibrary(.*)?\nartifact-kind: dynamicLibrary/#))
+                    // The not-built executable in the dependency should not be reported. The native build system fails to exclude it.
+                    withKnownIssue {
+                        #expect(!stdout.contains("MySupportExecutable"))
+                    } when: {
+                        buildSystem == .native
+                    }
+                }
+            } when: {
+                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
@@ -6774,10 +6958,6 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
             .requiresSwiftConcurrencySupport,
             .IssueWindowsLongPath,
             .tags(
@@ -6904,28 +7084,37 @@ struct PackageCommandTests {
                     ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
                 }
 
-                try await withKnownIssue {
-                    // Check that building just one of them just compiles that plugin and doesn't build anything else.
-                    do {
-                        let (stdout, stderr) = try await executeSwiftBuild(
-                            packageDir,
-                            configuration: data.config,
-                            extraArgs: ["--target", "MyCommandPlugin"],
-                            buildSystem: data.buildSystem,
-                        )
-                        if data.buildSystem == .native {
+                // Check that building just one of them just compiles that plugin and doesn't build anything else.
+                do {
+                    let (stdout, stderr) = try await executeSwiftBuild(
+                        packageDir,
+                        configuration: data.config,
+                        extraArgs: ["--target", "MyCommandPlugin"],
+                        buildSystem: data.buildSystem,
+                    )
+                    switch data.buildSystem {
+                    case .native:
                             #expect(!stdout.contains("Compiling plugin MyBuildToolPlugin"), "stderr: \(stderr)")
                             #expect(stdout.contains("Compiling plugin MyCommandPlugin"), "stderr: \(stderr)")
-                        }
-                        #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
+                        case .swiftbuild:
+                        // nothing specific
+                        break
+                        case .xcode:
+                            Issue.record("Test expected have not been considered")
                     }
-                } when: {
-                    data.buildSystem == .swiftbuild
+                    #expect(!stdout.contains("Building for \(data.config.buildFor)..."), "stderr: \(stderr)")
                 }
             }
         }
 
-        private static func commandPluginCompilationErrorImplementation(
+        @Test(
+            .requiresSwiftConcurrencySupport,
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+            arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        )
+        func commandPluginCompilationErrorImplementation(
             data: BuildData,
         ) async throws {
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginCompilationError") { packageDir in
@@ -6957,44 +7146,6 @@ struct PackageCommandTests {
                         )
                     }
                 }
-            }
-        }
-
-        @Test(
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.native]),
-        )
-        func commandPluginCompilationError(
-            data: BuildData,
-        ) async throws {
-            try await Self.commandPluginCompilationErrorImplementation(data: data)
-        }
-
-        @Test(
-            .disabled("the swift-build process currently has a fatal error"),
-            .issue(
-                "https://github.com/swiftlang/swift-package-manager/issues/8977",
-                relationship: .defect
-            ),
-            .SWBINTTODO("Building sample package causes a backtrace on linux"),
-            .requireSwift6_2,
-            .requiresSwiftConcurrencySupport,
-            .tags(
-                .Feature.Command.Package.CommandPlugin,
-            ),
-            // arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-            arguments: getBuildData(for: [.swiftbuild]),
-        )
-        func commandPluginCompilationErrorSwiftBuild(
-            data: BuildData,
-        ) async throws {
-            // Once this is fix, merge data iunto commandPluginCompilationError
-            await withKnownIssue {
-                try await Self.commandPluginCompilationErrorImplementation(data: data)
             }
         }
 
@@ -7075,6 +7226,177 @@ struct PackageCommandTests {
                     observabilityScope: observability.topScope
                 )
                 expectNoDiagnostics(observability.diagnostics)
+            }
+        }
+
+        @Test(arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms))
+        func commandPluginDynamicDependencies(
+            buildData: BuildData
+        ) async throws {
+            try await withKnownIssue {
+                try await testWithTemporaryDirectory { tmpPath in
+                    // Create a sample package with a command plugin that has a dynamic dependency.
+                    let packageDir = tmpPath.appending(components: "MyPackage")
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 6.0
+                            // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                            import PackageDescription
+
+                            let package = Package(
+                                name: "command-plugin-dynamic-linking",
+                                products: [
+                                    // Products can be used to vend plugins, making them visible to other packages.
+                                    .plugin(
+                                        name: "command-plugin-dynamic-linking",
+                                        targets: ["command-plugin-dynamic-linking"]),
+                                ],
+                                dependencies: [
+                                    .package(path: "LocalPackages/DynamicLib")
+                                ],
+                                targets: [
+                                    // Targets are the basic building blocks of a package, defining a module or a test suite.
+                                    // Targets can depend on other targets in this package and products from dependencies.
+                                    .executableTarget(
+                                        name: "Core",
+                                        dependencies: [
+                                            .product(name: "DynamicLib", package: "DynamicLib")
+                                        ]
+                                    ),
+                                    .plugin(
+                                        name: "command-plugin-dynamic-linking",
+                                        capability: .command(intent: .custom(
+                                            verb: "command_plugin_dynamic_linking",
+                                            description: "prints hello world"
+                                        )),
+                                        dependencies: [
+                                            "Core"
+                                        ]
+                                    )
+                                ]
+                            )
+                            """
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Sources", "Core", "Core.swift"),
+                        string:
+                            """
+                            import DynamicLib
+
+                            @main
+                            struct Core {
+                                static func main() {
+                                    let result = dynamicLibFunc()
+                                    print(result)
+                                }
+                            }
+                            """
+                    )
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "Plugins", "command-plugin-dynamic-linking.swift"),
+                        string:
+                            """
+                            import PackagePlugin
+                            import Foundation
+
+                            enum CommandError: Error, CustomStringConvertible {
+                                var description: String {
+                                    String(describing: self)
+                                }
+
+                                case pluginError(String)
+                            }
+
+                            @main
+                            struct command_plugin_dynamic_linking: CommandPlugin {
+                                // Entry point for command plugins applied to Swift Packages.
+                                func performCommand(context: PluginContext, arguments: [String]) async throws {
+                                    let tool = try context.tool(named: "Core")
+
+                                    let process = try Process.run(tool.url, arguments: arguments)
+                                    process.waitUntilExit()
+
+                                    if process.terminationReason != .exit || process.terminationStatus != 0 {
+                                        throw CommandError.pluginError("\\(tool.name) failed")
+                                    } else {
+                                        print("Works fine!")
+                                    }
+                                }
+                            }
+
+                            #if canImport(XcodeProjectPlugin)
+                            import XcodeProjectPlugin
+
+                            extension command_plugin_dynamic_linking: XcodeCommandPlugin {
+                                // Entry point for command plugins applied to Xcode projects.
+                                func performCommand(context: XcodePluginContext, arguments: [String]) throws {
+                                    print("Hello, World!")
+                                }
+                            }
+
+                            #endif
+                            """
+                    )
+
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "LocalPackages", "DynamicLib", "Package.swift"),
+                        string:
+                            """
+                            // swift-tools-version: 6.0
+                            // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                            import PackageDescription
+
+                            let package = Package(
+                                name: "DynamicLib",
+                                products: [
+                                    // Products define the executables and libraries a package produces, making them visible to other packages.
+                                    .library(
+                                        name: "DynamicLib",
+                                        type: .dynamic,
+                                        targets: ["DynamicLib"]),
+                                ],
+                                targets: [
+                                    // Targets are the basic building blocks of a package, defining a module or a test suite.
+                                    // Targets can depend on other targets in this package and products from dependencies.
+                                    .target(
+                                        name: "DynamicLib"),
+                                    .testTarget(
+                                        name: "DynamicLibTests",
+                                        dependencies: ["DynamicLib"]
+                                    ),
+                                ]
+                            )
+                            """
+                    )
+
+                    try localFileSystem.writeFileContents(
+                        packageDir.appending(components: "LocalPackages", "DynamicLib", "Sources", "DynamicLib.swift"),
+                        string:
+                            """
+                            // The Swift Programming Language
+                            // https://docs.swift.org/swift-book
+
+                            public func dynamicLibFunc() -> String {
+                                return "Hello from DynamicLib!"
+                            }
+                            """
+                    )
+
+                    let (stdout, _) = try await execute(
+                        ["plugin", "command_plugin_dynamic_linking"],
+                        packagePath: packageDir,
+                        configuration: buildData.config,
+                        buildSystem: buildData.buildSystem,
+                    )
+
+                    #expect(stdout.contains("Works fine!"))
+                }
+            } when: {
+                (ProcessInfo.hostOperatingSystem == .windows && buildData.buildSystem == .swiftbuild) || (ProcessInfo.hostOperatingSystem == .linux && buildData.buildSystem == .swiftbuild)
             }
         }
     }

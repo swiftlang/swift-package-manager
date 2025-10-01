@@ -14,6 +14,7 @@ import Foundation
 import TSCUtility
 
 import struct Basics.AbsolutePath
+import struct Basics.RelativePath
 import class Basics.ObservabilitySystem
 import func Basics.resolveSymlinks
 import struct Basics.SourceControlURL
@@ -237,31 +238,25 @@ extension PackagePIFProjectBuilder {
     ) throws -> (PackagePIFBuilder.ModuleOrProduct, resourceBundleName: String?) {
         precondition(sourceModule.isSourceModule)
 
-        let pifProductName: String
-        let executableName: String
         let productType: ProjectModel.Target.ProductType
 
         switch desiredModuleType {
         case .dynamicLibrary:
             // We are re-using this default for dynamic targets as well.
             if pifBuilder.createDylibForDynamicProducts {
-                pifProductName = "lib\(sourceModule.name).dylib"
-                executableName = pifProductName
                 productType = .dynamicLibrary
             } else {
-                pifProductName = sourceModule.name + ".framework"
-                executableName = sourceModule.name
                 productType = .framework
             }
 
         case .staticLibrary, .executable:
-            pifProductName = "\(sourceModule.name).o"
-            executableName = pifProductName
+            #if os(Windows) // Temporary until we get a new productType in swift-build
+            productType = .staticArchive
+            #else
             productType = .objectFile
+            #endif
 
         case .macro:
-            pifProductName = sourceModule.name
-            executableName = pifProductName
             productType = .hostBuildTool
         }
 
@@ -280,8 +275,8 @@ extension PackagePIFProjectBuilder {
             ProjectModel.Target(
                 id: sourceModule.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
-                name: "\(sourceModule.name)",
-                productName: pifProductName,
+                name: sourceModule.name,
+                productName: "$(EXECUTABLE_NAME)",
                 approvedByUser: approvedByUser
             )
         }
@@ -358,8 +353,8 @@ extension PackagePIFProjectBuilder {
 
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
-        var moduleMapFile = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
+        let moduleMapFile = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -372,8 +367,6 @@ extension PackagePIFProjectBuilder {
             export *
             }
             """
-            moduleMapFile = "\(generatedModuleMapDir)/\(sourceModule.name).modulemap"
-
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
         } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
@@ -382,7 +375,7 @@ extension PackagePIFProjectBuilder {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
-                umbrella header "\(path)"
+                umbrella header "\(path.escapedPathString)"
                 export *
                 }
                 """
@@ -390,14 +383,13 @@ extension PackagePIFProjectBuilder {
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
-                umbrella "\(path)"
+                umbrella "\(path.escapedPathString)"
                 export *
                 }
                 """
             }
             if moduleMapFileContents.hasContent {
                 // Pass the path of the module map up to all direct and indirect clients.
-                moduleMapFile = "\(generatedModuleMapDir)/\(sourceModule.name).modulemap"
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
             }
@@ -407,12 +399,11 @@ extension PackagePIFProjectBuilder {
             settings.configureDynamicSettings(
                 productName: sourceModule.name,
                 targetName: sourceModule.name,
-                executableName: executableName,
                 packageIdentity: package.identity,
                 packageName: sourceModule.packageName,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
                 installPath: "/usr/local/lib",
-                delegate: pifBuilder.delegate
+                delegate: pifBuilder.delegate,
             )
         } else {
             settings[.TARGET_NAME] = sourceModule.name
@@ -420,22 +411,10 @@ extension PackagePIFProjectBuilder {
             settings[.PRODUCT_MODULE_NAME] = sourceModule.c99name
             settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(sourceModule.name)"
                 .spm_mangledToBundleIdentifier()
-            settings[.EXECUTABLE_NAME] = executableName
             settings[.CLANG_ENABLE_MODULES] = "YES"
             settings[.GENERATE_PRELINK_OBJECT_FILE] = "NO"
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
-            // Macros build as executables, so they need slightly different
-            // build settings from other module types which build a "*.o".
-            if desiredModuleType == .macro {
-                settings[.MACH_O_TYPE] = "mh_execute"
-            } else {
-                settings[.MACH_O_TYPE] = "mh_object"
-                // Disable code coverage linker flags since we're producing .o files.
-                // Otherwise, we will run into duplicated symbols when there are more than one targets that produce .o
-                // as their product.
-                settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS] = "NO"
-            }
             settings[.SWIFT_PACKAGE_NAME] = sourceModule.packageName
 
             if desiredModuleType == .executable {
@@ -616,6 +595,8 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"
         }
 
+        sourceModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
+
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         sourceModule.recursivelyTraverseDependencies { dependency in
@@ -769,6 +750,7 @@ extension PackagePIFProjectBuilder {
         //   A (executable) -> B (dynamicLibrary) -> C (objectFile)
         //
         // An imparted build setting on C will propagate back to both B and A.
+        // FIXME: -rpath should not be given if -static is
         impartedSettings[.LD_RUNPATH_SEARCH_PATHS] =
             ["$(RPATH_ORIGIN)"] +
             (impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? ["$(inherited)"])

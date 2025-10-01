@@ -102,6 +102,11 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "products", subnodes: nodes))
         }
 
+        if !manifest.traits.isEmpty {
+            let nodes = manifest.traits.map { SourceCodeFragment(from: $0) }
+            params.append(SourceCodeFragment(key: "traits", subnodes: nodes))
+        }
+
         if !manifest.dependencies.isEmpty {
             let nodes = manifest.dependencies.map{ SourceCodeFragment(from: $0, pathAnchor: packageDirectory) }
             params.append(SourceCodeFragment(key: "dependencies", subnodes: nodes))
@@ -192,9 +197,68 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }
         }
+
+        if let traits = dependency.traits {
+            // If only `.defaults` is specified, do not output `traits:` .
+            // This is because `traits:` is not available in toolchains earlier than 6.1.
+            let isDefault = traits.count == 1 &&
+                traits.allSatisfy(\.isDefaultsCase)
+
+            if !isDefault {
+                let traits = traits.sorted { a, b in
+                    PackageDependency.Trait.precedes(a, b)
+                }
+                params.append(
+                    SourceCodeFragment(
+                        key: "traits",
+                        subnodes: traits.map { SourceCodeFragment(from: $0) }
+                    )
+                )
+            }
+        }
+
         self.init(enum: "package", subnodes: params)
     }
-    
+
+    init(from trait: PackageDependency.Trait) {
+        if trait.isDefaultsCase {
+            self.init(enum: "defaults")
+            return
+        }
+
+        guard let condition = trait.condition else {
+            self.init(string: trait.name)
+            return
+        }
+
+        let conditionNode = SourceCodeFragment(
+            key: "condition",
+            subnode: SourceCodeFragment(from: condition)
+        )
+
+        self.init(enum: "trait", subnodes: [
+            SourceCodeFragment(key: "name", string: trait.name),
+            conditionNode
+        ])
+    }
+
+    init(from condition: PackageDependency.Trait.Condition) {
+        var params: [SourceCodeFragment] = []
+
+        if let trait = condition.traits {
+            params.append(
+                SourceCodeFragment(
+                    key: "traits",
+                    subnodes: trait.sorted().map {
+                        SourceCodeFragment(string: $0)
+                    }
+                )
+            )
+        }
+
+        self.init(enum: "when", subnodes: params)
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single product. If there's a custom product generator, it gets
     /// a chance to generate the source code fragments before checking the default types.
     init(from product: ProductDescription, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?, toolsVersion: ToolsVersion) rethrows {
@@ -259,6 +323,41 @@ fileprivate extension SourceCodeFragment {
                 self.init(enum: "macro", subnodes: params, multiline: true)
             }
         }
+    }
+
+    init(from trait: TraitDescription) {
+        let enabledTraitsNode = SourceCodeFragment(
+            key: "enabledTraits",
+            subnodes: trait.enabledTraits.sorted().map {
+                SourceCodeFragment(string: $0)
+            }
+        )
+
+        if trait.isDefault {
+            self.init(enum: "default", subnodes: [enabledTraitsNode])
+            return
+        }
+
+        if trait.description == nil, trait.enabledTraits.isEmpty {
+            self.init(string: trait.name)
+            return
+        }
+
+        var params: [SourceCodeFragment] = [
+            SourceCodeFragment(key: "name", string: trait.name)
+        ]
+
+        if let description = trait.description {
+            params.append(
+                SourceCodeFragment(key: "description", string: description)
+            )
+        }
+
+        if !trait.enabledTraits.isEmpty {
+            params.append(enabledTraitsNode)
+        }
+
+        self.init(enum: "trait", subnodes: params)
     }
 
     /// Instantiates a SourceCodeFragment to represent a single target.
@@ -412,7 +511,19 @@ fileprivate extension SourceCodeFragment {
             case "watchos": return SourceCodeFragment(enum: "watchOS")
             case "visionos": return SourceCodeFragment(enum: "visionOS")
             case "driverkit": return SourceCodeFragment(enum: "driverKit")
-            default: return SourceCodeFragment(enum: platformName)
+
+            // Among known cases, those not requiring capitalization changes
+            case "linux", "windows", "android", "wasi", "openbsd":
+                return SourceCodeFragment(enum: platformName)
+
+            // Known cases but not yet available
+            case "freebsd": fallthrough
+            default:
+                // For unknown cases, output using custom notation
+                return SourceCodeFragment(
+                    enum: "custom",
+                    subnodes: [.init(string: platformName)]
+                )
             }
         }
         if !platformNodes.isEmpty {
@@ -420,6 +531,13 @@ fileprivate extension SourceCodeFragment {
         }
         if let configName = condition.config {
             params.append(SourceCodeFragment(key: "configuration", enum: configName))
+        }
+        if let traits = condition.traits {
+            params.append(
+                SourceCodeFragment(key: "traits", subnodes: traits.sorted().map { trait in
+                    SourceCodeFragment(string: trait)
+                })
+            )
         }
         self.init(enum: "when", subnodes: params)
     }
@@ -1087,6 +1205,47 @@ public struct SourceCodeFragment {
             }
         }
         return string
+    }
+}
+
+extension Optional {
+    fileprivate static func precedes(
+        _ a: Wrapped?, _ b: Wrapped?,
+        compareWrapped: (Wrapped, Wrapped) -> Bool
+    ) -> Bool {
+        switch (a, b) {
+        case (.none, .none): return false
+        case (.none, .some): return true
+        case (.some, .none): return false
+        case (.some(let a), .some(let b)):
+            return compareWrapped(a, b)
+        }
+    }
+}
+
+extension PackageDependency.Trait {
+    fileprivate static func precedes(_ a: PackageDependency.Trait, _ b: PackageDependency.Trait) -> Bool {
+        if a.name != b.name { return a.name < b.name }
+
+        if a.condition != b.condition {
+            return Optional.precedes(a.condition, b.condition) { a, b in
+                PackageDependency.Trait.Condition.precedes(a, b)
+            }
+        }
+
+        return false
+    }
+}
+
+extension PackageDependency.Trait.Condition {
+    fileprivate static func precedes(_ a: PackageDependency.Trait.Condition, _ b: PackageDependency.Trait.Condition) -> Bool {
+        if a.traits != b.traits {
+            return Optional.precedes(a.traits, b.traits) { a, b in
+                a.sorted().lexicographicallyPrecedes(b.sorted())
+            }
+        }
+
+        return false
     }
 }
 

@@ -65,7 +65,7 @@ For documentation on using Swift Package Manager, creating packages, and more, s
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](CONTRIBUTING.md).
 
-For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/package-manager/PackageDescription/index.html).
+For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/swiftpm/documentation/packagedescription).
 
 For release notes with information about changes between versions, see the [release notes](Documentation/ReleaseNotes).
 

@@ -27,13 +27,31 @@ private struct BasicTests {
             Tag.Feature.Command.Build,
         ),
     )
-    func testExamplePackageDealer() throws {
-        try withTemporaryDirectory { tempDir in
+    func testExamplePackageDealer() async throws {
+        try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "dealer")
+            let repoToClone = "https://github.com/swiftlang/example-package-dealer"
             withKnownIssue(isIntermittent: true) {
-                // marking as withKnownIssue(intermittent: trye) as git operation can fail.
-                try sh("git\(ProcessInfo.exeSuffix)", "clone", "https://github.com/apple/example-package-dealer", packagePath)
+                // marking as withKnownIssue(intermittent: true) as git operation can fail.
+
+                #if os(macOS)
+                    // On macOS, we add the HOME variable to avoid git errors.
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", repoToClone, packagePath, env: ["HOME": tempDir.pathString])
+                #else
+                    try sh("git\(ProcessInfo.exeSuffix)", "clone", repoToClone, packagePath)
+                #endif
             }
+
+            // Do not run the test when the git clone operation failed
+            if !FileManager.default.fileExists(atPath: packagePath.pathString) {
+                //TODO: use Test Cancellation when available
+                //https://forums.swift.org/t/pitch-test-cancellation/81847/18
+                #if compiler(>=6.3)
+                    Issue.record("Can't clone the repository \(repoToClone), abording the test.", severity: .warning)
+                #endif
+                return
+            }
+
             let build1Output = try await executeSwiftBuild(
                 packagePath,
                 buildSystem: .native,
@@ -59,7 +77,11 @@ private struct BasicTests {
                 buildSystem: .native,
             ).stdout
             #expect(build2Output.contains("Build complete"))
-            #expect(build2Output.contains("Compiling") == false)
+
+            // Check that no compilation happened (except for plugins which are allowed)
+            // catch "Compiling xxx" but ignore "Compiling plugin" messages
+            let compilingRegex = try Regex("Compiling (?!plugin)")
+            #expect(build2Output.contains(compilingRegex) == false)
         }
     }
 

@@ -31,6 +31,8 @@ import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
 
+import var TSCBasic.stdoutStream
+
 import Foundation
 import SWBBuildService
 import SwiftBuild
@@ -66,7 +68,7 @@ public func createSession(
     packageManagerResourcesDirectory: Basics.AbsolutePath?
 ) async throws-> (SWBBuildServiceSession, [SwiftBuildMessage.DiagnosticInfo]) {
     // SWIFT_EXEC and SWIFT_EXEC_MANIFEST may need to be overridden in debug scenarios in order to pick up Open Source toolchains
-    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".xctoolchain") }) {
+    let sessionResult = if toolchainPath.components.contains(where: { $0.hasSuffix(".app") }) {
         await service.createSession(name: name, developerPath: nil, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
     } else {
         await service.createSession(name: name, swiftToolchainPath: toolchainPath.pathString, resourceSearchPaths: packageManagerResourcesDirectory.map { [$0.pathString] } ?? [], cachePath: nil, inferiorProductsPath: nil, environment: nil)
@@ -342,37 +344,195 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult {
+        // If any plugins are part of the build set, compile them now to surface
+        // any errors up-front. Returns true if we should proceed with the build
+        // or false if not. It will already have thrown any appropriate error.
+        var result = BuildResult(
+            serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
+            replArguments: nil,
+        )
+
         guard !buildParameters.shouldSkipBuilding else {
-            return BuildResult(
-                serializedDiagnosticPathsByTargetName: .failure(StringError("Building was skipped")),
-                replArguments: nil,
-            )
+            result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))
+            return result
+        }
+
+        guard try await self.compilePlugins(in: subset) else {
+            result.serializedDiagnosticPathsByTargetName = .failure(StringError("Plugin compilation failed"))
+            return result
         }
 
         try await writePIF(buildParameters: buildParameters)
 
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
-            genSymbolGraph: buildOutputs.contains(.symbolGraph),
-            generateReplArguments: buildOutputs.contains(.replArguments),
+            buildOutputs: buildOutputs,
         )
+    }
+
+    /// Compiles any plugins specified or implied by the build subset, returning
+    /// true if the build should proceed. Throws an error in case of failure. A
+    /// reason why the build might not proceed even on success is if only plugins
+    /// should be compiled.
+    func compilePlugins(in subset: BuildSubset) async throws -> Bool {
+        // Figure out what, if any, plugin descriptions to compile, and whether
+        // to continue building after that based on the subset.
+        let graph = try await getPackageGraph()
+
+        /// Description for a plugin module. This is treated a bit differently from the
+        /// regular kinds of modules, and is not included in the LLBuild description.
+        /// But because the modules graph and build plan are not loaded for incremental
+        /// builds, this information is included in the BuildDescription, and the plugin
+        /// modules are compiled directly.
+        struct PluginBuildDescription: Codable {
+            /// The identity of the package in which the plugin is defined.
+            public let package: PackageIdentity
+
+            /// The name of the plugin module in that package (this is also the name of
+            /// the plugin).
+            public let moduleName: String
+
+            /// The language-level module name.
+            public let moduleC99Name: String
+
+            /// The names of any plugin products in that package that vend the plugin
+            /// to other packages.
+            public let productNames: [String]
+
+            /// The tools version of the package that declared the module. This affects
+            /// the API that is available in the PackagePlugin module.
+            public let toolsVersion: ToolsVersion
+
+            /// Swift source files that comprise the plugin.
+            public let sources: Sources
+
+            /// Initialize a new plugin module description. The module is expected to be
+            /// a `PluginTarget`.
+            init(
+                module: ResolvedModule,
+                products: [ResolvedProduct],
+                package: ResolvedPackage,
+                toolsVersion: ToolsVersion,
+                testDiscoveryTarget: Bool = false,
+                fileSystem: FileSystem
+            ) throws {
+                guard module.underlying is PluginModule else {
+                    throw InternalError("underlying target type mismatch \(module)")
+                }
+
+                self.package = package.identity
+                self.moduleName = module.name
+                self.moduleC99Name = module.c99name
+                self.productNames = products.map(\.name)
+                self.toolsVersion = toolsVersion
+                self.sources = module.sources
+            }
+        }
+
+        var allPlugins: [PluginBuildDescription] = []
+
+        for pluginModule in graph.allModules.filter({ ($0.underlying as? PluginModule) != nil }) {
+            guard let package = graph.package(for: pluginModule) else {
+                throw InternalError("Package not found for module: \(pluginModule.name)")
+            }
+
+            let toolsVersion = package.manifest.toolsVersion
+
+            let pluginProducts = package.products.filter { $0.modules.contains(id: pluginModule.id) }
+
+            allPlugins.append(try PluginBuildDescription(
+                module: pluginModule,
+                products: pluginProducts,
+                package: package,
+                toolsVersion: toolsVersion,
+                fileSystem: fileSystem
+            ))
+        }
+
+        let pluginsToCompile: [PluginBuildDescription]
+        let continueBuilding: Bool
+        switch subset {
+        case .allExcludingTests, .allIncludingTests:
+            pluginsToCompile = allPlugins
+            continueBuilding = true
+        case .product(let productName, _):
+            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+            continueBuilding = pluginsToCompile.isEmpty
+        case .target(let targetName, _):
+            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+            continueBuilding = pluginsToCompile.isEmpty
+        }
+
+        final class Delegate: PluginScriptCompilerDelegate {
+            var failed: Bool = false
+            var observabilityScope: ObservabilityScope
+
+            public init(observabilityScope: ObservabilityScope) {
+                self.observabilityScope = observabilityScope
+            }
+
+            func willCompilePlugin(commandLine: [String], environment: [String: String]) { }
+
+            func didCompilePlugin(result: PluginCompilationResult) {
+                if !result.compilerOutput.isEmpty && !result.succeeded {
+                    print(result.compilerOutput, to: &stdoutStream)
+                } else if !result.compilerOutput.isEmpty {
+                    observabilityScope.emit(info: result.compilerOutput)
+                }
+
+                failed = !result.succeeded
+            }
+
+            func skippedCompilingPlugin(cachedResult: PluginCompilationResult) { }
+        }
+
+        // Compile any plugins we ended up with. If any of them fails, it will
+        // throw.
+        for plugin in pluginsToCompile {
+            let delegate = Delegate(observabilityScope: observabilityScope)
+
+            _ = try await self.pluginConfiguration.scriptRunner.compilePluginScript(
+                sourceFiles: plugin.sources.paths,
+                pluginName: plugin.moduleName,
+                toolsVersion: plugin.toolsVersion,
+                observabilityScope: observabilityScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: delegate
+            )
+
+            if delegate.failed {
+                throw Diagnostics.fatalError
+            }
+        }
+
+        // If we get this far they all succeeded. Return whether to continue the
+        // build, based on the subset.
+        return continueBuilding
     }
 
     private func startSWBuildOperation(
         pifTargetName: String,
-        genSymbolGraph: Bool,
-        generateReplArguments: Bool
+        buildOutputs: [BuildOutput]
     ) async throws -> BuildResult {
         let buildStartTime = ContinuousClock.Instant.now
+        var symbolGraphOptions: BuildOutput.SymbolGraphOptions?
+        for output in buildOutputs {
+            switch output {
+            case .symbolGraph(let options):
+                symbolGraphOptions = options
+            default:
+                continue
+            }
+        }
+
         var replArguments: CLIArguments?
+        var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
 
-            let progressAnimation = ProgressAnimation.percent(
+            let progressAnimation = ProgressAnimation.ninja(
                 stream: self.outputStream,
-                verbose: self.logLevel.isVerbose,
-                header: "",
-                isColorized: self.buildParameters.outputParameters.isColorized
+                verbose: self.logLevel.isVerbose
             )
 
             var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
@@ -413,7 +573,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try self.makeBuildRequest(configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, genSymbolGraph: genSymbolGraph)
+                    let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
@@ -521,7 +681,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         case .taskComplete(let info):
                             let startedInfo = try buildState.completed(task: info)
                             if info.result != .success {
-                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code")
+                                self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
                             }
                             let targetInfo = try buildState.target(for: startedInfo)
                             self.delegate?.buildSystem(self, didFinishCommand: BuildSystemCommand(startedInfo, targetInfo: targetInfo))
@@ -545,11 +705,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate()
+                        delegate: PlanningOperationDelegate(),
+                        retainBuildDescription: true
                     )
 
+                    var buildDescriptionID: SWBBuildDescriptionID? = nil
                     var buildState = BuildState()
                     for try await event in try await operation.start() {
+                        if case .reportBuildDescription(let info) = event {
+                            if buildDescriptionID != nil {
+                                self.observabilityScope.emit(debug: "build unexpectedly reported multiple build description IDs")
+                            }
+                            buildDescriptionID = SWBBuildDescriptionID(info.buildDescriptionID)
+                        }
                         try emitEvent(event, buildState: &buildState)
                     }
 
@@ -575,7 +743,46 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw Diagnostics.fatalError
                     }
 
-                    replArguments = generateReplArguments ? try await self.createREPLArguments(session: session, request: request) : nil
+                    if buildOutputs.contains(.replArguments) {
+                        replArguments = try await self.createREPLArguments(session: session, request: request)
+                    }
+
+                    if buildOutputs.contains(.builtArtifacts) {
+                        if let buildDescriptionID {
+                            let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
+                            artifacts = targetInfo.compactMap { target in
+                                guard let artifactInfo = target.artifactInfo else {
+                                    return nil
+                                }
+                                let kind: PluginInvocationBuildResult.BuiltArtifact.Kind = switch artifactInfo.kind {
+                                case .executable:
+                                    .executable
+                                case .staticLibrary:
+                                    .staticLibrary
+                                case .dynamicLibrary:
+                                    .dynamicLibrary
+                                case .framework:
+                                    // We treat frameworks as dylibs here, but the plugin API should grow to accomodate more product types
+                                    .dynamicLibrary
+                                }
+                                var name = target.name
+                                // FIXME: We need a better way to map between SwiftPM target/product names and PIF target names
+                                if pifTargetName.hasSuffix("-product") {
+                                    name = String(name.dropLast(8))
+                                }
+                                return (name, .init(
+                                    path: artifactInfo.path,
+                                    kind: kind
+                                ))
+                            }
+                        } else {
+                            self.observabilityScope.emit(error: "failed to compute built artifacts list")
+                        }
+                    }
+
+                    if let buildDescriptionID {
+                        await session.releaseBuildDescription(id: buildDescriptionID)
+                    }
                 }
             } catch let sessError as SessionFailedError {
                 for diagnostic in sessError.diagnostics {
@@ -594,6 +801,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     }
                 ),
                 replArguments: replArguments,
+                builtArtifacts: artifacts
             )
         }
     }
@@ -631,7 +839,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
-    private func makeBuildParameters(genSymbolGraph: Bool) throws -> SwiftBuild.SWBBuildParameters {
+    private func makeBuildParameters(session: SWBBuildServiceSession, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = makeRunDestination()
 
@@ -642,16 +850,55 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
-        // An error with determining the override should not be fatal here.
-        settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
-        // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-        // native build system.
-        settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+
+        // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
+        // Otherwise, apply overrides for each component of the SwiftPM toolchain.
+        if let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString) {
+            settings["TOOLCHAINS"] = "\(toolchainID.rawValue) $(inherited)"
+        } else {
+            // FIXME: This list of overrides is incomplete.
+            // An error with determining the override should not be fatal here.
+            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathString
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathString
+        }
+
         // FIXME: workaround for old Xcode installations such as what is in CI
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
-        if genSymbolGraph {
+        if let symbolGraphOptions {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
-            // TODO set additional symbol graph options from the build output here, such as "include-spi-symbols"
+
+            if symbolGraphOptions.prettyPrint {
+                settings["DOCC_PRETTY_PRINT"] = "YES"
+            }
+
+            if symbolGraphOptions.emitExtensionBlocks {
+                settings["DOCC_EXTRACT_EXTENSION_SYMBOLS"] = "YES"
+            }
+
+            if !symbolGraphOptions.includeSynthesized {
+                settings["DOCC_SKIP_SYNTHESIZED_MEMBERS"] = "YES"
+            }
+
+            if symbolGraphOptions.includeSPI {
+                settings["DOCC_EXTRACT_SPI_DOCUMENTATION"] = "YES"
+            }
+
+            switch symbolGraphOptions.minimumAccessLevel {
+            case .private:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "private"
+            case .fileprivate:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "fileprivate"
+            case .internal:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "internal"
+            case .package:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "package"
+            case .public:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "public"
+            case .open:
+                settings["DOCC_MINIMUM_ACCESS_LEVEL"] = "open"
+            }
         }
 
         let normalizedTriple = Triple(buildParameters.triple.triple, normalizing: true)
@@ -678,16 +925,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.cCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.cxxCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
+            verboseFlag +
             ["$(inherited)"]
                 + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.shellEscaped() }
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
@@ -703,6 +953,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+        }
+
+        // When building with the CLI for macOS, test bundles should generate entrypoints for compatibility with swiftpm-testing-helper.
+        if buildParameters.triple.isMacOSX {
+            settings["GENERATE_TEST_ENTRYPOINTS_FOR_BUNDLES"] = "YES"
         }
 
         func reportConflict(_ a: String, _ b: String) throws -> String {
@@ -727,9 +982,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return params
     }
 
-    public func makeBuildRequest(configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, genSymbolGraph: Bool) throws -> SWBBuildRequest {
+    public func makeBuildRequest(session: SWBBuildServiceSession, configuredTargets: [SWBTargetGUID], derivedDataPath: Basics.AbsolutePath, symbolGraphOptions: BuildOutput.SymbolGraphOptions?) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
-        request.parameters = try makeBuildParameters(genSymbolGraph: genSymbolGraph)
+        request.parameters = try await makeBuildParameters(session: session, symbolGraphOptions: symbolGraphOptions)
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
         request.useImplicitDependencies = false
@@ -888,13 +1143,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
     }
 
-    public func writePIF(buildParameters: BuildParameters) async throws {
-        let pifBuilder = try await getPIFBuilder()
-        let pif = try await pifBuilder.generatePIF(
+    public func generatePIF(preserveStructure: Bool) async throws -> String {
+        return try await getPIFBuilder().generatePIF(
+            preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
+            buildParameters: buildParameters
         )
+    }
 
+    public func writePIF(buildParameters: BuildParameters) async throws {
+        let pif = try await generatePIF(preserveStructure: false)
         try self.fileSystem.writeIfChanged(path: buildParameters.pifManifest, string: pif)
     }
 
