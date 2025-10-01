@@ -1500,7 +1500,7 @@ final class PluginTests {
     @Test(
         .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"),
         .requiresSwiftConcurrencySupport,
-        arguments: [BuildSystemProvider.Kind.native], // FIXME: enable swiftbuild testing once pre-build plugins are working
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testSandboxViolatingBuildToolPluginCommands(
         buildSystem: BuildSystemProvider.Kind,
@@ -1515,7 +1515,14 @@ final class PluginTests {
                 )
             }
 
-            #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            switch buildSystem {
+            case .native:
+                #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            case .swiftbuild:
+                #expect("\(error)".contains("Operation not permitted"))
+            case .xcode:
+                Issue.record("Test expected have not been considered")
+            }
         }
 
         // Check that the build succeeds if we disable the sandbox.
@@ -1526,7 +1533,7 @@ final class PluginTests {
                 extraArgs: ["--disable-sandbox"],
                 buildSystem: buildSystem,
             )
-            #expect(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
+            #expect(stdout.contains("Build complete!"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
         }
     }
 

@@ -370,6 +370,34 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         )
     }
 
+    /// Compute the available build tools, and their destination build path for host for each plugin.
+    private func availableBuildPluginTools(
+        graph: ModulesGraph,
+        buildParameters: BuildParameters,
+        pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
+        hostTriple: Basics.Triple
+    ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
+        var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
+
+        for (_, plugins) in pluginsPerModule {
+            for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
+                // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
+                // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
+                let accessibleTools = try await plugin.preparePluginTools(
+                    fileSystem: fileSystem,
+                    environment: buildParameters.buildEnvironment,
+                    for: hostTriple
+                ) { name, path in
+                    return buildParameters.buildPath.appending(path)
+                }
+
+                accessibleToolsPerPlugin[plugin.id] = accessibleTools
+            }
+        }
+
+        return accessibleToolsPerPlugin
+    }
+
     /// Compiles any plugins specified or implied by the build subset, returning
     /// true if the build should proceed. Throws an error in case of failure. A
     /// reason why the build might not proceed even on success is if only plugins
@@ -1137,7 +1165,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     additionalFileRules: additionalFileRules
                 ),
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
             )
             return pifBuilder
         }

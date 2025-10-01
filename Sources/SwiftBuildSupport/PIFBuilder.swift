@@ -36,7 +36,7 @@ fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) asy
 }
 
 extension ModulesGraph {
-    fileprivate static func computePluginGeneratedFiles(
+    static func computePluginGeneratedFiles(
         target: ResolvedModule,
         toolsVersion: ToolsVersion,
         additionalFileRules: [FileRuleDescription],
@@ -148,6 +148,9 @@ public final class PIFBuilder {
     /// The file system to read from.
     let fileSystem: FileSystem
 
+    /// Configuration for building and invoking plugins.
+    private let pluginConfiguration: PluginConfiguration
+
     /// Creates a `PIFBuilder` instance.
     /// - Parameters:
     ///   - graph: The package graph to build from.
@@ -164,6 +167,12 @@ public final class PIFBuilder {
         self.parameters = parameters
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "PIF Builder")
+
+        self.pluginConfiguration = PluginConfiguration(
+            scriptRunner: parameters.pluginScriptRunner,
+            workDirectory: parameters.pluginWorkingDirectory,
+            disableSandbox: parameters.disableSandbox,
+        )
     }
 
     /// Generates the PIF representation.
@@ -270,7 +279,9 @@ public final class PIFBuilder {
                 for module in package.modules {
                     // Apply each build tool plugin used by the target in order,
                     // creating a list of results (one for each plugin usage).
-                    var buildToolPluginResults: [PackagePIFBuilder.BuildToolPluginInvocationResult] = []
+                    var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
+                    var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
+                    var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
 
                     for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
                         let pluginModule = plugin.underlying as! PluginModule
@@ -309,7 +320,7 @@ public final class PIFBuilder {
                             // build.
                             let observability = ObservabilitySystem { _, _ in }
                             // Compute the generated files based on all results we have computed so far.
-                            (pluginDerivedSources, pluginDerivedResources) = try ModulesGraph.computePluginGeneratedFiles(
+                            (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
                                 target: module,
                                 toolsVersion: package.manifest.toolsVersion,
                                 additionalFileRules: self.parameters.additionalFileRules,
@@ -347,6 +358,8 @@ public final class PIFBuilder {
                             observabilityScope: observabilityScope
                         )
 
+                        buildToolPluginResults.append(result)
+
                         let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
                             var metadata = ObservabilityMetadata()
                             metadata.moduleName = module.name
@@ -362,52 +375,64 @@ public final class PIFBuilder {
                             diagnosticsEmitter.emit(diag)
                         }
 
-                        let result2 = PackagePIFBuilder.BuildToolPluginInvocationResult(
-                            prebuildCommandOutputPaths: result.prebuildCommands.map( { $0.outputFilesDirectory } ),
-                            buildCommands: result.buildCommands.map( { buildCommand in
-                                var newEnv: Environment = buildCommand.configuration.environment
+                        prebuildCommands.append(contentsOf: result.prebuildCommands)
 
-                                let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+                        buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
+                            var newEnv: Environment = buildCommand.configuration.environment
 
-                                // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
-                                for libPath in runtimeLibPaths {
-                                    newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
-                                }
+                            let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
 
-                                // Append the system path at the end so that necessary system tool paths can be found
-                                if let pathValue = Environment.current[EnvironmentKey.path] {
-                                    newEnv.appendPath(key: .path, value: pathValue)
-                                }
+                            // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
+                            for libPath in runtimeLibPaths {
+                                newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+                            }
 
-                                let writableDirectories: [AbsolutePath] = [pluginOutputDir]
+                            // Append the system path at the end so that necessary system tool paths can be found
+                            if let pathValue = Environment.current[EnvironmentKey.path] {
+                                newEnv.appendPath(key: .path, value: pathValue)
+                            }
 
-                                return PackagePIFBuilder.CustomBuildCommand(
-                                    displayName: buildCommand.configuration.displayName,
-                                    executable: buildCommand.configuration.executable.pathString,
-                                    arguments: buildCommand.configuration.arguments,
-                                    environment: .init(newEnv),
-                                    workingDir: package.path,
-                                    inputPaths: buildCommand.inputFiles,
-                                    outputPaths: buildCommand.outputFiles.map(\.pathString),
-                                    sandboxProfile:
-                                        self.parameters.disableSandbox ?
-                                            nil :
-                                            .init(
-                                                strictness: .writableTemporaryDirectory,
-                                                writableDirectories: writableDirectories,
-                                                readOnlyDirectories: buildCommand.inputFiles
-                                            )
-                                )
-                            } )
-                        )
+                            let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
-                        // Add a BuildToolPluginInvocationResult to the mapping.
-                        buildToolPluginResults.append(result2)
-                        if var existingResults = buildToolPluginResultsByTargetName[module.name] {
-                            existingResults.append(result2)
-                        } else {
-                            buildToolPluginResultsByTargetName[module.name] = [result2]
-                        }
+                            return PackagePIFBuilder.CustomBuildCommand(
+                                displayName: buildCommand.configuration.displayName,
+                                executable: buildCommand.configuration.executable.pathString,
+                                arguments: buildCommand.configuration.arguments,
+                                environment: .init(newEnv),
+                                workingDir: package.path,
+                                inputPaths: buildCommand.inputFiles,
+                                outputPaths: buildCommand.outputFiles.map(\.pathString),
+                                sandboxProfile:
+                                    self.parameters.disableSandbox ?
+                                        nil :
+                                        .init(
+                                            strictness: .writableTemporaryDirectory,
+                                            writableDirectories: writableDirectories,
+                                            readOnlyDirectories: buildCommand.inputFiles
+                                        )
+                            )
+                        }))
+                    }
+
+                    // Run the prebuild commands generated from the plugin invocation now for this module. This will
+                    // also give use the derived source code files needed for PIF generation.
+                    let runResults = try Self.runCommandPlugins(
+                        using: self.pluginConfiguration,
+                        for: buildToolPluginResults,
+                        fileSystem: fileSystem,
+                        observabilityScope: observabilityScope
+                    )
+
+                    let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
+                        prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
+                        buildCommands: buildCommands
+                    )
+
+                    // Add a BuildToolPluginInvocationResult to the mapping.
+                    if var existingResults = buildToolPluginResultsByTargetName[module.name] {
+                        existingResults.append(result)
+                    } else {
+                        buildToolPluginResultsByTargetName[module.name] = [result]
                     }
                 }
 
@@ -451,6 +476,62 @@ public final class PIFBuilder {
         }
     }
 
+    /// Runs any command plugins associated with the given list of plugin invocation results,
+    /// in order, and returns the results of running those prebuild commands.
+    fileprivate static func runCommandPlugins(
+        using pluginConfiguration: PluginConfiguration,
+        for pluginResults: [BuildToolPluginInvocationResult],
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope
+    ) throws -> [CommandPluginResult] {
+        // Run through all the commands from all the plugin usages in the target.
+        try pluginResults.map { pluginResult in
+            // As we go we will collect a list of prebuild output directories whose contents should be input to the
+            // build, and a list of the files in those directories after running the commands.
+            var derivedFiles: [Basics.AbsolutePath] = []
+            var prebuildOutputDirs: [Basics.AbsolutePath] = []
+            for command in pluginResult.prebuildCommands {
+                observabilityScope
+                    .emit(
+                        info: "Running " +
+                            (command.configuration.displayName ?? command.configuration.executable.basename)
+                    )
+
+                // Run the command configuration as a subshell. This doesn't return until it is done.
+                // TODO: We need to also use any working directory, but that support isn't yet available on all platforms at a lower level.
+                var commandLine = [command.configuration.executable.pathString] + command.configuration.arguments
+                if !pluginConfiguration.disableSandbox {
+                    commandLine = try Sandbox.apply(
+                        command: commandLine,
+                        fileSystem: fileSystem,
+                        strictness: .writableTemporaryDirectory,
+                        writableDirectories: [pluginResult.pluginOutputDirectory]
+                    )
+                }
+                let processResult = try AsyncProcess.popen(
+                    arguments: commandLine,
+                    environment: command.configuration.environment
+                )
+                let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
+                if processResult.exitStatus != .terminated(code: 0) {
+                    throw StringError("failed: \(command)\n\n\(output)")
+                }
+
+                // Add any files found in the output directory declared for the prebuild command after the command ends.
+                let outputFilesDir = command.outputFilesDirectory
+                if let swiftFiles = try? fileSystem.getDirectoryContents(outputFilesDir).sorted() {
+                    derivedFiles.append(contentsOf: swiftFiles.map { outputFilesDir.appending(component: $0) })
+                }
+
+                // Add the output directory to the list of directories whose structure should affect the build plan.
+                prebuildOutputDirs.append(outputFilesDir)
+            }
+
+            // Add the results of running any prebuild commands for this invocation.
+            return CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
+        }
+    }
+
     // Convenience method for generating PIF.
     public static func generatePIF(
         buildParameters: BuildParameters,
@@ -476,7 +557,7 @@ public final class PIFBuilder {
             graph: packageGraph,
             parameters: parameters,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
         )
         return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
     }
