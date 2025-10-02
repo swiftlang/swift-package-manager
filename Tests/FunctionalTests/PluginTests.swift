@@ -387,7 +387,6 @@ final class PluginTests {
 
     @Test(
         .requiresSwiftConcurrencySupport,
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS"),
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
