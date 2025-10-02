@@ -518,10 +518,6 @@ final class PluginTests {
         .disabled()
     )
     func testCommandPluginInvocation() async throws {
-        try XCTSkipIf(true, "test is disabled because it isn't stable, see rdar://117870608")
-
-        // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         // FIXME: This test is getting quite long — we should add some support functionality for creating synthetic plugin tests and factor this out into separate tests.
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin. It depends on a sample package.

@@ -114,8 +114,6 @@ extension SwiftPackageCommand {
             case .executable: .executable
             case .test: .test
             case .macro: .macro
-            default:
-                throw StringError("unexpected target type: \(self.type)")
             }
 
             // Map dependencies
