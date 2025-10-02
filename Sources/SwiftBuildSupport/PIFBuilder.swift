@@ -35,53 +35,6 @@ fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) asy
     }
 }
 
-extension ModulesGraph {
-    static func computePluginGeneratedFiles(
-        target: ResolvedModule,
-        toolsVersion: ToolsVersion,
-        additionalFileRules: [FileRuleDescription],
-        buildParameters: BuildParameters,
-        buildToolPluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult],
-        prebuildCommandResults: [CommandPluginResult],
-        observabilityScope: ObservabilityScope
-    ) throws -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
-        var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
-
-        // Add any derived files that were declared for any commands from plugin invocations.
-        var pluginDerivedFiles = [AbsolutePath]()
-        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            for absPath in command.outputPaths {
-                pluginDerivedFiles.append(try AbsolutePath(validating: absPath))
-            }
-        }
-
-        // Add any derived files that were discovered from output directories of prebuild commands.
-        for result in prebuildCommandResults {
-            for path in result.derivedFiles {
-                pluginDerivedFiles.append(path)
-            }
-        }
-
-        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
-        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
-            for: pluginDerivedFiles,
-            toolsVersion: toolsVersion,
-            additionalFileRules: additionalFileRules,
-            defaultLocalization: target.defaultLocalization,
-            targetName: target.name,
-            targetPath: target.underlying.path,
-            observabilityScope: observabilityScope
-        )
-        let pluginDerivedResources = derivedResources
-        for absPath in derivedSources {
-            let relPath = absPath.relative(to: pluginDerivedSources.root)
-            pluginDerivedSources.relativePaths.append(relPath)
-        }
-
-        return (pluginDerivedSources, pluginDerivedResources)
-    }
-}
-
 /// The parameters required by `PIFBuilder`.
 package struct PIFBuilderParameters {
     /// Whether the toolchain supports `-package-name` option.
@@ -557,7 +510,7 @@ public final class PIFBuilder {
             graph: packageGraph,
             parameters: parameters,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope,
+            observabilityScope: observabilityScope
         )
         return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
     }
