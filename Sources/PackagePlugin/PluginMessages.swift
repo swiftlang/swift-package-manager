@@ -398,7 +398,7 @@ enum PluginToHostMessage: Codable {
             enum AccessLevel: String, Codable {
                 case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
             }
-            var includeInheritedDocs: Bool
+            var includeInheritedDocs: Bool? = true
             var includeSynthesized: Bool
             var includeSPI: Bool
             var emitExtensionBlocks: Bool

@@ -1220,7 +1220,7 @@ fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Re
 fileprivate extension PluginInvocationSymbolGraphOptions {
     init(_ options: PluginToHostMessage.SymbolGraphOptions) {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
-        self.includeInheritedDocs = options.includeInheritedDocs
+        self.includeInheritedDocs = options.includeInheritedDocs ?? true
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
         self.emitExtensionBlocks = options.emitExtensionBlocks

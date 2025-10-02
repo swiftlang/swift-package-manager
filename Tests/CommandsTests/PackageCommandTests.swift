@@ -6043,7 +6043,7 @@ struct PackageCommandTests {
                                         : try context.package.targets(named: targetNames)
                                     for target in targets {
                                         let symbolGraph = try packageManager.getSymbolGraph(for: target,
-                                            options: .init(minimumAccessLevel: .public))
+                                            options: .init(minimumAccessLevel: .public, includeInheritedDocs: false))
                                         print("\\(target.name): \\(symbolGraph.directoryPath)")
                                     }
                                 }
