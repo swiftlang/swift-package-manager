@@ -242,14 +242,12 @@ public class Module {
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
-<<<<<<< HEAD
+    /// Whether or not this is a module that represents a template
+    public let template: Bool
+
     /// Whether this module comes from a declaration in the manifest file
     /// or was synthesized (i.e. some test modules are synthesized).
     public let implicit: Bool
-=======
-    /// Whether or not this is a module that represents a template
-    public let template: Bool
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
 
     init(
         name: String,
@@ -266,11 +264,8 @@ public class Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
-<<<<<<< HEAD
+        template: Bool,
         implicit: Bool
-=======
-        template: Bool
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
     ) {
         self.name = name
         self.potentialBundleName = potentialBundleName
@@ -287,20 +282,8 @@ public class Module {
         self.buildSettingsDescription = buildSettingsDescription
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
-<<<<<<< HEAD
-        self.implicit = implicit
-=======
         self.template = template
-    }
-
-    @_spi(SwiftPMInternal)
-    public var isEmbeddedSwiftTarget: Bool {
-        for case .enableExperimentalFeature("Embedded") in self.buildSettingsDescription.swiftSettings.map(\.kind) {
-            return true
-        }
-
-        return false
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
+        self.implicit = implicit
     }
 }
 

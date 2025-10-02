@@ -12,10 +12,10 @@
 
 import Basics
 import Foundation
-import PackageModel
 import TSCBasic
 import TSCUtility
 import Workspace
+@_spi(PackageRefactor) import SwiftRefactor
 
 /// A protocol for building `MappablePackageDependency.Kind` instances from provided dependency information.
 ///
@@ -34,7 +34,7 @@ protocol PackageDependencyBuilder {
     ///
     /// - Throws: A `StringError` if required inputs (e.g., Git URL, Package ID) are missing or invalid for the selected
     /// source type.
-    func makePackageDependency() throws -> MappablePackageDependency.Kind
+    func makePackageDependency() throws -> PackageDependency
 }
 
 /// Default implementation of `PackageDependencyBuilder` that builds a package dependency
@@ -54,11 +54,14 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// The registry package identifier, if the template source is registry-based.
     let templatePackageID: String?
 
-
+    /// The version requirements for fetching a template from git.
     let sourceControlRequirement: PackageDependency.SourceControl.Requirement?
-    let registryRequirement: PackageDependency.Registry.Requirement?
-    let resolvedTemplatePath: Basics.AbsolutePath
 
+    /// The version requirements for fetching a template from registry.
+    let registryRequirement: PackageDependency.Registry.Requirement?
+
+    /// The location of the template on disk.
+    let resolvedTemplatePath: Basics.AbsolutePath
 
     /// Constructs a package dependency kind based on the selected template source.
     ///
@@ -70,10 +73,10 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
     /// - Returns: A `MappablePackageDependency.Kind` representing the dependency.
     ///
     /// - Throws: A `StringError` if necessary information is missing or mismatched for the selected template source.
-    func makePackageDependency() throws -> MappablePackageDependency.Kind {
+    func makePackageDependency() throws -> PackageDependency {
         switch self.templateSource {
         case .local:
-            return .fileSystem(name: self.packageName, path: resolvedTemplatePath.asURL.path)
+            return .fileSystem(.init(path: self.resolvedTemplatePath.asURL.path))
 
         case .git:
             guard let url = templateURL else {
@@ -82,7 +85,7 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
             guard let requirement = sourceControlRequirement else {
                 throw PackageDependencyBuilderError.missingGitRequirement
             }
-            return .sourceControl(name: self.packageName, location: url, requirement: requirement)
+            return .sourceControl(.init(location: url, requirement: requirement))
 
         case .registry:
             guard let id = templatePackageID else {
@@ -91,10 +94,9 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
             guard let requirement = registryRequirement else {
                 throw PackageDependencyBuilderError.missingRegistryRequirement
             }
-            return .registry(id: id, requirement: requirement)
+            return .registry(.init(identity: id, requirement: requirement))
         }
     }
-
 
     /// Errors thrown by `TemplatePathResolver` during initialization.
     enum PackageDependencyBuilderError: LocalizedError, Equatable {
@@ -106,15 +108,14 @@ struct DefaultPackageDependencyBuilder: PackageDependencyBuilder {
         var errorDescription: String? {
             switch self {
             case .missingGitURLOrPath:
-                return "Missing Git URL or path for template from git."
+                "Missing Git URL or path for template from git."
             case .missingGitRequirement:
-                return "Missing version requirement for template from git."
+                "Missing version requirement for template from git."
             case .missingRegistryIdentity:
-                return "Missing registry package identity for template from registry."
+                "Missing registry package identity for template from registry."
             case .missingRegistryRequirement:
-                return "Missing version requirement for template from registry ."
+                "Missing version requirement for template from registry ."
             }
         }
     }
-
 }

@@ -224,6 +224,18 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
+    /// Creates a working copy from a bare repository.
+    ///
+    /// This method creates a working copy (checkout) from a bare repository source.
+    /// It supports both editable and shared modes of operation.
+    ///
+    /// - Parameters:
+    ///   - repository: The repository specifier
+    ///   - sourcePath: Path to the bare repository source
+    ///   - destinationPath: Path where the working copy should be created
+    ///   - editable: If true, creates an editable clone; if false, uses shared storage
+    /// - Returns: A WorkingCheckout instance for the created working copy
+    /// - Throws: Git operation errors if cloning or setup fails
     public func createWorkingCopyFromBare(
         repository: RepositorySpecifier,
         sourcePath: Basics.AbsolutePath,
@@ -238,7 +250,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                 destinationPath.pathString,
                 []
             )
-
             // The default name of the remote.
             let origin = "origin"
             // In destination repo remove the remote which will be pointing to the source repo.

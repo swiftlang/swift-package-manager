@@ -10,25 +10,34 @@
 //
 //===----------------------------------------------------------------------===//
 
-//TODO: needs review
 import ArgumentParser
 import Basics
 import CoreCommands
 import Foundation
 import PackageFingerprint
-import PackageModel
+import struct PackageModel.PackageIdentity
 import PackageRegistry
 import PackageSigning
 import SourceControl
+@_spi(PackageRefactor) import SwiftRefactor
 import TSCBasic
 import TSCUtility
 import Workspace
 
-/// A protocol representing a generic package template fetcher.
+/// A protocol representing a generic template fetcher for Swift package templates.
 ///
-/// Conforming types encapsulate the logic to retrieve a template from a given source,
-/// such as a local path, Git repository, or registry. The template is expected to be
-/// returned as an absolute path to its location on the file system.
+/// Conforming types are responsible for retrieving a package template from a specific source,
+/// such as a local directory, a Git repository, or a remote registry. The retrieved template
+/// must be available on the local file system in order to infer package type.
+///
+/// - Note: The returned path is an **absolute file system path** pointing to the **root directory**
+///   of the fetched template. This path must reference a fully resolved and locally accessible
+///   directory that contains the template's contents, ready for use by any consumer.
+///
+/// Example sources might include:
+/// - Local file paths (e.g. `/Users/username/Templates/MyTemplate`)
+/// -  Git repositories, either on disk or by HTTPS  or SSH.
+/// - Registry-resolved template directories
 protocol TemplateFetcher {
     func fetch() async throws -> Basics.AbsolutePath
 }
@@ -82,7 +91,11 @@ struct TemplatePathResolver {
             guard let url = templateURL, let requirement = sourceControlRequirement else {
                 throw TemplatePathResolverError.missingGitURLOrRequirement
             }
-            self.fetcher = GitTemplateFetcher(source: url, requirement: requirement, swiftCommandState: swiftCommandState)
+            self.fetcher = GitTemplateFetcher(
+                source: url,
+                requirement: requirement,
+                swiftCommandState: swiftCommandState
+            )
 
         case .registry:
             guard let identity = packageIdentity, let requirement = registryRequirement else {
@@ -117,13 +130,13 @@ struct TemplatePathResolver {
         var errorDescription: String? {
             switch self {
             case .missingLocalTemplatePath:
-                return "Template path must be specified for local templates."
+                "Template path must be specified for local templates."
             case .missingGitURLOrRequirement:
-                return "Missing Git URL or requirement for git template."
+                "Missing Git URL or requirement for git template."
             case .missingRegistryIdentityOrRequirement:
-                return "Missing registry package identity or requirement."
+                "Missing registry package identity or requirement."
             case .missingTemplateType:
-                return "Missing --template-type."
+                "Missing --template-type."
             }
         }
     }
@@ -140,7 +153,7 @@ struct LocalTemplateFetcher: TemplateFetcher {
     }
 }
 
-/// Fetches a Swift package template from a Git repository based on a specified requirement.
+/// Fetches a Swift package template from a Git repository based on a specified requirement for initial package type inference.
 ///
 /// Supports:
 /// - Checkout by tag (exact version)
@@ -151,7 +164,6 @@ struct LocalTemplateFetcher: TemplateFetcher {
 /// The template is cloned into a temporary directory, checked out, and returned.
 
 struct GitTemplateFetcher: TemplateFetcher {
-
     /// The Git URL of the remote repository.
     let source: String
 
@@ -163,16 +175,18 @@ struct GitTemplateFetcher: TemplateFetcher {
     ///
     /// - Returns: A path to the directory containing the fetched template.
     /// - Throws: Any error encountered during repository fetch, checkout, or validation.
-
-    /// Fetches a bare clone of the Git repository to the specified path.
     func fetch() async throws -> Basics.AbsolutePath {
-        try withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
+        try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
             let bareCopyPath = tempDir.appending(component: "bare-copy")
             let workingCopyPath = tempDir.appending(component: "working-copy")
 
+            try await self.cloneBareRepository(into: bareCopyPath)
 
-            try cloneBareRepository(into: bareCopyPath)
-            try validateBareRepository(at: bareCopyPath)
+            defer {
+                try? FileManager.default.removeItem(at: bareCopyPath.asURL)
+            }
+
+            try self.validateBareRepository(at: bareCopyPath)
 
             try FileManager.default.createDirectory(
                 atPath: workingCopyPath.pathString,
@@ -180,9 +194,8 @@ struct GitTemplateFetcher: TemplateFetcher {
             )
 
             let repository = try createWorkingCopy(fromBare: bareCopyPath, at: workingCopyPath)
-            try FileManager.default.removeItem(at: bareCopyPath.asURL)
 
-            try checkout(repository: repository)
+            try self.checkout(repository: repository)
 
             return workingCopyPath
         }
@@ -191,28 +204,34 @@ struct GitTemplateFetcher: TemplateFetcher {
     /// Clones a bare git repository.
     ///
     /// - Throws: An error is thrown if fetching fails.
-    private func cloneBareRepository(into path: Basics.AbsolutePath) throws {
+    private func cloneBareRepository(into path: Basics.AbsolutePath) async throws {
         let url = SourceControlURL(source)
         let repositorySpecifier = RepositorySpecifier(url: url)
         let provider = GitRepositoryProvider()
         do {
-            try provider.fetch(repository: repositorySpecifier, to: path)
+            try await provider.fetch(repository: repositorySpecifier, to: path)
         } catch {
-            if isSSHPermissionError(error) {
-                throw GitTemplateFetcherError.sshAuthenticationRequired(source: source)
+            if self.isPermissionError(error) {
+                throw GitTemplateFetcherError.authenticationRequired(source: self.source, error: error)
             }
-            throw GitTemplateFetcherError.cloneFailed(source: source, underlyingError: error)
+            swiftCommandState.observabilityScope.emit(error)
+            throw GitTemplateFetcherError.cloneFailed(source: self.source)
         }
     }
 
-    private func isSSHPermissionError(_ error: Error) -> Bool {
+    /// Function to determine if its a specifc SSHPermssionError
+    ///
+    ///  - Returns: A boolean determining if it is either a permission error, or not.
+    private func isPermissionError(_ error: Error) -> Bool {
         let errorString = String(describing: error).lowercased()
-        return errorString.contains("permission denied") &&
-        errorString.contains("publickey") &&
-        source.hasPrefix("git@")
+        return errorString.contains("permission denied")
     }
 
     /// Validates that the directory contains a valid Git repository.
+    ///
+    ///  - Parameters:
+    ///     - path: the path where the git repository is located
+    ///  - Throws: .invalidRepositoryDirectory(path: path) if the path does not contain a valid git directory.
     private func validateBareRepository(at path: Basics.AbsolutePath) throws {
         let provider = GitRepositoryProvider()
         guard try provider.isValidDirectory(path) else {
@@ -222,8 +241,11 @@ struct GitTemplateFetcher: TemplateFetcher {
 
     /// Creates a working copy from a bare directory.
     ///
-    /// - Throws: An error.
-    private func createWorkingCopy(fromBare barePath: Basics.AbsolutePath, at workingCopyPath: Basics.AbsolutePath) throws -> WorkingCheckout {
+    /// - Throws: .createWorkingCopyFailed(path: workingCopyPath, underlyingError: error) if the provider failed to create a working copy from a bare repository
+    private func createWorkingCopy(
+        fromBare barePath: Basics.AbsolutePath,
+        at workingCopyPath: Basics.AbsolutePath
+    ) throws -> WorkingCheckout {
         let url = SourceControlURL(source)
         let repositorySpecifier = RepositorySpecifier(url: url)
         let provider = GitRepositoryProvider()
@@ -239,14 +261,13 @@ struct GitTemplateFetcher: TemplateFetcher {
         }
     }
 
-
     /// Checks out the desired state (branch, tag, revision) in the working copy based on the requirement.
     ///
     /// - Throws: An error if no matching version is found in a version range, or if checkout fails.
     private func checkout(repository: WorkingCheckout) throws {
         switch self.requirement {
-        case .exact(let version):
-            try repository.checkout(tag: version.description)
+        case .exact(let versionString):
+            try repository.checkout(tag: versionString)
 
         case .branch(let name):
             try repository.checkout(branch: name)
@@ -254,43 +275,80 @@ struct GitTemplateFetcher: TemplateFetcher {
         case .revision(let revision):
             try repository.checkout(revision: .init(identifier: revision))
 
-        case .range(let range):
+        case .range(let lowerBound, let upperBound):
             let tags = try repository.getTags()
             let versions = tags.compactMap { Version($0) }
-            let filteredVersions = versions.filter { range.contains($0) }
+
+            guard let lowerVersion = Version(lowerBound),
+                  let upperVersion = Version(upperBound)
+            else {
+                throw GitTemplateFetcherError.invalidVersionRange(lowerBound: lowerBound, upperBound: upperBound)
+            }
+
+            let versionRange = lowerVersion ..< upperVersion
+            let filteredVersions = versions.filter { versionRange.contains($0) }
             guard let latestVersion = filteredVersions.max() else {
-                throw GitTemplateFetcherError.noMatchingTagInRange(range)
+                throw GitTemplateFetcherError.noMatchingTagInVersionRange(
+                    lowerBound: lowerBound,
+                    upperBound: upperBound
+                )
+            }
+            try repository.checkout(tag: latestVersion.description)
+
+        case .rangeFrom(let versionString):
+            let tags = try repository.getTags()
+            let versions = tags.compactMap { Version($0) }
+
+            guard let lowerVersion = Version(versionString) else {
+                throw GitTemplateFetcherError.invalidVersion(versionString)
+            }
+
+            let filteredVersions = versions.filter { $0 >= lowerVersion }
+            guard let latestVersion = filteredVersions.max() else {
+                throw GitTemplateFetcherError.noMatchingTagFromVersion(versionString)
             }
             try repository.checkout(tag: latestVersion.description)
         }
     }
 
-    enum GitTemplateFetcherError: Error, LocalizedError {
-            case cloneFailed(source: String, underlyingError: Error)
-            case invalidRepositoryDirectory(path: Basics.AbsolutePath)
-            case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
-            case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
-            case noMatchingTagInRange(Range<Version>)
-            case sshAuthenticationRequired(source: String)
+    enum GitTemplateFetcherError: Error, LocalizedError, Equatable {
+        case cloneFailed(source: String)
+        case invalidRepositoryDirectory(path: Basics.AbsolutePath)
+        case createWorkingCopyFailed(path: Basics.AbsolutePath, underlyingError: Error)
+        case checkoutFailed(requirement: PackageDependency.SourceControl.Requirement, underlyingError: Error)
+        case noMatchingTagInVersionRange(lowerBound: String, upperBound: String)
+        case noMatchingTagFromVersion(String)
+        case invalidVersionRange(lowerBound: String, upperBound: String)
+        case invalidVersion(String)
+        case authenticationRequired(source: String, error: Error)
 
-            var errorDescription: String? {
-                switch self {
-                case .cloneFailed(let source, let error):
-                    return "Failed to clone repository from '\(source)': \(error)"
-                case .invalidRepositoryDirectory(let path):
-                    return "Invalid Git repository at path: \(path.pathString)"
-                case .createWorkingCopyFailed(let path, let error):
-                    return "Failed to create working copy at '\(path)': \(error.localizedDescription)"
-                case .checkoutFailed(let requirement, let error):
-                    return "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
-                case .noMatchingTagInRange(let range):
-                    return "No Git tags found within version range \(range)"
-                case .sshAuthenticationRequired(let source):
-                    return "SSH authentication required for '\(source)'.\nEnsure SSH agent is running and key is loaded:\n\nhttps://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent"
-                }
+        var errorDescription: String? {
+            switch self {
+            case .cloneFailed(let source):
+                "Failed to clone repository from '\(source)'"
+            case .invalidRepositoryDirectory(let path):
+                "Invalid Git repository at path: \(path.pathString)"
+            case .createWorkingCopyFailed(let path, let error):
+                "Failed to create working copy at '\(path)': \(error.localizedDescription)"
+            case .checkoutFailed(let requirement, let error):
+                "Failed to checkout using requirement '\(requirement)': \(error.localizedDescription)"
+            case .noMatchingTagInVersionRange(let lowerBound, let upperBound):
+                "No Git tags found within version range \(lowerBound)..<\(upperBound)"
+            case .noMatchingTagFromVersion(let version):
+                "No Git tags found from version \(version) or later"
+            case .invalidVersionRange(let lowerBound, let upperBound):
+                "Invalid version range: \(lowerBound)..<\(upperBound)"
+            case .invalidVersion(let version):
+                "Invalid version string: \(version)"
+            case .authenticationRequired(let source, let error):
+                "Authentication required for '\(source)'. \(error)"
             }
         }
 
+        static func == (lhs: GitTemplateFetcherError, rhs: GitTemplateFetcherError) -> Bool {
+            lhs.errorDescription == rhs.errorDescription
+        }
+    }
 }
 
 /// Fetches a Swift package template from a package registry.
@@ -302,20 +360,20 @@ struct GitTemplateFetcher: TemplateFetcher {
 /// - Exact version
 /// - Upper bound of a version range (e.g., latest version within a range)
 struct RegistryTemplateFetcher: TemplateFetcher {
+
     /// The swiftCommandState of the current process.
-    /// Used to get configurations and authentication needed to get package from registry
     let swiftCommandState: SwiftCommandState
 
     /// The package identifier of the package in registry
     let packageIdentity: String
+
     /// The registry requirement used to determine which version to fetch.
     let requirement: PackageDependency.Registry.Requirement
 
-    /// Performs the registry fetch by downloading and extracting a source archive.
+    /// Performs the registry fetch by downloading and extracting a source archive for initial package type inference
     ///
     /// - Returns: Absolute path to the extracted template directory.
     /// - Throws: If registry configuration is invalid or the download fails.
-
     func fetch() async throws -> Basics.AbsolutePath {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tempDir in
             let config = try Self.getRegistriesConfig(self.swiftCommandState, global: true)
@@ -338,7 +396,7 @@ struct RegistryTemplateFetcher: TemplateFetcher {
             let dest = tempDir.appending(component: self.packageIdentity)
             try await registryClient.downloadSourceArchive(
                 package: identity,
-                version: version,
+                version: self.version,
                 destinationPath: dest,
                 progressHandler: nil,
                 timeout: nil,
@@ -351,20 +409,37 @@ struct RegistryTemplateFetcher: TemplateFetcher {
     }
 
     /// Extract the version from the registry requirements
+    ///
+    ///  - Throws: .invalidVersionString if the requirement string does not correspond to a valid semver format version.
     private var version: Version {
-        switch requirement {
-        case .exact(let v): return v
-        case .range(let r): return r.upperBound
+        get throws {
+            switch self.requirement {
+            case .exact(let versionString):
+                guard let version = Version(versionString) else {
+                    throw RegistryConfigError.invalidVersionString(version: versionString)
+                }
+                return version
+            case .range(_, let upperBound):
+                guard let version = Version(upperBound) else {
+                    throw RegistryConfigError.invalidVersionString(version: upperBound)
+                }
+                return version
+            case .rangeFrom(let versionString):
+                guard let version = Version(versionString) else {
+                    throw RegistryConfigError.invalidVersionString(version: versionString)
+                }
+                return version
+            }
         }
     }
-
 
     /// Resolves the registry configuration from shared SwiftPM configuration.
     ///
     /// - Returns: Registry configuration to use for fetching packages.
     /// - Throws: If configurations  are missing or unreadable.
-    public static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace
-        .Configuration.Registries {
+    static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace
+        .Configuration.Registries
+    {
         let sharedFile = Workspace.DefaultLocations
             .registriesConfigurationFile(at: swiftCommandState.sharedConfigurationDirectory)
         do {
@@ -380,18 +455,23 @@ struct RegistryTemplateFetcher: TemplateFetcher {
 
     /// Errors that can occur while loading Swift package registry configuration.
     enum RegistryConfigError: Error, LocalizedError {
+
         /// Indicates the configuration file could not be loaded.
         case failedToLoadConfiguration(file: Basics.AbsolutePath, underlyingError: Error)
 
+        /// Indicates that the conversion from string to Version failed
+        case invalidVersionString(version: String)
+
         var errorDescription: String? {
             switch self {
+            case .invalidVersionString(let version):
+                "Invalid version string: \(version)"
             case .failedToLoadConfiguration(let file, let underlyingError):
-                return """
+                """
                 Failed to load registry configuration from '\(file.pathString)': \
                 \(underlyingError.localizedDescription)
                 """
             }
         }
     }
-
 }

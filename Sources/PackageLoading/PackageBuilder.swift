@@ -113,7 +113,7 @@ extension ModuleError: CustomStringConvertible {
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
             return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)’; target names need to be unique across the package graph"
         case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir, let expectedLocation):
-            var clauses = ["Source files for target \(target) should be located under '\(expectedLocation)/\(target)'"]
+            var clauses = ["Source files for target \(target) of type \(type) should be located under '\(expectedLocation)/\(target)'"]
             if shouldSuggestRelaxedSourceDir {
                 clauses.append("'\(expectedLocation)'")
             }
@@ -734,7 +734,7 @@ public final class PackageBuilder {
                 missingModuleName,
                 type,
                 shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type),
-                expectedLocation: "Sources" // FIXME: this should provide the expected location of the module here
+                expectedLocation: PackageBuilder.suggestedPredefinedSourceDirectory(type: type)
             )
         }
 
@@ -1099,8 +1099,8 @@ public final class PackageBuilder {
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
-                implicit: false,
-                template: manifestTarget.templateInitializationOptions != nil
+                template: manifestTarget.templateInitializationOptions != nil,
+                implicit: false
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1145,14 +1145,9 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-<<<<<<< HEAD
-                // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                template: manifestTarget.templateInitializationOptions != nil,
                 implicit: false
-=======
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags,
-                template: manifestTarget.templateInitializationOptions != nil
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
             )
         }
     }
@@ -2022,11 +2017,8 @@ extension PackageBuilder {
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false,
-<<<<<<< HEAD
+                    template: false, // Snippets are not templates
                     implicit: true
-=======
-                    template: false // Snippets are not templates
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
                 )
             }
     }

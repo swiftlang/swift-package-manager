@@ -22,13 +22,12 @@ import TSCUtility
 /// `TemplateBuildSupport` encapsulates the logic needed to initialize the
 /// SwiftPM build system and perform a build operation based on a specific
 /// command configuration and workspace context.
-
 enum TemplateBuildSupport {
-
     /// Builds a Swift package using the given command state, options, and working directory.
     ///
     /// - Parameters:
-    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and diagnostics.
+    ///   - swiftCommandState: The current Swift command state, containing context such as the workspace and
+    /// diagnostics.
     ///   - buildOptions: Options used to configure what and how to build, including the product and traits.
     ///   - globalOptions: Global configuration such as the package directory and logging verbosity.
     ///   - cwd: The current working directory to use if no package directory is explicitly provided.
@@ -58,8 +57,8 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: packageRoot) { _, _ in
             do {
-                try await buildSystem.build(subset: subset)
-            } catch let diagnostics as Diagnostics {
+                try await buildSystem.build(subset: subset, buildOutputs: [])
+            } catch {
                 throw ExitCode.failure
             }
         }
@@ -91,8 +90,8 @@ enum TemplateBuildSupport {
 
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: testingFolder) { _, _ in
             do {
-                try await buildSystem.build(subset: subset)
-            } catch let diagnostics as Diagnostics {
+                try await buildSystem.build(subset: subset, buildOutputs: [])
+            } catch {
                 throw ExitCode.failure
             }
         }
@@ -131,7 +130,6 @@ enum TemplateBuildSupport {
         return try await swiftCommandState.withTemporaryWorkspace(switchingTo: folder) { _, _ in
             try await swiftCommandState.createBuildSystem(
                 explicitProduct: buildOptions.product,
-                traitConfiguration: .init(traitOptions: buildOptions.traits),
                 shouldLinkStaticSwiftStdlib: buildOptions.shouldLinkStaticSwiftStdlib,
                 productsBuildParameters: productsParams,
                 toolsBuildParameters: toolsParams,

@@ -46,11 +46,8 @@ public final class PluginModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-<<<<<<< HEAD
+            template: false, // Plugins cannot themselves be a template
             implicit: false
-=======
-            template: false // Plugins cannot themselves be a template
->>>>>>> 7b7986368 (Remove template target and product types and use the template init options instead)
         )
     }
 }

@@ -1,8 +1,7 @@
 import Basics
-import Workspace
-import Foundation
 import CoreCommands
-
+import Foundation
+import Workspace
 
 import Basics
 import CoreCommands
@@ -20,7 +19,9 @@ public struct TemplateInitializationDirectoryManager {
         self.observabilityScope = observabilityScope
     }
 
-    public func createTemporaryDirectories() throws -> (stagingPath: Basics.AbsolutePath, cleanupPath: Basics.AbsolutePath, tempDir: Basics.AbsolutePath) {
+    public func createTemporaryDirectories() throws
+        -> (stagingPath: Basics.AbsolutePath, cleanupPath: Basics.AbsolutePath, tempDir: Basics.AbsolutePath)
+    {
         let tempDir = try helper.createTemporaryDirectory()
         let dirs = try helper.createSubdirectories(in: tempDir, names: ["generated-package", "clean-up"])
 
@@ -33,9 +34,9 @@ public struct TemplateInitializationDirectoryManager {
         cleanupPath: Basics.AbsolutePath,
         swiftCommandState: SwiftCommandState
     ) async throws {
-        try helper.copyDirectoryContents(from: stagingPath, to: cleanupPath)
-        try await cleanBuildArtifacts(at: cleanupPath, swiftCommandState: swiftCommandState)
-        try helper.copyDirectoryContents(from: cleanupPath, to: cwd)
+        try self.helper.copyDirectoryContents(from: stagingPath, to: cleanupPath)
+        try await self.cleanBuildArtifacts(at: cleanupPath, swiftCommandState: swiftCommandState)
+        try self.helper.copyDirectoryContents(from: cleanupPath, to: cwd)
     }
 
     func cleanBuildArtifacts(at path: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) async throws {
@@ -44,7 +45,11 @@ public struct TemplateInitializationDirectoryManager {
         }
     }
 
-    public func cleanupTemporary(templateSource: InitTemplatePackage.TemplateSource, path: Basics.AbsolutePath, temporaryDirectory: Basics.AbsolutePath?) throws {
+    public func cleanupTemporary(
+        templateSource: InitTemplatePackage.TemplateSource,
+        path: Basics.AbsolutePath,
+        temporaryDirectory: Basics.AbsolutePath?
+    ) throws {
         do {
             switch templateSource {
             case .git, .registry:
@@ -56,7 +61,7 @@ public struct TemplateInitializationDirectoryManager {
             }
 
             if let tempDir = temporaryDirectory {
-                try helper.removeDirectoryIfExists(tempDir)
+                try self.helper.removeDirectoryIfExists(tempDir)
             }
 
         } catch {

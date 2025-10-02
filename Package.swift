@@ -554,8 +554,7 @@ let package = Package(
                 "SPMBuildCore",
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                "PackageModelSyntax",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser"]),
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -613,9 +612,8 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
-                "SwiftFixIt",
-                "PackageRegistry",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils"]),
+                "SwiftFixIt"
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .unsafeFlags(["-static"]),
@@ -1107,7 +1105,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // The 'swift-argument-parser' version declared here must match that
         // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
         // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.5.1")),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.1"),
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
