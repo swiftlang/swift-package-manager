@@ -10,4 +10,3 @@ struct FooPlugin: CommandPlugin {
         arguments: [String]
     ) async throws {}
 }
-

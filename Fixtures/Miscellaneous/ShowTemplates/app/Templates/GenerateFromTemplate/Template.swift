@@ -14,40 +14,38 @@ extension String {
     }
 }
 
-//basic structure of a template that uses string interpolation
+// basic structure of a template that uses string interpolation
 @main
 struct HelloTemplateTool: ParsableCommand {
-
-    //swift argument parser needed to expose arguments to template generator
+    // swift argument parser needed to expose arguments to template generator
     @Option(help: "The name of your app")
     var name: String
 
     @Flag(help: "Include a README?")
     var includeReadme: Bool = false
 
-    //entrypoint of the template executable, that generates just a main.swift and a readme.md
+    // entrypoint of the template executable, that generates just a main.swift and a readme.md
     func run() throws {
-
         print("we got here")
         let fs = FileManager.default
 
         let rootDir = FilePath(fs.currentDirectoryPath)
 
-        let mainFile = rootDir / "Generated" / name / "main.swift"
+        let mainFile = rootDir / "Generated" / self.name / "main.swift"
 
         try fs.createDirectory(atPath: mainFile.removingLastComponent().string, withIntermediateDirectories: true)
 
         try """
-            // This is the entry point to your command-line app
-            print("Hello, \(name)!")
+        // This is the entry point to your command-line app
+        print("Hello, \(self.name)!")
 
-            """.write(toFile: mainFile)
+        """.write(toFile: mainFile)
 
-        if includeReadme {
+        if self.includeReadme {
             try """
-                # \(name)
-                This is a new Swift app!
-                """.write(toFile: rootDir / "README.md")
+            # \(self.name)
+            This is a new Swift app!
+            """.write(toFile: rootDir / "README.md")
         }
 
         print("Project generated at \(rootDir)")

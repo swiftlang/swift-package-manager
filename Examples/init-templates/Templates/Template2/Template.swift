@@ -1,23 +1,21 @@
-//TEMPLATE: TemplateCLI
+// TEMPLATE: TemplateCLI
 
 import ArgumentParser
 import Foundation
-import Stencil
 import PathKit
-import Foundation
-//basic structure of a template that uses string interpolation
+import Stencil
 
+// basic structure of a template that uses string interpolation
 
 import ArgumentParser
 
 @main
 struct TemplateDeclarative: ParsableCommand {
-    
     enum Template: String, ExpressibleByArgument, CaseIterable {
         case EnumExtension
         case StructColors
         case StaticColorSets
-        
+
         var path: String {
             switch self {
             case .EnumExtension:
@@ -28,7 +26,7 @@ struct TemplateDeclarative: ParsableCommand {
                 "StaticColorSets.stencil"
             }
         }
-        
+
         var name: String {
             switch self {
             case .EnumExtension:
@@ -40,80 +38,80 @@ struct TemplateDeclarative: ParsableCommand {
             }
         }
     }
-    //swift argument parser needed to expose arguments to template generator
-    @Option(name: [.customLong("template")], help: "Choose one template: \(Template.allCases.map(\.rawValue).joined(separator: ", "))")
-        var template: Template
-    
+
+    // swift argument parser needed to expose arguments to template generator
+    @Option(
+        name: [.customLong("template")],
+        help: "Choose one template: \(Template.allCases.map(\.rawValue).joined(separator: ", "))"
+    )
+    var template: Template
+
     @Option(name: [.customLong("enumName"), .long], help: "Name of the generated enum")
     var enumName: String = "AppColors"
 
     @Flag(name: .shortAndLong, help: "Use public access modifier")
     var publicAccess: Bool = false
 
-    @Option(name: [.customLong("palette"), .long], parsing: .upToNextOption, help: "Palette name of the format PaletteName:name=#RRGGBBAA")
+    @Option(
+        name: [.customLong("palette"), .long],
+        parsing: .upToNextOption,
+        help: "Palette name of the format PaletteName:name=#RRGGBBAA"
+    )
     var palettes: [String]
 
-    
     var templatesDirectory = "./MustacheTemplates"
 
     func run() throws {
-        
         let parsedPalettes: [[String: Any]] = try palettes.map { paletteString in
-                let parts = paletteString.split(separator: ":", maxSplits: 1)
-                guard parts.count == 2 else {
-                    throw ValidationError("Each --palette must be in the format PaletteName:name=#RRGGBBAA,...")
+            let parts = paletteString.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else {
+                throw ValidationError("Each --palette must be in the format PaletteName:name=#RRGGBBAA,...")
+            }
+
+            let paletteName = String(parts[0])
+            let colorEntries = parts[1].split(separator: ",")
+
+            let colors = try colorEntries.map { entry in
+                let colorParts = entry.split(separator: "=")
+                guard colorParts.count == 2 else {
+                    throw ValidationError("Color entry must be in format name=#RRGGBBAA")
                 }
 
-                let paletteName = String(parts[0])
-                let colorEntries = parts[1].split(separator: ",")
-
-                let colors = try colorEntries.map { entry in
-                    let colorParts = entry.split(separator: "=")
-                    guard colorParts.count == 2 else {
-                        throw ValidationError("Color entry must be in format name=#RRGGBBAA")
-                    }
-
-                    let name = String(colorParts[0])
-                    let hex = colorParts[1].trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-                    guard hex.count == 8 else {
-                        throw ValidationError("Hex must be 8 characters (RRGGBBAA)")
-                    }
-
-                    return [
-                        "name": name,
-                        "red": String(hex.prefix(2)),
-                        "green": String(hex.dropFirst(2).prefix(2)),
-                        "blue": String(hex.dropFirst(4).prefix(2)),
-                        "alpha": String(hex.dropFirst(6))
-                    ]
+                let name = String(colorParts[0])
+                let hex = colorParts[1].trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+                guard hex.count == 8 else {
+                    throw ValidationError("Hex must be 8 characters (RRGGBBAA)")
                 }
 
                 return [
-                    "name": paletteName,
-                    "colors": colors
+                    "name": name,
+                    "red": String(hex.prefix(2)),
+                    "green": String(hex.dropFirst(2).prefix(2)),
+                    "blue": String(hex.dropFirst(4).prefix(2)),
+                    "alpha": String(hex.dropFirst(6)),
                 ]
             }
 
-            let context: [String: Any] = [
-            
-                    "enumName": enumName,
-                    "publicAccess": publicAccess,
-                
-                "palettes": parsedPalettes
+            return [
+                "name": paletteName,
+                "colors": colors,
             ]
+        }
 
-        
-        
+        let context: [String: Any] = [
+            "enumName": enumName,
+            "publicAccess": publicAccess,
+
+            "palettes": parsedPalettes,
+        ]
+
         if let url = Bundle.module.url(forResource: "\(template.name)", withExtension: "stencil") {
             print("Template URL: \(url)")
-            
-            
+
             let path = url.deletingLastPathComponent()
             let environment = Environment(loader: FileSystemLoader(paths: [Path(path.path)]))
 
-            
-            
-            let rendered = try environment.renderTemplate(name: "\(template.path)", context: context)
+            let rendered = try environment.renderTemplate(name: "\(self.template.path)", context: context)
 
             print(rendered)
             try rendered.write(toFile: "User.swift", atomically: true, encoding: .utf8)
@@ -121,12 +119,5 @@ struct TemplateDeclarative: ParsableCommand {
         } else {
             print("Template not found.")
         }
-
-    
-        
-
     }
-        
-
 }
-

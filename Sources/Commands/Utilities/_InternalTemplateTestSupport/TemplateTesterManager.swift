@@ -43,25 +43,25 @@ import Workspace
 public struct TemplateTesterPluginManager: TemplatePluginManager {
     /// The Swift command state containing build configuration and observability scope.
     private let swiftCommandState: SwiftCommandState
-    
+
     /// The name of the template to test. If nil, will be auto-detected from the package manifest.
     private let template: String?
-    
+
     /// The scratch directory path where temporary testing files are created.
     private let scratchDirectory: Basics.AbsolutePath
-    
+
     /// The command line arguments to pass to the template plugin during testing.
     private let args: [String]
-    
+
     /// The loaded package graph containing all resolved packages and dependencies.
     private let packageGraph: ModulesGraph
-    
+
     /// The branch names used to filter which command paths to generate during testing.
     private let branches: [String]
-    
+
     /// The coordinator responsible for managing template plugin operations.
     private let coordinator: TemplatePluginCoordinator
-    
+
     /// The build system provider kind to use for building template dependencies.
     private let buildSystem: BuildSystemProvider.Kind
 
@@ -72,7 +72,8 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     /// - Warning: This property will cause a fatal error if no root package is found.
     private var rootPackage: ResolvedPackage {
         guard let root = packageGraph.rootPackages.first else {
-            fatalError("No root package found in the package graph. Ensure the template package is properly configured.")
+            fatalError("No root package found in the package graph. Ensure the template package is properly configured."
+            )
         }
         return root
     }
@@ -90,7 +91,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
     ///   - branches: The branch names to filter command path generation.
     ///   - buildSystem: The build system provider to use for compilation.
     ///
-    /// - Throws: 
+    /// - Throws:
     ///   - `PackageGraphError` if the package graph cannot be loaded
     ///   - `FileSystemError` if the scratch directory is invalid
     ///   - `TemplatePluginError` if the plugin coordinator setup fails
@@ -206,7 +207,7 @@ public struct TemplateTesterPluginManager: TemplatePluginManager {
 public struct CommandPath {
     /// The unique identifier for this command path, typically formed by joining command names with hyphens.
     public let fullPathKey: String
-    
+
     /// The ordered sequence of command components that make up this execution path.
     public let commandChain: [CommandComponent]
 }
@@ -232,7 +233,7 @@ public struct CommandPath {
 public struct CommandComponent {
     /// The name of this command component.
     let commandName: String
-    
+
     /// The arguments associated with this command component.
     let arguments: [TemplateTestPromptingSystem.ArgumentResponse]
 }
@@ -1370,7 +1371,7 @@ public class TemplateTestPromptingSystem {
         ///
         /// Generates the appropriate command-line representation based on the argument type:
         ///
-        /// - **Flags**: 
+        /// - **Flags**:
         ///   - Returns `["--flag-name"]` if the value is "true"
         ///   - Returns `[]` if the value is "false" or explicitly unset
         ///
@@ -1505,38 +1506,38 @@ private enum TemplateError: Swift.Error {
 
     /// The template has no argument definitions to process.
     case noArguments
-    
+
     /// An argument name is invalid or malformed.
     /// - Parameter name: The invalid argument name
     case invalidArgument(name: String)
-    
+
     /// An unexpected argument was encountered during parsing.
     /// - Parameter name: The unexpected argument name
     case unexpectedArgument(name: String)
-    
+
     /// An unexpected named argument (starting with --) was encountered.
     /// - Parameter name: The unexpected named argument
     case unexpectedNamedArgument(name: String)
-    
+
     /// A required value for an option argument is missing.
     /// - Parameter name: The option name missing its value
     case missingValueForOption(name: String)
-    
+
     /// One or more values don't match the argument's allowed value constraints.
     /// - Parameters:
     ///   - argument: The argument name with invalid values
     ///   - invalidValues: The invalid values that were provided
     ///   - allowed: The list of allowed values for this argument
     case invalidValue(argument: String, invalidValues: [String], allowed: [String])
-    
+
     /// An unexpected subcommand was provided in the arguments.
     /// - Parameter name: The unexpected subcommand name
     case unexpectedSubcommand(name: String)
-    
+
     /// A required argument is missing and no interactive terminal is available for prompting.
     /// - Parameter name: The name of the missing required argument
     case missingRequiredArgumentWithoutTTY(name: String)
-    
+
     /// Subcommand selection requires an interactive terminal but none is available.
     case noTTYForSubcommandSelection
 }
@@ -1559,7 +1560,8 @@ extension TemplateError: CustomStringConvertible {
     /// ```
     /// "Invalid value for --type. Valid values are: executable, library. Also, xyz is not valid."
     /// "Required argument 'name' not provided and no interactive terminal available"
-    /// "Invalid subcommand 'build' provided in arguments, arguments only accepts flags, options, or positional arguments. Subcommands are treated via the --branch option"
+    /// "Invalid subcommand 'build' provided in arguments, arguments only accepts flags, options, or positional
+    /// arguments. Subcommands are treated via the --branch option"
     /// ```
     var description: String {
         switch self {

@@ -420,7 +420,6 @@ public struct DefaultTemplateSourceResolver: TemplateSourceResolver {
     }
 }
 
-
 struct PackageInitConfiguration {
     let packageName: String
     let cwd: Basics.AbsolutePath
@@ -475,7 +474,7 @@ struct PackageInitConfiguration {
             packageID: packageID
         )
 
-        if templateSource != nil {
+        if self.templateSource != nil {
             self.versionResolver = DependencyRequirementResolver(
                 packageIdentity: packageID,
                 swiftCommandState: swiftCommandState,
@@ -492,17 +491,17 @@ struct PackageInitConfiguration {
     }
 
     func makeInitializer() throws -> PackageInitializer {
-        if let templateSource = templateSource,
-           let versionResolver = versionResolver,
-           let buildOptions = buildOptions,
-           let globalOptions = globalOptions,
-           let validatePackage = validatePackage {
-
-            return TemplatePackageInitializer(
-                packageName: packageName,
-                cwd: cwd,
+        if let templateSource,
+           let versionResolver,
+           let buildOptions,
+           let globalOptions,
+           let validatePackage
+        {
+            TemplatePackageInitializer(
+                packageName: self.packageName,
+                cwd: self.cwd,
                 templateSource: templateSource,
-                templateName: initMode,
+                templateName: self.initMode,
                 templateDirectory: self.directory,
                 templateURL: self.url,
                 templatePackageID: self.packageID,
@@ -510,21 +509,20 @@ struct PackageInitConfiguration {
                 buildOptions: buildOptions,
                 globalOptions: globalOptions,
                 validatePackage: validatePackage,
-                args: args,
-                swiftCommandState: swiftCommandState
+                args: self.args,
+                swiftCommandState: self.swiftCommandState
             )
         } else {
-            return StandardPackageInitializer(
-                packageName: packageName,
-                initMode: initMode,
-                testLibraryOptions: testLibraryOptions,
-                cwd: cwd,
-                swiftCommandState: swiftCommandState
+            StandardPackageInitializer(
+                packageName: self.packageName,
+                initMode: self.initMode,
+                testLibraryOptions: self.testLibraryOptions,
+                cwd: self.cwd,
+                swiftCommandState: self.swiftCommandState
             )
         }
     }
 }
-
 
 public struct VersionFlags {
     let exact: Version?
@@ -534,7 +532,6 @@ public struct VersionFlags {
     let upToNextMinorFrom: Version?
     let to: Version?
 }
-
 
 protocol TemplateSourceResolver {
     func resolveSource(

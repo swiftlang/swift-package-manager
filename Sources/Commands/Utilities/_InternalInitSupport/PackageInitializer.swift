@@ -78,11 +78,10 @@ struct TemplatePackageInitializer: PackageInitializer {
             self.swiftCommandState.observabilityScope
                 .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
-            let resolvedTemplateName: String
-            if self.templateName == nil {
-                resolvedTemplateName = try await self.findTemplateName(from: resolvedTemplatePath)
+            let resolvedTemplateName: String = if self.templateName == nil {
+                try await self.findTemplateName(from: resolvedTemplatePath)
             } else {
-                resolvedTemplateName = self.templateName!
+                self.templateName!
             }
 
             let packageType = try await TemplatePackageInitializer.inferPackageType(
@@ -216,10 +215,10 @@ struct TemplatePackageInitializer: PackageInitializer {
 
     /// Finds the template name from a template path.
     func findTemplateName(from templatePath: Basics.AbsolutePath) async throws -> String {
-        try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
+        try await self.swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
                 packages: root.packages,
-                observabilityScope: swiftCommandState.observabilityScope
+                observabilityScope: self.swiftCommandState.observabilityScope
             )
 
             guard let manifest = rootManifests.values.first else {

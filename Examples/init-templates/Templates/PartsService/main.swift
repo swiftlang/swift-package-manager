@@ -1,8 +1,8 @@
 import ArgumentParser
-import SystemPackage
 import Foundation
+import SystemPackage
 
-struct fs {
+enum fs {
     static var shared: FileManager { FileManager.default }
 }
 
@@ -32,7 +32,10 @@ extension String {
     }
 
     func indenting(_ level: Int) -> String {
-        self.split(separator: "\n", omittingEmptySubsequences: false).joined(separator: "\n" + String(repeating: "    ", count: level))
+        self.split(separator: "\n", omittingEmptySubsequences: false).joined(separator: "\n" + String(
+            repeating: "    ",
+            count: level
+        ))
     }
 }
 
@@ -122,9 +125,9 @@ enum Database: String, ExpressibleByArgument, CaseIterable {
 func packageSwift(db: Database, name: String) -> String {
     """
     // swift-tools-version: 6.1
-    
+
     import PackageDescription
-    
+
     let package = Package(
         name: "part-service",
         platforms: [
@@ -161,29 +164,29 @@ func packageSwift(db: Database, name: String) -> String {
 func genReadme(db: Database) -> String {
     """
     # Parts Management
-    
+
     Manage your parts using the power of Swift, Hummingbird, and Fluent!
-    
+
     \(db.taskListItem)
     [x] - Add a Hummingbird app server, router, and endpoint for parts (`Sources/App/main.swift`)
     [x] - Create a model for part (`Sources/Models/Part.swift`)
-    
+
     ## Getting Started
-    
+
     Create the part database if you haven't already done so.
-    
+
     ```
     ./Scripts/create-db.sh
     ```
-    
+
     Start the application.
-    
+
     ```
     swift run
     ```
-    
+
     Curl the parts endpoint to see the list of parts:
-    
+
     ```
     curl http://127.0.0.1:8080/parts
     ```
@@ -194,88 +197,90 @@ func appServer(db: Database, migration: Bool) -> String {
     """
     import ArgumentParser
     import Hummingbird
-    \( db == .sqlite3 ?
+    \(db == .sqlite3 ?
         "import FluentSQLiteDriver" :
         "import FluentPostgresDriver"
     )
     import HummingbirdFluent
     import Models
 
-    \( migration ?
-    """
-    // An example migration.
-    struct CreatePartMigration: Migration {
-        func prepare(on database: Database) -> EventLoopFuture<Void> {
-            fatalError("Implement part migration prepare")
-        }
+    \(migration ?
+        """
+        // An example migration.
+        struct CreatePartMigration: Migration {
+            func prepare(on database: Database) -> EventLoopFuture<Void> {
+                fatalError("Implement part migration prepare")
+            }
 
-        func revert(on database: Database) -> EventLoopFuture<Void> {
-            fatalError("Implement part migration revert")
+            func revert(on database: Database) -> EventLoopFuture<Void> {
+                fatalError("Implement part migration revert")
+            }
         }
-    }
-    """: "" )
-     
+        """ : ""
+    )
+
     @main
     struct PartServiceGenerator: AsyncParsableCommand {
-        \( migration ? "@Flag var migrate: Bool = false" : "" )
+        \(migration ? "@Flag var migrate: Bool = false" : "")
         mutating func run() async throws {
             var logger = Logger(label: "PartService")
             logger.logLevel = .debug
             let fluent = Fluent(logger: logger)
-             
+
             \(db.appServerUse)
 
-            \( migration ?
-            """
-            await fluent.migrations.add(CreatePartMigration())
+            \(migration ?
+        """
+        await fluent.migrations.add(CreatePartMigration())
 
-            // migrate
-            if self.migrate {
-                try await fluent.migrate()
-            }
-            """.indenting(2) : "" )
-            
+        // migrate
+        if self.migrate {
+            try await fluent.migrate()
+        }
+        """.indenting(2) : ""
+    )
+
             // create router and add a single GET /parts route
             let router = Router()
             router.get("parts") { request, _ -> [Part] in
                 return try await Part.query(on: fluent.db()).all()
             }
-            
+
             // create application using router
             let app = Application(
                 router: router,
                 configuration: .init(address: .hostname("127.0.0.1", port: 8080))
             )
-            
+
             // run hummingbird application
             try await app.runService()
         }
     }
-    """
+            """
 }
 
 func partModel(db: Database) -> String {
     """
-    \( db == .sqlite3 ?
+    \(db == .sqlite3 ?
         "import FluentSQLiteDriver" :
         "import FluentPostgresDriver"
     )
-    
+
     public final class Part: Model, @unchecked Sendable {
         // Name of the table or collection.
         public static let schema = "part"
-    
+
         // Unique identifier for this Part.
         @ID(key: .id)
         public var id: UUID?
-    
+
         // The Part's description.
         @Field(key: "description")
         public var description: String
-    
+
         // Creates a new, empty Part.
         public init() { }
-    
+
         // Creates a new Part with all properties set.
         public init(id: UUID? = nil, description: String) {
             self.id = id
@@ -288,14 +293,14 @@ func partModel(db: Database) -> String {
 func createDbScript(db: Database) -> String {
     """
     #!/bin/bash
-    
+
     \(db.commandLineCreate)
     """
 }
 
 @main
 struct PartServiceGenerator: ParsableCommand {
-    public static let configuration = CommandConfiguration(
+    static let configuration = CommandConfiguration(
         abstract: "This template gets you started with a service to track your parts with app server and database."
     )
 
@@ -310,7 +315,7 @@ struct PartServiceGenerator: ParsableCommand {
 
     @Flag(help: "Add a starting database  migration routine.")
     var migration: Bool = false
-    
+
     @Option(help: .init(visibility: .hidden))
     var name: String = "App"
 
@@ -328,13 +333,14 @@ struct PartServiceGenerator: ParsableCommand {
         // Start from scratch with the Package.swift
         try? fs.shared.rm(atPath: pkgDir / "Package.swift")
 
-        try packageSwift(db: self.database, name: name).write(toFile: pkgDir / "Package.swift")
+        try packageSwift(db: self.database, name: self.name).write(toFile: pkgDir / "Package.swift")
         if self.readme {
             try genReadme(db: self.database).write(toFile: pkgDir / "README.md")
         }
-        
-        try? fs.shared.rm(atPath: pkgDir / "Sources/\(name)")
-        try appServer(db: self.database, migration: self.migration).write(toFile: pkgDir / "Sources/\(name)/main.swift")
+
+        try? fs.shared.rm(atPath: pkgDir / "Sources/\(self.name)")
+        try appServer(db: self.database, migration: self.migration)
+            .write(toFile: pkgDir / "Sources/\(self.name)/main.swift")
         try partModel(db: self.database).write(toFile: pkgDir / "Sources/Models/Part.swift")
 
         let script = pkgDir / "Scripts/create-db.sh"

@@ -1,11 +1,10 @@
 // swift-tools-version:6.3.0
 import PackageDescription
 
-
 let package = Package(
     name: "SimpleTemplateExample",
     products:
-            .template(name: "ExecutableTemplate"),
+    .template(name: "ExecutableTemplate"),
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-system.git", from: "1.4.2"),
@@ -16,7 +15,7 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system"),
         ],
-        
+
         initialPackageType: .executable,
         description: "This is a simple template that uses Swift string interpolation."
     )

@@ -1,18 +1,22 @@
 import ArgumentParser
-import SystemPackage
 import Foundation
+import SystemPackage
 
-struct fs {
+enum fs {
     static var shared: FileManager { FileManager.default }
 }
+
 extension FileManager {
     func rm(atPath path: FilePath) throws {
         try self.removeItem(atPath: path.string)
     }
-    
+
     func csl(atPath linkPath: FilePath, pointTo relativeTarget: FilePath) throws {
         let linkURL = URL(fileURLWithPath: linkPath.string)
-        let destinationURL = URL(fileURLWithPath: relativeTarget.string, relativeTo: linkURL.deletingLastPathComponent())
+        let destinationURL = URL(
+            fileURLWithPath: relativeTarget.string,
+            relativeTo: linkURL.deletingLastPathComponent()
+        )
         try self.createSymbolicLink(at: linkURL, withDestinationURL: destinationURL)
     }
 }
@@ -39,8 +43,9 @@ extension URL {
 
         var index = 0
         while index < targetComponents.count &&
-              index < baseComponents.count &&
-              targetComponents[index] == baseComponents[index] {
+            index < baseComponents.count &&
+            targetComponents[index] == baseComponents[index]
+        {
             index += 1
         }
 
@@ -50,7 +55,6 @@ extension URL {
         return (up + down).joined(separator: "/")
     }
 }
-
 
 extension String {
     func write(toFile: FilePath) throws {
@@ -66,7 +70,10 @@ extension String {
     }
 
     func indenting(_ level: Int) -> String {
-        self.split(separator: "\n", omittingEmptySubsequences: false).joined(separator: "\n" + String(repeating: "    ", count: level))
+        self.split(separator: "\n", omittingEmptySubsequences: false).joined(separator: "\n" + String(
+            repeating: "    ",
+            count: level
+        ))
     }
 }
 
@@ -86,17 +93,17 @@ extension Data {
 
 enum ServerType: String, ExpressibleByArgument, CaseIterable {
     case crud, bare
-    
+
     var description: String {
         switch self {
         case .crud:
-            return "CRUD"
+            "CRUD"
         case .bare:
-            return "Bare"
+            "Bare"
         }
     }
 
-    //Package.swift manifest file writing
+    // Package.swift manifest file writing
     var packageDep: String {
         switch self {
         case .crud:
@@ -107,7 +114,7 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.0.0"),
             .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.0.0"),
             .package(url: "https://github.com/swift-server/swift-openapi-vapor", from: "1.0.0"),
-            
+
             // Telemetry
             .package(url: "https://github.com/apple/swift-log", .upToNextMajor(from: "1.5.2")),
             .package(url: "https://github.pie.apple.com/swift-server/swift-logback", from: "2.3.1"),
@@ -115,14 +122,14 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             .package(url: "https://github.com/swift-server/swift-prometheus", from: "2.1.0"),
             .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.2.0"),
             .package(url: "https://github.com/swift-otel/swift-otel", .upToNextMinor(from: "0.11.0")),
-            
+
             // Database
             .package(url: "https://github.com/vapor/fluent.git", from: "4.0.0"),
             .package(url: "https://github.com/vapor/fluent-postgres-driver.git", from: "2.0.0"),
-            
+
             // HTTP client
             .package(url: "https://github.com/swift-server/async-http-client", from: "1.25.0"),
-            
+
             """
         case .bare:
             """
@@ -131,17 +138,16 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             """
         }
     }
-    
+
     var targetName: String {
         switch self {
         case .bare:
             "BareHTTPServer"
         case .crud:
             "CRUDHTTPServer"
-
         }
     }
-    
+
     var platform: String {
         switch self {
         case .bare:
@@ -184,7 +190,7 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             """
         }
     }
-    
+
     var plugin: String {
         switch self {
         case .bare:
@@ -195,13 +201,11 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
                 .plugin(name: "OpenAPIGenerator", package: "swift-openapi-generator")
             ]
             """
-            
         }
     }
-    
-    
-    //Readme items
-    
+
+    // Readme items
+
     var features: String {
         switch self {
         case .bare:
@@ -218,11 +222,10 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             - PostgreSQL database
             - HTTP client for making upstream calls
             """
-
         }
     }
-    
-    var callingLocally : String {
+
+    var callingLocally: String {
         switch self {
         case .bare:
             """
@@ -231,13 +234,13 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
         case .crud:
             """
             ### Health check
-            
+
             ```sh
             curl -f http://localhost:8080/health
             ```
-            
+
             ### Create a TODO
-            
+
             ```sh
             curl -X POST http://localhost:8080/api/todos --json '{"contents":"Smile more :)"}'
             {
@@ -245,9 +248,9 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
               "id" : "066E0A57-B67B-4C41-9DFF-99C738664EBD"
             }
             ```
-            
+
             ### List TODOs
-            
+
             ```sh
             curl -X GET http://localhost:8080/api/todos
             {
@@ -259,9 +262,9 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
               ]
             }
             ```
-            
+
             ### Get a single TODO
-            
+
             ```sh
             curl -X GET http://localhost:8080/api/todos/066E0A57-B67B-4C41-9DFF-99C738664EBD
             {
@@ -269,72 +272,72 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
               "id" : "A8E02E7C-1451-4CF9-B5C5-A33E92417454"
             }
             ```
-            
+
             ### Delete a TODO
-            
+
             ```sh
             curl -X DELETE http://localhost:8080/api/todos/066E0A57-B67B-4C41-9DFF-99C738664EBD
             ```
-            
+
             ### Triggering a synthetic crash
-            
+
             For easier testing of crash log uploading behavior, this template server also includes an operation for intentionally
             crashing the server.
-            
+
             > Warning: Consider removing this endpoint or guarding it with admin auth before deploying to production.
-            
+
             ```sh
             curl -f -X POST http://localhost:8080/api/crash
             ```
-            
+
             The JSON crash log then appears in the `/logs` directory in the container.
-            
+
             ## Viewing the API docs
-            
+
             Run: `open http://localhost:8080/openapi.html`, from where you can make test HTTP requests to the local server.
-            
+
             ## Viewing telemetry
-            
+
             Run (and leave running) `docker-compose -f Deploy/Local/docker-compose.yaml up`, and make a few test requests in a separate Terminal window.
-            
+
             Afterwards, this is how you can view the emitted logs, metrics, and traces.
-            
+
             ### Logs
-            
+
             If running from `docker-compose`:
-            
+
             ```sh
             docker exec local-crud-1 tail -f /tmp/crud_server.log
             ```
-            
+
             If running in VS Code/Xcode, logs will be emitted in the IDE's console.
-            
+
             ### Metrics
-            
+
             Run:
-            
+
             ```sh
             open http://localhost:9090/graph?g0.expr=http_requests_total&g0.tab=1&g0.display_mode=lines&g0.show_exemplars=0&g0.range_input=1h
             ```
-            
+
             to see the `http_requests_total` metric counts.
-            
+
             ### Traces
-            
+
             Run:
-            
+
             ```sh
             open http://localhost:16686/search?limit=20&lookback=1h&service=CRUDHTTPServer
             ```
-            
+
             to see traces, which you can click on to reveal the individual spans with attributes.
-            
+
             ## Configuration
-            
+
             The service is configured using the following environment variables, all of which are optional with defaults.
-            
+
             Some of these values are overriden in `docker-compose.yaml` for running locally, but if you're deploying in a production environment, you'd want to customize them further for easier operations.
-            
+
             - `SERVER_ADDRESS` (default: `"0.0.0.0"`): The local address the server listens on.
             - `SERVER_PORT` (default: `8080`): The local post the server listens on.
             - `LOG_FORMAT` (default: `json`, possible values: `json`, `keyValue`): The output log format used for both file and console logging.
@@ -351,22 +354,19 @@ enum ServerType: String, ExpressibleByArgument, CaseIterable {
             """
         }
     }
-        
+
     var deployToKube: String {
         switch self {
         case .crud:
             ""
         case .bare:
-            
             """
             ## Deploying to Kube
-                
+
             Check out [`Deploy/Kube`](Deploy/Kube) for instructions on deploying to Apple Kube.
-                
+
             """
-            
         }
-        
     }
 }
 
@@ -374,9 +374,9 @@ func packageSwift(serverType: ServerType) -> String {
     """
     // swift-tools-version: 6.1
     // The swift-tools-version declares the minimum version of Swift required to build this package.
-    
+
     import PackageDescription
-    
+
     let package = Package(
         name: "\(serverType.targetName.indenting(1))",
         platforms: [
@@ -393,7 +393,7 @@ func packageSwift(serverType: ServerType) -> String {
                 ],
                 path: "Sources",
                 \(serverType.plugin.indenting(3))
-                
+
             ),
         ]
     )
@@ -404,13 +404,13 @@ func genRioTemplatePkl(serverType: ServerType) -> String {
     """
     /// For more information on how to configure this module, visit:
     \(serverType == .crud ?
-    """
-    /// https://pkl.apple.com/apple-package-docs/artifacts.apple.com/pkl/pkl/rio/1.3.3/Rio/index.html
-    /// https://pkl.apple.com/apple-package-docs/artifacts.apple.com/pkl/pkl/rio/current/Rio/index.html#_overview
-    """ :
-    """
-    /// <https://pkl.apple.com/apple-package-docs/rio/current/Rio/index.html#_overview>
-    """
+        """
+        /// https://pkl.apple.com/apple-package-docs/artifacts.apple.com/pkl/pkl/rio/1.3.3/Rio/index.html
+        /// https://pkl.apple.com/apple-package-docs/artifacts.apple.com/pkl/pkl/rio/current/Rio/index.html#_overview
+        """ :
+        """
+        /// <https://pkl.apple.com/apple-package-docs/rio/current/Rio/index.html#_overview>
+        """
     )
     @ModuleInfo { minPklVersion = "0.24.0" }
     amends "package://artifacts.apple.com/pkl/pkl/rio@1.3.1#/Rio.pkl"
@@ -489,7 +489,7 @@ func genRioTemplatePkl(serverType: ServerType) -> String {
       }
       \(serverType == .crud ?
         """
-              
+
             new {
                 group = "validate-openapi"
                 branchRules {
@@ -510,7 +510,8 @@ func genRioTemplatePkl(serverType: ServerType) -> String {
                 }
             }
         }
-        """ : "}")
+        """ : "}"
+    )
 
     notify {
       pullRequestComment {
@@ -521,11 +522,10 @@ func genRioTemplatePkl(serverType: ServerType) -> String {
         enabled = true
       }
     }
-    """
+      """
 }
 
 func genDockerFile(serverType: ServerType) -> String {
-    
     """
     ARG SWIFT_VERSION=6.1
     ARG UBI_VERSION=9
@@ -565,12 +565,13 @@ func genDockerFile(serverType: ServerType) -> String {
 
     """
 }
+
 func genReadMe(serverType: ServerType) -> String {
     """
     # \(serverType.targetName.uppercased())
-    
+
     A simple starter project for a server with the following features:
-    
+
     \(serverType.features)
 
     ## Configuration/secrets
@@ -601,12 +602,12 @@ func genReadMe(serverType: ServerType) -> String {
 
     This sample project comes with a `rio.template.pkl`, where you can just update the docker.apple.com repository you'd like to publish your service to, and rename the file to `rio.pkl` - and be ready to go to onboard to Rio.
 
-    
+
     \(serverType.deployToKube)
     """
 }
 
-func genDockerCompose(server:ServerType) -> String {
+func genDockerCompose(server: ServerType) -> String {
     switch server {
     case .bare:
         """
@@ -896,9 +897,7 @@ func writeHelloWorld() -> String {
     """
 }
 
-
 enum CrudServerFiles {
-    
     static func genTelemetryFile(logLevel: LogLevel, logPath: URL, logFormat: LogFormat, logBufferSize: Int) -> String {
         """
         import ServiceLifecycle
@@ -1044,7 +1043,7 @@ enum CrudServerFiles {
         extension Logger {
             @TaskLocal
             static var _current: Logger?
-            
+
             static var current: Logger {
                 get throws {
                     guard let _current else {
@@ -1066,6 +1065,7 @@ enum CrudServerFiles {
 
         """
     }
+
     static func getServerService() -> String {
         """
         import Vapor
@@ -1119,7 +1119,7 @@ enum CrudServerFiles {
         }
         """
     }
-    
+
     static func getOpenAPIConfig() -> String {
         """
         generate:
@@ -1129,87 +1129,86 @@ enum CrudServerFiles {
 
         """
     }
-    
+
     static func genAPIHandler() -> String {
         """
-        import OpenAPIRuntime
-        import HTTPTypes
-        import Fluent
-        import Foundation
-    
-        /// The implementation of the API described by the OpenAPI document.
-        ///
-        /// To make changes, add a new operation in the openapi.yaml file, then rebuild
-        /// and add the suggested corresponding method in this type.
-        struct APIHandler: APIProtocol {
-    
-            var db: Database
-            
-            func listTODOs(
-                _ input: Operations.ListTODOs.Input
-            ) async throws -> Operations.ListTODOs.Output {
-                let dbTodos = try await db.query(DB.TODO.self).all()
-                let apiTodos = try dbTodos.map { todo in
-                    Components.Schemas.TODODetail(
-                        id: try todo.requireID(),
-                        contents: todo.contents
-                    )
+            import OpenAPIRuntime
+            import HTTPTypes
+            import Fluent
+            import Foundation
+
+            /// The implementation of the API described by the OpenAPI document.
+            ///
+            /// To make changes, add a new operation in the openapi.yaml file, then rebuild
+            /// and add the suggested corresponding method in this type.
+            struct APIHandler: APIProtocol {
+
+                var db: Database
+
+                func listTODOs(
+                    _ input: Operations.ListTODOs.Input
+                ) async throws -> Operations.ListTODOs.Output {
+                    let dbTodos = try await db.query(DB.TODO.self).all()
+                    let apiTodos = try dbTodos.map { todo in
+                        Components.Schemas.TODODetail(
+                            id: try todo.requireID(),
+                            contents: todo.contents
+                        )
+                    }
+                    return .ok(.init(body: .json(.init(items: apiTodos))))
                 }
-                return .ok(.init(body: .json(.init(items: apiTodos))))
-            }
-    
-            func createTODO(
-                _ input: Operations.CreateTODO.Input
-            ) async throws -> Operations.CreateTODO.Output {
-                switch input.body {
-                case .json(let todo):
-                    let newId = UUID().uuidString
-                    let contents = todo.contents
-                    let dbTodo = DB.TODO()
-                    dbTodo.id = newId
-                    dbTodo.contents = contents
-                    try await dbTodo.save(on: db)
-                    return .created(.init(body: .json(.init(
-                        id: newId,
-                        contents: contents
+
+                func createTODO(
+                    _ input: Operations.CreateTODO.Input
+                ) async throws -> Operations.CreateTODO.Output {
+                    switch input.body {
+                    case .json(let todo):
+                        let newId = UUID().uuidString
+                        let contents = todo.contents
+                        let dbTodo = DB.TODO()
+                        dbTodo.id = newId
+                        dbTodo.contents = contents
+                        try await dbTodo.save(on: db)
+                        return .created(.init(body: .json(.init(
+                            id: newId,
+                            contents: contents
+                        ))))
+                    }
+                }
+
+                func getTODODetail(
+                    _ input: Operations.GetTODODetail.Input
+                ) async throws -> Operations.GetTODODetail.Output {
+                    let id = input.path.todoId
+                    guard let foundTodo = try await DB.TODO.find(id, on: db) else {
+                        return .notFound
+                    }
+                    return .ok(.init(body: .json(.init(
+                        id: id,
+                        contents: foundTodo.contents
                     ))))
                 }
-            }
-    
-            func getTODODetail(
-                _ input: Operations.GetTODODetail.Input
-            ) async throws -> Operations.GetTODODetail.Output {
-                let id = input.path.todoId
-                guard let foundTodo = try await DB.TODO.find(id, on: db) else {
-                    return .notFound
+
+                func deleteTODO(
+                    _ input: Operations.DeleteTODO.Input
+                ) async throws -> Operations.DeleteTODO.Output {
+                    try await db.query(DB.TODO.self).filter(\\.$id == input.path.todoId).delete()
+                    return .noContent(.init())
                 }
-                return .ok(.init(body: .json(.init(
-                    id: id,
-                    contents: foundTodo.contents
-                ))))
+
+                // Warning: Remove this endpoint in production, or guard it by admin auth.
+                // It's here for easy testing of crash log uploading.
+                func crash(_ input: Operations.Crash.Input) async throws -> Operations.Crash.Output {
+                    // Trigger a fatal error for crash testing
+                    fatalError("Crash endpoint triggered for testing purposes - this is intentional crash handling behavior")
+                }
             }
-    
-            func deleteTODO(
-                _ input: Operations.DeleteTODO.Input
-            ) async throws -> Operations.DeleteTODO.Output {
-                try await db.query(DB.TODO.self).filter(\\.$id == input.path.todoId).delete()
-                return .noContent(.init())
-            }
-    
-            // Warning: Remove this endpoint in production, or guard it by admin auth.
-            // It's here for easy testing of crash log uploading.
-            func crash(_ input: Operations.Crash.Input) async throws -> Operations.Crash.Output {
-                // Trigger a fatal error for crash testing
-                fatalError("Crash endpoint triggered for testing purposes - this is intentional crash handling behavior")
-            }
-        }
-    """
-        
+        """
     }
-    
+
     static func genEntryPointFile(
-    serverAddress: String,
-    serverPort: Int
+        serverAddress: String,
+        serverPort: Int
     ) -> String {
         """
         import Vapor
@@ -1266,38 +1265,35 @@ enum CrudServerFiles {
 
         """
     }
-    
 }
 
 enum DatabaseFile {
-    
     static func genDatabaseFileWithMTLS(
         mtlsPath: URL,
         mtlsKeyPath: URL,
         mtlsAdditionalTrustRoots: [URL],
         postgresURL: URL
     ) -> String {
-
         func escape(_ string: String) -> String {
-            return string
+            string
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
         }
-        
+
         let postgresURLString = escape(postgresURL.absoluteString)
         let certPathString = escape(mtlsPath.path)
         let keyPathString = escape(mtlsKeyPath.path)
         let trustRootsStrings = mtlsAdditionalTrustRoots
             .map { "\"\(escape($0.path))\"" }
             .joined(separator: ", ")
-        
+
         return """
         import FluentPostgresDriver
         import PostgresKit
         import Fluent
         import Vapor
         import Foundation
-        
+
         func configureDatabase(app: Application) async throws {
             let postgresURL = URL(string:"\(postgresURLString)")!
             var postgresConfiguration = try SQLPostgresConfiguration(url: postgresURL)
@@ -1392,15 +1388,13 @@ enum DatabaseFile {
         """
     }
 
-    
     static func genDatabaseFileWithoutMTLS(postgresURL: URL) -> String {
-        
         func escape(_ string: String) -> String {
-            return string
+            string
                 .replacingOccurrences(of: "\\", with: "\\\\")
                 .replacingOccurrences(of: "\"", with: "\\\"")
         }
-        
+
         let postgresURLString = escape(postgresURL.absoluteString)
 
         return """
@@ -1409,7 +1403,7 @@ enum DatabaseFile {
         import Fluent
         import Vapor
         import Foundation
-        
+
         func configureDatabase(app: Application) async throws {
             let postgresURL = "\(postgresURLString)"
             var postgresConfiguration = try SQLPostgresConfiguration(url: postgresURL)
@@ -1424,19 +1418,19 @@ enum DatabaseFile {
                 throw error
             }
         }
-        
+
         enum DB {
             final class TODO: Model, @unchecked Sendable {
                 static let schema = "todos"
-        
+
                 @ID(custom: "id", generatedBy: .user)
                 var id: String?
-        
+
                 @Field(key: "contents")
                 var contents: String
             }
         }
-        
+
         enum Migrations {
             struct CreateTODOs: AsyncMigration {
                 func prepare(on database: Database) async throws {
@@ -1445,7 +1439,7 @@ enum DatabaseFile {
                         .field("contents", .string, .required)
                         .create()
                 }
-        
+
                 func revert(on database: Database) async throws {
                     try await database
                         .schema(DB.TODO.schema)
@@ -1455,13 +1449,12 @@ enum DatabaseFile {
         }
         """
     }
-
 }
 
 enum BareServerFiles {
     static func genEntryPointFile(
-    serverAddress: String,
-    serverPort: Int
+        serverAddress: String,
+        serverPort: Int
     ) -> String {
         """
         import Vapor
@@ -1483,7 +1476,7 @@ enum BareServerFiles {
 
         """
     }
-    
+
     static func genServerFile() -> String {
         """
         import Vapor
@@ -1499,16 +1492,14 @@ enum BareServerFiles {
     }
 }
 
-
-
 @main
 struct ServerGenerator: ParsableCommand {
-    public static let configuration = CommandConfiguration(
+    static let configuration = CommandConfiguration(
         commandName: "server-generator",
         abstract: "This template gets you started with starting to experiment with servers in swift.",
         subcommands: [
             CRUD.self,
-            Bare.self
+            Bare.self,
         ],
     )
 
@@ -1526,6 +1517,7 @@ struct ServerGenerator: ParsableCommand {
 }
 
 // MARK: - CRUD Command
+
 public struct CRUD: ParsableCommand {
     public static let configuration = CommandConfiguration(
         commandName: "crud",
@@ -1541,7 +1533,6 @@ public struct CRUD: ParsableCommand {
     @Option(help: "Set the logging format.")
     var logFormat: LogFormat = .json
 
-    
     @Option(help: "Set the logging file path.")
     var logPath: String = "/tmp/crud_server.log"
 
@@ -1550,12 +1541,10 @@ public struct CRUD: ParsableCommand {
 
     @OptionGroup
     var serverOptions: SharedOptionsServers
-    
-    
+
     public init() {}
-    mutating public func run() throws {
-        
-        try serverGenerator.run()
+    public mutating func run() throws {
+        try self.serverGenerator.run()
 
         guard let pkgDir = self.serverGenerator.packageOptions.pkgDir else {
             throw ValidationError("No --pkg-dir was provided.")
@@ -1563,9 +1552,8 @@ public struct CRUD: ParsableCommand {
 
         let packageDir = FilePath(pkgDir)
 
-        
         guard let url = URL(string: logPath) else {
-            throw ValidationError("Invalid log path: \(logPath)")
+            throw ValidationError("Invalid log path: \(self.logPath)")
         }
 
         let logURLPath = CLIURL(url)
@@ -1576,28 +1564,39 @@ public struct CRUD: ParsableCommand {
         // Create base package
         try packageSwift(serverType: .crud).write(toFile: packageDir / "Package.swift")
 
-        if serverOptions.readMe.readMe {
+        if self.serverOptions.readMe.readMe {
             try genReadMe(serverType: .crud).write(toFile: packageDir / "README.md")
         }
         try genRioTemplatePkl(serverType: .crud).write(toFile: packageDir / "rio.template.pkl")
         try genDockerFile(serverType: .crud).write(toFile: packageDir / "Dockerfile.txt")
 
-        //Create files for local folder
-        
+        // Create files for local folder
+
         try genDockerCompose(server: .crud).write(toFile: packageDir / "Deploy/Local/docker-compose.yaml")
         try genOtelCollectorConfig().write(toFile: packageDir / "Deploy/Local/otel-collector-config.yaml")
         try genPrometheus().write(toFile: packageDir / "Deploy/Local/prometheus.yaml")
-        
-        //Create files for public folder
+
+        // Create files for public folder
         try genOpenAPIBackend().write(toFile: packageDir / "Public/openapi.yaml")
         try genOpenAPIFrontend().write(toFile: packageDir / "Public/openapi.html")
-        
-        //Create source files
-        try CrudServerFiles.genAPIHandler().write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/APIHandler.swift")
-        try CrudServerFiles.getOpenAPIConfig().write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/openapi-generator-config.yaml")
-        try CrudServerFiles.getServerService().write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/ServerService.swift")
-        try CrudServerFiles.genEntryPointFile(serverAddress: self.serverOptions.host, serverPort: self.serverOptions.port).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/EntryPoint.swift")
-        try CrudServerFiles.genTelemetryFile(logLevel: self.logLevel, logPath: logURLPath.url, logFormat: self.logFormat, logBufferSize: self.logBufferSize).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Telemetry.swift")
+
+        // Create source files
+        try CrudServerFiles.genAPIHandler()
+            .write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/APIHandler.swift")
+        try CrudServerFiles.getOpenAPIConfig()
+            .write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/openapi-generator-config.yaml")
+        try CrudServerFiles.getServerService()
+            .write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/ServerService.swift")
+        try CrudServerFiles.genEntryPointFile(
+            serverAddress: self.serverOptions.host,
+            serverPort: self.serverOptions.port
+        ).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/EntryPoint.swift")
+        try CrudServerFiles.genTelemetryFile(
+            logLevel: self.logLevel,
+            logPath: logURLPath.url,
+            logFormat: self.logFormat,
+            logBufferSize: self.logBufferSize
+        ).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Telemetry.swift")
 
         let targetPath = packageDir / "Public/openapi.yaml"
         let linkPath = packageDir / "Sources/\(ServerType.crud.targetName)/openapi.yaml"
@@ -1610,6 +1609,7 @@ public struct CRUD: ParsableCommand {
 }
 
 // MARK: - MTLS Subcommand
+
 struct MTLS: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "mtls",
@@ -1631,24 +1631,27 @@ struct MTLS: ParsableCommand {
     var postgresURL: String = "postgres://postgres@localhost:5432/postgres?sslmode=disable"
 
     mutating func run() throws {
-        
-        try crud.run()
+        try self.crud.run()
         guard let pkgDir = self.crud.serverGenerator.packageOptions.pkgDir else {
             throw ValidationError("No --pkg-dir was provided.")
         }
-        
+
         guard let url = URL(string: postgresURL) else {
-            throw ValidationError("Invalid URL: \(postgresURL)")
+            throw ValidationError("Invalid URL: \(self.postgresURL)")
         }
 
         let postgresURLComponents = CLIURL(url)
 
-
         let packageDir = FilePath(pkgDir)
-        
-        let urls = self.mtlsAdditionalTrustRoots.map { $0.url }
 
-        try DatabaseFile.genDatabaseFileWithMTLS(mtlsPath: self.mtlsPath.url, mtlsKeyPath: self.mtlsKeyPath.url, mtlsAdditionalTrustRoots: urls, postgresURL: postgresURLComponents.url).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Database.swift")
+        let urls = self.mtlsAdditionalTrustRoots.map(\.url)
+
+        try DatabaseFile.genDatabaseFileWithMTLS(
+            mtlsPath: self.mtlsPath.url,
+            mtlsKeyPath: self.mtlsKeyPath.url,
+            mtlsAdditionalTrustRoots: urls,
+            postgresURL: postgresURLComponents.url
+        ).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Database.swift")
     }
 }
 
@@ -1664,29 +1667,27 @@ struct NoMTLS: ParsableCommand {
     var postgresURL: String = "postgres://postgres@localhost:5432/postgres?sslmode=disable"
 
     mutating func run() throws {
-    
-        
-        try crud.run()
+        try self.crud.run()
 
         guard let pkgDir = self.crud.serverGenerator.packageOptions.pkgDir else {
             throw ValidationError("No --pkg-dir was provided.")
         }
 
         guard let url = URL(string: postgresURL) else {
-            throw ValidationError("Invalid URL: \(postgresURL)")
+            throw ValidationError("Invalid URL: \(self.postgresURL)")
         }
 
         let postgresURLComponents = CLIURL(url)
 
-        
         let packageDir = FilePath(pkgDir)
-        
-        try DatabaseFile.genDatabaseFileWithoutMTLS(postgresURL: postgresURLComponents.url).write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Database.swift")
+
+        try DatabaseFile.genDatabaseFileWithoutMTLS(postgresURL: postgresURLComponents.url)
+            .write(toFile: packageDir / "Sources/\(ServerType.crud.targetName)/Database.swift")
     }
 }
 
-
 // MARK: - Bare Command
+
 struct Bare: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "bare",
@@ -1699,35 +1700,35 @@ struct Bare: ParsableCommand {
     var serverOptions: SharedOptionsServers
 
     mutating func run() throws {
-        
         try self.serverGenerator.run()
-        
+
         guard let pkgDir = self.serverGenerator.packageOptions.pkgDir else {
             throw ValidationError("No --pkg-dir was provided.")
         }
-        
+
         let packageDir = FilePath(pkgDir)
 
         // Start from scratch with the Package.swift
         try? fs.shared.rm(atPath: packageDir / "Package.swift")
 
-        //Generate base package
+        // Generate base package
         try packageSwift(serverType: .bare).write(toFile: packageDir / "Package.swift")
-        if serverOptions.readMe.readMe {
+        if self.serverOptions.readMe.readMe {
             try genReadMe(serverType: .bare).write(toFile: packageDir / "README.md")
         }
         try genRioTemplatePkl(serverType: .bare).write(toFile: packageDir / "rio.template.pkl")
         try genDockerFile(serverType: .bare).write(toFile: packageDir / "Dockerfile.txt")
 
-        
-        //Generate files for Deployment
+        // Generate files for Deployment
         try genDockerCompose(server: .bare).write(toFile: packageDir / "Deploy/Local/docker-compose.yaml")
 
-        
         // Generate sources files for bare http server
-        try BareServerFiles.genEntryPointFile(serverAddress: self.serverOptions.host, serverPort: self.serverOptions.port).write(toFile: packageDir / "Sources/\(ServerType.bare.targetName)/Entrypoint.swift")
-        try BareServerFiles.genServerFile().write(toFile: packageDir / "Sources/\(ServerType.bare.targetName)/Server.swift")
-
+        try BareServerFiles.genEntryPointFile(
+            serverAddress: self.serverOptions.host,
+            serverPort: self.serverOptions.port
+        ).write(toFile: packageDir / "Sources/\(ServerType.bare.targetName)/Entrypoint.swift")
+        try BareServerFiles.genServerFile()
+            .write(toFile: packageDir / "Sources/\(ServerType.bare.targetName)/Server.swift")
     }
 }
 
@@ -1756,8 +1757,8 @@ struct CLIURL: ExpressibleByArgument, Decodable {
     }
 }
 
-
 // MARK: - Shared option commands that are used to show inheritances of arguments and flags
+
 struct PkgDir: ParsableArguments {
     @Option(help: .hidden)
     var pkgDir: String?
@@ -1771,10 +1772,10 @@ struct readMe: ParsableArguments {
 struct SharedOptionsServers: ParsableArguments {
     @OptionGroup
     var readMe: readMe
-    
+
     @Option(help: "Server Port")
     var port: Int = 8080
-    
+
     @Option(help: "Server Host")
     var host: String = "0.0.0.0"
 }

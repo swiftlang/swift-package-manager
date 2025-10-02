@@ -85,7 +85,8 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// Manages the logic of running a template and executing on the information provided by the JSON representation of
     /// a template's arguments.
     ///
-    /// - Throws: Any error thrown during the loading of the template plugin, the fetching of the JSON representation of the template's arguments, prompting, or execution of the template
+    /// - Throws: Any error thrown during the loading of the template plugin, the fetching of the JSON representation of
+    /// the template's arguments, prompting, or execution of the template
     func run() async throws {
         let plugin = try loadTemplatePlugin()
         let toolInfo = try await coordinator.dumpToolInfo(

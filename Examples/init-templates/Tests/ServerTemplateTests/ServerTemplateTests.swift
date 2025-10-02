@@ -1,14 +1,14 @@
-import Testing
 import Foundation
 @testable import ServerTemplate
+import Testing
 
 struct CrudServerFilesTests {
     @Test
-    func testGenTelemetryFileContainsLoggingConfig() {
+    func genTelemetryFileContainsLoggingConfig() {
         let logPath = URL(fileURLWithPath: "/tmp/test.log")
 
         let logURLPath = CLIURL(logPath)
-        
+
         let generated = CrudServerFiles.genTelemetryFile(
             logLevel: .info,
             logPath: logPath,
@@ -23,12 +23,9 @@ struct CrudServerFilesTests {
     }
 }
 
-
-
 struct EntryPointTests {
     @Test
-    func testGenEntryPointFileContainsServerAddressAndPort() {
-        
+    func genEntryPointFileContainsServerAddressAndPort() {
         let serverAddress = "127.0.0.1"
         let serverPort = 9090
         let code = CrudServerFiles.genEntryPointFile(serverAddress: serverAddress, serverPort: serverPort)
@@ -39,10 +36,9 @@ struct EntryPointTests {
     }
 }
 
-
 struct OpenAPIConfigTests {
     @Test
-    func testOpenAPIConfigContainsGenerateSection() {
+    func openAPIConfigContainsGenerateSection() {
         let config = CrudServerFiles.getOpenAPIConfig()
         #expect(config.contains("generate:"))
         #expect(config.contains("- types"))
@@ -50,10 +46,9 @@ struct OpenAPIConfigTests {
     }
 }
 
-
 struct APIHandlerTests {
     @Test
-    func testGenAPIHandlerIncludesOperations() {
+    func genAPIHandlerIncludesOperations() {
         let code = CrudServerFiles.genAPIHandler()
         #expect(code.contains("func listTODOs"))
         #expect(code.contains("func createTODO"))
@@ -62,6 +57,3 @@ struct APIHandlerTests {
         #expect(code.contains("func crash"))
     }
 }
-
-
-

@@ -1,46 +1,45 @@
-import Testing
 import Foundation
+import Testing
 
-//a possible look into how to test templates
+// a possible look into how to test templates
 @Suite
 final class TemplateCLITests {
-    
-    //Struct to collect output from a process
+    // Struct to collect output from a process
     struct processOutput {
         let terminationStatus: Int32
         let output: String
-        
+
         init(terminationStatus: Int32, output: String) {
             self.terminationStatus = terminationStatus
             self.output = output
         }
     }
-    
-    //function for running a process given arguments, executable, and a directory
-    func run(executableURL: URL, args: [String], directory: URL? = nil) throws -> processOutput{
+
+    // function for running a process given arguments, executable, and a directory
+    func run(executableURL: URL, args: [String], directory: URL? = nil) throws -> processOutput {
         let process = Process()
         process.executableURL = executableURL
         process.arguments = args
-        
+
         process.currentDirectoryURL = directory
-        
+
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardOutput = pipe
-        
+
         try process.run()
         process.waitUntilExit()
-        
+
         let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
-        
+
         let output = String(decoding: outputData, as: UTF8.self)
-        
+
         return processOutput(terminationStatus: process.terminationStatus, output: output)
     }
-    
+
     // test case for your template
     @Test
-    func testTemplate1_generatesExpectedFilesAndCompiles() throws {
+    func template1_generatesExpectedFilesAndCompiles() throws {
         // Setup temp directory for generating template
         let fileManager = FileManager.default
         let tempDir = fileManager.temporaryDirectory.appendingPathComponent("Template1Test-\(UUID())")
@@ -52,7 +51,7 @@ final class TemplateCLITests {
         try fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
         // Path to built TemplateCLI executable
-        let binary = productsDirectory.appendingPathComponent("simple-template1-tool")
+        let binary = self.productsDirectory.appendingPathComponent("simple-template1-tool")
 
         let output = try run(executableURL: binary, args: ["--name", appName, "--include-readme"], directory: tempDir)
         #expect(output.terminationStatus == 0, "TemplateCLI should exit cleanly")
@@ -66,15 +65,16 @@ final class TemplateCLITests {
 
         let outputBinary = tempDir.appendingPathComponent("main_executable")
 
-        let compileOutput = try run(executableURL: URL(fileURLWithPath: "/usr/bin/env"), args: ["swiftc", mainSwift.path, "-o", outputBinary.path])
+        let compileOutput = try run(
+            executableURL: URL(fileURLWithPath: "/usr/bin/env"),
+            args: ["swiftc", mainSwift.path, "-o", outputBinary.path]
+        )
 
         #expect(compileOutput.terminationStatus == 0, "swift file compiles")
     }
-
 
     // Find the built products directory when using SwiftPM test
     var productsDirectory: URL {
         URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".build/debug")
     }
 }
-

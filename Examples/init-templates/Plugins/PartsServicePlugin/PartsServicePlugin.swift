@@ -17,7 +17,7 @@ struct PartsServiceTemplatePlugin: CommandPlugin {
 
         process.executableURL = URL(filePath: tool.url.path())
         process.arguments = ["--pkg-dir", packageDirectory, "--name", packageName] + arguments.filter { $0 != "--" }
-        
+
         try process.run()
         process.waitUntilExit()
     }

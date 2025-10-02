@@ -22,7 +22,7 @@ struct ServerTemplatePlugin: CommandPlugin {
 
         try process.run()
         process.waitUntilExit()
-        
+
         let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
         let stderrOutput = String(data: stderrData, encoding: .utf8) ?? ""
 
@@ -30,17 +30,17 @@ struct ServerTemplatePlugin: CommandPlugin {
             throw PluginError.executionFailed(code: process.terminationStatus, stderrOutput: stderrOutput)
         }
     }
-    
+
     enum PluginError: Error, CustomStringConvertible {
         case executionFailed(code: Int32, stderrOutput: String)
 
         var description: String {
             switch self {
             case .executionFailed(let code, let stderrOutput):
-                return """
+                """
 
                 Plugin subprocess failed with exit code \(code).
-                
+
                 Output:
                 \(stderrOutput)
 
@@ -48,5 +48,4 @@ struct ServerTemplatePlugin: CommandPlugin {
             }
         }
     }
-
 }

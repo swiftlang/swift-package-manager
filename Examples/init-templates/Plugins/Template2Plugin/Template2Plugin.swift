@@ -1,5 +1,5 @@
 //
-//  Untitled.swift
+//  Template2Plugin.swift
 //  TemplateWorkflow
 //
 //  Created by John Bute on 2025-04-23.
@@ -21,15 +21,14 @@ struct DeclarativeTemplatePlugin: CommandPlugin {
     func performCommand(
         context: PluginContext,
         arguments: [String]
-    ) async throws{
+    ) async throws {
         let tool = try context.tool(named: "Template2")
         let process = Process()
-    
+
         process.executableURL = URL(filePath: tool.url.path())
-        process.arguments = arguments.filter({$0 != "--"})
-        
+        process.arguments = arguments.filter { $0 != "--" }
+
         try process.run()
         process.waitUntilExit()
     }
-    
 }

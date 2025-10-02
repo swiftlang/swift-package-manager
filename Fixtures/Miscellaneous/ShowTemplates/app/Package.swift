@@ -11,7 +11,7 @@ let package = Package(
     ] + .template(name: "GenerateFromTemplate"),
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
-        .package(url: "https://github.com/apple/swift-system.git", from: "1.4.2")
+        .package(url: "https://github.com/apple/swift-system.git", from: "1.4.2"),
     ],
     targets: [
         .executableTarget(
@@ -21,13 +21,12 @@ let package = Package(
         name: "GenerateFromTemplate",
         dependencies: [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
-            .product(name: "SystemPackage", package: "swift-system")
+            .product(name: "SystemPackage", package: "swift-system"),
         ],
         initialPackageType: .executable,
         templatePermissions: [
-            .allowNetworkConnections(scope: .local(ports: [1200]), reason: "")
+            .allowNetworkConnections(scope: .local(ports: [1200]), reason: ""),
         ],
         description: "A template that generates a starter executable package"
     )
 )
-

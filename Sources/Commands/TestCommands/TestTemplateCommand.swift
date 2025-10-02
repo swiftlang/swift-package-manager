@@ -43,7 +43,6 @@ extension DispatchTimeInterval {
     }
 }
 
-
 extension SwiftTestCommand {
     /// Test the various outputs of a template.
     struct Template: AsyncSwiftCommand {
@@ -96,7 +95,6 @@ extension SwiftTestCommand {
         @Option(help: "Set the output format.")
         var format: ShowTestTemplateOutput = .matrix
 
-
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw InternalError("Could not find the current working directory")
@@ -113,14 +111,13 @@ extension SwiftTestCommand {
                 )
 
                 let buildSystem = self.globalOptions.build.buildSystem != .native ?
-                self.globalOptions.build.buildSystem :
-                swiftCommandState.options.build.buildSystem
+                    self.globalOptions.build.buildSystem :
+                    swiftCommandState.options.build.buildSystem
 
-                let resolvedTemplateName: String
-                if self.templateName == nil {
-                    resolvedTemplateName = try await self.findTemplateName(from: cwd, swiftCommandState: swiftCommandState)
+                let resolvedTemplateName: String = if self.templateName == nil {
+                    try await self.findTemplateName(from: cwd, swiftCommandState: swiftCommandState)
                 } else {
-                    resolvedTemplateName = self.templateName!
+                    self.templateName!
                 }
 
                 let pluginManager = try await TemplateTesterPluginManager(
@@ -303,7 +300,10 @@ extension SwiftTestCommand {
             }
         }
 
-        func findTemplateName(from templatePath: Basics.AbsolutePath, swiftCommandState: SwiftCommandState) async throws -> String {
+        func findTemplateName(
+            from templatePath: Basics.AbsolutePath,
+            swiftCommandState: SwiftCommandState
+        ) async throws -> String {
             try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
                 let rootManifests = try await workspace.loadRootManifests(
                     packages: root.packages,
@@ -314,7 +314,7 @@ extension SwiftTestCommand {
                     throw TestTemplateCommandError.invalidManifestInTemplate
                 }
 
-                return try findTemplateName(from: manifest)
+                return try self.findTemplateName(from: manifest)
             }
         }
 
@@ -476,7 +476,7 @@ extension SwiftTestCommand {
         }
 
         private func redirectStdoutAndStderr(to path: String) throws -> (originalStdout: Int32, originalStderr: Int32) {
-#if os(Windows)
+            #if os(Windows)
             guard let file = _fsopen(path, "w", _SH_DENYWR) else {
                 throw TestTemplateCommandError.outputRedirectionFailed(path)
             }
@@ -486,7 +486,7 @@ extension SwiftTestCommand {
             _dup2(_fileno(file), _fileno(stderr))
             fclose(file)
             return (originalStdout, originalStderr)
-#else
+            #else
             guard let file = fopen(path, "w") else {
                 throw TestTemplateCommandError.outputRedirectionFailed(path)
             }
@@ -496,23 +496,23 @@ extension SwiftTestCommand {
             dup2(fileno(file), STDERR_FILENO)
             fclose(file)
             return (originalStdout, originalStderr)
-#endif
+            #endif
         }
 
         private func restoreStdoutAndStderr(originalStdout: Int32, originalStderr: Int32) {
             fflush(stdout)
             fflush(stderr)
-#if os(Windows)
+            #if os(Windows)
             _dup2(originalStdout, _fileno(stdout))
             _dup2(originalStderr, _fileno(stderr))
             _close(originalStdout)
             _close(originalStderr)
-#else
+            #else
             dup2(originalStdout, STDOUT_FILENO)
             dup2(originalStderr, STDERR_FILENO)
             close(originalStdout)
             close(originalStderr)
-#endif
+            #endif
         }
 
         enum ShowTestTemplateOutput: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument,

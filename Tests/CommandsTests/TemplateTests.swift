@@ -1839,7 +1839,7 @@ struct TemplateTests {
         @Test
         func handlesConditionalNilSuffixForOptions() throws {
             // Test that "nil" suffix only shows for optional arguments without defaults
-            
+
             // Test optional option without default, should show nil suffix
             let optionalWithoutDefault = ArgumentInfoV0(
                 kind: .option,
@@ -1858,7 +1858,7 @@ struct TemplateTests {
                 abstract: "Optional parameter",
                 discussion: nil
             )
-            
+
             // Test optional option with default, should NOT show nil suffix
             let optionalWithDefault = ArgumentInfoV0(
                 kind: .option,
@@ -1877,7 +1877,7 @@ struct TemplateTests {
                 abstract: "Output parameter",
                 discussion: nil
             )
-            
+
             // Test required option, should NOT show nil suffix
             let requiredOption = ArgumentInfoV0(
                 kind: .option,
@@ -1896,19 +1896,21 @@ struct TemplateTests {
                 abstract: "Name parameter",
                 discussion: nil
             )
-            
+
             // Optional without default should allow nil suffix
             #expect(optionalWithoutDefault.isOptional == true)
             #expect(optionalWithoutDefault.defaultValue == nil)
-            let shouldShowNilForOptionalWithoutDefault = optionalWithoutDefault.isOptional && optionalWithoutDefault.defaultValue == nil
+            let shouldShowNilForOptionalWithoutDefault = optionalWithoutDefault.isOptional && optionalWithoutDefault
+                .defaultValue == nil
             #expect(shouldShowNilForOptionalWithoutDefault == true)
-            
+
             // Optional with default should NOT allow nil suffix
             #expect(optionalWithDefault.isOptional == true)
             #expect(optionalWithDefault.defaultValue == "stdout")
-            let shouldShowNilForOptionalWithDefault = optionalWithDefault.isOptional && optionalWithDefault.defaultValue == nil
+            let shouldShowNilForOptionalWithDefault = optionalWithDefault.isOptional && optionalWithDefault
+                .defaultValue == nil
             #expect(shouldShowNilForOptionalWithDefault == false)
-            
+
             // Required should NOT allow nil suffix
             #expect(requiredOption.isOptional == false)
             let shouldShowNilForRequired = requiredOption.isOptional && requiredOption.defaultValue == nil

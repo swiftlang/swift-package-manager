@@ -2,62 +2,55 @@
 import PackageDescription
 
 let initialLibrary: [Target] = .template(
-        name: "initialTypeLibrary",
-        dependencies: [],
-        initialPackageType: .library,
-        description: ""
-    )
-
+    name: "initialTypeLibrary",
+    dependencies: [],
+    initialPackageType: .library,
+    description: ""
+)
 
 let initialExecutable: [Target] = .template(
-        name: "initialTypeExecutable",
-        dependencies: [],
-        initialPackageType: .executable,
-        description: ""
-    )
-
+    name: "initialTypeExecutable",
+    dependencies: [],
+    initialPackageType: .executable,
+    description: ""
+)
 
 let initialTool: [Target] = .template(
-        name: "initialTypeTool",
-        dependencies: [],
-        initialPackageType: .tool,
-        description: ""
-    )
-
+    name: "initialTypeTool",
+    dependencies: [],
+    initialPackageType: .tool,
+    description: ""
+)
 
 let initialBuildToolPlugin: [Target] = .template(
-        name: "initialTypeBuildToolPlugin",
-        dependencies: [],
-        initialPackageType: .buildToolPlugin,
-        description: ""
-    )
-
+    name: "initialTypeBuildToolPlugin",
+    dependencies: [],
+    initialPackageType: .buildToolPlugin,
+    description: ""
+)
 
 let initialCommandPlugin: [Target] = .template(
-        name: "initialTypeCommandPlugin",
-        dependencies: [],
-        initialPackageType: .commandPlugin,
-        description: ""
-    )
-
+    name: "initialTypeCommandPlugin",
+    dependencies: [],
+    initialPackageType: .commandPlugin,
+    description: ""
+)
 
 let initialMacro: [Target] = .template(
-        name: "initialTypeMacro",
-        dependencies: [],
-        initialPackageType: .`macro`,
-        description: ""
-    )
-
-
+    name: "initialTypeMacro",
+    dependencies: [],
+    initialPackageType: .macro,
+    description: ""
+)
 
 let initialEmpty: [Target] = .template(
-        name: "initialTypeEmpty",
-        dependencies: [],
-        initialPackageType: .empty,
-        description: ""
-    )
+    name: "initialTypeEmpty",
+    dependencies: [],
+    initialPackageType: .empty,
+    description: ""
+)
 
-var products: [Product] = .template(name: "initialTypeLibrary") 
+var products: [Product] = .template(name: "initialTypeLibrary")
 
 products += .template(name: "initialTypeExecutable")
 products += .template(name: "initialTypeTool")
@@ -69,5 +62,6 @@ products += .template(name: "initialTypeEmpty")
 let package = Package(
     name: "InferPackageType",
     products: products,
-    targets: initialLibrary + initialExecutable + initialTool + initialBuildToolPlugin + initialCommandPlugin + initialMacro + initialEmpty
+    targets: initialLibrary + initialExecutable + initialTool + initialBuildToolPlugin + initialCommandPlugin +
+        initialMacro + initialEmpty
 )

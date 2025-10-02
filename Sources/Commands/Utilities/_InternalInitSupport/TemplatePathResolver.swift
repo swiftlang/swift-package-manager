@@ -153,7 +153,8 @@ struct LocalTemplateFetcher: TemplateFetcher {
     }
 }
 
-/// Fetches a Swift package template from a Git repository based on a specified requirement for initial package type inference.
+/// Fetches a Swift package template from a Git repository based on a specified requirement for initial package type
+/// inference.
 ///
 /// Supports:
 /// - Checkout by tag (exact version)
@@ -214,7 +215,7 @@ struct GitTemplateFetcher: TemplateFetcher {
             if self.isPermissionError(error) {
                 throw GitTemplateFetcherError.authenticationRequired(source: self.source, error: error)
             }
-            swiftCommandState.observabilityScope.emit(error)
+            self.swiftCommandState.observabilityScope.emit(error)
             throw GitTemplateFetcherError.cloneFailed(source: self.source)
         }
     }
@@ -241,7 +242,8 @@ struct GitTemplateFetcher: TemplateFetcher {
 
     /// Creates a working copy from a bare directory.
     ///
-    /// - Throws: .createWorkingCopyFailed(path: workingCopyPath, underlyingError: error) if the provider failed to create a working copy from a bare repository
+    /// - Throws: .createWorkingCopyFailed(path: workingCopyPath, underlyingError: error) if the provider failed to
+    /// create a working copy from a bare repository
     private func createWorkingCopy(
         fromBare barePath: Basics.AbsolutePath,
         at workingCopyPath: Basics.AbsolutePath
@@ -360,7 +362,6 @@ struct GitTemplateFetcher: TemplateFetcher {
 /// - Exact version
 /// - Upper bound of a version range (e.g., latest version within a range)
 struct RegistryTemplateFetcher: TemplateFetcher {
-
     /// The swiftCommandState of the current process.
     let swiftCommandState: SwiftCommandState
 
@@ -455,7 +456,6 @@ struct RegistryTemplateFetcher: TemplateFetcher {
 
     /// Errors that can occur while loading Swift package registry configuration.
     enum RegistryConfigError: Error, LocalizedError {
-
         /// Indicates the configuration file could not be loaded.
         case failedToLoadConfiguration(file: Basics.AbsolutePath, underlyingError: Error)
 
