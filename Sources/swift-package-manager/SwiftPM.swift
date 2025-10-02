@@ -12,32 +12,48 @@
 
 import Basics
 import Commands
-import SwiftSDKTool
-import PackageCollectionsTool
-import PackageRegistryTool
+import Foundation
+
+import SwiftSDKCommand
+import PackageCollectionsCommand
+import PackageRegistryCommand
 
 let firstArg = CommandLine.arguments[0]
-let execName = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
+let baseNameWithoutExtension = (try? AbsolutePath(validating: firstArg).basenameWithoutExt) ??
     (try? RelativePath(validating: firstArg).basenameWithoutExt)
 
 @main
 struct SwiftPM {
     static func main() async {
+        // Workaround a bug in Swift 5.9, where multiple executables with an `async` main entrypoint can't be linked
+        // into the same test bundle. We're then linking single `swift-package-manager` binary instead and passing
+        // executable name via `SWIFTPM_EXEC_NAME`.
+        if baseNameWithoutExtension == "swift-package-manager" {
+            await main(execName: Environment.current["SWIFTPM_EXEC_NAME"])
+        } else {
+            await main(execName: baseNameWithoutExtension)
+        }
+    }
+
+    private static func main(execName: String?) async {
         switch execName {
         case "swift-package":
-            await SwiftPackageTool.main()
+            await SwiftPackageCommand.main()
         case "swift-build":
-            SwiftBuildTool.main()
+            await SwiftBuildCommand.main()
         case "swift-experimental-sdk":
-            await SwiftSDKTool.main()
+            fputs("warning: `swift experimental-sdk` command is deprecated and will be removed in a future version of SwiftPM. Use `swift sdk` instead.\n", stderr)
+            fallthrough
+        case "swift-sdk":
+            await SwiftSDKCommand.main()
         case "swift-test":
-            SwiftTestTool.main()
+            await SwiftTestCommand.main()
         case "swift-run":
-            SwiftRunTool.main()
+            await SwiftRunCommand.main()
         case "swift-package-collection":
-            await SwiftPackageCollectionsTool.main()
+            await PackageCollectionsCommand.main()
         case "swift-package-registry":
-            await SwiftPackageRegistryTool.main()
+            await PackageRegistryCommand.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }

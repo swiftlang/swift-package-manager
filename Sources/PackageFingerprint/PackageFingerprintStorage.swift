@@ -13,6 +13,7 @@
 import Basics
 import Dispatch
 import PackageModel
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -20,36 +21,28 @@ public protocol PackageFingerprintStorage {
     func get(
         package: PackageIdentity,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]
 
     func put(
         package: PackageIdentity,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 
     func get(
         package: PackageReference,
         version: Version,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<[Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]], Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]
 
     func put(
         package: PackageReference,
         version: Version,
         fingerprint: Fingerprint,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        observabilityScope: ObservabilityScope
+    ) throws
 }
 
 extension PackageFingerprintStorage {
@@ -58,18 +51,17 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Fingerprint, Error>) -> Void
-    ) {
-        self.get(
+        observabilityScope: ObservabilityScope
+    ) throws -> Fingerprint {
+        let fingerprints = try self.get(
             package: package,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            self.get(kind: kind, contentType: contentType, result, callback: callback)
+            observabilityScope: observabilityScope
+        )
+        guard let fingerprint = fingerprints[kind]?[contentType] else {
+            throw PackageFingerprintStorageError.notFound
         }
+        return fingerprint
     }
 
     public func get(
@@ -77,18 +69,17 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Fingerprint, Error>) -> Void
-    ) {
-        self.get(
+        observabilityScope: ObservabilityScope
+    ) throws -> Fingerprint{
+        let fingerprints = try self.get(
             package: package,
             version: version,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            self.get(kind: kind, contentType: contentType, result, callback: callback)
+            observabilityScope: observabilityScope
+        )
+        guard let fingerprint = fingerprints[kind]?[contentType] else {
+            throw PackageFingerprintStorageError.notFound
         }
+        return fingerprint
     }
 
     private func get(

@@ -128,7 +128,7 @@ def get_env(args):
     if args.lldb_path:
         env['LLDB_PATH'] = args.lldb_path
     if args.swiftpm_bin_dir:
-        env["SWIFTPM_BIN_DIR"] = args.swiftpm_bin_dir
+        env["SWIFTPM_CUSTOM_BIN_DIR"] = args.swiftpm_bin_dir
 
     return env
 

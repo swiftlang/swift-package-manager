@@ -15,8 +15,10 @@ add_library(XCBuildSupport STATIC
   XcodeBuildSystem.swift)
 target_link_libraries(XCBuildSupport PUBLIC
   Build
+  DriverSupport
   TSCBasic
   TSCUtility
+  SwiftCollections::OrderedCollections
   PackageGraph
 )
 

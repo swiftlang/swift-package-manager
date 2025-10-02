@@ -12,8 +12,9 @@
 
 import CoreCommands
 import Foundation
-import PackageModel
 import PackageGraph
+import PackageModel
+import TSCUtility
 
 /// The top menu card for a package's help contents, including snippets.
 struct TopCard: Card {
@@ -24,12 +25,12 @@ struct TopCard: Card {
     let snippetGroups: [SnippetGroup]
 
     /// The tool used for eventually building and running a chosen snippet.
-    let swiftTool: SwiftTool
+    let swiftCommandState: SwiftCommandState
 
-    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftTool: SwiftTool) {
+    init(package: ResolvedPackage, snippetGroups: [SnippetGroup], swiftCommandState: SwiftCommandState) {
         self.package = package
         self.snippetGroups = snippetGroups
-        self.swiftTool = swiftTool
+        self.swiftCommandState = swiftCommandState
     }
 
     var inputPrompt: String? {
@@ -40,6 +41,7 @@ struct TopCard: Card {
     }
 
     func renderProducts() -> String {
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
         let libraries = package.products
             .filter {
                 guard case .library = $0.type else {
@@ -59,10 +61,14 @@ struct TopCard: Card {
             return ""
         }
 
-        var rendered = brightCyan {
+        var rendered = isColorized ? brightCyan {
             "\n## Products"
             "\n\n"
-        }.terminalString()
+        }.terminalString() :
+            plain {
+                "\n## Products"
+                "\n\n"
+            }.terminalString()
 
         rendered += (libraries + executables).joined(separator: "\n")
 
@@ -70,6 +76,7 @@ struct TopCard: Card {
     }
 
     func renderSnippets() -> String {
+        let isColorized = swiftCommandState.options.logging.colorDiagnostics
         guard !snippetGroups.isEmpty else {
             return ""
         }
@@ -77,7 +84,7 @@ struct TopCard: Card {
             let (number, snippetGroup) = pair
             let snippetNoun = snippetGroup.snippets.count > 1 ? "snippets" : "snippet"
             let heading = "\(number). \(snippetGroup.name) (\(snippetGroup.snippets.count) \(snippetNoun))"
-            return colorized {
+            return isColorized ? colorized {
                 cyan {
                     heading
                     "\n"
@@ -87,24 +94,48 @@ struct TopCard: Card {
                     \(snippetGroup.explanation.spm_multilineIndent(count: 3))
                     """
                 }
-            }.terminalString()
+            }.terminalString() :
+                plain {
+                    plain {
+                        heading
+                        "\n"
+                    }
+                    if !snippetGroup.explanation.isEmpty {
+                        """
+                        \(snippetGroup.explanation.spm_multilineIndent(count: 3))
+                        """
+                    }
+                }.terminalString()
         }
 
-        return colorized {
+        return isColorized ? colorized {
             brightCyan {
                 "\n## Snippets"
             }
             "\n\n"
             snippetPreviews.joined(separator: "\n\n")
-          "\n"
-        }.terminalString()
+            "\n"
+        }.terminalString() :
+            plain {
+                plain {
+                    "\n## Snippets"
+                }
+                "\n\n"
+                snippetPreviews.joined(separator: "\n\n")
+                "\n"
+            }.terminalString()
     }
 
     func render() -> String {
-        let heading = brightYellow {
+        let isColorized: Bool = self.swiftCommandState.options.logging.colorDiagnostics
+        let heading = isColorized ? brightYellow {
+            "# "
+            package.identity.description
+        } : plain {
             "# "
             package.identity.description
         }
+
         return """
         \(heading)
         \(renderProducts())
@@ -122,9 +153,9 @@ struct TopCard: Card {
         }
         if let index = Int(line),
            snippetGroups.indices.contains(index) {
-            return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftTool: swiftTool))
+            return .push(SnippetGroupCard(snippetGroup: snippetGroups[index], swiftCommandState: swiftCommandState))
         } else if let groupByName = snippetGroups.first(where: { $0.name == line }) {
-            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftTool: swiftTool))
+            return .push(SnippetGroupCard(snippetGroup: groupByName, swiftCommandState: swiftCommandState))
         } else {
             print(red { "There is not a group by that name or index." })
             return nil
@@ -132,7 +163,7 @@ struct TopCard: Card {
     }
 }
 
-fileprivate extension Target.Kind {
+fileprivate extension Module.Kind {
     var pluralDescription: String {
         switch self {
         case .executable:

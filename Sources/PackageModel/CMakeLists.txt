@@ -14,9 +14,12 @@ add_library(PackageModel
   BuildSettings.swift
   DependencyMapper.swift
   Diagnostics.swift
+  EnabledTraitsMap.swift
   IdentityResolver.swift
   InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
+  Manifest/Manifest+Traits.swift
+  Manifest/TraitConfiguration.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
   Manifest/PlatformDescription.swift
@@ -24,8 +27,15 @@ add_library(PackageModel
   Manifest/SystemPackageProviderDescription.swift
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
+  Manifest/TraitDescription.swift
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
+  Module/BinaryModule.swift
+  Module/ClangModule.swift
+  Module/PluginModule.swift
+  Module/SwiftModule.swift
+  Module/SystemLibraryModule.swift
+  Module/Module.swift
   ModuleMapType.swift
   PackageModel.swift
   PackageIdentity.swift
@@ -47,14 +57,9 @@ add_library(PackageModel
   SwiftSDKs/SwiftSDKConfigurationStore.swift
   SwiftSDKs/SwiftSDKBundle.swift
   SwiftSDKs/SwiftSDKBundleStore.swift
-  Target/BinaryTarget.swift
-  Target/ClangTarget.swift
-  Target/PluginTarget.swift
-  Target/SwiftTarget.swift
-  Target/SystemLibraryTarget.swift
-  Target/Target.swift
   Toolchain.swift
   ToolchainConfiguration.swift
+  Toolchain+SupportedFeatures.swift
   Toolset.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift

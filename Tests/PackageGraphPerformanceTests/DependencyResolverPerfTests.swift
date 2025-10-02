@@ -11,12 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
+import Testing
 
 import enum TSCBasic.JSON
 import protocol TSCBasic.JSONMappable
@@ -31,57 +33,59 @@ private let v1: Version = "1.0.0"
 private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
-    func testKituraPubGrub_X100() throws {
+    func testKituraPubGrub_X100() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try runPackageTestPubGrub(name: "kitura.json", N: 100)
+        try await runPackageTestPubGrub(name: "kitura.json", N: 100)
     }
 
-    func testZewoPubGrub_X100() throws {
+    func testZewoPubGrub_X100() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
+        try await runPackageTestPubGrub(name: "ZewoHTTPServer.json", N: 100)
     }
 
-    func testPerfectPubGrub_X100() throws {
+    func testPerfectPubGrub_X100() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
+        try await runPackageTestPubGrub(name: "PerfectHTTPServer.json", N: 100)
     }
 
-    func testSourceKittenPubGrub_X100() throws {
+    func testSourceKittenPubGrub_X100() async throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
-        try runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
+        try await runPackageTestPubGrub(name: "SourceKitten.json", N: 100)
     }
 
-    func runPackageTestPubGrub(name: String, N: Int = 1) throws {
+    func runPackageTestPubGrub(name: String, N: Int = 1) async throws {
         let graph = try mockGraph(for: name)
         let provider = MockPackageContainerProvider(containers: graph.containers)
 
-        measure {
-            for _ in 0 ..< N {
-                let resolver = PubGrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
-                switch resolver.solve(constraints: graph.constraints) {
-                case .success(let result):
-                    let result: [(container: PackageReference, version: Version)] = result.compactMap {
-                        guard case .version(let version) = $0.boundVersion else {
-                            XCTFail("Unexpected result")
-                            return nil
-                        }
-                        return ($0.package, version)
+        self.startMeasuring()
+
+        for _ in 0 ..< N {
+            let resolver = PubGrubDependencyResolver(provider: provider, observabilityScope: ObservabilitySystem.NOOP)
+            switch await resolver.solve(constraints: graph.constraints) {
+            case .success(let result):
+                let result: [(container: PackageReference, version: Version)] = result.compactMap {
+                    guard case .version(let version) = $0.boundVersion else {
+                        XCTFail("Unexpected result")
+                        return nil
                     }
-                    graph.checkResult(result)
-                case .failure:
-                    XCTFail("Unexpected result")
-                    return
+                    return ($0.package, version)
                 }
+                graph.checkResult(result)
+            case .failure:
+                XCTFail("Unexpected result")
+                return
             }
         }
+
+        self.stopMeasuring()
     }
 
     func mockGraph(for name: String) throws -> MockDependencyGraph {
@@ -201,8 +205,4 @@ extension ProductFilter {
     }
 }
 
-#if swift(<5.11)
 extension ProductFilter: JSONSerializable, JSONMappable {}
-#else
-extension ProductFilter: @retroactive JSONSerializable, @retroactive JSONMappable {}
-#endif

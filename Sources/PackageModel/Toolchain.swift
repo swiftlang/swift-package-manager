@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 
 public protocol Toolchain {
     /// Path of the librarian.
@@ -25,12 +26,6 @@ public protocol Toolchain {
     /// Path to `lib/swift_static`
     var swiftStaticResourcesPath: AbsolutePath? { get }
 
-    /// Whether the used compiler is from a open source development toolchain.
-    var isSwiftDevelopmentToolchain: Bool { get }
-
-    /// Path to the Swift plugin server utility.
-    var swiftPluginServerPath: AbsolutePath? { get throws }
-
     /// Path containing the macOS Swift stdlib.
     var macosSwiftStdlib: AbsolutePath { get throws }
 
@@ -40,11 +35,17 @@ public protocol Toolchain {
     /// An array of paths to search for libraries at link time.
     var librarySearchPaths: [AbsolutePath] { get }
 
+    /// An array of paths to use with binaries produced by this toolchain at run time.
+    var runtimeLibraryPaths: [AbsolutePath] { get }
+
     /// Configuration from the used toolchain.
     var installedSwiftPMConfiguration: InstalledSwiftPMConfiguration { get }
 
     /// The root path to the Swift SDK used by this toolchain.
     var sdkRootPath: AbsolutePath? { get }
+
+    /// The manifest and library locations used by this toolchain.
+    var swiftPMLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation { get }
 
     /// Path of the `clang` compiler.
     func getClangCompiler() throws -> AbsolutePath
@@ -77,20 +78,54 @@ extension Toolchain {
 
     public var hostLibDir: AbsolutePath {
         get throws {
-            return try toolchainLibDir.appending(components: ["swift", "host"])
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "host"]
+            )
         }
     }
 
     public var macosSwiftStdlib: AbsolutePath {
         get throws {
-            return try AbsolutePath(validating: "../../lib/swift/macosx", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath).appending(
+                components: ["swift", "macosx"]
+            )
+        }
+    }
+
+    /// Base toolchain path that's given to Swift Build to initialize its core.
+    public var toolchainDir: AbsolutePath {
+        get throws {
+            let compilerPath = try resolveSymlinks(swiftCompilerPath)
+            let os = ProcessInfo.hostOperatingSystem
+            switch os {
+            case .windows:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .parentDirectory // <version>
+                    .parentDirectory // Toolchains
+                    .parentDirectory // <toolchain>
+            case .macOS, .linux, .android:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // usr
+                    .parentDirectory // <toolchain>
+            case .freebsd:
+                return compilerPath
+                    .parentDirectory // bin
+                    .parentDirectory // local
+                    .parentDirectory // usr
+                    .parentDirectory // <toolchain>
+            case .unknown:
+                throw UnknownToolchainLayout(os: os)
+            }
         }
     }
 
     public var toolchainLibDir: AbsolutePath {
         get throws {
             // FIXME: Not sure if it's better to base this off of Swift compiler or our own binary.
-            return try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+            try Self.toolchainLibDir(swiftCompilerPath: self.swiftCompilerPath)
         }
     }
 
@@ -112,5 +147,16 @@ extension Toolchain {
     
     public var extraSwiftCFlags: [String] {
         extraFlags.swiftCompilerFlags
+    }
+
+    package static func toolchainLibDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {
+        try AbsolutePath(validating: "../../lib", relativeTo: resolveSymlinks(swiftCompilerPath))
+    }
+}
+
+struct UnknownToolchainLayout: Error, CustomStringConvertible {
+    let os: OperatingSystem
+    var description: String {
+        "Unknown toolchain layout for host operating system: \(os)"
     }
 }

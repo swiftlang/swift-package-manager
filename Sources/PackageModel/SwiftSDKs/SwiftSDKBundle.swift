@@ -33,6 +33,19 @@ public struct SwiftSDKBundle {
     public var name: String { path.basename }
 }
 
+extension SwiftSDKBundle.Variant {
+    /// Whether the given host triple is supported by this SDK variant
+    internal func isSupporting(hostTriple: Triple) -> Bool {
+        guard let supportedTriples = metadata.supportedTriples else {
+            // No supportedTriples means the SDK can be universally usable
+            return true
+        }
+        return supportedTriples.contains(where: { variantTriple in
+            hostTriple.isRuntimeCompatible(with: variantTriple)
+        })
+    }
+}
+
 extension [SwiftSDKBundle] {
     /// Select a Swift SDK with a given artifact ID from a `self` array of available Swift SDKs.
     /// - Parameters:
@@ -40,7 +53,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the machine on which the Swift SDK is building.
     ///   - targetTriple: triple of the machine for which the Swift SDK is building.
     /// - Returns: ``SwiftSDK`` value with a given artifact ID, `nil` if none found.
-    public func selectSwiftSDK(id: String, hostTriple: Triple, targetTriple: Triple) -> SwiftSDK? {
+    public func selectSwiftSDK(id: String, hostTriple: Triple?, targetTriple: Triple) -> SwiftSDK? {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 guard artifactID == id else {
@@ -48,8 +61,10 @@ extension [SwiftSDKBundle] {
                 }
 
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(hostTriple) else {
-                        continue
+                    if let hostTriple {
+                        guard variant.isSupporting(hostTriple: hostTriple) else {
+                            continue
+                        }
                     }
 
                     return variant.swiftSDKs.first { $0.targetTriple == targetTriple }
@@ -77,11 +92,7 @@ extension [SwiftSDKBundle] {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 for variant in variants {
-                    guard variant.metadata.supportedTriples.contains(where: { variantTriple in
-                        hostTriple.isRuntimeCompatible(with: variantTriple)
-                    }) else {
-                        continue
-                    }
+                    guard variant.isSupporting(hostTriple: hostTriple) else { continue }
 
                     for swiftSDK in variant.swiftSDKs {
                         if artifactID == selector {

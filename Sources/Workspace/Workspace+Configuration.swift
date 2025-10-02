@@ -19,7 +19,6 @@ import PackageModel
 import PackageRegistry
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 
 import protocol TSCUtility.SimplePersistanceProtocol
 import class TSCUtility.SimplePersistence
@@ -78,6 +77,11 @@ extension Workspace {
             self.scratchDirectory.appending("artifacts")
         }
 
+        /// Path to the downloaded prebuilts directory
+        public var prebuiltsDirectory: AbsolutePath {
+            self.scratchDirectory.appending("prebuilts")
+        }
+
         // Path to temporary files related to running plugins in the workspace
         public var pluginWorkingDirectory: AbsolutePath {
             self.scratchDirectory.appending("plugins")
@@ -89,7 +93,7 @@ extension Workspace {
         public var localMirrorsConfigurationFile: AbsolutePath {
             get throws {
                 // backwards compatibility
-                if let customPath = ProcessEnv.vars["SWIFTPM_MIRROR_CONFIG"] {
+                if let customPath = Environment.current["SWIFTPM_MIRROR_CONFIG"] {
                     return try AbsolutePath(validating: customPath)
                 }
                 return DefaultLocations.mirrorsConfigurationFile(at: self.localConfigurationDirectory)
@@ -148,6 +152,11 @@ extension Workspace {
         /// Path to the shared repositories cache.
         public var sharedBinaryArtifactsCacheDirectory: AbsolutePath? {
             self.sharedCacheDirectory.map { $0.appending("artifacts") }
+        }
+
+        /// Path to the shared prebuilts cache
+        public var sharedPrebuiltsCacheDirectory: AbsolutePath? {
+            self.sharedCacheDirectory.map { $0.appending("prebuilts")}
         }
 
         /// Create a new workspace location.
@@ -780,6 +789,21 @@ public struct WorkspaceConfiguration {
     /// Whether or not there should be import restrictions applied when loading manifests
     public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
+    /// Whether or not to use prebuilt swift-syntax for macros
+    public var usePrebuilts: Bool
+
+    /// String URL to allow override of the prebuilts download location
+    public var prebuiltsDownloadURL: String?
+
+    /// Path to root certificate used when validating the manifest signing during testing
+    public var prebuiltsRootCertPath: String?
+
+    /// Whether to omit unused dependencies.
+    public var pruneDependencies: Bool
+
+    /// The trait configuration for the root.
+    public var traitConfiguration: TraitConfiguration
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -792,7 +816,12 @@ public struct WorkspaceConfiguration {
         skipSignatureValidation: Bool,
         sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
         defaultRegistry: Registry?,
-        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
+        manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
+        usePrebuilts: Bool,
+        prebuiltsDownloadURL: String?,
+        prebuiltsRootCertPath: String?,
+        pruneDependencies: Bool,
+        traitConfiguration: TraitConfiguration
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -806,6 +835,11 @@ public struct WorkspaceConfiguration {
         self.sourceControlToRegistryDependencyTransformation = sourceControlToRegistryDependencyTransformation
         self.defaultRegistry = defaultRegistry
         self.manifestImportRestrictions = manifestImportRestrictions
+        self.usePrebuilts = usePrebuilts
+        self.prebuiltsDownloadURL = prebuiltsDownloadURL
+        self.prebuiltsRootCertPath = prebuiltsRootCertPath
+        self.pruneDependencies = pruneDependencies
+        self.traitConfiguration = traitConfiguration
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -822,7 +856,12 @@ public struct WorkspaceConfiguration {
             skipSignatureValidation: false,
             sourceControlToRegistryDependencyTransformation: .disabled,
             defaultRegistry: .none,
-            manifestImportRestrictions: .none
+            manifestImportRestrictions: .none,
+            usePrebuilts: false,
+            prebuiltsDownloadURL: nil,
+            prebuiltsRootCertPath: nil,
+            pruneDependencies: false,
+            traitConfiguration: .default
         )
     }
 

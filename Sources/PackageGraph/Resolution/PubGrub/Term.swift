@@ -40,6 +40,10 @@ public struct Term: Equatable, Hashable {
         )
     }
 
+    package var supportsPrereleases: Bool {
+        self.requirement.supportsPrereleases
+    }
+
     /// Check if this term satisfies another term, e.g. if `self` is true,
     /// `other` must also be true.
     public func satisfies(_ other: Term) -> Bool {
@@ -100,9 +104,38 @@ public struct Term: Equatable, Hashable {
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
     public func isValidDecision(for solution: PartialSolution) -> Bool {
+        // The intersection between release and pre-release ranges is
+        // allowed to produce a pre-release range. This means that the
+        // solver is allowed to make a pre-release version decision
+        // even when some of the versions didn't allow pre-releases.
+        //
+        // This means that we should ignore pre-release differences
+        // while checking derivations and assert only if the term is
+        // pre-release but the last assignment wasn't.
+        if self.supportsPrereleases {
+            if let assignment = solution.assignments.last(where: { $0.term.node == self.node }) {
+                assert(assignment.term.supportsPrereleases)
+            }
+        }
+
         for assignment in solution.assignments where assignment.term.node == self.node {
             assert(!assignment.isDecision, "Expected assignment to be a derivation.")
-            guard satisfies(assignment.term) else { return false }
+
+            // This is not great but dragging `ignorePrereleases` through all the APIs seems
+            // worse. This is valid because we can have a derivation chain which is something
+            // like - "0.0.1"..<"1.0.0" -> "0.0.4-latest"..<"0.0.6" and make a decision
+            // `0.0.4-alpha5` based on that if there is no `0.0.4` release. In vacuum this is
+            // (currently) incorrect because `0.0.4-alpha5` doesn't satisfy the initial
+            // range that doesn't support pre-release versions. Since the solver is
+            // allowed to derive a pre-release range we consider the original range to
+            // be pre-release range implicitly.
+            let term = if self.supportsPrereleases && !assignment.term.supportsPrereleases {
+                Term(self.node, self.requirement.withoutPrereleases)
+            } else {
+                self
+            }
+
+            guard term.satisfies(assignment.term) else { return false }
         }
         return true
     }
@@ -178,12 +211,12 @@ extension Term: CustomStringConvertible {
     }
 }
 
-private extension VersionSetSpecifier {
-    func containsAll(_ other: VersionSetSpecifier) -> Bool {
+extension VersionSetSpecifier {
+    fileprivate func containsAll(_ other: VersionSetSpecifier) -> Bool {
         self.intersection(other) == other
     }
 
-    func containsAny(_ other: VersionSetSpecifier) -> Bool {
+    fileprivate func containsAny(_ other: VersionSetSpecifier) -> Bool {
         self.intersection(other) != .empty
     }
 }

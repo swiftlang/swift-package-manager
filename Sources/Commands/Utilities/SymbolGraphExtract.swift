@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore
@@ -22,11 +23,11 @@ import SPMBuildCore
 import DriverSupport
 #endif
 
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
-public struct SymbolGraphExtract {
+package struct SymbolGraphExtract {
     let fileSystem: FileSystem
     let tool: AbsolutePath
     let observabilityScope: ObservabilityScope
@@ -40,8 +41,8 @@ public struct SymbolGraphExtract {
 
     /// Access control levels.
     public enum AccessLevel: String, RawRepresentable, CaseIterable, ExpressibleByArgument {
-        // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit 03f55d7bb4204ca54841218eb7cc175ae798e3bd)
-        case `private`, `fileprivate`, `internal`, `public`, `open`
+        // The cases reflect those found in `include/swift/AST/AttrKind.h` of the swift compiler (at commit ca96a2b)
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
 
     /// Output format of the generated symbol graph.
@@ -50,25 +51,22 @@ public struct SymbolGraphExtract {
         case json(pretty: Bool)
     }
     
-    /// Creates a symbol graph for `target` in `outputDirectory` using the build information from `buildPlan`.
+    /// Creates a symbol graph for `module` in `outputDirectory` using the build information from `buildPlan`.
     /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
     /// how much console output to ask the tool to emit.
-    public func extractSymbolGraph(
-        target: ResolvedTarget,
-        buildPlan: BuildPlan,
-        outputRedirection: TSCBasic.Process.OutputRedirection = .none,
+    package func extractSymbolGraph(
+        for description: ModuleBuildDescription,
+        outputRedirection: AsyncProcess.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
-    ) throws -> ProcessResult {
-        let buildParameters = buildPlan.buildParameters(for: target)
+    ) throws -> AsyncProcessResult {
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
         var commandLine = [self.tool.pathString]
-        commandLine += ["-module-name", target.c99name]
-        commandLine += try buildParameters.targetTripleArgs(for: target)
-        commandLine += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: true)
-        commandLine += ["-module-cache-path", try buildParameters.moduleCache.pathString]
+        commandLine += try description.symbolGraphExtractArguments()
+
+        // FIXME: everything here should be in symbolGraphExtractArguments
         if verboseOutput {
             commandLine += ["-v"]
         }
@@ -84,7 +82,11 @@ public struct SymbolGraphExtract {
         }
         
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
-        if DriverSupport.checkSupportedFrontendFlags(flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])], toolchain: buildParameters.toolchain, fileSystem: fileSystem) {
+        if DriverSupport.checkSupportedFrontendFlags(
+            flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])],
+            toolchain: description.buildParameters.toolchain,
+            fileSystem: fileSystem
+        ) {
             commandLine += [extensionBlockSymbolsFlag]
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
@@ -99,7 +101,7 @@ public struct SymbolGraphExtract {
         commandLine += ["-output-dir", outputDirectory.pathString]
 
         // Run the extraction.
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: commandLine,
             outputRedirection: outputRedirection
         )

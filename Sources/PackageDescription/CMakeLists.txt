@@ -15,13 +15,16 @@ add_library(PackageDescription
   PackageDescriptionSerialization.swift
   PackageDescriptionSerializationConversion.swift
   PackageDependency.swift
+  PackageDependencyTrait.swift
   PackageRequirement.swift
   Product.swift
   Resource.swift
   SupportedPlatforms.swift
   Target.swift
+  Trait.swift
   Version.swift
-  Version+StringLiteralConvertible.swift)
+  Version+StringLiteralConvertible.swift
+  WarningLevel.swift)
 
 target_compile_options(PackageDescription PUBLIC
   $<$<COMPILE_LANGUAGE:Swift>:-package-description-version$<SEMICOLON>999.0>)

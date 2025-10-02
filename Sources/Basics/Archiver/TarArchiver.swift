@@ -13,7 +13,6 @@
 import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
-import class TSCBasic.Process
 
 /// An `Archiver` that handles Tar archives using the command-line `tar` tool.
 public struct TarArchiver: Archiver {
@@ -26,7 +25,7 @@ public struct TarArchiver: Archiver {
     private let cancellator: Cancellator
 
     /// The underlying command
-    private let tarCommand: String
+    internal let tarCommand: String
 
     /// Creates a `TarArchiver`.
     ///
@@ -47,7 +46,7 @@ public struct TarArchiver: Archiver {
     public func extract(
         from archivePath: AbsolutePath,
         to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         do {
             guard self.fileSystem.exists(archivePath) else {
@@ -58,7 +57,7 @@ public struct TarArchiver: Archiver {
                 throw FileSystemError(.notDirectory, destinationPath.underlying)
             }
 
-            let process = TSCBasic.Process(
+            let process = AsyncProcess(
                 arguments: [self.tarCommand, "zxf", archivePath.pathString, "-C", destinationPath.pathString]
             )
 
@@ -83,45 +82,39 @@ public struct TarArchiver: Archiver {
 
     public func compress(
         directory: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            guard self.fileSystem.isDirectory(directory) else {
-                throw FileSystemError(.notDirectory, directory.underlying)
-            }
+        to destinationPath: AbsolutePath
+    ) async throws {
 
-            let process = TSCBasic.Process(
-                arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
-                workingDirectory: directory.parentDirectory.underlying
-            )
+        guard self.fileSystem.isDirectory(directory) else {
+            throw FileSystemError(.notDirectory, directory.underlying)
+        }
 
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
+        let process = AsyncProcess(
+            arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
+            environment: .current,
+            workingDirectory: directory.parentDirectory
+        )
 
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+        guard let registrationKey = self.cancellator.register(process) else {
+            throw CancellationError.failedToRegisterProcess(process)
+        }
+
+        defer { self.cancellator.deregister(registrationKey) }
+
+        try process.launch()
+        let processResult = try await process.waitUntilExit()
+        guard processResult.exitStatus == .terminated(code: 0) else {
+            throw try StringError(processResult.utf8stderrOutput())
         }
     }
 
-    public func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
+    public func validate(path: AbsolutePath, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         do {
             guard self.fileSystem.exists(path) else {
                 throw FileSystemError(.noEntry, path.underlying)
             }
 
-            let process = TSCBasic.Process(arguments: [self.tarCommand, "tf", path.pathString])
+            let process = AsyncProcess(arguments: [self.tarCommand, "tf", path.pathString])
             guard let registrationKey = self.cancellator.register(process) else {
                 throw CancellationError.failedToRegisterProcess(process)
             }

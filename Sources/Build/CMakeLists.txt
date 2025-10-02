@@ -7,29 +7,33 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Build
-  BuildDescription/ClangTargetBuildDescription.swift
-  BuildDescription/PluginDescription.swift
+  BuildDescription/ClangModuleBuildDescription.swift
+  BuildDescription/PluginBuildDescription.swift
   BuildDescription/ProductBuildDescription.swift
-  BuildDescription/SharedTargetBuildDescription.swift
-  BuildDescription/SwiftTargetBuildDescription.swift
-  BuildDescription/TargetBuildDescription.swift
+  BuildDescription/ResolvedModule+BuildDescription.swift
+  BuildDescription/SwiftModuleBuildDescription.swift
+  BuildDescription/ModuleBuildDescription.swift
   BuildManifest/LLBuildManifestBuilder.swift
   BuildManifest/LLBuildManifestBuilder+Clang.swift
   BuildManifest/LLBuildManifestBuilder+Product.swift
   BuildManifest/LLBuildManifestBuilder+Resources.swift
   BuildManifest/LLBuildManifestBuilder+Swift.swift
-  BuildOperationBuildSystemDelegateHandler.swift
   BuildOperation.swift
   BuildPlan/BuildPlan.swift
   BuildPlan/BuildPlan+Clang.swift
   BuildPlan/BuildPlan+Product.swift
   BuildPlan/BuildPlan+Swift.swift
   BuildPlan/BuildPlan+Test.swift
+  ClangSupport.swift
+  LLBuildCommands.swift
+  LLBuildDescription.swift
+  LLBuildProgressTracker.swift
   SwiftCompilerOutputParser.swift
   TestObservation.swift)
 target_link_libraries(Build PUBLIC
   TSCBasic
   Basics
+  SwiftCollections::OrderedCollections
   PackageGraph
   SPMBuildCore)
 target_link_libraries(Build PRIVATE

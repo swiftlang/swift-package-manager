@@ -86,7 +86,7 @@ extension DispatchTimeInterval {
             return String(format: "%.2f", Double(value) / Double(1_000_000_000)) + "s"
         case .never:
             return "n/a"
-        #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+        #if canImport(Darwin)
         @unknown default:
             return "n/a"
         #endif
@@ -95,7 +95,7 @@ extension DispatchTimeInterval {
 }
 
 // remove when available to all platforms
-#if os(Linux) || os(Windows) || os(Android) || os(OpenBSD)
+#if os(Linux) || os(Windows) || os(Android) || os(OpenBSD) || os(FreeBSD)
 extension DispatchTime {
     public func distance(to: DispatchTime) -> DispatchTimeInterval {
         let final = to.uptimeNanoseconds

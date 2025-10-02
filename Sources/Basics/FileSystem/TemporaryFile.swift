@@ -34,7 +34,7 @@ public func withTemporaryDirectory<Result>(
     fileSystem: FileSystem = localFileSystem,
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
-    _ body: @Sendable @escaping (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
+    _ body: @escaping @Sendable (AbsolutePath, @escaping (AbsolutePath) -> Void) async throws -> Result
 ) throws -> Task<Result, Error> {
     let temporaryDirectory = try createTemporaryDirectory(fileSystem: fileSystem, dir: dir, prefix: prefix)
 
@@ -72,7 +72,7 @@ public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil,
     prefix: String = "TemporaryDirectory",
     removeTreeOnDeinit: Bool = false,
-    _ body: @escaping (AbsolutePath) async throws -> Result
+    _ body: @escaping @Sendable (AbsolutePath) async throws -> Result
 ) throws -> Task<Result, Error> {
     try withTemporaryDirectory(fileSystem: fileSystem, dir: dir, prefix: prefix) { path, cleanup in
         defer { if removeTreeOnDeinit { cleanup(path) } }

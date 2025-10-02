@@ -14,6 +14,7 @@ import Basics
 import PackageGraph
 import PackageModel
 import SourceControl
+import TSCBasic
 
 extension Workspace {
     /// A downloaded artifact managed by the workspace.
@@ -28,16 +29,16 @@ extension Workspace {
         public let source: Source
 
         /// The path of the artifact on disk
-        public let path: AbsolutePath
+        public let path: Basics.AbsolutePath
 
-        public let kind: BinaryTarget.Kind
+        public let kind: BinaryModule.Kind
 
         public init(
             packageRef: PackageReference,
             targetName: String,
             source: Source,
-            path: AbsolutePath,
-            kind: BinaryTarget.Kind
+            path: Basics.AbsolutePath,
+            kind: BinaryModule.Kind
         ) {
             self.packageRef = packageRef
             self.targetName = targetName
@@ -52,8 +53,8 @@ extension Workspace {
             targetName: String,
             url: String,
             checksum: String,
-            path: AbsolutePath,
-            kind: BinaryTarget.Kind
+            path: Basics.AbsolutePath,
+            kind: BinaryModule.Kind
         ) -> ManagedArtifact {
             return ManagedArtifact(
                 packageRef: packageRef,
@@ -68,8 +69,8 @@ extension Workspace {
         public static func local(
             packageRef: PackageReference,
             targetName: String,
-            path: AbsolutePath,
-            kind: BinaryTarget.Kind,
+            path: Basics.AbsolutePath,
+            kind: BinaryModule.Kind,
             checksum: String? = nil
         ) -> ManagedArtifact {
             return ManagedArtifact(

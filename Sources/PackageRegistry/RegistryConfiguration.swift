@@ -405,9 +405,9 @@ extension PackageModel.Registry: Codable {
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(
-            url: try container.decode(URL.self, forKey: .url),
-            supportsAvailability: try container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
+        try self.init(
+            url: container.decode(URL.self, forKey: .url),
+            supportsAvailability: container.decodeIfPresent(Bool.self, forKey: .supportsAvailability) ?? false
         )
     }
 

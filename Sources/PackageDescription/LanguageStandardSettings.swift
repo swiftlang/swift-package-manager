@@ -14,7 +14,7 @@
 /// package.
 public enum CLanguageStandard: String {
 
-    /// The identifier for the ISO C 1990 language standard.
+    /// The identifier for the ISO C 1989 language standard.
     case c89
 
     /// The identifier for the ISO C 1990 language standard.
@@ -148,9 +148,8 @@ public enum CXXLanguageStandard: String {
     case gnucxx2b = "gnu++2b"
 }
 
-/// The version of the Swift language you use to compile Swift sources in the
-/// package.
-public enum SwiftVersion {
+/// The Swift language mode used to compile Swift sources in the package
+public enum SwiftLanguageMode {
     /// The identifier for the Swift 3 language version.
     @available(_PackageDescription, introduced: 4, obsoleted: 5)
     case v3
@@ -167,8 +166,29 @@ public enum SwiftVersion {
     @available(_PackageDescription, introduced: 5)
     case v5
 
+    /// The identifier for the Swift 6 language version.
+    @available(_PackageDescription, introduced: 6)
+    case v6
+
     /// A user-defined value for the Swift version.
     ///
     /// The value is passed as-is to the Swift compiler's `-swift-version` flag.
     case version(String)
 }
+
+extension SwiftLanguageMode: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .v3: "3"
+        case .v4: "4"
+        case .v4_2: "4.2"
+        case .v5: "5"
+        case .v6: "6"
+        case .version(let version): version
+        }
+    }
+}
+
+/// Type alias to previous name for backward source compatibility
+@available(_PackageDescription, deprecated: 6, renamed:"SwiftLanguageMode")
+public typealias SwiftVersion = SwiftLanguageMode

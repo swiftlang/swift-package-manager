@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -23,7 +23,6 @@ import SourceControl
 
 import func TSCBasic.findCycle
 import protocol TSCBasic.HashAlgorithm
-import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.KeyedPair
 import struct TSCBasic.SHA256
 import var TSCBasic.stderrStream
@@ -58,7 +57,7 @@ public enum WorkspaceResolveReason: Equatable {
 public struct PackageFetchDetails {
     /// Indicates if the package was fetched from the cache or from the remote.
     public let fromCache: Bool
-    /// Indicates wether the wether the package was already present in the cache and updated or if a clean fetch was
+    /// Indicates whether the package was already present in the cache and updated or if a clean fetch was
     /// performed.
     public let updatedCache: Bool
 }
@@ -91,15 +90,27 @@ public class Workspace {
     // public visibility for testing
     public let state: WorkspaceState
 
-    /// The Pins store. The pins file will be created when first pin is added to pins store.
-    // public visibility for testing
-    public let pinsStore: LoadableResult<PinsStore>
+    // `public` visibility for testing
+    @available(
+        *,
+        deprecated,
+        renamed: "resolvedPackagesStore",
+        message: "Renamed for consistency with the actual name of the feature"
+    )
+    public var pinsStore: LoadableResult<PinsStore> { self.resolvedPackagesStore }
+
+    /// The `Package.resolved` store. The `Package.resolved` file will be created when first resolved package is added
+    /// to the store.
+    package let resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>
+
+    ///  Computed enabled traits per package in the workspace
+    public var enabledTraitsMap: EnabledTraitsMap = [:]
 
     /// The file system on which the workspace will operate.
-    let fileSystem: any FileSystem
+    package let fileSystem: any FileSystem
 
     /// The host toolchain to use.
-    private let hostToolchain: UserToolchain
+    let hostToolchain: UserToolchain
 
     /// The manifest loader to use.
     let manifestLoader: ManifestLoaderProtocol
@@ -134,11 +145,19 @@ public class Workspace {
     /// Binary artifacts manager used for downloading and extracting binary artifacts
     let binaryArtifactsManager: BinaryArtifactsManager
 
+    /// Prebuilts manager used for downloading and extracting package prebuilt libraries
+    let prebuiltsManager: PrebuiltsManager?
+
     /// The package fingerprints storage
     let fingerprints: PackageFingerprintStorage?
 
     /// The workspace configuration settings
     let configuration: WorkspaceConfiguration
+
+    /// The trait configuration as described in the Workspace's configuration.
+    public var traitConfiguration: TraitConfiguration {
+        configuration.traitConfiguration
+    }
 
     // MARK: State
 
@@ -173,6 +192,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: any FileSystem,
+        environment: Environment = .current,
         location: Location,
         authorizationProvider: (any AuthorizationProvider)? = .none,
         registryAuthorizationProvider: (any AuthorizationProvider)? = .none,
@@ -189,6 +209,7 @@ public class Workspace {
     ) throws {
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -208,6 +229,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: .none,
             customBinaryArtifactsManager: .none,
+            customPrebuiltsManager: .none,
             customIdentityResolver: .none,
             customDependencyMapper: .none,
             customChecksumAlgorithm: .none,
@@ -236,6 +258,7 @@ public class Workspace {
     ///   - delegate: Delegate for workspace events
     public convenience init(
         fileSystem: FileSystem? = .none,
+        environment: Environment = .current,
         forRootPackage packagePath: AbsolutePath,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -243,6 +266,7 @@ public class Workspace {
         cancellator: Cancellator? = .none,
         initializationWarningHandler: ((String) -> Void)? = .none,
         // optional customization used for advanced integration situations
+        customHostToolchain: UserToolchain? = .none,
         customManifestLoader: ManifestLoaderProtocol? = .none,
         customPackageContainerProvider: PackageContainerProvider? = .none,
         customRepositoryProvider: RepositoryProvider? = .none,
@@ -253,12 +277,14 @@ public class Workspace {
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         try self.init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
             configuration: configuration,
             cancellator: cancellator,
             initializationWarningHandler: initializationWarningHandler,
+            customHostToolchain: customHostToolchain,
             customManifestLoader: customManifestLoader,
             customPackageContainerProvider: customPackageContainerProvider,
             customRepositoryProvider: customRepositoryProvider,
@@ -307,7 +333,8 @@ public class Workspace {
             toolchain: customHostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
             importRestrictions: configuration?.manifestImportRestrictions,
-            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:))
+            delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:)),
+            pruneDependencies: configuration?.pruneDependencies ?? false
         )
         try self.init(
             fileSystem: fileSystem,
@@ -331,6 +358,7 @@ public class Workspace {
     public static func _init(
         // core
         fileSystem: FileSystem,
+        environment: Environment,
         location: Location,
         authorizationProvider: AuthorizationProvider? = .none,
         registryAuthorizationProvider: AuthorizationProvider? = .none,
@@ -351,6 +379,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         customRegistryClient: RegistryClient? = .none,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager? = .none,
+        customPrebuiltsManager: CustomPrebuiltsManager? = .none,
         customIdentityResolver: IdentityResolver? = .none,
         customDependencyMapper: DependencyMapper? = .none,
         customChecksumAlgorithm: HashAlgorithm? = .none,
@@ -359,6 +388,7 @@ public class Workspace {
     ) throws -> Workspace {
         try .init(
             fileSystem: fileSystem,
+            environment: environment,
             location: location,
             authorizationProvider: authorizationProvider,
             registryAuthorizationProvider: registryAuthorizationProvider,
@@ -378,6 +408,7 @@ public class Workspace {
             customRepositoryProvider: customRepositoryProvider,
             customRegistryClient: customRegistryClient,
             customBinaryArtifactsManager: customBinaryArtifactsManager,
+            customPrebuiltsManager: customPrebuiltsManager,
             customIdentityResolver: customIdentityResolver,
             customDependencyMapper: customDependencyMapper,
             customChecksumAlgorithm: customChecksumAlgorithm,
@@ -385,9 +416,10 @@ public class Workspace {
         )
     }
 
-    private init(
+    private convenience init(
         // core
         fileSystem: FileSystem,
+        environment: Environment,
         location: Location,
         authorizationProvider: AuthorizationProvider?,
         registryAuthorizationProvider: AuthorizationProvider?,
@@ -408,6 +440,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider?,
         customRegistryClient: RegistryClient?,
         customBinaryArtifactsManager: CustomBinaryArtifactsManager?,
+        customPrebuiltsManager: CustomPrebuiltsManager?,
         customIdentityResolver: IdentityResolver?,
         customDependencyMapper: DependencyMapper?,
         customChecksumAlgorithm: HashAlgorithm?,
@@ -426,11 +459,18 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(swiftSDK: .hostSwiftSDK())
+        let hostToolchain = try customHostToolchain ?? UserToolchain(
+            swiftSDK: .hostSwiftSDK(
+                environment: environment
+            ),
+            environment: environment,
+            fileSystem: fileSystem
+        )
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,
-            importRestrictions: configuration?.manifestImportRestrictions
+            importRestrictions: configuration?.manifestImportRestrictions,
+            pruneDependencies: configuration?.pruneDependencies ?? false
         )
         // set delegate if not set
         if let manifestLoader = manifestLoader as? ManifestLoader, manifestLoader.delegate == nil {
@@ -527,7 +567,8 @@ public class Workspace {
             authorizationProvider: authorizationProvider,
             hostToolchain: hostToolchain,
             checksumAlgorithm: checksumAlgorithm,
-            cachePath:  customBinaryArtifactsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
+            cachePath: customBinaryArtifactsManager?.useCache == false || !configuration
+                .sharedDependenciesCacheEnabled ? .none : location.sharedBinaryArtifactsCacheDirectory,
             customHTTPClient: customBinaryArtifactsManager?.httpClient,
             customArchiver: customBinaryArtifactsManager?.archiver,
             delegate: delegate.map(WorkspaceBinaryArtifactsManagerDelegate.init(workspaceDelegate:))
@@ -535,7 +576,96 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
+        var prebuiltsManager: PrebuiltsManager?
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
+        {
+            let rootCertPath: AbsolutePath?
+            if let path = configuration.prebuiltsRootCertPath {
+                rootCertPath = try AbsolutePath(validating: path)
+            } else {
+                rootCertPath = nil
+            }
+
+            let prebuiltsManagerObj = PrebuiltsManager(
+                fileSystem: fileSystem,
+                hostPlatform: hostPlatform,
+                authorizationProvider: authorizationProvider,
+                scratchPath: location.prebuiltsDirectory,
+                cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customSwiftCompilerVersion: customPrebuiltsManager?.swiftVersion,
+                customHTTPClient: customPrebuiltsManager?.httpClient,
+                customArchiver: customPrebuiltsManager?.archiver,
+                delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
+                rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
+            )
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManagerObj)
+            prebuiltsManager = prebuiltsManagerObj
+        } else {
+            prebuiltsManager = nil
+        }
+
         // initialize
+        let resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
+                workingDirectory: location.scratchDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        let state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: location.scratchDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
+
+        self.init(
+            fileSystem: fileSystem,
+            configuration: configuration,
+            location: location,
+            delegate: delegate,
+            mirrors: mirrors,
+            hostToolchain: hostToolchain,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            customPackageContainerProvider: customPackageContainerProvider,
+            repositoryManager: repositoryManager,
+            registryClient: registryClient,
+            registryDownloadsManager: registryDownloadsManager,
+            binaryArtifactsManager: binaryArtifactsManager,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fingerprints: fingerprints,
+            resolvedPackagesStore: resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: state
+        )
+    }
+
+    private init(
+        fileSystem: any FileSystem,
+        configuration: WorkspaceConfiguration,
+        location: Location,
+        delegate: Delegate?,
+        mirrors: DependencyMirrors,
+        hostToolchain: UserToolchain,
+        manifestLoader: ManifestLoaderProtocol,
+        currentToolsVersion: ToolsVersion,
+        customPackageContainerProvider: PackageContainerProvider?,
+        repositoryManager: RepositoryManager,
+        registryClient: RegistryClient,
+        registryDownloadsManager: RegistryDownloadsManager,
+        binaryArtifactsManager: BinaryArtifactsManager,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fingerprints: PackageFingerprintStorage?,
+        resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
+        prebuiltsManager: PrebuiltsManager?,
+        state: WorkspaceState
+    ) {
         self.fileSystem = fileSystem
         self.configuration = configuration
         self.location = location
@@ -556,20 +686,10 @@ public class Workspace {
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
-        self.pinsStore = LoadableResult {
-            try PinsStore(
-                pinsFile: location.resolvedVersionsFile,
-                workingDirectory: location.scratchDirectory,
-                fileSystem: fileSystem,
-                mirrors: mirrors
-            )
-        }
+        self.resolvedPackagesStore = resolvedPackagesStore
+        self.prebuiltsManager = prebuiltsManager
 
-        self.state = WorkspaceState(
-            fileSystem: fileSystem,
-            storageDirectory: self.location.scratchDirectory,
-            initializationWarningHandler: initializationWarningHandler
-        )
+        self.state = state
     }
 }
 
@@ -579,7 +699,7 @@ extension Workspace {
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
-    ///     - packageName: The name of the package to edit.
+    ///     - packageIdentity: The identity of the package to edit.
     ///     - path: If provided, creates or uses the checkout at this location.
     ///     - revision: If provided, the revision at which the dependency
     ///       should be checked out to otherwise current revision.
@@ -587,15 +707,15 @@ extension Workspace {
     ///       created from the revision provided.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func edit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) {
+    ) async {
         do {
-            try self._edit(
-                packageName: packageName,
+            try await self._edit(
+                packageIdentity: packageIdentity,
                 path: path,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
@@ -614,17 +734,17 @@ extension Workspace {
     /// - Parameters:
     ///     - packageName: The name of the package to edit.
     ///     - forceRemove: If true, the dependency will be unedited even if has unpushed
-    ///           or uncommited changes. Otherwise will throw respective errors.
+    ///           or uncommitted changes. Otherwise will throw respective errors.
     ///     - root: The workspace root. This is used to resolve the dependencies post unediting.
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
     public func unedit(
-        packageName: String,
+        packageIdentity: String,
         forceRemove: Bool,
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
+    ) async throws {
+        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
+            observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
 
@@ -633,7 +753,7 @@ extension Workspace {
             metadata: dependency.packageRef.diagnosticsMetadata
         )
 
-        try self.unedit(
+        try await self.unedit(
             dependency: dependency,
             forceRemove: forceRemove,
             root: root,
@@ -644,17 +764,17 @@ extension Workspace {
     /// Perform dependency resolution if needed.
     ///
     /// This method will perform dependency resolution based on the root
-    /// manifests and pins file.  Pins are respected as long as they are
+    /// manifests and `Package.resolved` file. `Package.resolved` values are respected as long as they are
     /// satisfied by the root manifest closure requirements.  Any outdated
-    /// checkout will be restored according to its pin.
+    /// checkout will be restored according to its resolved package.
     public func resolve(
         root: PackageGraphRootInput,
         explicitProduct: String? = .none,
         forceResolution: Bool = false,
         forceResolvedVersions: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolve(
+    ) async throws {
+        try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : forceResolution ? .update(forceResolution: true) :
@@ -666,15 +786,15 @@ extension Workspace {
     /// Resolve a package at the given state.
     ///
     /// Only one of version, branch and revision will be used and in the same
-    /// order. If none of these is provided, the dependency will be pinned at
+    /// order. If none of these is provided, the dependency will be resolved to
     /// the current checkout state.
     ///
     /// - Parameters:
     ///   - packageName: The name of the package which is being resolved.
     ///   - root: The workspace's root input.
-    ///   - version: The version to pin at.
-    ///   - branch: The branch to pin at.
-    ///   - revision: The revision to pin at.
+    ///   - version: The version to resolve to.
+    ///   - branch: The branch to resolve to.
+    ///   - revision: The revision to resolve to.
     ///   - observabilityScope: The observability scope that reports errors, warnings, etc
     public func resolve(
         packageName: String,
@@ -683,9 +803,9 @@ extension Workspace {
         branch: String? = nil,
         revision: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can pin it.
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
+        guard let dependency = await self.state.dependencies[.plain(packageName)] else {
             throw StringError("dependency '\(packageName)' was not found")
         }
 
@@ -707,26 +827,26 @@ extension Workspace {
         }
 
         // Compute the custom or extra constraint we need to impose.
-        let requirement: PackageRequirement
-        if let version {
-            requirement = .versionSet(.exact(version))
+        let requirement: PackageRequirement = if let version {
+            .versionSet(.exact(version))
         } else if let branch {
-            requirement = .revision(branch)
+            .revision(branch)
         } else if let revision {
-            requirement = .revision(revision)
+            .revision(revision)
         } else {
-            requirement = defaultRequirement
+            defaultRequirement
         }
 
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
-            products: .nothing
+            products: .nothing,
+            enabledTraits: self.enabledTraitsMap[dependency.packageRef.identity]
         )
 
         // Run the resolution.
-        try self.resolveAndUpdateResolvedFile(
+        try await self.resolveAndUpdateResolvedFile(
             root: root,
             forceResolution: false,
             constraints: [constraint],
@@ -741,8 +861,8 @@ extension Workspace {
     public func resolveBasedOnResolvedVersionsFile(
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
-    ) throws {
-        try self._resolveBasedOnResolvedVersionsFile(
+    ) async throws {
+        try await self._resolveBasedOnResolvedVersionsFile(
             root: root,
             explicitProduct: .none,
             observabilityScope: observabilityScope
@@ -791,25 +911,25 @@ extension Workspace {
     ///
     /// - Parameters:
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func purgeCache(observabilityScope: ObservabilityScope) {
+    public func purgeCache(observabilityScope: ObservabilityScope) async {
         self.repositoryManager.purgeCache(observabilityScope: observabilityScope)
         self.registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
-        self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
+        await self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
     }
 
     /// Resets the entire workspace by removing the data directory.
     ///
     /// - Parameters:
     ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func reset(observabilityScope: ObservabilityScope) {
-        let removed = observabilityScope.trap { () -> Bool in
+    public func reset(observabilityScope: ObservabilityScope) async {
+        let removed = await observabilityScope.trap { () -> Bool in
             try self.fileSystem.chmod(
                 .userWritable,
                 path: self.location.repositoriesCheckoutsDirectory,
                 options: [.recursive, .onlyFiles]
             )
             // Reset state.
-            try self.resetState()
+            try await self.resetState()
             return true
         }
 
@@ -819,7 +939,7 @@ extension Workspace {
 
         self.repositoryManager.reset(observabilityScope: observabilityScope)
         self.registryDownloadsManager.reset(observabilityScope: observabilityScope)
-        self.manifestLoader.resetCache(observabilityScope: observabilityScope)
+        await self.manifestLoader.resetCache(observabilityScope: observabilityScope)
         do {
             try self.fileSystem.removeFileTree(self.location.scratchDirectory)
         } catch {
@@ -831,8 +951,8 @@ extension Workspace {
     }
 
     // FIXME: @testable internal
-    public func resetState() throws {
-        try self.state.reset()
+    public func resetState() async throws {
+        try await self.state.reset()
     }
 
     /// Cancel the active dependency resolution operation.
@@ -850,8 +970,8 @@ extension Workspace {
         packages: [String] = [],
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
-    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
-        try self._updateDependencies(
+    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        try await self._updateDependencies(
             root: root,
             packages: packages,
             dryRun: dryRun,
@@ -868,7 +988,7 @@ extension Workspace {
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
-    ) throws -> PackageGraph {
+    ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
         defer {
@@ -879,17 +999,17 @@ extension Workspace {
         // long running host processes (ie IDEs) need this in case other SwiftPM processes (ie CLI) made changes to the
         // state
         // such hosts processes call loadPackageGraph to make sure the workspace state is correct
-        try self.state.reload()
+        try await self.state.reload()
 
         // Perform dependency resolution, if required.
-        let manifests = try self._resolve(
+        let manifests = try await self._resolve(
             root: root,
             explicitProduct: explicitProduct,
             resolvedFileStrategy: forceResolvedVersions ? .lockFile : .bestEffort,
             observabilityScope: observabilityScope
         )
 
-        let binaryArtifacts = self.state.artifacts
+        let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
                 partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(
                     kind: artifact.kind,
@@ -898,8 +1018,22 @@ extension Workspace {
                 )
             }
 
+        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
+            let prebuilt = PrebuiltLibrary(
+                identity: $1.identity,
+                libraryName: $1.libraryName,
+                path: $1.path,
+                checkoutPath: $1.checkoutPath,
+                products: $1.products,
+                includePath: $1.includePath,
+                cModules: $1.cModules)
+            for product in $1.products {
+                $0[$1.identity, default: [:]][product] = prebuilt
+            }
+        }
+
         // Load the graph.
-        let packageGraph = try PackageGraph.load(
+        let packageGraph = try ModulesGraph.load(
             root: manifests.root,
             identityResolver: self.identityResolver,
             additionalFileRules: self.configuration.additionalFileRules,
@@ -907,12 +1041,14 @@ extension Workspace {
             requiredDependencies: manifests.requiredPackages,
             unsafeAllowedPackages: manifests.unsafeAllowedPackages,
             binaryArtifacts: binaryArtifacts,
+            prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         try self.validateSignatures(
@@ -928,9 +1064,24 @@ extension Workspace {
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws -> PackageGraph {
-        try self.loadPackageGraph(
-            rootInput: PackageGraphRootInput(packages: [rootPath]),
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
+            rootPath: rootPath,
+            explicitProduct: explicitProduct,
+            traitConfiguration: .default,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    @discardableResult
+    package func loadPackageGraph(
+        rootPath: AbsolutePath,
+        explicitProduct: String? = nil,
+        traitConfiguration: TraitConfiguration = .default,
+        observabilityScope: ObservabilityScope
+    ) async throws -> ModulesGraph {
+        try await self.loadPackageGraph(
+            rootInput: PackageGraphRootInput(packages: [rootPath], traitConfiguration: traitConfiguration),
             explicitProduct: explicitProduct,
             observabilityScope: observabilityScope
         )
@@ -941,10 +1092,52 @@ extension Workspace {
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope
     ) async throws -> [AbsolutePath: Manifest] {
-        try await withCheckedThrowingContinuation { continuation in
-            self.loadRootManifests(packages: packages, observabilityScope: observabilityScope) { result in
-                continuation.resume(with: result)
+        try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
+            var rootManifests = [AbsolutePath: Manifest]()
+            for package in Set(packages) {
+                group.addTask {
+                    // TODO: this does not use the identity resolver which is probably fine since its the root packages
+                    do {
+                        let manifest = try await self.loadManifest(
+                            packageIdentity: PackageIdentity(path: package),
+                            packageKind: .root(package),
+                            packagePath: package,
+                            packageLocation: package.pathString,
+                            observabilityScope: observabilityScope
+                        )
+                        return (package, manifest)
+                    } catch {
+                        return nil
+                    }
+                }
             }
+
+            // Collect the results.
+            for try await result in group {
+                if let (package, manifest) = result {
+                    // Store the manifest.
+                    rootManifests[package] = manifest
+
+                    // Compute the enabled traits for roots.
+                    let traitConfiguration = self.configuration.traitConfiguration
+                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
+                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+                }
+            }
+
+
+
+            // Check for duplicate root packages after all manifests are loaded.
+            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
+            if let firstDuplicateSet = duplicateRoots.first, let firstDuplicate = firstDuplicateSet.first {
+                observabilityScope.emit(error: "found multiple top-level packages named '\(firstDuplicate.displayName)'")
+                // Decide how to handle duplicates, e.g., throw an error or return an empty dictionary.
+                // For now, matching the original behavior of returning an empty dictionary on error.
+                // Consider throwing an error instead for better error propagation.
+                return [:]
+            }
+
+            return rootManifests
         }
     }
 
@@ -953,40 +1146,13 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
-        let lock = NSLock()
-        let sync = DispatchGroup()
-        var rootManifests = [AbsolutePath: Manifest]()
-        Set(packages).forEach { package in
-            sync.enter()
-            // TODO: this does not use the identity resolver which is probably fine since its the root packages
-            self.loadManifest(
-                packageIdentity: PackageIdentity(path: package),
-                packageKind: .root(package),
-                packagePath: package,
-                packageLocation: package.pathString,
+        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+            try await self.loadRootManifests(
+                packages: packages,
                 observabilityScope: observabilityScope
-            ) { result in
-                defer { sync.leave() }
-                if case .success(let manifest) = result {
-                    lock.withLock {
-                        rootManifests[package] = manifest
-                    }
-                }
-            }
-        }
-
-        sync.notify(queue: .sharedConcurrent) {
-            // Check for duplicate root packages.
-            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
-            if !duplicateRoots.isEmpty {
-                let name = duplicateRoots[0][0].displayName
-                observabilityScope.emit(error: "found multiple top-level packages named '\(name)'")
-                return completion(.success([:]))
-            }
-
-            completion(.success(rootManifests))
+            )
         }
     }
 
@@ -1053,18 +1219,25 @@ extension Workspace {
                         if let path = target.path {
                             let artifactPath = try manifest.path.parentDirectory
                                 .appending(RelativePath(validating: path))
-                            guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                            if artifactPath.extension?.lowercased() == "zip" {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: .unknown,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else if let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
                                 fileSystem: self.fileSystem,
                                 path: artifactPath,
                                 observabilityScope: observabilityScope
-                            ) else {
+                            ) {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: artifactKind,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                            partial[target.name] = BinaryArtifact(
-                                kind: artifactKind,
-                                originURL: .none,
-                                path: artifactPath
-                            )
                         } else if let url = target.url.flatMap(URL.init(string:)) {
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
@@ -1085,8 +1258,10 @@ extension Workspace {
                     path: path,
                     additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
+                    prebuilts: [:],
                     fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope
+                    observabilityScope: observabilityScope,
+                    enabledTraits: try manifest.enabledTraits(using: .default)
                 )
                 return try builder.construct()
             }
@@ -1095,9 +1270,9 @@ extension Workspace {
     }
 
     public func loadPluginImports(
-        packageGraph: PackageGraph
+        packageGraph: ModulesGraph
     ) async throws -> [PackageIdentity: [String: [String]]] {
-        let pluginTargets = packageGraph.allTargets.filter { $0.type == .plugin }
+        let pluginTargets = packageGraph.allModules.filter { $0.type == .plugin }
         let scanner = SwiftcImportScanner(
             swiftCompilerEnvironment: hostToolchain.swiftCompilerEnvironment,
             swiftCompilerFlags: self.hostToolchain
@@ -1123,15 +1298,39 @@ extension Workspace {
         }
         return importList
     }
-    
+
     public func loadPackage(
         with identity: PackageIdentity,
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await safe_async {
-            self.loadPackage(with: identity, packageGraph: packageGraph, observabilityScope: observabilityScope, completion: $0)
+        guard let previousPackage = packageGraph.package(for: identity) else {
+            throw StringError("could not find package with identity \(identity)")
         }
+
+        let manifest = try await self.loadManifest(
+            packageIdentity: identity,
+            packageKind: previousPackage.underlying.manifest.packageKind,
+            packagePath: previousPackage.path,
+            packageLocation: previousPackage.underlying.manifest.packageLocation,
+            observabilityScope: observabilityScope
+        )
+        let builder = PackageBuilder(
+            identity: identity,
+            manifest: manifest,
+            productFilter: .everything,
+            // TODO: this will not be correct when reloading a transitive dependencies if `ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION` is enabled
+            path: previousPackage.path,
+            additionalFileRules: self.configuration.additionalFileRules,
+            binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
+            prebuilts: [:],
+            shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
+            createREPLProduct: self.configuration.createREPLProduct,
+            fileSystem: self.fileSystem,
+            observabilityScope: observabilityScope,
+            enabledTraits: try manifest.enabledTraits(using: .default)
+        )
+        return try builder.construct()
     }
 
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading
@@ -1139,67 +1338,32 @@ extension Workspace {
     @available(*, noasync, message: "Use the async alternative")
     public func loadPackage(
         with identity: PackageIdentity,
-        packageGraph: PackageGraph,
+        packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
+        completion: @escaping @Sendable (Result<Package, Error>) -> Void
     ) {
-        guard let previousPackage = packageGraph.packages.first(where: { $0.identity == identity }) else {
-            return completion(.failure(StringError("could not find package with identity \(identity)")))
-        }
-
-        self.loadManifest(
-            packageIdentity: identity,
-            packageKind: previousPackage.underlying.manifest.packageKind,
-            packagePath: previousPackage.path,
-            packageLocation: previousPackage.underlying.manifest.packageLocation,
-            observabilityScope: observabilityScope
-        ) { result in
-            let result = result.tryMap { manifest -> Package in
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    // TODO: this will not be correct when reloading a transitive dependencies if `ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION` is enabled
-                    path: previousPackage.path,
-                    additionalFileRules: self.configuration.additionalFileRules,
-                    binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
-                    shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
-                    createREPLProduct: self.configuration.createREPLProduct,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope
-                )
-                return try builder.construct()
-            }
-            completion(result)
+        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+            try await self.loadPackage(
+                with: identity,
+                packageGraph: packageGraph,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
-    /// Returns `true` if the file at the given path might influence build settings for a `swiftc` or `clang` invocation
-    /// generated by SwiftPM.
-    public func fileAffectsSwiftOrClangBuildSettings(filePath: AbsolutePath, packageGraph: PackageGraph) -> Bool {
-        // TODO: Implement a more sophisticated check that also verifies if the file is in the sources directories of the passed in `packageGraph`.
-        FileRuleDescription.builtinRules.contains { fileRuleDescription in
-            fileRuleDescription.match(path: filePath, toolsVersion: self.currentToolsVersion)
-        }
-    }
-
-    public func acceptIdentityChange(
+    public func changeSigningEntityFromVersion(
         package: PackageIdentity,
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        self.registryClient.changeSigningEntityFromVersion(
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.registryClient.changeSigningEntityFromVersion(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
+            observabilityScope: observabilityScope
         )
     }
 }
@@ -1209,8 +1373,8 @@ extension Workspace {
     ///
     /// - Parameters:
     ///   - package: The package to remove
-    func remove(package: PackageReference) throws {
-        guard let dependency = self.state.dependencies[package.identity] else {
+    func remove(package: PackageReference) async throws {
+        guard let dependency = await self.state.dependencies[package.identity] else {
             throw InternalError("trying to remove \(package.identity) which isn't in workspace")
         }
 
@@ -1219,8 +1383,8 @@ extension Workspace {
         //
         // Note that we don't actually remove a local package from disk.
         if case .fileSystem = dependency.state {
-            self.state.dependencies.remove(package.identity)
-            try self.state.save()
+            await self.state.remove(identity: package.identity)
+            try await self.state.save()
             return
         }
 
@@ -1240,10 +1404,10 @@ extension Workspace {
                 basedOn: .none,
                 unmanagedPath: unmanagedPath
             )
-            self.state.dependencies.add(updatedDependency)
+            await self.state.add(dependency: updatedDependency)
         } else {
             dependencyToRemove = dependency
-            self.state.dependencies.remove(dependencyToRemove.packageRef.identity)
+            await self.state.remove(identity: dependencyToRemove.packageRef.identity)
         }
 
         switch package.kind {
@@ -1252,25 +1416,58 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try self.removeRepository(dependency: dependencyToRemove)
+            try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }
 
         // Save the state.
-        try self.state.save()
+        try await self.state.save()
     }
 }
 
+
 // MARK: - Utility extensions
+
+extension Workspace {
+    /// Creates and returns a copy of the current workspace with an updated configuration using the passed parameters.
+    /// - Parameters:
+    /// - traitConfiguration: A configuration of traits that will override the existing trait configuration in the WorkspaceConfiguration.
+    public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
+        var newConfig = self.configuration
+        newConfig.traitConfiguration = traitConfiguration
+        
+        return Workspace(
+            fileSystem: self.fileSystem,
+            configuration: newConfig,
+            location: self.location,
+            delegate: self.delegate,
+            mirrors: self.mirrors,
+            hostToolchain: self.hostToolchain,
+            manifestLoader: self.manifestLoader,
+            currentToolsVersion: self.currentToolsVersion,
+            customPackageContainerProvider: self.customPackageContainerProvider,
+            repositoryManager: self.repositoryManager,
+            registryClient: self.registryClient,
+            registryDownloadsManager: self.registryDownloadsManager,
+            binaryArtifactsManager: self.binaryArtifactsManager,
+            identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
+            fingerprints: self.fingerprints,
+            resolvedPackagesStore: self.resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: self.state
+        )
+    }
+}
 
 extension Workspace.ManagedArtifact {
     fileprivate var originURL: String? {
         switch self.source {
         case .remote(let url, _):
-            return url
+            url
         case .local:
-            return nil
+            nil
         }
     }
 }
@@ -1293,11 +1490,11 @@ extension PackageDependency {
     private var isLocal: Bool {
         switch self {
         case .fileSystem:
-            return true
+            true
         case .sourceControl:
-            return false
+            false
         case .registry:
-            return false
+            false
         }
     }
 }
@@ -1456,21 +1653,17 @@ private func warnToStderr(_ message: String) {
 }
 
 // used for manifest validation
-#if swift(<5.11)
 extension RepositoryManager: ManifestSourceControlValidator {}
-#else
-extension RepositoryManager: @retroactive ManifestSourceControlValidator {}
-#endif
 
 extension ContainerUpdateStrategy {
     var repositoryUpdateStrategy: RepositoryUpdateStrategy {
         switch self {
         case .always:
-            return .always
+            .always
         case .never:
-            return .never
+            .never
         case .ifNeeded(let revision):
-            return .ifNeeded(revision: .init(identifier: revision))
+            .ifNeeded(revision: .init(identifier: revision))
         }
     }
 }

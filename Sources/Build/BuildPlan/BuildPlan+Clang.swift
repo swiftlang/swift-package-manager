@@ -10,40 +10,61 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class PackageModel.BinaryTarget
-import class PackageModel.ClangTarget
-import class PackageModel.SwiftTarget
-import class PackageModel.SystemLibraryTarget
+import Basics
+import PackageGraph
+import PackageLoading
+import SPMBuildCore
+
+import class PackageModel.BinaryModule
+import class PackageModel.ClangModule
+import class PackageModel.SwiftModule
+import class PackageModel.SystemLibraryModule
 
 extension BuildPlan {
     /// Plan a Clang target.
-    func plan(clangTarget: ClangTargetBuildDescription) throws {
-        let dependencies = try clangTarget.target.recursiveDependencies(satisfying: clangTarget.buildEnvironment)
+    func plan(clangTarget: ClangModuleBuildDescription) throws {
+        let dependencies = clangTarget.recursiveDependencies(using: self)
 
-        for case .target(let dependency, _) in dependencies {
+        for case .module(let dependency, let description) in dependencies {
             switch dependency.underlying {
-            case is SwiftTarget:
-                if case let .swift(dependencyTargetDescription)? = targetMap[dependency] {
+            case is SwiftModule:
+                if case let .swift(dependencyTargetDescription)? = description {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                        // C languages clients should either import the module or include the compatibility header next to it.
+                        clangTarget.additionalFlags += ["-I", moduleMap.dirname]
                     }
                 }
 
-            case let target as ClangTarget where target.type == .library:
+            case let target as ClangModule where target.type == .library:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 
                 // Add the modulemap of the dependency if it has one.
-                if case let .clang(dependencyTargetDescription)? = targetMap[dependency] {
+                if case let .clang(dependencyTargetDescription)? = description {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
                         clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
                     }
                 }
-            case let target as SystemLibraryTarget:
+            case let target as SystemLibraryModule:
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
-            case let target as BinaryTarget:
-                if case .xcframework = target.kind {
+            case let target as BinaryModule:
+                switch target.kind {
+                case .unknown:
+                    break
+                case .artifactsArchive:
+                    let libraries = try self.parseLibraryArtifactsArchive(for: target, triple: clangTarget.buildParameters.triple)
+                    for library in libraries {
+                        library.headersPaths.forEach {
+                            clangTarget.additionalFlags += ["-I", $0.pathString]
+                        }
+                        if let moduleMapPath = library.moduleMapPath {
+                            clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMapPath)"]
+                        }
+
+                        clangTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+                case .xcframework:
                     let libraries = try self.parseXCFramework(for: target, triple: clangTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
@@ -52,9 +73,9 @@ extension BuildPlan {
                         clangTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }
+
             default: continue
             }
         }
     }
-
 }

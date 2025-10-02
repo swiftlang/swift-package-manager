@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,18 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(ProcessEnvironmentBlockShim)
 import Basics
 import Dispatch
 import class Foundation.NSLock
+
+import struct PackageModel.CanonicalPackageURL
 
 import struct TSCBasic.ByteString
 import protocol TSCBasic.DiagnosticLocation
 import struct TSCBasic.FileInfo
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
-import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
-import struct TSCBasic.ProcessResult
+import class Basics.AsyncProcess
+import struct Basics.AsyncProcessResult
 import struct TSCBasic.RegEx
 
 import protocol TSCUtility.DiagnosticLocationProviding
@@ -42,15 +44,15 @@ private struct GitShellHelper {
     /// output as a string.
     func run(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
-        outputRedirection: TSCBasic.Process.OutputRedirection = .collect
+        environment: Environment = .init(Git.environmentBlock),
+        outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) throws -> String {
-        let process = TSCBasic.Process(
+        let process = AsyncProcess(
             arguments: [Git.tool] + args,
             environment: environment,
             outputRedirection: outputRedirection
         )
-        let result: ProcessResult
+        let result: AsyncProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
                 throw CancellationError() // terminating
@@ -66,7 +68,7 @@ private struct GitShellHelper {
             throw error
         } catch {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
-            let result = ProcessResult(
+            let result = AsyncProcessResult(
                 arguments: process.arguments,
                 environment: process.environment,
                 exitStatus: .terminated(code: -1),
@@ -85,7 +87,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     private let cancellator: Cancellator
     private let git: GitShellHelper
 
-    private var repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
+    private let repositoryCache = ThreadSafeKeyValueStore<String, Repository>()
 
     public init() {
         // helper to cancel outstanding processes
@@ -97,7 +99,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: [String],
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -107,7 +109,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
@@ -117,7 +119,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
-                let result = ProcessResult(
+                let result = AsyncProcessResult(
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
@@ -138,7 +140,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         repository: RepositorySpecifier,
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
@@ -182,7 +184,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         repository: RepositorySpecifier,
         to path: Basics.AbsolutePath,
         progressHandler: FetchProgress.Handler? = nil
-    ) throws {
+    ) async throws {
         // Perform a bare clone.
         //
         // NOTE: We intentionally do not create a shallow clone here; the
@@ -201,10 +203,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         )
     }
 
-    public func repositoryExists(at directory: Basics.AbsolutePath) -> Bool {
-        return localFileSystem.isDirectory(directory)
-    }
-
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
         let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
         return result == ".git" || result == "." || result == directory.pathString
@@ -212,7 +210,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        return remoteURL == repository.url
+        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
@@ -231,7 +229,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         sourcePath: Basics.AbsolutePath,
         at destinationPath: Basics.AbsolutePath,
         editable: Bool
-    ) throws -> WorkingCheckout {
+    ) async throws -> WorkingCheckout {
         if editable {
             // For editable clones, i.e. the user is expected to directly work on them, first we create
             // a clone from our cache of repositories and then we replace the remote to the one originally
@@ -440,7 +438,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     @discardableResult
     private func callGit(
         _ args: String...,
-        environment: EnvironmentVariables = Git.environment,
+        environment: Environment = .init(Git.environmentBlock),
         failureMessage: String = "",
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
@@ -449,7 +447,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = Process.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
                     stderrBytes += $0
                     gitFetchStatusFilter($0, progress: progress)
                 })
@@ -459,13 +457,12 @@ public final class GitRepository: Repository, WorkingCheckout {
                     outputRedirection: outputHandler
                 )
             } catch let error as GitShellError {
-                let result = ProcessResult(
+                let result = AsyncProcessResult(
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
                     output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes)
-                )
+                    stderrOutput: .success(stderrBytes))
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {
@@ -505,7 +502,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "remote",
                 failureMessage: "Couldn’t get the list of remotes"
             )
-            let remoteNames = remoteNamesOutput.split(separator: "\n").map(String.init)
+            let remoteNames = remoteNamesOutput.split(whereSeparator: { $0.isNewline }).map(String.init)
             return try remoteNames.map { name in
                 // For each remote get the url.
                 let url = try callGit(
@@ -529,7 +526,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         try self.cachedBranches.memoize {
             try self.lock.withLock {
                 let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
-                return branches.split(separator: "\n").map { $0.dropFirst(2) }.map(String.init)
+                return branches.split(whereSeparator: { $0.isNewline }).map { $0.dropFirst(2) }.map(String.init)
             }
         }
     }
@@ -546,7 +543,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     "-l",
                     failureMessage: "Couldn’t get the list of tags"
                 )
-                return tagList.split(separator: "\n").map(String.init)
+                return tagList.split(whereSeparator: { $0.isNewline }).map(String.init)
             }
         }
     }
@@ -620,6 +617,17 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "HEAD",
                 failureMessage: "Couldn’t get current revision"
             ))
+        }
+    }
+
+    public func getCurrentTag() -> String? {
+        self.lock.withLock {
+            try? callGit(
+                "describe",
+                "--exact-match",
+                "--tags",
+                failureMessage: "Couldn’t get current tag"
+            )
         }
     }
 
@@ -769,8 +777,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                 output = try error.result.utf8Output().spm_chomp()
             }
 
-            return stringPaths.map(output.split(separator: "\n").map {
-                let string = String($0).replacingOccurrences(of: "\\\\", with: "\\")
+            return stringPaths.map(output.split(whereSeparator: { $0.isNewline }).map {
+                let string = String($0).replacing("\\\\", with: "\\")
                 if string.utf8.first == UInt8(ascii: "\"") {
                     return String(string.dropFirst(1).dropLast(1))
                 }
@@ -1094,7 +1102,7 @@ private class GitFileSystemView: FileSystem {
         case .symlink:
             let path = try repository.readLink(hash: hash)
             return try readFileContents(AbsolutePath(validating: path))
-        case .blob:
+        case .blob, .executableBlob:
             return try self.repository.readBlob(hash: hash)
         default:
             throw InternalError("unsupported git entry type \(entry.type) at path \(path)")
@@ -1153,8 +1161,16 @@ extension GitFileSystemView: @unchecked Sendable {}
 
 // MARK: - Errors
 
-private struct GitShellError: Error {
-    let result: ProcessResult
+package struct GitShellError: Error, CustomStringConvertible {
+    let result: AsyncProcessResult
+
+    public var description: String {
+        let stdout = (try? self.result.utf8Output()) ?? ""
+        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
+        let output = (stdout + stderr).spm_chomp()
+        let command = self.result.arguments.joined(separator: " ")
+        return "Git command '\(command)' failed: \(output)"
+    }
 }
 
 private enum GitInterfaceError: Swift.Error {
@@ -1168,7 +1184,7 @@ private enum GitInterfaceError: Swift.Error {
 public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLocationProviding {
     public let path: AbsolutePath
     public let message: String
-    public let result: ProcessResult
+    package let result: AsyncProcessResult
 
     public struct Location: DiagnosticLocation {
         public let path: AbsolutePath
@@ -1192,7 +1208,7 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
 public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationProviding {
     public let repository: RepositorySpecifier
     public let message: String
-    public let result: ProcessResult
+    package let result: AsyncProcessResult
 
     public struct Location: DiagnosticLocation {
         public let repository: RepositorySpecifier

@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import SPMBuildCore
+import TSCUtility
 
 import protocol TSCBasic.OutputByteStream
 
@@ -27,7 +28,7 @@ public final class InitPackage {
         public var packageType: PackageType
 
         /// The set of supported testing libraries to include in the package.
-        public var supportedTestingLibraries: Set<BuildParameters.Testing.Library>
+        public var supportedTestingLibraries: Set<TestingLibrary>
 
         /// The list of platforms in the manifest.
         ///
@@ -36,7 +37,7 @@ public final class InitPackage {
 
         public init(
             packageType: PackageType,
-            supportedTestingLibraries: Set<BuildParameters.Testing.Library> = [.xctest],
+            supportedTestingLibraries: Set<TestingLibrary>,
             platforms: [SupportedPlatform] = []
         ) {
             self.packageType = packageType
@@ -93,7 +94,7 @@ public final class InitPackage {
     public convenience init(
         name: String,
         packageType: PackageType,
-        supportedTestingLibraries: Set<BuildParameters.Testing.Library>,
+        supportedTestingLibraries: Set<TestingLibrary>,
         destinationPath: AbsolutePath,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
         fileSystem: FileSystem
@@ -116,7 +117,7 @@ public final class InitPackage {
         fileSystem: FileSystem
     ) throws {
         if options.packageType == .macro && options.supportedTestingLibraries.contains(.swiftTesting) {
-            // FIXME: https://github.com/apple/swift-syntax/issues/2400
+            // FIXME: https://github.com/swiftlang/swift-syntax/issues/2400
             throw InitError.unsupportedTestingLibraryForPackageType(.swiftTesting, .macro)
         }
 
@@ -239,7 +240,8 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
@@ -248,7 +250,8 @@ public final class InitPackage {
                         // Products can be used to vend plugins, making them visible to other packages.
                         .plugin(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .macro {
@@ -273,10 +276,7 @@ public final class InitPackage {
             if packageType == .tool {
                 dependencies.append(#".package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.2.0")"#)
             } else if packageType == .macro {
-                dependencies.append(#".package(url: "https://github.com/apple/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
-            }
-            if options.supportedTestingLibraries.contains(.swiftTesting) {
-                dependencies.append(#".package(url: "https://github.com/apple/swift-testing.git", from: "0.2.0")"#)
+                dependencies.append(#".package(url: "https://github.com/swiftlang/swift-syntax.git", from: "\#(self.installedSwiftPMConfiguration.swiftSyntaxVersionForMacroTemplate.description)")"#)
             }
             if !dependencies.isEmpty {
                 let dependencies = dependencies.map { dependency in
@@ -300,12 +300,36 @@ public final class InitPackage {
 
                 """
                 if packageType == .executable {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .tool {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)",
@@ -313,6 +337,7 @@ public final class InitPackage {
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .buildToolPlugin {
@@ -384,17 +409,7 @@ public final class InitPackage {
                     """
                 } else {
                     let testTarget: String
-                    if options.supportedTestingLibraries.contains(.swiftTesting) {
-                        testTarget = """
-                                .testTarget(
-                                    name: "\(pkgname)Tests",
-                                    dependencies: [
-                                        "\(pkgname)",
-                                        .product(name: "Testing", package: "swift-testing"),
-                                    ]
-                                ),
-                        """
-                    } else if options.supportedTestingLibraries.contains(.xctest) {
+                    if !options.supportedTestingLibraries.isEmpty {
                         testTarget = """
                                 .testTarget(
                                     name: "\(pkgname)Tests",
@@ -407,7 +422,8 @@ public final class InitPackage {
 
                     param += """
                             .target(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
                     \(testTarget)
                         ]
                     """
@@ -476,6 +492,7 @@ public final class InitPackage {
 
             var content = """
                 import PackagePlugin
+                import struct Foundation.URL
 
                 @main
 
@@ -492,8 +509,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return sourceFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return sourceFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -508,8 +525,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return target.inputFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return target.inputFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -518,14 +535,14 @@ public final class InitPackage {
 
                 extension \(typeName) {
                     /// Shared function that returns a configured build command if the input files is one that should be processed.
-                    func createBuildCommand(for inputPath: Path, in outputDirectoryPath: Path, with generatorToolPath: Path) -> Command? {
+                    func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
                         // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
-                        guard inputPath.extension == "my-input-suffix" else { return .none }
+                        guard inputPath.pathExtension == "my-input-suffix" else { return .none }
                         
                         // Return a command that will run during the build to generate the output file.
-                        let inputName = inputPath.lastComponent
-                        let outputName = inputPath.stem + ".swift"
-                        let outputPath = outputDirectoryPath.appending(outputName)
+                        let inputName = inputPath.lastPathComponent
+                        let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
+                        let outputPath = outputDirectoryPath.appendingPathComponent(outputName)
                         return .buildCommand(
                             displayName: "Generating \\(outputName) from \\(inputName)",
                             executable: generatorToolPath,
@@ -550,7 +567,7 @@ public final class InitPackage {
                 #if canImport(XcodeProjectPlugin)
                 import XcodeProjectPlugin
 
-                extension MyCommandPlugin: XcodeCommandPlugin {
+                extension \(typeName): XcodeCommandPlugin {
                     // Entry point for command plugins applied to Xcode projects.
                     func performCommand(context: XcodePluginContext, arguments: [String]) throws {
                         print("Hello, World!")
@@ -580,24 +597,15 @@ public final class InitPackage {
         guard self.fileSystem.exists(sources) == false else {
             return
         }
-        progressReporter?("Creating \(sources.relative(to: destinationPath))/")
+        progressReporter?("Creating \(sources.relative(to: destinationPath))")
         try makeDirectories(sources)
 
-        let moduleDir: AbsolutePath
-        switch packageType {
-        case .executable, .tool:
-            moduleDir = sources
-        default:
-            moduleDir = sources.appending("\(pkgname)")
-        }
+        let moduleDir = sources.appending("\(pkgname)")
         try makeDirectories(moduleDir)
 
-        let sourceFileName: String
-        if packageType == .executable {
-            sourceFileName = "main.swift"
-        } else {
-            sourceFileName = "\(typeName).swift"
-        }
+        // If we're creating an executable we can't have both a @main declaration and a main.swift file.
+        // Handle the edge case of a user creating a project called "main" by give the generated file a different name.
+        let sourceFileName = ((packageType == .executable || packageType == .tool) && typeName == "main") ? "MainEntrypoint.swift" : "\(typeName).swift"
         let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
         let content: String
@@ -613,7 +621,12 @@ public final class InitPackage {
                 // The Swift Programming Language
                 // https://docs.swift.org/swift-book
 
-                print("Hello, world!")
+                @main
+                struct \(typeName) {
+                    static func main() {
+                        print("Hello, world!")
+                    }
+                }
 
                 """
         case .tool:
@@ -672,9 +685,12 @@ public final class InitPackage {
         }
 
         switch packageType {
-        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
-            default: break
+        case .empty, .buildToolPlugin, .commandPlugin:
+            return
+        case .library, .executable, .tool, .macro:
+            break
         }
+
         let tests = destinationPath.appending("Tests")
         guard self.fileSystem.exists(tests) == false else {
             return
@@ -687,6 +703,10 @@ public final class InitPackage {
     private func writeLibraryTestsFile(_ path: AbsolutePath) throws {
         var content = ""
 
+        // XCTest is only added if it was explicitly asked for, so add tests
+        // for it *and* Testing if it is enabled (or just XCTest if Testing
+        // is explicitly disabled).
+
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += "import Testing\n"
         }
@@ -695,20 +715,17 @@ public final class InitPackage {
         }
         content += "@testable import \(moduleName)\n"
 
-        // Prefer swift-testing if specified, otherwise XCTest. If both are
-        // specified, the developer is free to write tests using both
-        // libraries, but we still only want to present a single library's
-        // example tests.
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += """
 
-                @Test func example() throws {
-                    // swift-testing Documentation
-                    // https://swiftpackageindex.com/apple/swift-testing/main/documentation/testing
+                @Test func example() async throws {
+                    // Write your test here and use APIs like `#expect(...)` to check expected conditions.
                 }
 
                 """
-        } else if options.supportedTestingLibraries.contains(.xctest) {
+        }
+
+        if options.supportedTestingLibraries.contains(.xctest) {
             content += """
 
                 final class \(moduleName)Tests: XCTestCase {
@@ -737,6 +754,7 @@ public final class InitPackage {
             import SwiftSyntaxBuilder
             import SwiftSyntaxMacros
             import SwiftSyntaxMacrosTestSupport
+
             """##
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
@@ -760,13 +778,14 @@ public final class InitPackage {
 
             """##
 
-        // Prefer swift-testing if specified, otherwise XCTest. If both are
-        // specified, the developer is free to write tests using both
-        // libraries, but we still only want to present a single library's
-        // example tests.
+        // XCTest is only added if it was explicitly asked for, so add tests
+        // for it *and* Testing if it is enabled.
+
         if options.supportedTestingLibraries.contains(.swiftTesting) {
-            // FIXME: https://github.com/apple/swift-syntax/issues/2400
-        } else if options.supportedTestingLibraries.contains(.xctest) {
+            // FIXME: https://github.com/swiftlang/swift-syntax/issues/2400
+        }
+
+        if options.supportedTestingLibraries.contains(.xctest) {
             content += ##"""
                 final class \##(moduleName)Tests: XCTestCase {
                     func testMacro() throws {
@@ -835,7 +854,7 @@ public final class InitPackage {
                         of node: some FreestandingMacroExpansionSyntax,
                         in context: some MacroExpansionContext
                     ) -> ExprSyntax {
-                        guard let argument = node.argumentList.first?.expression else {
+                        guard let argument = node.arguments.first?.expression else {
                             fatalError("compiler bug: the macro does not have any arguments")
                         }
 
@@ -876,14 +895,16 @@ public final class InitPackage {
     }
 
     private func writeTestFileStubs(testsPath: AbsolutePath) throws {
-        let testModule = try AbsolutePath(validating: pkgname + Target.testModuleNameSuffix, relativeTo: testsPath)
+        let testModule = try AbsolutePath(validating: pkgname + Module.testModuleNameSuffix, relativeTo: testsPath)
         progressReporter?("Creating \(testModule.relative(to: destinationPath))/")
         try makeDirectories(testModule)
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
+
         switch packageType {
-        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
-        case .library:
+        case .empty, .buildToolPlugin, .commandPlugin:
+            break
+        case .library, .executable, .tool:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)
@@ -895,7 +916,7 @@ public final class InitPackage {
 
 private enum InitError: Swift.Error {
     case manifestAlreadyExists
-    case unsupportedTestingLibraryForPackageType(_ testingLibrary: BuildParameters.Testing.Library, _ packageType: InitPackage.PackageType)
+    case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
 }
 
 extension InitError: CustomStringConvertible {

@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import TSCBasic
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible, Sendable {
@@ -39,7 +40,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
-    public init(path: AbsolutePath) {
+    public init(path: Basics.AbsolutePath) {
         self.description = PackageIdentityParser(path.pathString).description
     }
 
@@ -310,7 +311,7 @@ struct PackageIdentityParser {
     }
 
     /// Compute the default name of a package given its path.
-    public static func computeDefaultName(fromPath path: AbsolutePath) -> String {
+    public static func computeDefaultName(fromPath path: Basics.AbsolutePath) -> String {
         Self.computeDefaultName(fromLocation: path.pathString)
     }
 
@@ -413,7 +414,7 @@ struct PackageIdentityParser {
 ///   ```
 ///   file:///Users/mona/LinkedList → /Users/mona/LinkedList
 ///   ```
-public struct CanonicalPackageLocation: Equatable, CustomStringConvertible {
+public struct CanonicalPackageLocation: Equatable, CustomStringConvertible, Hashable {
     /// A textual representation of this instance.
     public let description: String
 
@@ -445,7 +446,7 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
     // Remove the userinfo subcomponent (user / password), if present.
     if case (let user, _)? = description.dropUserinfoSubcomponentPrefixIfPresent() {
         // If a user was provided, perform tilde expansion, if applicable.
-        description.replaceFirstOccurenceIfPresent(of: "/~/", with: "/~\(user)/")
+        description.replaceFirstOccurrenceIfPresent(of: "/~/", with: "/~\(user)/")
 
         if user == "git", scheme == nil {
             scheme = "ssh"
@@ -461,9 +462,9 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
     // Remove the query component, if present.
     description.removeQueryComponentIfPresent()
 
-    // Accomodate "`scp`-style" SSH URLs
+    // Accommodate "`scp`-style" SSH URLs
     if detectedScheme == nil || detectedScheme == "ssh" {
-        description.replaceFirstOccurenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
+        description.replaceFirstOccurrenceIfPresent(of: ":", before: description.firstIndex(of: "/"), with: "/")
     }
 
     // Split the remaining string into path components,
@@ -480,6 +481,7 @@ private func computeCanonicalLocation(_ string: String) -> (description: String,
 
     // Prepend a leading slash for file URLs and paths
     if detectedScheme == "file" || string.first.flatMap(isSeparator) ?? false {
+        scheme = "file"
         description.insert("/", at: description.startIndex)
     }
 
@@ -590,7 +592,7 @@ extension String {
     }
 
     @discardableResult
-    fileprivate mutating func replaceFirstOccurenceIfPresent<T: StringProtocol, U: StringProtocol>(
+    fileprivate mutating func replaceFirstOccurrenceIfPresent<T: StringProtocol, U: StringProtocol>(
         of string: T,
         before index: Index? = nil,
         with replacement: U

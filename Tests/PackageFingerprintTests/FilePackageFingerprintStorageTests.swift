@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,13 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import struct Foundation.URL
 @testable import PackageFingerprint
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -31,12 +30,12 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Add fingerprints for mona.LinkedList
         let package = PackageIdentity.plain("mona.LinkedList")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -45,7 +44,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.1.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.1.0", contentType: .sourceCode)
@@ -53,7 +52,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Fingerprint for another package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
-        try await storage.put(
+        try storage.put(
             package: otherPackage,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
@@ -68,7 +67,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Fingerprints should be saved
         do {
-            let fingerprints = try await storage.get(package: package, version: Version("1.0.0"))
+            let fingerprints = try storage.get(package: package, version: Version("1.0.0"))
             XCTAssertEqual(fingerprints.count, 2)
 
             let registryFingerprints = fingerprints[.registry]
@@ -83,7 +82,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         do {
-            let fingerprints = try await storage.get(package: package, version: Version("1.1.0"))
+            let fingerprints = try storage.get(package: package, version: Version("1.1.0"))
             XCTAssertEqual(fingerprints.count, 1)
 
             let registryFingerprints = fingerprints[.registry]
@@ -93,7 +92,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         do {
-            let fingerprints = try await storage.get(package: otherPackage, version: Version("1.0.0"))
+            let fingerprints = try storage.get(package: otherPackage, version: Version("1.0.0"))
             XCTAssertEqual(fingerprints.count, 1)
 
             let registryFingerprints = fingerprints[.registry]
@@ -110,14 +109,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let registryURL = URL("https://example.packages.com")
 
         let package = PackageIdentity.plain("mona.LinkedList")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
 
         // No fingerprints found for the content type
-        await XCTAssertAsyncThrowsError(try await storage.get(
+        await XCTAssertAsyncThrowsError(try storage.get(
             package: package,
             version: Version("1.0.0"),
             kind: .registry,
@@ -129,7 +128,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // No fingerprints found for the version
-        await XCTAssertAsyncThrowsError(try await storage.get(package: package, version: Version("1.1.0"))) { error in
+        await XCTAssertAsyncThrowsError(try storage.get(package: package, version: Version("1.1.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
             }
@@ -137,7 +136,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // No fingerprints found for the package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
-        await XCTAssertAsyncThrowsError(try await storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
+        await XCTAssertAsyncThrowsError(try storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
             }
@@ -152,14 +151,14 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         let package = PackageIdentity.plain("mona.LinkedList")
         // Write registry checksum for v1.0.0
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .registry(registryURL), value: "checksum-1.0.0", contentType: .sourceCode)
         )
 
         // Writing for the same version and kind and content type but different checksum should fail
-        await XCTAssertAsyncThrowsError(try await storage.put(
+        await XCTAssertAsyncThrowsError(try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -174,7 +173,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // Writing for the same version and kind and content type same checksum should not fail
-        _ = try await storage.put(
+        _ = try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -195,7 +194,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             url: sourceControlURL
         )
 
-        try await storage.put(
+        try storage.put(
             package: packageRef,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -204,7 +203,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try await storage.put(
+        try storage.put(
             package: packageRef,
             version: Version("1.1.0"),
             fingerprint: .init(
@@ -215,7 +214,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Fingerprints should be saved
-        let fingerprints = try await storage.get(package: packageRef, version: Version("1.1.0"))
+        let fingerprints = try storage.get(package: packageRef, version: Version("1.1.0"))
         XCTAssertEqual(fingerprints.count, 1)
 
         let scmFingerprints = fingerprints[.sourceControl]
@@ -236,13 +235,13 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
         let barRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: barURL), url: barURL)
 
-        try await storage.put(
+        try storage.put(
             package: fooRef,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo", contentType: .sourceCode)
         )
         // This should succeed because they get written to different files
-        try await storage.put(
+        try storage.put(
             package: barRef,
             version: Version("1.0.0"),
             fingerprint: .init(origin: .sourceControl(barURL), value: "abcde-bar", contentType: .sourceCode)
@@ -261,7 +260,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // This should fail because fingerprint for 1.0.0 already exists and it's different
-        await XCTAssertAsyncThrowsError(try await storage.put(
+        await XCTAssertAsyncThrowsError(try storage.put(
             package: fooRef,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -276,7 +275,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // This should succeed because fingerprint for 2.0.0 doesn't exist yet
-        try await storage.put(
+        try storage.put(
             package: fooRef,
             version: Version("2.0.0"),
             fingerprint: .init(origin: .sourceControl(fooURL), value: "abcde-foo", contentType: .sourceCode)
@@ -314,7 +313,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         try mockFileSystem.writeFileContents(fingerprintsPath, string: v1Fingerprints)
 
         // v1 fingerprints file should be converted to v2 when read
-        let fingerprints = try await storage.get(package: package, version: Version("1.0.3"))
+        let fingerprints = try storage.get(package: package, version: Version("1.0.3"))
         XCTAssertEqual(fingerprints.count, 1)
 
         let scmFingerprints = fingerprints[.sourceControl]
@@ -333,7 +332,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
         // Add fingerprints for 1.0.0 source archive/code
         let package = PackageIdentity.plain("mona.LinkedList")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -342,7 +341,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .sourceCode
             )
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -353,7 +352,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Add fingerprints for 1.0.0 manifests
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -362,7 +361,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
                 contentType: .manifest(.none)
             )
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             fingerprint: .init(
@@ -373,7 +372,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Add fingerprint for 1.1.0 source archive
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.1.0"),
             fingerprint: .init(
@@ -383,7 +382,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
             )
         )
 
-        let fingerprints = try await storage.get(package: package, version: Version("1.0.0"))
+        let fingerprints = try storage.get(package: package, version: Version("1.0.0"))
         XCTAssertEqual(fingerprints.count, 2)
 
         let registryFingerprints = fingerprints[.registry]
@@ -406,16 +405,12 @@ extension PackageFingerprintStorage {
     fileprivate func get(
         package: PackageIdentity,
         version: Version
-    ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try await safe_async {
-            self.get(
-                package: package,
-                version: version,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try self.get(
+            package: package,
+            version: version,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func get(
@@ -423,50 +418,38 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
-    ) async throws -> Fingerprint {
-        try await safe_async {
-            self.get(
-                package: package,
-                version: version,
-                kind: kind,
-                contentType: contentType,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws -> Fingerprint {
+        try self.get(
+            package: package,
+            version: version,
+            kind: kind,
+            contentType: contentType,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func put(
         package: PackageIdentity,
         version: Version,
         fingerprint: Fingerprint
-    ) async throws {
-        try await safe_async {
-            self.put(
-                package: package,
-                version: version,
-                fingerprint: fingerprint,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws {
+        try self.put(
+            package: package,
+            version: version,
+            fingerprint: fingerprint,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func get(
         package: PackageReference,
         version: Version
-    ) async throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        try await safe_async {
-            self.get(
-                package: package,
-                version: version,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
+        try self.get(
+            package: package,
+            version: version,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func get(
@@ -474,34 +457,26 @@ extension PackageFingerprintStorage {
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
-    ) async throws -> Fingerprint {
-        try await safe_async {
-            self.get(
-                package: package,
-                version: version,
-                kind: kind,
-                contentType: contentType,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws -> Fingerprint {
+        try self.get(
+            package: package,
+            version: version,
+            kind: kind,
+            contentType: contentType,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 
     fileprivate func put(
         package: PackageReference,
         version: Version,
         fingerprint: Fingerprint
-    ) async throws {
-        try await safe_async {
-            self.put(
-                package: package,
-                version: version,
-                fingerprint: fingerprint,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent,
-                callback: $0
-            )
-        }
+    ) throws {
+        try self.put(
+            package: package,
+            version: version,
+            fingerprint: fingerprint,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
     }
 }

@@ -10,86 +10,147 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Build
 import SPMBuildCore
 import XCBuildSupport
+import SwiftBuildSupport
+import PackageGraph
+import Workspace
 
 import class Basics.ObservabilityScope
-import struct PackageGraph.PackageGraph
+import struct PackageGraph.ModulesGraph
 import struct PackageLoading.FileRuleDescription
 import protocol TSCBasic.OutputByteStream
+import enum PackageModel.TraitConfiguration
 
 private struct NativeBuildSystemFactory: BuildSystemFactory {
-    let swiftTool: SwiftTool
+    let swiftCommandState: SwiftCommandState
 
     func makeBuildSystem(
         explicitProduct: String?,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
-    ) throws -> any BuildSystem {
-        let testEntryPointPath = productsBuildParameters?.testingParameters.testProductStyle.explicitlySpecifiedEntryPointPath
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
+    ) async throws -> any BuildSystem {
+        _ = try await swiftCommandState.getRootPackageInformation(enableAllTraits)
+        let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
+        let cacheBuildManifest = if cacheBuildManifest {
+            try await self.swiftCommandState.canUseCachedBuildManifest()
+        } else {
+            false
+        }
         return try BuildOperation(
-            productsBuildParameters: try productsBuildParameters ?? self.swiftTool.productsBuildParameters,
-            toolsBuildParameters: try toolsBuildParameters ?? self.swiftTool.toolsBuildParameters,
-            cacheBuildManifest: cacheBuildManifest && self.swiftTool.canUseCachedBuildManifest(),
+            productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
+            cacheBuildManifest: cacheBuildManifest,
             packageGraphLoader: packageGraphLoader ?? {
-                try self.swiftTool.loadPackageGraph(
+                try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
+                    enableAllTraits: enableAllTraits,
                     testEntryPointPath: testEntryPointPath
                 )
             },
             pluginConfiguration: .init(
-                scriptRunner: self.swiftTool.getPluginScriptRunner(),
-                workDirectory: try self.swiftTool.getActiveWorkspace().location.pluginWorkingDirectory,
-                disableSandbox: self.swiftTool.shouldDisableSandbox
+                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
+                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
+            scratchDirectory: self.swiftCommandState.scratchDirectory,
+            traitConfiguration: enableAllTraits ? .enableAllTraits : self.swiftCommandState.traitConfiguration,
             additionalFileRules: FileRuleDescription.swiftpmFileTypes,
-            pkgConfigDirectories: self.swiftTool.options.locations.pkgConfigDirectories,
-            outputStream: outputStream ?? self.swiftTool.outputStream,
-            logLevel: logLevel ?? self.swiftTool.logLevel,
-            fileSystem: self.swiftTool.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope)
+            pkgConfigDirectories: self.swiftCommandState.options.locations.pkgConfigDirectories,
+            outputStream: outputStream ?? self.swiftCommandState.outputStream,
+            logLevel: logLevel ?? self.swiftCommandState.logLevel,
+            fileSystem: self.swiftCommandState.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            delegate: delegate)
     }
 }
 
 private struct XcodeBuildSystemFactory: BuildSystemFactory {
-    let swiftTool: SwiftTool
+    let swiftCommandState: SwiftCommandState
 
     func makeBuildSystem(
         explicitProduct: String?,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
-        packageGraphLoader: (() throws -> PackageGraph)?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) throws -> any BuildSystem {
         return try XcodeBuildSystem(
-            buildParameters: productsBuildParameters ?? self.swiftTool.productsBuildParameters,
+            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
-                try self.swiftTool.loadPackageGraph(
-                    explicitProduct: explicitProduct
+                try await self.swiftCommandState.loadPackageGraph(
+                    explicitProduct: explicitProduct,
+                    enableAllTraits: enableAllTraits
                 )
             },
-            outputStream: outputStream ?? self.swiftTool.outputStream,
-            logLevel: logLevel ?? self.swiftTool.logLevel,
-            fileSystem: self.swiftTool.fileSystem,
-            observabilityScope: observabilityScope ?? self.swiftTool.observabilityScope
+            outputStream: outputStream ?? self.swiftCommandState.outputStream,
+            logLevel: logLevel ?? self.swiftCommandState.logLevel,
+            fileSystem: self.swiftCommandState.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            delegate: delegate
         )
     }
 }
 
-extension SwiftTool {
+private struct SwiftBuildSystemFactory: BuildSystemFactory {
+    let swiftCommandState: SwiftCommandState
+
+    func makeBuildSystem(
+        explicitProduct: String?,
+        enableAllTraits: Bool,
+        cacheBuildManifest: Bool,
+        productsBuildParameters: BuildParameters?,
+        toolsBuildParameters: BuildParameters?,
+        packageGraphLoader: (() async throws -> ModulesGraph)?,
+        outputStream: OutputByteStream?,
+        logLevel: Diagnostic.Severity?,
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
+    ) throws -> any BuildSystem {
+        return try SwiftBuildSystem(
+            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            packageGraphLoader: packageGraphLoader ?? {
+                try await self.swiftCommandState.loadPackageGraph(
+                    explicitProduct: explicitProduct,
+                    enableAllTraits: enableAllTraits,
+                )
+            },
+            packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
+            additionalFileRules: FileRuleDescription.swiftpmFileTypes + FileRuleDescription.xcbuildFileTypes,
+            outputStream: outputStream ?? self.swiftCommandState.outputStream,
+            logLevel: logLevel ?? self.swiftCommandState.logLevel,
+            fileSystem: self.swiftCommandState.fileSystem,
+            observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
+            pluginConfiguration: .init(
+                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
+                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                disableSandbox: self.swiftCommandState.shouldDisableSandbox
+            ),
+            delegate: delegate
+        )
+    }
+}
+
+extension SwiftCommandState {
     public var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
-            .native: NativeBuildSystemFactory(swiftTool: self),
-            .xcode: XcodeBuildSystemFactory(swiftTool: self)
+            .native: NativeBuildSystemFactory(swiftCommandState: self),
+            .swiftbuild: SwiftBuildSystemFactory(swiftCommandState: self),
+            .xcode: XcodeBuildSystemFactory(swiftCommandState: self)
         ])
     }
 }

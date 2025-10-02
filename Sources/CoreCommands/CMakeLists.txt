@@ -8,8 +8,8 @@
 
 add_library(CoreCommands
   BuildSystemSupport.swift
-  SwiftTool.swift
-  SwiftToolObservabilityHandler.swift
+  SwiftCommandState.swift
+  SwiftCommandObservabilityHandler.swift
   Options.swift)
 target_link_libraries(CoreCommands PUBLIC
   ArgumentParser
@@ -19,7 +19,8 @@ target_link_libraries(CoreCommands PUBLIC
   TSCBasic
   TSCUtility
   Workspace
-  XCBuildSupport)
+  XCBuildSupport
+  SwiftBuildSupport)
 target_link_libraries(CoreCommands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)

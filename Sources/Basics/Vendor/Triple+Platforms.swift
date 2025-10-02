@@ -244,7 +244,7 @@ extension Triple {
     precondition(self.os?.isDarwin ?? false)
     switch darwinPlatform! {
     case .macOS:
-      // The integrated driver falls back to `osVersion` for ivalid macOS
+      // The integrated driver falls back to `osVersion` for invalid macOS
       // versions, this decision might be worth revisiting.
       let macVersion = _macOSVersion ?? osVersion
       // The first deployment of arm64 for macOS is version 11
@@ -304,7 +304,7 @@ extension Triple {
 
     case .linux:
       return environment == .android ? "android" : "linux"
-    case .freeBSD:
+    case .freebsd:
       return "freebsd"
     case .openbsd:
       return "openbsd"
@@ -350,9 +350,9 @@ extension Triple {
   /// `tripleVersion >= featureVersion`.
   ///
   /// - SeeAlso: `Triple.supports(_:)`
-  public struct FeatureAvailability {
-    
-    public enum Availability {
+public struct FeatureAvailability: Sendable {
+
+    public enum Availability: Sendable {
       case unavailable
       case available(since: Version)
       case availableInAllVersions

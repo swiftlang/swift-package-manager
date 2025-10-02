@@ -28,15 +28,12 @@ public struct BuiltTestProduct: Codable {
     /// When the test product is not bundled (for instance, when using XCTest on
     /// non-Darwin targets), this path is equal to ``binaryPath``.
     public var bundlePath: AbsolutePath {
-        // Go up the folder hierarchy until we find the .xctest or
-        // .swift-testing bundle.
-        let pathExtension: String
-        switch library {
-        case .xctest:
-            pathExtension = ".xctest"
-        case .swiftTesting:
-            pathExtension = ".swift-testing"
+        // If the binary path is a test runner binary, return it as-is.
+        guard !binaryPath.basenameWithoutExt.hasSuffix("test-runner") else {
+            return binaryPath
         }
+        // Go up the folder hierarchy until we find the .xctest bundle.
+        let pathExtension = ".xctest"
         let hierarchySequence = sequence(first: binaryPath, next: { $0.isRoot ? nil : $0.parentDirectory })
         guard let bundlePath = hierarchySequence.first(where: { $0.basename.hasSuffix(pathExtension) }) else {
             fatalError("could not find test bundle path from '\(binaryPath)'")
@@ -45,18 +42,20 @@ public struct BuiltTestProduct: Codable {
         return bundlePath
     }
 
-    /// The library used to build this test product.
-    public var library: BuildParameters.Testing.Library
+    /// The path to the entry point source file (XCTMain.swift, LinuxMain.swift,
+    /// etc.) used, if any.
+    public let testEntryPointPath: AbsolutePath?
 
     /// Creates a new instance.
     /// - Parameters:
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
-    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath, library: BuildParameters.Testing.Library) {
+    ///   - mainSourceFilePath: The path to the main source file used, if any.
+    public init(productName: String, binaryPath: AbsolutePath, packagePath: AbsolutePath, testEntryPointPath: AbsolutePath?) {
         self.productName = productName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
-        self.library = library
+        self.testEntryPointPath = testEntryPointPath
     }
 }

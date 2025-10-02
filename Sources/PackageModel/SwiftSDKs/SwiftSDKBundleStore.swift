@@ -11,15 +11,19 @@
 //===----------------------------------------------------------------------===//
 
 // FIXME: can't write `import actor Basics.HTTPClient`, importing the whole module because of that :(
+@_spi(SwiftPMInternal)
 import Basics
 import struct Foundation.URL
 import protocol TSCBasic.FileSystem
 import struct TSCBasic.RegEx
+import protocol TSCUtility.ProgressAnimationProtocol
 
 public final class SwiftSDKBundleStore {
     public enum Output: Equatable, CustomStringConvertible {
         case downloadStarted(URL)
         case downloadFinishedSuccessfully(URL)
+        case verifyingChecksum
+        case checksumValid
         case unpackingArchive(bundlePathOrURL: String)
         case installationSuccessful(bundlePathOrURL: String, bundleName: String)
 
@@ -29,6 +33,10 @@ public final class SwiftSDKBundleStore {
                 return "Downloading a Swift SDK bundle archive from `\(url)`..."
             case let .downloadFinishedSuccessfully(url):
                 return "Swift SDK bundle archive successfully downloaded from `\(url)`."
+            case .verifyingChecksum:
+                return "Verifying if checksum of the downloaded archive is valid..."
+            case .checksumValid:
+                return "Downloaded archive has a valid checksum."
             case let .installationSuccessful(bundlePathOrURL, bundleName):
                 return "Swift SDK bundle at `\(bundlePathOrURL)` successfully installed as \(bundleName)."
             case let .unpackingArchive(bundlePathOrURL):
@@ -45,7 +53,7 @@ public final class SwiftSDKBundleStore {
             case let .noMatchingSwiftSDK(selector, hostTriple):
                 return """
                 No Swift SDK found matching query `\(selector)` and host triple \
-                `\(hostTriple.tripleString)`. Use `swift experimental-sdk list` command to see \
+                `\(hostTriple.tripleString)`. Use `swift sdk list` command to see \
                 available Swift SDKs.
                 """
             }
@@ -55,25 +63,35 @@ public final class SwiftSDKBundleStore {
     /// Directory in which Swift SDKs bundles are stored.
     let swiftSDKsDirectory: AbsolutePath
 
+    /// `usr/bin` directory of the "root" toolchain that includes this currently running SwiftPM instance.
+    let hostToolchainBinDir: AbsolutePath
+
     /// File system instance used for reading from and writing to SDK bundles stored on it.
     let fileSystem: any FileSystem
 
     /// Observability scope used for logging.
-    private let observabilityScope: ObservabilityScope
+    let observabilityScope: ObservabilityScope
 
     /// Closure invoked for output produced by this store during its operation.
     private let outputHandler: (Output) -> Void
 
+    /// Progress animation used for downloading SDK bundles.
+    private let downloadProgressAnimation: ProgressAnimationProtocol?
+
     public init(
         swiftSDKsDirectory: AbsolutePath,
+        hostToolchainBinDir: AbsolutePath,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
-        outputHandler: @escaping (Output) -> Void
+        outputHandler: @escaping (Output) -> Void,
+        downloadProgressAnimation: ProgressAnimationProtocol? = nil
     ) {
         self.swiftSDKsDirectory = swiftSDKsDirectory
+        self.hostToolchainBinDir = hostToolchainBinDir
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
+        self.downloadProgressAnimation = downloadProgressAnimation
     }
 
     /// An array of valid Swift SDK bundles stored in ``SwiftSDKBundleStore//swiftSDKsDirectory``.
@@ -81,7 +99,7 @@ public final class SwiftSDKBundleStore {
         get throws {
             // Get absolute paths to available Swift SDK bundles.
             try self.fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
-                $0.hasSuffix(BinaryTarget.Kind.artifactsArchive.fileExtension)
+                $0.hasSuffix(BinaryModule.Kind.artifactsArchive(types: []).fileExtension)
             }.map {
                 self.swiftSDKsDirectory.appending(components: [$0])
             }.compactMap {
@@ -138,8 +156,10 @@ public final class SwiftSDKBundleStore {
     ///   - archiver: Archiver instance to use for extracting bundle archives.
     public func install(
         bundlePathOrURL: String,
+        checksum: String? = nil,
         _ archiver: any Archiver,
-        _ httpClient: HTTPClient = .init()
+        _ httpClient: HTTPClient = .init(),
+        hasher: ((_ archivePath: AbsolutePath) throws -> String)? = nil
     ) async throws {
         let bundleName = try await withTemporaryDirectory(fileSystem: self.fileSystem, removeTreeOnDeinit: true) { temporaryDirectory in
             let bundlePath: AbsolutePath
@@ -149,11 +169,16 @@ public final class SwiftSDKBundleStore {
                 let scheme = bundleURL.scheme,
                 scheme == "http" || scheme == "https"
             {
+                guard let checksum, let hasher else {
+                    throw SwiftSDKError.checksumNotProvided(bundleURL)
+                }
+
                 let bundleName: String
                 let fileNameComponent = bundleURL.lastPathComponent
-                if fileNameComponent.hasSuffix(".tar.gz") {
+                if archiver.isFileSupported(fileNameComponent) {
                     bundleName = fileNameComponent
                 } else {
+                    // Assume that the bundle is a tarball if it doesn't have a recognized extension.
                     bundleName = "bundle.tar.gz"
                 }
                 let downloadedBundlePath = temporaryDirectory.appending(component: bundleName)
@@ -170,12 +195,31 @@ public final class SwiftSDKBundleStore {
                 _ = try await httpClient.execute(
                     request,
                     observabilityScope: self.observabilityScope,
-                    progress: nil
+                    progress: { step, total in
+                        guard let progressAnimation = self.downloadProgressAnimation else {
+                            return
+                        }
+                        let step = step > Int.max ? Int.max : Int(step)
+                        let total = total.map { $0 > Int.max ? Int.max : Int($0) } ?? step
+                        progressAnimation.update(
+                          step: step,
+                          total: total,
+                          text: "Downloading \(bundleURL.lastPathComponent)"
+                        )
+                    }
                 )
-
-                bundlePath = downloadedBundlePath
+                self.downloadProgressAnimation?.complete(success: true)
 
                 self.outputHandler(.downloadFinishedSuccessfully(bundleURL))
+
+                self.outputHandler(.verifyingChecksum)
+                let computedChecksum = try hasher(downloadedBundlePath)
+                guard computedChecksum == checksum else {
+                    throw SwiftSDKError.checksumInvalid(computed: computedChecksum, provided: checksum)
+                }
+                self.outputHandler(.checksumValid)
+
+                bundlePath = downloadedBundlePath
             } else if
                 let cwd: AbsolutePath = self.fileSystem.currentWorkingDirectory,
                 let originalBundlePath = try? AbsolutePath(validating: bundlePathOrURL, relativeTo: cwd)
@@ -220,9 +264,10 @@ public final class SwiftSDKBundleStore {
 
         try await archiver.extract(from: bundlePath, to: extractionResultsDirectory)
 
-        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first,
-                bundleName.hasSuffix(".\(artifactBundleExtension)")
-        else {
+        guard let bundleName = try fileSystem.getDirectoryContents(extractionResultsDirectory).first(where: {
+            $0.hasSuffix(".\(artifactBundleExtension)") &&
+                fileSystem.isDirectory(extractionResultsDirectory.appending($0))
+        }) else {
             throw SwiftSDKError.invalidBundleArchive(bundlePath)
         }
 
@@ -330,9 +375,13 @@ public final class SwiftSDKBundleStore {
             var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let variantConfigurationPath = bundlePath
+                var variantConfigurationPath = bundlePath
                     .appending(variantMetadata.path)
-                    .appending("swift-sdk.json")
+
+                if variantConfigurationPath.extension != ".json" &&
+                        self.fileSystem.isDirectory(variantConfigurationPath) {
+                    variantConfigurationPath = variantConfigurationPath.appending("swift-sdk.json")
+                }
 
                 guard self.fileSystem.exists(variantConfigurationPath) else {
                     self.observabilityScope.emit(
@@ -350,7 +399,9 @@ public final class SwiftSDKBundleStore {
 
                 do {
                     let swiftSDKs = try SwiftSDK.decode(
-                        fromFile: variantConfigurationPath, fileSystem: fileSystem,
+                        fromFile: variantConfigurationPath,
+                        hostToolchainBinDir: self.hostToolchainBinDir,
+                        fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
 

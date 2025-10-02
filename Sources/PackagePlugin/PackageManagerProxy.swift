@@ -13,36 +13,40 @@
 import Foundation
 
 /// Provides specialized information and services from the Swift Package Manager
-/// or an IDE that supports Swift Packages. Different plugin hosts implement the
-/// functionality in whatever way is appropriate for them, but should preserve
-/// the same semantics described here.
+/// or an IDE that supports Swift packages.
+///
+/// Different plugin hosts implement the functionality in whatever way is appropriate for them,
+/// but are expected to preserve the semantics described by this API.
 public struct PackageManager {
-
-    /// Performs a build of all or a subset of products and targets in a package.
+    /// Performs a build of all, or a subset, of products and targets in a package.
     ///
-    /// Any errors encountered during the build are reported in the build result,
-    /// as is the log of the build commands that were run. This method throws an
-    /// error if the input parameters are invalid or in case the build cannot be
+    /// Return any errors encountered during the build in the build result,
+    /// as well as the log of the build commands that it runs. This method throws an
+    /// error if the input parameters are invalid, or in case the build can't be
     /// started.
     ///
-    /// The SwiftPM CLI or any IDE that supports packages may show the progress
-    /// of the build as it happens.
+    /// The Swift package manager command line interface or any IDE that supports
+    /// packages may show the progress of the build as it happens.
+    /// - Parameters:
+    ///   - subset: The subset of targets to build.
+    ///   - parameters: The build parameters to apply.
+    /// - Returns: The build results.
     public func build(
         _ subset: BuildSubset,
         parameters: BuildParameters
     ) throws -> BuildResult {
         // Ask the plugin host to build the specified products and targets, and wait for a response.
         // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
-        return try sendMessageAndWaitForReply(.buildOperationRequest(subset: .init(subset), parameters: .init(parameters))) {
+        try sendMessageAndWaitForReply(.buildOperationRequest(subset: .init(subset), parameters: .init(parameters))) {
             guard case .buildOperationResponse(let result) = $0 else { return nil }
             return .init(result)
         }
     }
-    
-    /// Specifies a subset of products and targets of a package to build.
+
+    /// Specifies a subset of package products and targets to build.
     public enum BuildSubset {
         /// Represents the subset consisting of all products and of either all
-        /// targets or (if `includingTests` is false) just non-test targets.
+        /// targets or, if `includingTests` is false, non-test targets.
         case all(includingTests: Bool)
 
         /// Represents the product with the specified name.
@@ -51,15 +55,20 @@ public struct PackageManager {
         /// Represents the target with the specified name.
         case target(String)
     }
-    
+
     /// Parameters and options to apply during a build.
     public struct BuildParameters {
-        /// Whether to build for debug or release.
+        /// The build configuration to use while building.
+        ///
+        /// Typically whether to build for debug or release.
         public var configuration: BuildConfiguration
-        
+
         /// Controls the amount of detail in the log returned in the build result.
         public var logging: BuildLogVerbosity
-        
+
+        /// A Boolean value that indicates whether to print build logs to the console.
+        public var echoLogs: Bool
+
         /// Additional flags to pass to all C compiler invocations.
         public var otherCFlags: [String] = []
 
@@ -68,145 +77,180 @@ public struct PackageManager {
 
         /// Additional flags to pass to all Swift compiler invocations.
         public var otherSwiftcFlags: [String] = []
-        
+
         /// Additional flags to pass to all linker invocations.
         public var otherLinkerFlags: [String] = []
 
-        public init(configuration: BuildConfiguration = .debug, logging: BuildLogVerbosity = .concise) {
+        /// Creates a new sert of build parameters.
+        /// - Parameters:
+        ///   - configuration: The build configuration to use.
+        ///   - logging: The level of detail to include in the build logs returned in the build result.
+        ///   - echoLogs: Whether to print build logs to the console.
+        public init(
+            configuration: BuildConfiguration = .debug,
+            logging: BuildLogVerbosity = .concise,
+            echoLogs: Bool = false
+        ) {
             self.configuration = configuration
             self.logging = logging
+            self.echoLogs = echoLogs
         }
     }
-    
-    /// Represents an overall purpose of the build, which affects such things
-    /// as optimization and generation of debug symbols.
+
+    /// The configuration to use for the build.
+    ///
+    /// The configuration affects optimization and generation of debug symbols.
     public enum BuildConfiguration: String {
-        case debug, release
+        case debug, release, inherit
     }
-    
-    /// Represents the amount of detail in a build log.
+
+    /// The amount of detail to include in a build log.
     public enum BuildLogVerbosity: String {
         case concise, verbose, debug
     }
-    
-    /// Represents the results of running a build.
+
+    /// The results of running a build.
     public struct BuildResult {
-        /// Whether the build succeeded or failed.
+        /// A Boolean value that indicates whether the build succeeded or failed.
         public var succeeded: Bool
-        
-        /// Log output (the verbatim text in the initial proposal).
+
+        /// The log output.
+        ///
+        /// The verbatim text in the initial proposal.
         public var logText: String
-        
-        /// The artifacts built from the products in the package. Intermediates
-        /// such as object files produced from individual targets are not listed.
+
+        /// The artifacts built from the products in the package.
+        ///
+        /// Intermediates such as object files produced from individual targets aren't listed.
         public var builtArtifacts: [BuiltArtifact]
-        
-        /// Represents a single artifact produced during a build.
+
+        /// The single artifact produced during a build.
         public struct BuiltArtifact {
             /// Full path of the built artifact in the local file system.
-            @available(_PackageDescription, deprecated: 5.11)
+            @available(_PackageDescription, deprecated: 6.0, renamed: "url")
             public var path: Path {
-                return Path(url: url)
+                try! Path(url: self.url)
             }
 
-            /// Full path of the built artifact in the local file system.
-            @available(_PackageDescription, introduced: 5.11)
+            /// The file URL of the built artifact in the local file system.
+            @available(_PackageDescription, introduced: 6.0)
             public var url: URL
 
-            /// The kind of artifact that was built.
+            /// The kind of artifact built.
             public var kind: Kind
-            
-            /// Represents the kind of artifact that was built. The specific file
-            /// formats may vary from platform to platform — for example, on macOS
-            /// a dynamic library may in fact be built as a framework.
+
+            /// The kind of artifact built.
+            ///
+            /// The specific file formats may vary from platform to platform.
+            /// For example, on macOS  a dynamic library may in fact be built as a framework.
             public enum Kind: String {
                 case executable, dynamicLibrary, staticLibrary
             }
         }
     }
-    
-    /// Runs all or a specified subset of the unit tests of the package, after
-    /// an incremental build if necessary (the same as `swift test` does).
-    ///
-    /// Any test failures are reported in the test result. This method throws an
-    /// error if the input parameters are invalid or in case the test cannot be
+
+    /// Runs all, or a specified subset, of the unit tests of the package, after
+    /// an incremental build if necessary.
+    /// 
+    /// The is functionally the same as `swift test` on the command line.
+    /// 
+    /// The returned test result includes any test failures. This method throws an
+    /// error if the input parameters are invalid, or if the test cannot be
     /// started.
-    ///
-    /// The SwiftPM CLI or any IDE that supports packages may show the progress
-    /// of the tests as they happen.
+    /// 
+    /// The Swift package manager command-line interface, or any IDE,
+    /// may show the progress of the tests as they happen.
+    /// - Parameters:
+    ///   - subset: The subset of tests to run.
+    ///   - parameters: The test parameters to apply.
+    /// - Returns: The test results.
     public func test(
         _ subset: TestSubset,
         parameters: TestParameters
     ) throws -> TestResult {
         // Ask the plugin host to run the specified tests, and wait for a response.
         // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
-        return try sendMessageAndWaitForReply(.testOperationRequest(subset: .init(subset), parameters: .init(parameters))) {
+        try sendMessageAndWaitForReply(.testOperationRequest(subset: .init(subset), parameters: .init(parameters))) {
             guard case .testOperationResponse(let result) = $0 else { return nil }
             return .init(result)
         }
     }
-        
-    /// Specifies what tests in a package to run.
+
+    /// Specifies which tests to run.
     public enum TestSubset {
-        /// Represents all tests in the package.
+        /// All tests in the package.
         case all
 
-        /// Represents one or more tests filtered by regular expression, with the
-        /// format <test-target>.<test-case> or <test-target>.<test-case>/<test>.
+        /// One or more tests filtered by regular expression.
+        /// Use the format `<test-target>.<test-case>` or
+        /// `<test-target>.<test-case>/<test>`.
+        ///
         /// This is the same as the `--filter` option of `swift test`.
         case filtered([String])
     }
-    
-    /// Parameters that control how the tests are run.
+
+    /// Parameters that control how tests are run.
     public struct TestParameters {
-        /// Whether to collect code coverage information while running the tests.
+        /// Whether to collect code coverage information while running tests.
         public var enableCodeCoverage: Bool
         
+        /// Creates a new set of test parameters.
+        /// - Parameter enableCodeCoverage: Whether to collect code coverage information while running tests.
         public init(enableCodeCoverage: Bool = false) {
             self.enableCodeCoverage = enableCodeCoverage
         }
     }
-    
-    /// Represents the result of running unit tests.
+
+    /// The result of running tests.
     public struct TestResult {
-        /// Whether the test run succeeded or failed.
+        /// A Boolean value that indicates whether the test run succeeded.
         public var succeeded: Bool
-        
-        /// Results for all the test targets that were run (filtered based on
-        /// the input subset passed when running the test).
+
+        /// Results for all the test targets run.
         public var testTargets: [TestTarget]
-        
-        /// Path of a generated `.profdata` file suitable for processing using
+
+        /// The path of a generated profile file to provide code corage.
+        ///
+        /// The `.profdata` file is suitable for processing using
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        @available(_PackageDescription, deprecated: 5.11)
+        @available(_PackageDescription, deprecated: 6.0, renamed: "codeCoverageDataFileURL")
         public var codeCoverageDataFile: Path? {
-            return codeCoverageDataFileURL.map { Path(url: $0) }
+            self.codeCoverageDataFileURL.map { try! Path(url: $0) }
         }
 
-        /// Path of a generated `.profdata` file suitable for processing using
+        /// The file URL of a generated profile file to provide code coverage.
+        ///
+        /// The `.profdata` file is suitable for processing using
         /// `llvm-cov`, if `enableCodeCoverage` was set in the test parameters.
-        @available(_PackageDescription, introduced: 5.11)
+        @available(_PackageDescription, introduced: 6.0)
         public var codeCoverageDataFileURL: URL?
 
-        /// Represents the results of running some or all of the tests in a
+        /// The results of running some or all of the tests in a
         /// single test target.
         public struct TestTarget {
+            /// The name of the target.
             public var name: String
+            /// The test cases included in the target.
             public var testCases: [TestCase]
-            
-            /// Represents the results of running some or all of the tests in
+
+            /// The results of running some or all of the tests in
             /// a single test case.
             public struct TestCase {
+                /// The name of the test case.
                 public var name: String
+                /// The tests included in the test case.
                 public var tests: [Test]
 
-                /// Represents the results of running a single test.
+                /// The results of running a single test.
                 public struct Test {
+                    /// The name of the test.
                     public var name: String
+                    /// The test result.
                     public var result: Result
+                    /// The duration of the test.
                     public var duration: Double
 
-                    /// Represents the result of running a single test.
+                    /// The result of running a single test.
                     public enum Result: String {
                         case succeeded, skipped, failed
                     }
@@ -214,18 +258,24 @@ public struct PackageManager {
             }
         }
     }
-    
+
     /// Return a directory containing symbol graph files for the given target
-    /// and options. If the symbol graphs need to be created or updated first,
-    /// they will be. SwiftPM or an IDE may generate these symbol graph files
+    /// and options.
+    /// 
+    /// If the symbol graphs need to be created or updated first, they will be.
+    /// Swift package manager or an IDE may generate these symbol graph files
     /// in any way it sees fit.
+    /// - Parameters:
+    ///   - target: The target to build or from which to extract symbol graphs.
+    ///   - options: The options to use while building or extracting symbol graphs.
+    /// - Returns: The symbol graphs for the target you specify.
     public func getSymbolGraph(
         for target: Target,
         options: SymbolGraphOptions
     ) throws -> SymbolGraphResult {
         // Ask the plugin host for symbol graph information for the target, and wait for a response.
         // FIXME: We'll want to make this asynchronous when there is back deployment support for it.
-        return try sendMessageAndWaitForReply(.symbolGraphRequest(targetName: target.name, options: .init(options))) {
+        try sendMessageAndWaitForReply(.symbolGraphRequest(targetName: target.name, options: .init(options))) {
             guard case .symbolGraphResponse(let result) = $0 else { return nil }
             return .init(result)
         }
@@ -233,24 +283,37 @@ public struct PackageManager {
 
     /// Represents options for symbol graph generation.
     public struct SymbolGraphOptions {
-        /// The symbol graph will include symbols at this access level and higher.
+        /// The minimum access level of symbols to return.
+        ///
+        /// The symbol graph includes symbols at this access level and higher.
         public var minimumAccessLevel: AccessLevel
 
-        /// Represents a Swift access level.
+        /// The access level for a symbol.
         public enum AccessLevel: String, CaseIterable {
-            case `private`, `fileprivate`, `internal`, `public`, `open`
+            case `private`, `fileprivate`, `internal`, `package`, `public`, open
         }
 
-        /// Whether to include synthesized members.
+        /// A Boolean value that indicates whether to include synthesized members.
         public var includeSynthesized: Bool
-        
-        /// Whether to include symbols marked as SPI.
+
+        /// A Boolean value that indicates whether to include symbols marked as SPI.
         public var includeSPI: Bool
 
-        /// Whether to emit symbols for extensions to external types.
+        /// A Boolean value that indicates whether to emit symbols for extensions to external types.
         public var emitExtensionBlocks: Bool
         
-        public init(minimumAccessLevel: AccessLevel = .public, includeSynthesized: Bool = false, includeSPI: Bool = false, emitExtensionBlocks: Bool = false) {
+        /// Creates a new set of options for returning the symbol graph for a target.
+        /// - Parameters:
+        ///   - minimumAccessLevel: The minimum access level of symbols to return.
+        ///   - includeSynthesized: A Boolean value that indicates whether to include synthesized members.
+        ///   - includeSPI: A Boolean value that indicates whether to include symbols marked as SPI.
+        ///   - emitExtensionBlocks: A Boolean value that indicates whether to emit symbols for extensions to external types.
+        public init(
+            minimumAccessLevel: AccessLevel = .public,
+            includeSynthesized: Bool = false,
+            includeSPI: Bool = false,
+            emitExtensionBlocks: Bool = false
+        ) {
             self.minimumAccessLevel = minimumAccessLevel
             self.includeSynthesized = includeSynthesized
             self.includeSPI = includeSPI
@@ -258,23 +321,27 @@ public struct PackageManager {
         }
     }
 
-    /// Represents the result of symbol graph generation.
+    /// The result of symbol graph generation.
     public struct SymbolGraphResult {
         /// The directory that contains the symbol graph files for the target.
-        @available(_PackageDescription, deprecated: 5.11)
+        @available(_PackageDescription, deprecated: 6.0, renamed: "directoryURL")
         public var directoryPath: Path {
-            return Path(url: directoryURL)
+            try! Path(url: self.directoryURL)
         }
 
-        /// The directory that contains the symbol graph files for the target.
-        @available(_PackageDescription, introduced: 5.11)
+        /// The file URL of the directory that contains the symbol graph files for the target.
+        @available(_PackageDescription, introduced: 6.0)
         public var directoryURL: URL
     }
 }
 
-fileprivate extension PackageManager {
-    /// Private helper function that sends a message to the host and waits for a reply. The reply handler should return nil for any reply message it doesn't recognize.
-    func sendMessageAndWaitForReply<T>(_ message: PluginToHostMessage, replyHandler: (HostToPluginMessage) -> T?) throws -> T {
+extension PackageManager {
+    /// Private helper function that sends a message to the host and waits for a reply. The reply handler should return
+    /// `nil` for any reply message it doesn't recognize.
+    private func sendMessageAndWaitForReply<T>(
+        _ message: PluginToHostMessage,
+        replyHandler: (HostToPluginMessage) -> T?
+    ) throws -> T {
         try pluginHostConnection.sendMessage(message)
         guard let reply = try pluginHostConnection.waitForNextMessage() else {
             throw PackageManagerProxyError.unspecified("internal error: unexpected lack of response message")
@@ -289,16 +356,17 @@ fileprivate extension PackageManager {
     }
 }
 
+/// Errors from methods using the package manager.
 public enum PackageManagerProxyError: Error {
     /// Indicates that the functionality isn't implemented in the plugin host.
     case unimplemented(_ message: String)
-    
-    /// An unspecified other kind of error from the Package Manager proxy.
+
+    /// An unspecified other kind of error from the package manager proxy.
     case unspecified(_ message: String)
 }
 
-fileprivate extension PluginToHostMessage.BuildSubset {
-    init(_ subset: PackageManager.BuildSubset) {
+extension PluginToHostMessage.BuildSubset {
+    fileprivate init(_ subset: PackageManager.BuildSubset) {
         switch subset {
         case .all(let includingTests):
             self = .all(includingTests: includingTests)
@@ -310,10 +378,11 @@ fileprivate extension PluginToHostMessage.BuildSubset {
     }
 }
 
-fileprivate extension PluginToHostMessage.BuildParameters {
-    init(_ parameters: PackageManager.BuildParameters) {
+extension PluginToHostMessage.BuildParameters {
+    fileprivate init(_ parameters: PackageManager.BuildParameters) {
         self.configuration = .init(parameters.configuration)
         self.logging = .init(parameters.logging)
+        self.echoLogs = parameters.echoLogs
         self.otherCFlags = parameters.otherCFlags
         self.otherCxxFlags = parameters.otherCxxFlags
         self.otherSwiftcFlags = parameters.otherSwiftcFlags
@@ -321,19 +390,21 @@ fileprivate extension PluginToHostMessage.BuildParameters {
     }
 }
 
-fileprivate extension PluginToHostMessage.BuildParameters.Configuration {
-    init(_ configuration: PackageManager.BuildConfiguration) {
+extension PluginToHostMessage.BuildParameters.Configuration {
+    fileprivate init(_ configuration: PackageManager.BuildConfiguration) {
         switch configuration {
         case .debug:
             self = .debug
         case .release:
             self = .release
+        case .inherit:
+            self = .inherit
         }
     }
 }
 
-fileprivate extension PluginToHostMessage.BuildParameters.LogVerbosity {
-    init(_ verbosity: PackageManager.BuildLogVerbosity) {
+extension PluginToHostMessage.BuildParameters.LogVerbosity {
+    fileprivate init(_ verbosity: PackageManager.BuildLogVerbosity) {
         switch verbosity {
         case .concise:
             self = .concise
@@ -345,23 +416,23 @@ fileprivate extension PluginToHostMessage.BuildParameters.LogVerbosity {
     }
 }
 
-fileprivate extension PackageManager.BuildResult {
-    init(_ result: HostToPluginMessage.BuildResult) {
+extension PackageManager.BuildResult {
+    fileprivate init(_ result: HostToPluginMessage.BuildResult) {
         self.succeeded = result.succeeded
         self.logText = result.logText
         self.builtArtifacts = result.builtArtifacts.map { .init($0) }
     }
 }
 
-fileprivate extension PackageManager.BuildResult.BuiltArtifact {
-    init(_ artifact: HostToPluginMessage.BuildResult.BuiltArtifact) {
+extension PackageManager.BuildResult.BuiltArtifact {
+    fileprivate init(_ artifact: HostToPluginMessage.BuildResult.BuiltArtifact) {
         self.kind = .init(artifact.kind)
         self.url = artifact.path
     }
 }
 
-fileprivate extension PackageManager.BuildResult.BuiltArtifact.Kind {
-    init(_ kind: HostToPluginMessage.BuildResult.BuiltArtifact.Kind) {
+extension PackageManager.BuildResult.BuiltArtifact.Kind {
+    fileprivate init(_ kind: HostToPluginMessage.BuildResult.BuiltArtifact.Kind) {
         switch kind {
         case .executable:
             self = .executable
@@ -373,8 +444,8 @@ fileprivate extension PackageManager.BuildResult.BuiltArtifact.Kind {
     }
 }
 
-fileprivate extension PluginToHostMessage.TestSubset {
-    init(_ subset: PackageManager.TestSubset) {
+extension PluginToHostMessage.TestSubset {
+    fileprivate init(_ subset: PackageManager.TestSubset) {
         switch subset {
         case .all:
             self = .all
@@ -384,44 +455,44 @@ fileprivate extension PluginToHostMessage.TestSubset {
     }
 }
 
-fileprivate extension PluginToHostMessage.TestParameters {
-    init(_ parameters: PackageManager.TestParameters) {
+extension PluginToHostMessage.TestParameters {
+    fileprivate init(_ parameters: PackageManager.TestParameters) {
         self.enableCodeCoverage = parameters.enableCodeCoverage
     }
 }
 
-fileprivate extension PackageManager.TestResult {
-    init(_ result: HostToPluginMessage.TestResult) {
+extension PackageManager.TestResult {
+    fileprivate init(_ result: HostToPluginMessage.TestResult) {
         self.succeeded = result.succeeded
-        self.testTargets = result.testTargets.map{ .init($0) }
+        self.testTargets = result.testTargets.map { .init($0) }
         self.codeCoverageDataFileURL = result.codeCoverageDataFile.map { URL(fileURLWithPath: $0) }
     }
 }
 
-fileprivate extension PackageManager.TestResult.TestTarget {
-    init(_ testTarget: HostToPluginMessage.TestResult.TestTarget) {
+extension PackageManager.TestResult.TestTarget {
+    fileprivate init(_ testTarget: HostToPluginMessage.TestResult.TestTarget) {
         self.name = testTarget.name
-        self.testCases = testTarget.testCases.map{ .init($0) }
+        self.testCases = testTarget.testCases.map { .init($0) }
     }
 }
 
-fileprivate extension PackageManager.TestResult.TestTarget.TestCase {
-    init(_ testCase: HostToPluginMessage.TestResult.TestTarget.TestCase) {
+extension PackageManager.TestResult.TestTarget.TestCase {
+    fileprivate init(_ testCase: HostToPluginMessage.TestResult.TestTarget.TestCase) {
         self.name = testCase.name
-        self.tests = testCase.tests.map{ .init($0) }
+        self.tests = testCase.tests.map { .init($0) }
     }
 }
 
-fileprivate extension PackageManager.TestResult.TestTarget.TestCase.Test {
-    init(_ test: HostToPluginMessage.TestResult.TestTarget.TestCase.Test) {
+extension PackageManager.TestResult.TestTarget.TestCase.Test {
+    fileprivate init(_ test: HostToPluginMessage.TestResult.TestTarget.TestCase.Test) {
         self.name = test.name
         self.result = .init(test.result)
         self.duration = test.duration
     }
 }
 
-fileprivate extension PackageManager.TestResult.TestTarget.TestCase.Test.Result {
-    init(_ result: HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Result) {
+extension PackageManager.TestResult.TestTarget.TestCase.Test.Result {
+    fileprivate init(_ result: HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Result) {
         switch result {
         case .succeeded:
             self = .succeeded
@@ -433,8 +504,8 @@ fileprivate extension PackageManager.TestResult.TestTarget.TestCase.Test.Result 
     }
 }
 
-fileprivate extension PluginToHostMessage.SymbolGraphOptions {
-    init(_ options: PackageManager.SymbolGraphOptions) {
+extension PluginToHostMessage.SymbolGraphOptions {
+    fileprivate init(_ options: PackageManager.SymbolGraphOptions) {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
@@ -442,8 +513,8 @@ fileprivate extension PluginToHostMessage.SymbolGraphOptions {
     }
 }
 
-fileprivate extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
-    init(_ accessLevel: PackageManager.SymbolGraphOptions.AccessLevel) {
+extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
+    fileprivate init(_ accessLevel: PackageManager.SymbolGraphOptions.AccessLevel) {
         switch accessLevel {
         case .private:
             self = .private
@@ -453,14 +524,16 @@ fileprivate extension PluginToHostMessage.SymbolGraphOptions.AccessLevel {
             self = .internal
         case .public:
             self = .public
+        case .package:
+            self = .package
         case .open:
             self = .open
         }
     }
 }
 
-fileprivate extension PackageManager.SymbolGraphResult {
-    init(_ result: HostToPluginMessage.SymbolGraphResult) {
+extension PackageManager.SymbolGraphResult {
+    fileprivate init(_ result: HostToPluginMessage.SymbolGraphResult) {
         self.directoryURL = result.directoryPath
     }
 }

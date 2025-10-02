@@ -14,7 +14,7 @@ import Basics
 import Foundation
 @testable import PackageCollections
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version
@@ -700,41 +700,38 @@ private struct MockPackageIndex: PackageIndexProtocol {
         self.url = url
         self.packages = packages
     }
-    
+
     func getPackageMetadata(
         identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    ) {
+        location: String?
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
         guard let package = self.packages.first(where: { $0.identity == identity }) else {
-            return callback(.failure(NotFoundError("Package \(identity) not found")))
+            throw NotFoundError("Package \(identity) not found")
         }
-        callback(.success((package: package, collections: [], provider: .init(name: "package index", authTokenType: nil, isAuthTokenConfigured: true))))
+        return (package: package, collections: [], provider: .init(name: "package index", authTokenType: nil, isAuthTokenConfigured: true))
     }
 
     func findPackages(
-        _ query: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
+        _ query: String
+    ) async throws  -> PackageCollectionsModel.PackageSearchResult{
         let items = self.packages.filter { $0.identity.description.contains(query) }
-        callback(.success(.init(items: items.map { .init(package: $0, collections: [], indexes: [self.url]) })))
+        return PackageCollectionsModel.PackageSearchResult(items: items.map { .init(package: $0, collections: [], indexes: [self.url]) })
     }
     
     func listPackages(
         offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    ) {
+        limit: Int
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
         guard !self.packages.isEmpty, offset < self.packages.count, limit > 0 else {
-            return callback(.success(.init(items: [], offset: offset, limit: limit, total: self.packages.count)))
+            return PackageCollectionsModel.PaginatedPackageList(items: [], offset: offset, limit: limit, total: self.packages.count)
         }
 
-        callback(.success(.init(
+        return PackageCollectionsModel.PaginatedPackageList(
             items: Array(self.packages[offset..<min(self.packages.count, offset + limit)]),
             offset: offset,
             limit: limit,
             total: self.packages.count
-        )))
+        )
     }
 }
 
@@ -743,25 +740,22 @@ private struct BrokenPackageIndex: PackageIndexProtocol {
     
     func getPackageMetadata(
         identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    ) {
-        callback(.failure(TerribleThing()))
+        location: String?
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
+        throw TerribleThing()
     }
 
     func findPackages(
-        _ query: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    ) {
-        callback(.failure(TerribleThing()))
+        _ query: String
+    ) async throws -> PackageCollectionsModel.PackageSearchResult {
+        throw TerribleThing()
     }
     
     func listPackages(
         offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    ) {
-        callback(.failure(TerribleThing()))
+        limit: Int
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
+        throw TerribleThing()
     }
     
     struct TerribleThing: Error {}

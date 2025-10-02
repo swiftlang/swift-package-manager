@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Basics
 import PackageModel
+import Foundation
 
 import protocol TSCBasic.Closable
 
@@ -121,368 +123,273 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
 
     // MARK: - Collections
 
-    public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                                callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void) {
+    public func listCollections(identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil) async throws -> [PackageCollectionsModel.Collection] {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.list { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                let identiferSource = sources.reduce(into: [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.CollectionSource]()) { result, source in
-                    result[.init(from: source)] = source
-                }
-                let identifiersToFetch = identiferSource.keys.filter { identifiers?.contains($0) ?? true }
+        let sources = try await self.storage.sources.list()
+        let identiferSource = sources.reduce(into: [PackageCollectionsModel.CollectionIdentifier: PackageCollectionsModel.CollectionSource]()) { result, source in
+            result[.init(from: source)] = source
+        }
+        let identifiersToFetch = identiferSource.keys.filter { identifiers?.contains($0) ?? true }
 
-                if identifiersToFetch.isEmpty {
-                    return callback(.success([]))
-                }
+        if identifiersToFetch.isEmpty {
+            return []
+        }
 
-                self.storage.collections.list(identifiers: identifiersToFetch) { result in
-                    switch result {
-                    case .failure(let error):
-                        callback(.failure(error))
-                    case .success(var collections):
-                        let sourceOrder = sources.enumerated().reduce(into: [Model.CollectionIdentifier: Int]()) { result, item in
-                            result[.init(from: item.element)] = item.offset
-                        }
+        var collections = try await self.storage.collections.list(identifiers: identifiersToFetch)
 
-                        // re-order by profile order which reflects the user's election
-                        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
-                            sourceOrder[lhs.identifier] ?? 0 < sourceOrder[rhs.identifier] ?? 0
-                        }
+        let sourceOrder = sources.enumerated().reduce(into: [Model.CollectionIdentifier: Int]()) { result, item in
+            result[.init(from: item.element)] = item.offset
+        }
 
-                        // We've fetched all the wanted collections and we're done
-                        if collections.count == identifiersToFetch.count {
-                            collections.sort(by: sort)
-                            return callback(.success(collections))
-                        }
+        // re-order by profile order which reflects the user's election
+        let sort = { (lhs: PackageCollectionsModel.Collection, rhs: PackageCollectionsModel.Collection) -> Bool in
+            sourceOrder[lhs.identifier] ?? 0 < sourceOrder[rhs.identifier] ?? 0
+        }
 
-                        // Some of the results are missing. This happens when deserialization of stored collections fail,
-                        // so we will try refreshing the missing collections to update data in storage.
-                        let missingSources = Set(identifiersToFetch.compactMap { identiferSource[$0] }).subtracting(Set(collections.map { $0.source }))
-                        let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
-                        missingSources.forEach { source in
-                            self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
-                                let count = refreshResults.append(refreshResult)
-                                if count == missingSources.count {
-                                    var result = collections + refreshResults.compactMap { $0.success } // best-effort; not returning errors
-                                    result.sort(by: sort)
-                                    callback(.success(result))
-                                }
-                            }
-                        }
-                    }
-                }
+        // We've fetched all the wanted collections and we're done
+        if collections.count == identifiersToFetch.count {
+            collections.sort(by: sort)
+            return collections
+        }
+
+        // Some of the results are missing. This happens when deserialization of stored collections fail,
+        // so we will try refreshing the missing collections to update data in storage.
+        let missingSources = Set(identifiersToFetch.compactMap { identiferSource[$0] }).subtracting(Set(collections.map { $0.source }))
+        var refreshResults = [Model.Collection]()
+        for source in missingSources {
+            guard let refreshResult = try? await self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) else {
+                continue
             }
+            refreshResults.append(refreshResult)
         }
+        var result = collections + refreshResults
+        result.sort(by: sort)
+        return result
     }
 
-    public func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void) {
+    public func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource] {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.list { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                if sources.isEmpty {
-                    return callback(.success([]))
-                }
-                let refreshResults = ThreadSafeArrayStore<Result<Model.Collection, Error>>()
-                sources.forEach { source in
-                    self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil) { refreshResult in
-                        let count = refreshResults.append(refreshResult)
-                        if count == sources.count {
-                            let errors = refreshResults.compactMap { $0.failure }
-                            callback(errors.isEmpty ? .success(sources) : .failure(MultipleErrors(errors)))
-                        }
-                    }
-                }
+        let sources = try await self.storage.sources.list()
+        guard !sources.isEmpty else {
+            return []
+        }
+
+        var refreshResults = [Result<Model.Collection, Error>]()
+        for source in sources {
+            do {
+                try await refreshResults.append(.success(self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil)))
+            } catch {
+                refreshResults.append(.failure(error))
             }
         }
+        let failures = refreshResults.compactMap { $0.failure }
+        guard failures.isEmpty else {
+            throw MultipleErrors(failures)
+        }
+        return sources
     }
 
-    public func refreshCollection(_ source: PackageCollectionsModel.CollectionSource,
-                                  callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    public func refreshCollection(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.list { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                guard let savedSource = sources.first(where: { $0 == source }) else {
-                    return callback(.failure(NotFoundError("\(source)")))
-                }
-                self.refreshCollectionFromSource(source: savedSource, trustConfirmationProvider: nil, callback: callback)
-            }
+        let sources = try await self.storage.sources.list()
+        guard let savedSource = sources.first(where: { $0 == source }) else {
+            throw NotFoundError("\(source)")
         }
+        return try await self.refreshCollectionFromSource(source: savedSource, trustConfirmationProvider: nil)
     }
 
-    public func addCollection(_ source: PackageCollectionsModel.CollectionSource,
-                              order: Int? = nil,
-                              trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil,
-                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    public func addCollection(_ source: PackageCollectionsModel.CollectionSource, order: Int? = nil, trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil) async throws -> PackageCollectionsModel.Collection {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
         if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
-            return callback(.failure(MultipleErrors(errors)))
+            throw MultipleErrors(errors)
         }
 
         // first record the registration
-        self.storage.sources.add(source: source, order: order) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success:
-                // next try to fetch the collection from the network and store it locally so future operations dont need to access the network
-                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider) { collectionResult in
-                    switch collectionResult {
-                    case .failure(let error):
-                        // Don't delete the source if we are either pending user confirmation or have recorded user's preference.
-                        // It is also possible that we can't verify signature (yet) due to config issue, which user can fix and we retry later.
-                        if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted || error == .cannotVerifySignature {
-                            return callback(.failure(error))
-                        }
-                        // Otherwise remove source since it fails to be fetched
-                        self.storage.sources.remove(source: source) { _ in
-                            // Whether removal succeeds or not, return the refresh error
-                            callback(.failure(error))
-                        }
-                    case .success(let collection):
-                        callback(.success(collection))
-                    }
-                }
+        try await self.storage.sources.add(source: source, order: order)
+        // next try to fetch the collection from the network and store it locally so future operations dont need to access the network
+        do {
+            return try await self.refreshCollectionFromSource(source: source, trustConfirmationProvider: trustConfirmationProvider)
+        } catch {
+            // Don't delete the source if we are either pending user confirmation or have recorded user's preference.
+            // It is also possible that we can't verify signature (yet) due to config issue, which user can fix and we retry later.
+            if let error = error as? PackageCollectionError, error == .trustConfirmationRequired || error == .untrusted || error == .cannotVerifySignature {
+                throw error
             }
+            // Otherwise remove source since it fails to be fetched
+            try? await self.storage.sources.remove(source: source)
+            // Whether removal succeeds or not, return the refresh error
+            throw error
         }
+
     }
 
-    public func removeCollection(_ source: PackageCollectionsModel.CollectionSource,
-                                 callback: @escaping (Result<Void, Error>) -> Void) {
+    public func removeCollection(_ source: PackageCollectionsModel.CollectionSource) async throws {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.remove(source: source) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success:
-                self.storage.collections.remove(identifier: .init(from: source), callback: callback)
-            }
-        }
+        try await self.storage.sources.remove(source: source)
+        try await self.storage.collections.remove(identifier: .init(from: source))
     }
 
-    public func moveCollection(_ source: PackageCollectionsModel.CollectionSource,
-                               to order: Int,
-                               callback: @escaping (Result<Void, Error>) -> Void) {
+    public func moveCollection(_ source: PackageCollectionsModel.CollectionSource, to order: Int) async throws {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.move(source: source, to: order, callback: callback)
+        try await self.storage.sources.move(source: source, to: order)
     }
 
-    public func updateCollection(_ source: PackageCollectionsModel.CollectionSource,
-                                 callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    public func updateCollection(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.sources.update(source: source) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success:
-                self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil, callback: callback)
-            }
-        }
+        try await self.storage.sources.update(source: source)
+        return try await self.refreshCollectionFromSource(source: source, trustConfirmationProvider: nil)
     }
 
     // Returns information about a package collection.
     // The collection is not required to be in the configured list.
     // If not found locally (storage), the collection will be fetched from the source.
-    public func getCollection(_ source: PackageCollectionsModel.CollectionSource,
-                              callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    public func getCollection(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.storage.collections.get(identifier: .init(from: source)) { result in
-            switch result {
-            case .failure:
-                // The collection is not in storage. Validate the source before fetching it.
-                if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
-                    return callback(.failure(MultipleErrors(errors)))
-                }
-                guard let provider = self.collectionProviders[source.type] else {
-                    return callback(.failure(UnknownProvider(source.type)))
-                }
-                provider.get(source, callback: callback)
-            case .success(let collection):
-                callback(.success(collection))
+        do {
+            return try await self.storage.collections.get(identifier: .init(from: source))
+        } catch {
+            // The collection is not in storage. Validate the source before fetching it.
+            if let errors = source.validate(fileSystem: self.fileSystem)?.errors() {
+                throw MultipleErrors(errors)
             }
+            guard let provider = self.collectionProviders[source.type] else {
+                throw UnknownProvider(source.type)
+            }
+            return try await provider.get(source)
         }
     }
 
     // MARK: - Packages
 
-    public func findPackages(_ query: String,
-                             collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                             callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
+    public func findPackages(
+        _ query: String,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageSearchResult{
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
+        let sources = try await self.storage.sources.list()
 
-        self.storage.sources.list { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
-                if identifiers.isEmpty {
-                    return callback(.success(Model.PackageSearchResult(items: [])))
-                }
-                self.storage.collections.searchPackages(identifiers: identifiers, query: query, callback: callback)
-            }
+        let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
+        if identifiers.isEmpty {
+            return Model.PackageSearchResult(items: [])
         }
+        return try await self.storage.collections.searchPackages(identifiers: identifiers, query: query)
     }
 
-    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                             callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void) {
-        self.listCollections(identifiers: collections) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let collections):
-                var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
-                // Use package data from the most recently processed collection
-                collections.sorted(by: { $0.lastProcessedAt > $1.lastProcessedAt }).forEach { collection in
-                    collection.packages.forEach { package in
-                        var entry = packageCollections.removeValue(forKey: package.identity)
-                        if entry == nil {
-                            entry = (package, .init())
-                        }
+    public func listPackages(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil) async throws -> PackageCollectionsModel.PackageSearchResult {
+        let collections = try await self.listCollections(identifiers: collections)
 
-                        if var entry = entry {
-                            entry.collections.insert(collection.identifier)
-                            packageCollections[package.identity] = entry
-                        }
-                    }
+        var packageCollections = [PackageIdentity: (package: Model.Package, collections: Set<Model.CollectionIdentifier>)]()
+        // Use package data from the most recently processed collection
+        collections.sorted(by: { $0.lastProcessedAt > $1.lastProcessedAt }).forEach { collection in
+            collection.packages.forEach { package in
+                var entry = packageCollections.removeValue(forKey: package.identity)
+                if entry == nil {
+                    entry = (package, .init())
                 }
 
-                let result = PackageCollectionsModel.PackageSearchResult(
-                    items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
-                        .map { entry in
-                        .init(package: entry.value.package, collections: Array(entry.value.collections))
-                        }
-                )
-                callback(.success(result))
+                if var entry = entry {
+                    entry.collections.insert(collection.identifier)
+                    packageCollections[package.identity] = entry
+                }
             }
         }
+
+        return PackageCollectionsModel.PackageSearchResult(
+            items: packageCollections.sorted { $0.value.package.displayName < $1.value.package.displayName }
+                .map { entry in
+                .init(package: entry.value.package, collections: Array(entry.value.collections))
+                }
+        )
     }
 
     // MARK: - Package Metadata
 
-    public func getPackageMetadata(identity: PackageIdentity,
-                                   location: String? = .none,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
-        self.getPackageMetadata(identity: identity, location: location, collections: .none, callback: callback)
-    }
-
-    public func getPackageMetadata(identity: PackageIdentity,
-                                   location: String? = .none,
-                                   collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-                                   callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void) {
+    public func getPackageMetadata(
+        identity: PackageModel.PackageIdentity,
+        location: String? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageMetadata {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
         // first find in storage
-        self.findPackage(identity: identity, location: location, collections: collections) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let packageSearchResult):
-                // then try to get more metadata from provider (optional)
-                self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location) { result, provider in
-                    switch result {
-                    case .failure(let error):
-                        self.observabilityScope.emit(
-                            warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self)",
-                            underlyingError: error
-                        )
-                        let metadata = Model.PackageMetadata(
-                            package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
-                            collections: packageSearchResult.collections,
-                            provider: provider
-                        )
-                        callback(.success(metadata))
-                    case .success(let basicMetadata):
-                        // finally merge the results
-                        let metadata = Model.PackageMetadata(
-                            package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata),
-                            collections: packageSearchResult.collections,
-                            provider: provider
-                        )
-                        callback(.success(metadata))
-                    }
-                }
-            }
+        let packageSearchResult = try await self.findPackage(identity: identity, location: location, collections: collections)
+        // then try to get more metadata from provider (optional)
+        let (basicMetadata, provider) = await self.metadataProvider.get(identity: packageSearchResult.package.identity, location: packageSearchResult.package.location)
+        do {
+            return try Model.PackageMetadata(
+                package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: basicMetadata.get()),
+                collections: packageSearchResult.collections,
+                provider: provider
+            )
+        } catch {
+            self.observabilityScope.emit(
+                warning: "Failed fetching information about \(identity) from \(self.metadataProvider.self)",
+                underlyingError: error
+            )
+            return Model.PackageMetadata(
+                package: Self.mergedPackageMetadata(package: packageSearchResult.package, basicMetadata: nil),
+                collections: packageSearchResult.collections,
+                provider: provider
+            )
         }
     }
 
     // MARK: - Targets
 
-    public func listTargets(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                            callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void) {
+    public func listTargets(collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil) async throws -> PackageCollectionsModel.TargetListResult {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
-        self.listCollections(identifiers: collections) { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let collections):
-                let targets = self.targetListResultFromCollections(collections)
-                callback(.success(targets))
-            }
-        }
+        let collections = try await self.listCollections(identifiers: collections)
+        return self.targetListResultFromCollections(collections)
     }
 
-    public func findTargets(_ query: String,
-                            searchType: PackageCollectionsModel.TargetSearchType? = nil,
-                            collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil,
-                            callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void) {
+    public func findTargets(
+        _ query: String,
+        searchType: PackageCollectionsModel.TargetSearchType? = nil,
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.TargetSearchResult {
         guard Self.isSupportedPlatform else {
-            return callback(.failure(PackageCollectionError.unsupportedPlatform))
+            throw PackageCollectionError.unsupportedPlatform
         }
 
         let searchType = searchType ?? .exactMatch
 
-        self.storage.sources.list { result in
-            switch result {
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
-                if identifiers.isEmpty {
-                    return callback(.success(.init(items: [])))
-                }
-                self.storage.collections.searchTargets(identifiers: identifiers, query: query, type: searchType, callback: callback)
-            }
+        let sources = try await self.storage.sources.list()
+        let identifiers = sources.map { .init(from: $0) }.filter { collections?.contains($0) ?? true }
+        if identifiers.isEmpty {
+            return PackageCollectionsModel.TargetSearchResult(items: [])
         }
+        return try await self.storage.collections.searchTargets(identifiers: identifiers, query: query, type: searchType)
     }
 
     // MARK: - Private
@@ -491,115 +398,103 @@ public struct PackageCollections: PackageCollectionsProtocol, Closable {
     // This helps avoid network access in normal operations
     private func refreshCollectionFromSource(
         source: PackageCollectionsModel.CollectionSource,
-        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
-        callback: @escaping (Result<Model.Collection, Error>) -> Void
-    ) {
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil
+    ) async throws -> Model.Collection {
         guard let provider = self.collectionProviders[source.type] else {
-            return callback(.failure(UnknownProvider(source.type)))
+            throw UnknownProvider(source.type)
         }
-        provider.get(source) { result in
-            switch result {
-            case .failure(let error):
-                // Remove the unavailable/invalid collection (if previously saved) from storage before calling back
-                self.storage.collections.remove(identifier: PackageCollectionsModel.CollectionIdentifier(from: source)) { _ in
-                    callback(.failure(error))
-                }
-            case .success(let collection):
-                // If collection is signed and signature is valid, save to storage. `provider.get`
-                // would have failed if signature were invalid.
-                if collection.isSigned {
-                    return self.storage.collections.put(collection: collection, callback: callback)
-                }
+        var collection: Model.Collection
+        do {
+            collection = try await provider.get(source)
+        } catch {
+            // Remove the unavailable/invalid collection (if previously saved) from storage before calling back
+            try? await self.storage.collections.remove(identifier: PackageCollectionsModel.CollectionIdentifier(from: source))
+            throw error
+        }
+        // If collection is signed and signature is valid, save to storage. `provider.get`
+        // would have failed if signature were invalid.
+        if collection.isSigned {
+            return try await self.storage.collections.put(collection: collection)
+        }
 
-                // If collection is not signed, check if it's trusted by user and prompt user if needed.
-                if let isTrusted = source.isTrusted {
-                    if isTrusted {
-                        return self.storage.collections.put(collection: collection, callback: callback)
-                    } else {
-                        // Try to remove the untrusted collection (if previously saved) from storage before calling back
-                        return self.storage.collections.remove(identifier: collection.identifier) { _ in
-                            callback(.failure(PackageCollectionError.untrusted))
-                        }
-                    }
-                }
+        // If collection is not signed, check if it's trusted by user and prompt user if needed.
+        if let isTrusted = source.isTrusted {
+            guard isTrusted else {
+                // Try to remove the untrusted collection (if previously saved) from storage before calling back
+                try? await self.storage.collections.remove(identifier: collection.identifier)
+                throw PackageCollectionError.untrusted
+            }
+            return try await self.storage.collections.put(collection: collection)
+        }
 
-                // No user preference recorded, so we need to prompt if we can.
-                guard let trustConfirmationProvider = trustConfirmationProvider else {
-                    // Try to remove the untrusted collection (if previously saved) from storage before calling back
-                    return self.storage.collections.remove(identifier: collection.identifier) { _ in
-                        callback(.failure(PackageCollectionError.trustConfirmationRequired))
-                    }
-                }
 
-                trustConfirmationProvider(collection) { userTrusted in
-                    var source = source
-                    source.isTrusted = userTrusted
-                    // Record user preference then save collection to storage
-                    self.storage.sources.update(source: source) { updateSourceResult in
-                        switch updateSourceResult {
-                        case .failure(let error):
-                            callback(.failure(error))
-                        case .success:
-                            if userTrusted {
-                                var collection = collection
-                                collection.source = source
-                                self.storage.collections.put(collection: collection, callback: callback)
-                            } else {
-                                // Try to remove the untrusted collection (if previously saved) from storage before calling back
-                                return self.storage.collections.remove(identifier: collection.identifier) { _ in
-                                    callback(.failure(PackageCollectionError.untrusted))
-                                }
-                            }
-                        }
-                    }
-                }
+        // No user preference recorded, so we need to prompt if we can.
+        guard let trustConfirmationProvider else {
+            // Try to remove the untrusted collection (if previously saved) from storage before calling back
+            try? await self.storage.collections.remove(identifier: collection.identifier)
+            throw PackageCollectionError.trustConfirmationRequired
+        }
+        let userTrusted = await withCheckedContinuation { continuation in
+            trustConfirmationProvider(collection) { result in
+                continuation.resume(returning: result)
             }
         }
+        var source = source
+        source.isTrusted = userTrusted
+        // Record user preference then save collection to storage
+        try await self.storage.sources.update(source: source)
+
+        guard userTrusted else {
+            // Try to remove the untrusted collection (if previously saved) from storage before calling back
+            try? await self.storage.collections.remove(identifier: collection.identifier)
+            throw PackageCollectionError.untrusted
+        }
+        collection.source = source
+        return try await self.storage.collections.put(collection: collection)
     }
 
     func findPackage(identity: PackageIdentity,
-                     location: String?,
-                     collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-                     callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult.Item, Error>) -> Void) {
-        self.storage.sources.list { result in
-            let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
-            
-            switch result {
-            case .failure(is NotFoundError):
-                callback(.failure(notFoundError))
-            case .failure(let error):
-                callback(.failure(error))
-            case .success(let sources):
-                var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
-                if let collections {
-                    collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
-                }
-                if collectionIdentifiers.isEmpty {
-                    return callback(.failure(notFoundError))
-                }
-                self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers) { findPackageResult in
-                    switch findPackageResult {
-                    case .failure(is NotFoundError):
-                        callback(.failure(notFoundError))
-                    case .failure(let error):
-                        callback(.failure(error))
-                    case .success(let packagesCollections):
-                        let matches: [PackageCollectionsModel.Package]
-                        if let location {
-                            // A package identity can be associated with multiple repository URLs
-                            matches = packagesCollections.packages.filter { CanonicalPackageLocation($0.location) == CanonicalPackageLocation(location) }
-                        }
-                        else {
-                            matches = packagesCollections.packages
-                        }
-                        guard let package = matches.first else {
-                            return callback(.failure(notFoundError))
-                        }
-                        callback(.success(.init(package: package, collections: packagesCollections.collections)))
-                    }
-                }
-            }
+                     location: String? = nil,
+                     collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
+    ) async throws -> PackageCollectionsModel.PackageSearchResult.Item {
+        let notFoundError = NotFoundError("identity: \(identity), location: \(location ?? "none")")
+
+        let sources: [PackageCollectionsModel.CollectionSource]
+        do {
+            sources = try await self.storage.sources.list()
+        } catch is NotFoundError {
+            throw notFoundError
         }
+
+        var collectionIdentifiers = sources.map { Model.CollectionIdentifier(from: $0) }
+        if let collections {
+            collectionIdentifiers = collectionIdentifiers.filter { collections.contains($0) }
+        }
+        guard !collectionIdentifiers.isEmpty else {
+            throw notFoundError
+        }
+        let packagesCollections: (packages: [PackageCollectionsModel.Package], collections: [PackageCollectionsModel.CollectionIdentifier])
+        do {
+            packagesCollections = try await self.storage.collections.findPackage(identifier: identity, collectionIdentifiers: collectionIdentifiers)
+        } catch is NotFoundError {
+            throw notFoundError
+        }
+
+        let matches: [PackageCollectionsModel.Package]
+        if let location {
+            // A package identity can be associated with multiple repository URLs
+            matches = packagesCollections.packages.filter { CanonicalPackageLocation($0.location) == CanonicalPackageLocation(location) }
+        }
+        else {
+            matches = packagesCollections.packages
+        }
+        guard let package = matches.first else {
+            throw notFoundError
+        }
+        return PackageCollectionsModel.PackageSearchResult.Item(
+            package: package,
+            collections: packagesCollections.collections)
+
     }
 
     private func targetListResultFromCollections(_ collections: [Model.Collection]) -> Model.TargetListResult {

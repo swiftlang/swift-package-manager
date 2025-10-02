@@ -16,7 +16,7 @@ import Basics
 import PackageModel
 @testable import PackageRegistry
 @testable import PackageSigning
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 import struct TSCUtility.Version
@@ -52,10 +52,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // `signingEntity` meets requirement to be used for TOFU
         // (i.e., it's .recognized), so it should be saved to storage.
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [version])
@@ -84,10 +83,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is nil, so it should not be saved to storage.
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertTrue(packageSigners.isEmpty)
     }
@@ -120,10 +118,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // `signingEntity` is not .recognized, so it should not be saved to storage.
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertTrue(packageSigners.isEmpty)
     }
@@ -218,10 +215,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
@@ -280,10 +276,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
@@ -335,10 +330,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [version])
@@ -383,10 +377,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with version 1.1.1 added
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[signingEntity]?.versions, [existingVersion, version])
@@ -453,10 +446,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [existingVersion])
@@ -516,10 +508,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, [existingVersion])
@@ -565,10 +556,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
@@ -630,10 +620,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
@@ -688,10 +677,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
@@ -739,10 +727,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[existingSigningEntity]?.versions, existingVersions)
@@ -788,10 +775,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with v2.0.0 added
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
         XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion, version])
@@ -852,10 +838,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         // Storage should be updated with v2.0.0 added
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 2)
         XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion])
@@ -933,10 +918,9 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         }
 
         // Storage should not be updated
-        let packageSigners = try await signingEntityStorage.get(
+        let packageSigners = try signingEntityStorage.get(
             package: package.underlying,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 2)
         XCTAssertEqual(packageSigners.signers[expectedSigningEntity]?.versions, [expectedFromVersion])
@@ -1028,20 +1012,14 @@ extension PackageSigningEntityTOFU {
             package: package,
             version: version,
             signingEntity: signingEntity,
-            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: observabilityScope ?? ObservabilitySystem.NOOP
         )
     }
 }
 
 private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
-    public func get(
-        package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    ) {
-        callback(.success(PackageSigners()))
+    func get(package: PackageModel.PackageIdentity, observabilityScope: Basics.ObservabilityScope) throws -> PackageSigning.PackageSigners {
+        return PackageSigners()
     }
 
     public func put(
@@ -1049,22 +1027,20 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         let existing = SigningEntity.recognized(
             type: .adp,
             name: "xxx-\(signingEntity.name ?? "")",
             organizationalUnit: "xxx-\(signingEntity.organizationalUnit ?? "")",
             organization: "xxx-\(signingEntity.organization ?? "")"
         )
-        callback(.failure(PackageSigningEntityStorageError.conflict(
+        throw PackageSigningEntityStorageError.conflict(
             package: package,
             version: version,
             given: signingEntity,
             existing: existing
-        )))
+        )
     }
 
     public func add(
@@ -1072,11 +1048,9 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        callback(.failure(StringError("unexpected call")))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        throw StringError("unexpected call")
     }
 
     public func changeSigningEntityFromVersion(
@@ -1084,11 +1058,9 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        callback(.failure(StringError("unexpected call")))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        throw StringError("unexpected call")
     }
 
     public func changeSigningEntityForAllVersions(
@@ -1096,11 +1068,9 @@ private class WriteConflictSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        callback(.failure(StringError("unexpected call")))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        throw StringError("unexpected call")
     }
 }
 

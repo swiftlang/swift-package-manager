@@ -59,7 +59,6 @@ public func withTemporaryDirectory<Result>(
     }
 }
 
-@available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
 public func withTemporaryDirectory<Result>(
     dir: AbsolutePath? = nil, prefix: String = "TemporaryDirectory", removeTreeOnDeinit: Bool = false,
     _ body: (AbsolutePath) async throws -> Result

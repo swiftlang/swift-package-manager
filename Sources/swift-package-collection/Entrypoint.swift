@@ -11,12 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Commands
-import PackageCollectionsTool
+import PackageCollectionsCommand
 
 @main
 struct Entrypoint {
     static func main() async {
-        await SwiftPackageCollectionsTool.main()
+        await PackageCollectionsCommand.main()
     }
 }
-

@@ -7,9 +7,12 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-test
-  main.swift)
+  Entrypoint.swift)
 target_link_libraries(swift-test PRIVATE
   Commands)
+
+target_compile_options(swift-test PRIVATE
+  -parse-as-library)
 
 install(TARGETS swift-test
   RUNTIME DESTINATION bin)

@@ -2,22 +2,24 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
 import Basics
 @testable import Workspace
-import XCTest
+import Testing
 
-import class TSCBasic.InMemoryFileSystem
-
-final class WorkspaceStateTests: XCTestCase {
-    func testV4Format() throws {
+fileprivate struct WorkspaceStateTests {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func v4Format() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -84,13 +86,18 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testV4FormatWithPath() throws {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func v4FormatWithPath() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -157,13 +164,18 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testV5Format() throws {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func v5Format() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -230,13 +242,18 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
-        XCTAssertTrue(state.dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("yams") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-tools-support-core") }))
+        #expect(dependencies.contains(where: { $0.packageRef.identity == .plain("swift-argument-parser") }))
     }
 
-    func testSavedDependenciesAreSorted() throws {
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func savedDependenciesAreSorted() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -290,17 +307,22 @@ final class WorkspaceStateTests: XCTestCase {
         )
 
         let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        try state.save()
+        try await state.save()
 
         let serialized: String = try fs.readFileContents(statePath)
 
-        let argpRange = try XCTUnwrap(serialized.range(of: "swift-argument-parser"))
-        let yamsRange = try XCTUnwrap(serialized.range(of: "yams"))
+        let argpRange = try #require(serialized.range(of: "swift-argument-parser"))
+        let yamsRange = try #require(serialized.range(of: "yams"))
 
-        XCTAssertTrue(argpRange.lowerBound < yamsRange.lowerBound)
+        #expect(argpRange.lowerBound < yamsRange.lowerBound)
     }
 
-    func testArtifacts() throws {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func artifacts() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -364,14 +386,19 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "bar" }))
-        XCTAssertTrue(state.artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
+        let artifacts = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).artifacts
+        #expect(artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "foo" }))
+        #expect(artifacts.contains(where: { $0.packageRef.identity == .plain("foo") && $0.targetName == "bar" }))
+        #expect(artifacts.contains(where: { $0.packageRef.identity == .plain("bar") && $0.targetName == "bar" }))
     }
 
-    // rdar://86857825
-    func testDuplicateDependenciesDoNotCrash() throws {
+    @Test(
+        .issue("rdar://86857825", relationship: .defect),
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func duplicateDependenciesDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -424,14 +451,19 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let dependencies = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).dependencies
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
-        XCTAssertTrue(state.dependencies.isEmpty)
+        #expect(dependencies.isEmpty)
     }
 
-    // rdar://86857825
-    func testDuplicateArtifactsDoNotCrash() throws {
+    @Test(
+        .issue("rdar://86857825", relationship: .defect),
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func duplicateArtifactsDoNotCrash() async throws {
         let fs = InMemoryFileSystem()
 
         let buildDir = AbsolutePath("/.build")
@@ -480,15 +512,15 @@ final class WorkspaceStateTests: XCTestCase {
             """
         )
 
-        let state = WorkspaceState(fileSystem: fs, storageDirectory: buildDir)
+        let artifacts = await WorkspaceState(fileSystem: fs, storageDirectory: buildDir).artifacts
         // empty since we have dups so we warn and fail the loading
         // TODO: test for diagnostics when we can get them from the WorkspaceState initializer
-        XCTAssertTrue(state.artifacts.isEmpty)
+        #expect(artifacts.isEmpty)
     }
 }
 
 extension WorkspaceState {
-    fileprivate convenience init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
+    fileprivate init(fileSystem: FileSystem, storageDirectory: AbsolutePath) {
         self.init(fileSystem: fileSystem, storageDirectory: storageDirectory, initializationWarningHandler: { _ in })
     }
 }

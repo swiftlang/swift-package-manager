@@ -57,36 +57,32 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Error>) -> Void
-    ) {
-        queue.async {
-            // Start by searching manifests from the Workspace's resolved dependencies.
-            if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
-                let container = LocalPackageContainer(
-                    package: package,
-                    manifest: manifest.manifest,
-                    dependency: manifest.dependency,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-                return completion(.success(container))
-            }
-
-            // Continue searching from the Workspace's root manifests.
-            if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
-                let container = LocalPackageContainer(
-                    package: package,
-                    manifest: rootPackage.manifest,
-                    dependency: nil,
-                    currentToolsVersion: self.currentToolsVersion
-                )
-                return completion(.success(container))
-            }
-
-            // As we don't have anything else locally, error out.
-            completion(.failure(ResolverPrecomputationError.missingPackage(package: package)))
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer {
+        // Start by searching manifests from the Workspace's resolved dependencies.
+        if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
+            let container = LocalPackageContainer(
+                package: package,
+                manifest: manifest.manifest,
+                dependency: manifest.dependency,
+                currentToolsVersion: self.currentToolsVersion
+            )
+            return container
         }
+
+        // Continue searching from the Workspace's root manifests.
+        if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
+            let container = LocalPackageContainer(
+                package: package,
+                manifest: rootPackage.manifest,
+                dependency: nil,
+                currentToolsVersion: self.currentToolsVersion
+            )
+            return container
+        }
+
+        // As we don't have anything else locally, error out.
+        throw ResolverPrecomputationError.missingPackage(package: package)
     }
 }
 
@@ -96,6 +92,7 @@ private struct LocalPackageContainer: PackageContainer {
     /// The managed dependency if the package is not a root package.
     let dependency: Workspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
+    let shouldInvalidatePinnedVersions = false
 
     func versionsAscending() throws -> [Version] {
         switch dependency?.state {
@@ -121,28 +118,28 @@ private struct LocalPackageContainer: PackageContainer {
         return currentToolsVersion
     }
 
-    func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
-        return try self.versionsDescending()
+    func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
+        try await self.versionsDescending()
     }
 
-    func getDependencies(at version: Version, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         // Because of the implementation of `reversedVersions`, we should only get the exact same version.
         switch dependency?.state {
         case .sourceControlCheckout(.version(version, revision: _)):
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         case .registryDownload(version: version):
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             throw InternalError("expected version based state, but state was \(String(describing: dependency?.state))")
         }
     }
 
-    func getDependencies(at revisionString: String, productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revisionString: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         let revision = Revision(identifier: revisionString)
         switch dependency?.state {
         case .sourceControlCheckout(.branch(_, revision: revision)), .sourceControlCheckout(.revision(revision)):
             // Return the dependencies if the checkout state matches the revision.
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             // Throw an error when the dependency is not revision based to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(
@@ -153,10 +150,10 @@ private struct LocalPackageContainer: PackageContainer {
         }
     }
 
-    func getUnversionedDependencies(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         switch dependency?.state {
         case .none, .fileSystem, .edited:
-            return try manifest.dependencyConstraints(productFilter: productFilter)
+            return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
         default:
             // Throw an error when the dependency is not unversioned to fail resolution.
             throw ResolverPrecomputationError.differentRequirement(

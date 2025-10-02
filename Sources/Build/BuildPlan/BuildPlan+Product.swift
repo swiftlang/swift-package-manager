@@ -11,28 +11,39 @@
 //===----------------------------------------------------------------------===//
 
 import struct Basics.AbsolutePath
-import struct Basics.Triple
+import func Basics.depthFirstSearch
 import struct Basics.InternalError
+import struct Basics.Triple
+import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedProduct
-import struct PackageGraph.ResolvedTarget
-import class PackageModel.BinaryTarget
-import class PackageModel.ClangTarget
-import class PackageModel.Target
-import class PackageModel.SwiftTarget
-import class PackageModel.SystemLibraryTarget
+import class PackageModel.BinaryModule
+import class PackageModel.ClangModule
+
+@_spi(SwiftPMInternal)
+import class PackageModel.Module
+
+import class PackageModel.SwiftModule
+import class PackageModel.SystemLibraryModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.ExecutableInfo
+import struct SPMBuildCore.LibraryInfo
 import func TSCBasic.topologicalSort
 
 extension BuildPlan {
     /// Plan a product.
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
-        let dependencies = try computeDependencies(of: buildProduct.product, buildParameters: buildProduct.buildParameters)
+        let dependencies = try computeDependencies(of: buildProduct)
+
+        var isEmbeddedSwift = false
+        for module in dependencies.staticTargets {
+            guard case .swift(let module) = module else { continue }
+            isEmbeddedSwift = isEmbeddedSwift || module.isEmbeddedSwift
+        }
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
-            guard case let target as SystemLibraryTarget = systemModule.underlying else {
+            guard case let target as SystemLibraryModule = systemModule.underlying else {
                 throw InternalError("This should not be possible.")
             }
             // Add pkgConfig libs arguments.
@@ -46,32 +57,37 @@ extension BuildPlan {
             } else if binaryPath.basename.starts(with: "lib") {
                 buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
             } else {
-                self.observabilityScope.emit(error: "unexpected binary framework")
+                self.observabilityScope.emit(error: "unexpected binary name at \(binaryPath). Static libraries should be prefixed with lib")
             }
         }
 
-        // Link C++ if needed.
-        // Note: This will come from build settings in future.
-        for target in dependencies.staticTargets {
-            if case let target as ClangTarget = target.underlying, target.isCXX {
-                let triple = buildProduct.buildParameters.triple
-                if triple.isDarwin() {
-                    buildProduct.additionalFlags += ["-lc++"]
-                } else if triple.isWindows() {
-                    // Don't link any C++ library.
-                } else {
-                    buildProduct.additionalFlags += ["-lstdc++"]
+        // Don't link libc++ or libstd++ when building for Embedded Swift.
+        // Users can still link it manually for embedded platforms when needed,
+        // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
+        if !isEmbeddedSwift {
+            // Link C++ if needed.
+            // Note: This will come from build settings in future.
+            for description in dependencies.staticTargets {
+                if case let target as ClangModule = description.module.underlying, target.isCXX {
+                    let triple = buildProduct.buildParameters.triple
+                    if triple.isDarwin() || triple.isFreeBSD() {
+                        buildProduct.additionalFlags += ["-lc++"]
+                    } else if triple.isWindows() {
+                        // Don't link any C++ library.
+                    } else {
+                        buildProduct.additionalFlags += ["-lstdc++"]
+                    }
+                    break
                 }
-                break
             }
         }
 
-        for target in dependencies.staticTargets {
-            switch target.underlying {
-            case is SwiftTarget:
+        for description in dependencies.staticTargets {
+            switch description.module.underlying {
+            case is SwiftModule:
                 // Swift targets are guaranteed to have a corresponding Swift description.
-                guard case .swift(let description) = targetMap[target] else {
-                    throw InternalError("unknown target \(target)")
+                guard case .swift(let description) = description else {
+                    throw InternalError("Expected a Swift module: \(description.module)")
                 }
 
                 // Based on the debugging strategy, we either need to pass swiftmodule paths to the
@@ -90,178 +106,257 @@ extension BuildPlan {
             }
         }
 
-        buildProduct.staticTargets = dependencies.staticTargets
-        buildProduct.dylibs = try dependencies.dylibs.map{
-            guard let product = productMap[$0] else {
-                throw InternalError("unknown product \($0)")
-            }
-            return product
-        }
-        buildProduct.objects += try dependencies.staticTargets.flatMap { targetName -> [AbsolutePath] in
-            guard let target = targetMap[targetName] else {
-                throw InternalError("unknown target \(targetName)")
-            }
-            return try target.objects
-        }
+        buildProduct.staticTargets = dependencies.staticTargets.map(\.module)
+        buildProduct.dylibs = dependencies.dylibs
+        buildProduct.objects += try dependencies.staticTargets.flatMap { try $0.objects }
         buildProduct.libraryBinaryPaths = dependencies.libraryBinaryPaths
-
         buildProduct.availableTools = dependencies.availableTools
     }
 
     /// Computes the dependencies of a product.
     private func computeDependencies(
-        of product: ResolvedProduct,
-        buildParameters: BuildParameters
+        of productDescription: ProductBuildDescription
     ) throws -> (
-        dylibs: [ResolvedProduct],
-        staticTargets: [ResolvedTarget],
-        systemModules: [ResolvedTarget],
+        dylibs: [ProductBuildDescription],
+        staticTargets: [ModuleBuildDescription],
+        systemModules: [ResolvedModule],
         libraryBinaryPaths: Set<AbsolutePath>,
         availableTools: [String: AbsolutePath]
     ) {
+        let product = productDescription.product
         /* Prior to tools-version 5.9, we used to erroneously recursively traverse executable/plugin dependencies and statically include their
          targets. For compatibility reasons, we preserve that behavior for older tools-versions. */
-        let shouldExcludePlugins: Bool
-        if let toolsVersion = self.graph.package(for: product)?.manifest.toolsVersion {
-            shouldExcludePlugins = toolsVersion >= .v5_9
-        } else {
-            shouldExcludePlugins = false
-        }
+        let shouldExcludePlugins = productDescription.package.manifest.toolsVersion >= .v5_9
 
-        // For test targets, we need to consider the first level of transitive dependencies since the first level is always test targets.
-        let topLevelDependencies: [PackageModel.Target]
-        if product.type == .test {
-            topLevelDependencies = product.targets.flatMap { $0.underlying.dependencies }.compactMap {
+        // For test targets, we need to consider the first level of transitive dependencies since the first level is
+        // always test targets.
+        let topLevelDependencies: [PackageModel.Module] = if product.type == .test {
+            product.modules.flatMap(\.underlying.dependencies).compactMap {
                 switch $0 {
                 case .product:
-                    return nil
-                case .target(let target, _):
-                    return target
+                    nil
+                case .module(let target, _):
+                    target
                 }
             }
         } else {
-            topLevelDependencies = []
+            []
+        }
+
+        // get the dynamic libraries for explicitly linking rdar://108561857
+        func recursiveDynamicLibraries(for description: ProductBuildDescription) throws -> [ProductBuildDescription] {
+            let dylibs = try computeDependencies(of: description).dylibs
+            return try dylibs + dylibs.flatMap { try recursiveDynamicLibraries(for: $0) }
         }
 
         // Sort the product targets in topological order.
-        let nodes: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
-        let allTargets = try topologicalSort(nodes, successors: { dependency in
-            switch dependency {
-            // Include all the dependencies of a target.
-            case .target(let target, _):
-                let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
-                let topLevelIsMacro = isTopLevel && product.type == .macro
-                let topLevelIsPlugin = isTopLevel && product.type == .plugin
-                let topLevelIsTest = isTopLevel && product.type == .test
+        var allDependencies: [ModuleBuildDescription.Dependency] = []
 
-                if !topLevelIsMacro && !topLevelIsTest && target.type == .macro {
-                    return []
-                }
-                if shouldExcludePlugins, !topLevelIsPlugin && !topLevelIsTest && target.type == .plugin {
-                    return []
-                }
-                return target.dependencies.filter { $0.satisfies(buildParameters.buildEnvironment) }
-
-            // For a product dependency, we only include its content only if we
-            // need to statically link it.
-            case .product(let product, _):
-                guard dependency.satisfies(buildParameters.buildEnvironment) else {
-                    return []
+        do {
+            func successors(
+                for product: ResolvedProduct,
+                destination: BuildParameters.Destination
+            ) throws -> [TraversalNode] {
+                let productDependencies: [TraversalNode] = product.modules.map {
+                    .init(module: $0, context: destination)
                 }
 
-                let productDependencies: [ResolvedTarget.Dependency] = product.targets.map { .target($0, conditions: []) }
                 switch product.type {
                 case .library(.automatic), .library(.static):
                     return productDependencies
                 case .plugin:
                     return shouldExcludePlugins ? [] : productDependencies
-                case .library(.dynamic), .test, .executable, .snippet, .macro:
+                case .library(.dynamic):
+                    guard let description = self.description(for: product, context: destination) else {
+                        throw InternalError("Could not find a description for product: \(product)")
+                    }
+                    return try recursiveDynamicLibraries(for: description).map { TraversalNode(
+                        product: $0.product,
+                        context: $0.destination
+                    ) }
+                case .test, .executable, .snippet, .macro:
                     return []
                 }
             }
-        })
+
+            func successors(
+                for module: ResolvedModule,
+                destination: BuildParameters.Destination
+            ) -> [TraversalNode] {
+                let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules
+                    .contains(id: module.id)
+                let topLevelIsMacro = isTopLevel && product.type == .macro
+                let topLevelIsPlugin = isTopLevel && product.type == .plugin
+                let topLevelIsTest = isTopLevel && product.type == .test
+
+                if !topLevelIsMacro && !topLevelIsTest && module.type == .macro {
+                    return []
+                }
+                if shouldExcludePlugins, !topLevelIsPlugin && !topLevelIsTest && module.type == .plugin {
+                    return []
+                }
+                return module.dependencies(satisfying: productDescription.buildParameters.buildEnvironment)
+                    .map {
+                        switch $0 {
+                        case .product(let product, _):
+                            .init(product: product, context: destination)
+                        case .module(let module, _):
+                            .init(module: module, context: destination)
+                        }
+                    }
+            }
+
+            let directDependencies = product.modules
+                .map { TraversalNode(module: $0, context: productDescription.destination) }
+
+            var uniqueNodes = Set<TraversalNode>(directDependencies)
+
+            try depthFirstSearch(directDependencies) {
+                let result: [TraversalNode] = switch $0 {
+                case .product(let product, let destination):
+                    try successors(for: product, destination: destination)
+                case .module(let module, let destination):
+                    successors(for: module, destination: destination)
+                case .package:
+                    []
+                }
+
+                return result.filter { uniqueNodes.insert($0).inserted }
+            } onNext: { node, _ in
+                switch node {
+                case .package: break
+                case .product(let product, let destination):
+                    allDependencies.append(.product(product, self.description(for: product, context: destination)))
+                case .module(let module, let destination):
+                    allDependencies.append(.module(module, self.description(for: module, context: destination)))
+                }
+            }
+        }
 
         // Create empty arrays to collect our results.
-        var linkLibraries = [ResolvedProduct]()
-        var staticTargets = [ResolvedTarget]()
-        var systemModules = [ResolvedTarget]()
+        var linkLibraries = [ProductBuildDescription]()
+        var staticTargets = [ModuleBuildDescription]()
+        var systemModules = [ResolvedModule]()
         var libraryBinaryPaths: Set<AbsolutePath> = []
         var availableTools = [String: AbsolutePath]()
 
-        for dependency in allTargets {
+        for dependency in allDependencies {
             switch dependency {
-            case .target(let target, _):
-                switch target.type {
+            case .module(let module, let description):
+                switch module.type {
                 // Executable target have historically only been included if they are directly in the product's
                 // target list.  Otherwise they have always been just build-time dependencies.
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
                 case .executable, .snippet, .macro:
-                    if product.targets.contains(target) {
-                        staticTargets.append(target)
-                    } else if product.type == .test && (target.underlying as? SwiftTarget)?.supportsTestableExecutablesFeature == true {
+                    if product.modules.contains(id: module.id) {
+                        guard let description else {
+                            throw InternalError("Could not find a description for module: \(module)")
+                        }
+                        staticTargets.append(description)
+                    } else if product.type == .test && (module.underlying as? SwiftModule)?
+                        .supportsTestableExecutablesFeature == true
+                    {
                         // Only "top-level" targets should really be considered here, not transitive ones.
-                        let isTopLevel = topLevelDependencies.contains(target.underlying) || product.targets.contains(target)
-                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5, isTopLevel {
-                            staticTargets.append(target)
+                        let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules
+                            .contains(id: module.id)
+                        if let toolsVersion = graph.package(for: product)?.manifest.toolsVersion, toolsVersion >= .v5_5,
+                           isTopLevel
+                        {
+                            guard let description else {
+                                throw InternalError("Could not find a description for module: \(module)")
+                            }
+                            staticTargets.append(description)
                         }
                     }
                 // Test targets should be included only if they are directly in the product's target list.
                 case .test:
-                    if product.targets.contains(target) {
-                        staticTargets.append(target)
+                    if product.modules.contains(id: module.id) {
+                        guard let description else {
+                            throw InternalError("Could not find a description for module: \(module)")
+                        }
+                        staticTargets.append(description)
                     }
-                // Library targets should always be included.
+                // Library targets should always be included for the same build triple.
                 case .library:
-                    staticTargets.append(target)
+                    guard let description else {
+                        throw InternalError("Could not find a description for module: \(module)")
+                    }
+                    if description.destination == productDescription.destination {
+                        staticTargets.append(description)
+                    }
                 // Add system target to system targets array.
                 case .systemModule:
-                    systemModules.append(target)
+                    systemModules.append(module)
                 // Add binary to binary paths set.
                 case .binary:
-                    guard let binaryTarget = target.underlying as? BinaryTarget else {
-                        throw InternalError("invalid binary target '\(target.name)'")
+                    guard let binaryTarget = module.underlying as? BinaryModule else {
+                        throw InternalError("invalid binary target '\(module.name)'")
                     }
                     switch binaryTarget.kind {
                     case .xcframework:
-                        let libraries = try self.parseXCFramework(for: binaryTarget, triple: buildParameters.triple)
+                        let libraries = try self.parseXCFramework(
+                            for: binaryTarget,
+                            triple: productDescription.buildParameters.triple
+                        )
                         for library in libraries {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
                     case .artifactsArchive:
-                        let tools = try self.parseArtifactsArchive(for: binaryTarget, triple: buildParameters.triple)
-                        tools.forEach { availableTools[$0.name] = $0.executablePath  }
-                    case.unknown:
-                        throw InternalError("unknown binary target '\(target.name)' type")
+                        let tools = try self.parseExecutableArtifactsArchive(
+                            for: binaryTarget, triple: productDescription.buildParameters.triple
+                        )
+                        for tool in tools {
+                            availableTools[tool.name] = tool.executablePath
+                        }
+                        
+                        let libraries = try self.parseLibraryArtifactsArchive(
+                            for: binaryTarget,
+                            triple: productDescription.buildParameters.triple
+                        )
+                        for library in libraries {
+                            libraryBinaryPaths.insert(library.libraryPath)
+                        }
+                    case .unknown:
+                        throw InternalError("unknown binary target '\(module.name)' type")
                     }
                 case .plugin:
                     continue
                 }
 
-            case .product(let product, _):
+            case .product(let product, let description):
                 // Add the dynamic products to array of libraries to link.
                 if product.type == .library(.dynamic) {
-                    linkLibraries.append(product)
+                    guard let description else {
+                        throw InternalError("Dynamic library product should have description: \(product)")
+                    }
+                    linkLibraries.append(description)
                 }
             }
         }
 
         // Add derived test targets, if necessary
-        if buildParameters.testingParameters.testProductStyle.requiresAdditionalDerivedTestTargets {
-            if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product] {
-                staticTargets.append(contentsOf: derivedTestTargets)
-            }
+        if product.type == .test, let derivedTestTargets = derivedTestTargetsMap[product.id] {
+            staticTargets.append(contentsOf: derivedTestTargets.compactMap {
+                self.description(for: $0, context: productDescription.destination)
+            })
         }
 
         return (linkLibraries, staticTargets, systemModules, libraryBinaryPaths, availableTools)
     }
 
     /// Extracts the artifacts  from an artifactsArchive
-    private func parseArtifactsArchive(for binaryTarget: BinaryTarget, triple: Triple) throws -> [ExecutableInfo] {
-        try self.externalExecutablesCache.memoize(key: binaryTarget) {
-            let execInfos = try binaryTarget.parseArtifactArchives(for: triple, fileSystem: self.fileSystem)
-            return execInfos.filter{!$0.supportedTriples.isEmpty}
+    private func parseExecutableArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
+        try self.externalExecutablesCache.memoize(key: module) {
+            let execInfos = try module.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
+            return execInfos.filter { !$0.supportedTriples.isEmpty }
+        }
+    }
+
+    func parseLibraryArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [LibraryInfo] {
+        try self.externalLibrariesCache.memoize(key: module) {
+            try module.parseLibraryArtifactArchives(for: triple, fileSystem: self.fileSystem)
         }
     }
 }

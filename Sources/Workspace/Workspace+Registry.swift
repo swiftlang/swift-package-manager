@@ -10,14 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+
 import struct Basics.AbsolutePath
 import protocol Basics.FileSystem
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
-import func Basics.temp_await
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -83,11 +84,9 @@ extension Workspace {
             dependencyMapper: any DependencyMapper,
             fileSystem: any FileSystem,
             observabilityScope: ObservabilityScope,
-            delegateQueue: DispatchQueue,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<Manifest, Error>) -> Void
-        ) {
-            self.underlying.load(
+            delegateQueue: DispatchQueue
+        ) async throws -> Manifest {
+            let manifest = try await self.underlying.load(
                 manifestPath: manifestPath,
                 manifestToolsVersion: manifestToolsVersion,
                 packageIdentity: packageIdentity,
@@ -98,81 +97,69 @@ extension Workspace {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                delegateQueue: delegateQueue,
-                callbackQueue: callbackQueue
-            ) { result in
-                switch result {
-                case .failure(let error):
-                    completion(.failure(error))
-                case .success(let manifest):
-                    self.transformSourceControlDependenciesToRegistry(
-                        manifest: manifest,
-                        transformationMode: transformationMode,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue,
-                        completion: completion
-                    )
-                }
-            }
+                delegateQueue: delegateQueue
+            )
+            return try await self.transformSourceControlDependenciesToRegistry(
+                manifest: manifest,
+                transformationMode: transformationMode,
+                observabilityScope: observabilityScope
+            )
         }
 
-        func resetCache(observabilityScope: ObservabilityScope) {
-            self.underlying.resetCache(observabilityScope: observabilityScope)
+        func resetCache(observabilityScope: ObservabilityScope) async {
+            await self.underlying.resetCache(observabilityScope: observabilityScope)
         }
 
-        func purgeCache(observabilityScope: ObservabilityScope) {
-            self.underlying.purgeCache(observabilityScope: observabilityScope)
+        func purgeCache(observabilityScope: ObservabilityScope) async {
+            await self.underlying.purgeCache(observabilityScope: observabilityScope)
         }
 
         private func transformSourceControlDependenciesToRegistry(
             manifest: Manifest,
             transformationMode: TransformationMode,
-            observabilityScope: ObservabilityScope,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<Manifest, Error>) -> Void
-        ) {
-            let sync = DispatchGroup()
-            let transformations = ThreadSafeKeyValueStore<PackageDependency, PackageIdentity>()
-            for dependency in manifest.dependencies {
-                if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location {
-                    sync.enter()
-                    self.mapRegistryIdentity(
-                        url: url,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue
-                    ) { result in
-                        defer { sync.leave() }
-                        switch result {
-                        case .failure(let error):
-                            // do not raise error, only report it as warning
-                            observabilityScope.emit(
-                                warning: "failed querying registry identity for '\(url)'",
-                                underlyingError: error
-                            )
-                        case .success(.some(let identity)):
-                            transformations[dependency] = identity
-                        case .success(.none):
-                            // no identity found
-                            break
+            observabilityScope: ObservabilityScope
+        ) async throws -> Manifest {
+            var transformations = [PackageDependency: PackageIdentity]()
+
+            try await withThrowingTaskGroup(of: (PackageDependency, PackageIdentity?).self) { group in
+                for dependency in manifest.dependencies {
+                    if case .sourceControl(let settings) = dependency, case .remote(let url) = settings.location {
+                        group.addTask {
+                            do {
+                                let identity = try await self.mapRegistryIdentity(
+                                    url: url,
+                                    observabilityScope: observabilityScope
+                                )
+                                return (dependency, identity)
+                            } catch {
+                                // do not raise error, only report it as warning
+                                observabilityScope.emit(
+                                    warning: "failed querying registry identity for '\(url)'",
+                                    underlyingError: error
+                                )
+                                return (dependency, nil)
+                            }
                         }
+                    }
+                }
+
+                // Collect the results from the group
+                for try await (dependency, identity) in group {
+                    if let identity {
+                        transformations[dependency] = identity
                     }
                 }
             }
 
             // update the manifest with the transformed dependencies
-            sync.notify(queue: callbackQueue) {
-                do {
-                    let updatedManifest = try self.transformManifest(
-                        manifest: manifest,
-                        transformations: transformations.get(),
-                        transformationMode: transformationMode,
-                        observabilityScope: observabilityScope
-                    )
-                    completion(.success(updatedManifest))
-                } catch {
-                    return completion(.failure(error))
-                }
-            }
+            let updatedManifest = try self.transformManifest(
+                manifest: manifest,
+                transformations: transformations,
+                transformationMode: transformationMode,
+                observabilityScope: observabilityScope
+            )
+
+            return updatedManifest
         }
 
         private func transformManifest(
@@ -204,7 +191,8 @@ extension Workspace {
                             nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                             location: settings.location,
                             requirement: settings.requirement,
-                            productFilter: settings.productFilter
+                            productFilter: settings.productFilter,
+                            traits: settings.traits
                         )
                     case .swizzle:
                         // we replace the *entire* source control dependency with a registry one
@@ -218,11 +206,12 @@ extension Workspace {
                                     info: "swizzling '\(dependency.locationString)' with registry dependency '\(registryIdentity)'."
                                 )
                             targetDependencyPackageNameTransformations[dependency
-                                .nameForTargetDependencyResolutionOnly] = registryIdentity.description
+                                .nameForModuleDependencyResolutionOnly.lowercased()] = registryIdentity.description
                             modifiedDependency = .registry(
                                 identity: registryIdentity,
                                 requirement: requirement,
-                                productFilter: settings.productFilter
+                                productFilter: settings.productFilter,
+                                traits: settings.traits
                             )
                         case .branch, .revision:
                             // branch and revision dependencies are not supported by the registry
@@ -238,7 +227,8 @@ extension Workspace {
                                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                 location: settings.location,
                                 requirement: settings.requirement,
-                                productFilter: settings.productFilter
+                                productFilter: settings.productFilter,
+                                traits: settings.traits
                             )
                         }
                     }
@@ -253,11 +243,18 @@ extension Workspace {
                     var modifiedDependencies = [TargetDescription.Dependency]()
                     for dependency in target.dependencies {
                         var modifiedDependency = dependency
-                        if case .product(let name, let packageName, let moduleAliases, let condition) = dependency,
-                           let packageName
-                        {
-                            // makes sure we use the updated package name for target based dependencies
-                            if let modifiedPackageName = targetDependencyPackageNameTransformations[packageName] {
+                        switch dependency {
+                        case .product(
+                            name: let name,
+                            package: let packageName,
+                            moduleAliases: let moduleAliases,
+                            condition: let condition
+                        ):
+                            if let packageName,
+                               // makes sure we use the updated package name for target based dependencies
+                               let modifiedPackageName =
+                               targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
                                 modifiedDependency = .product(
                                     name: name,
                                     package: modifiedPackageName,
@@ -265,6 +262,19 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
+                        case .byName(name: let packageName, condition: let condition):
+                            if let modifiedPackageName =
+                                targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
+                                modifiedDependency = .product(
+                                    name: packageName,
+                                    package: modifiedPackageName,
+                                    moduleAliases: [:],
+                                    condition: condition
+                                )
+                            }
+                        case .target:
+                            break
                         }
                         modifiedDependencies.append(modifiedDependency)
                     }
@@ -294,6 +304,7 @@ extension Workspace {
 
             let modifiedManifest = Manifest(
                 displayName: manifest.displayName,
+                packageIdentity: manifest.packageIdentity,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
                 packageLocation: manifest.packageLocation,
@@ -309,7 +320,9 @@ extension Workspace {
                 swiftLanguageVersions: manifest.swiftLanguageVersions,
                 dependencies: modifiedDependencies,
                 products: manifest.products,
-                targets: modifiedTargets
+                targets: modifiedTargets,
+                traits: manifest.traits,
+                pruneDependencies: manifest.pruneDependencies
             )
 
             return modifiedManifest
@@ -317,35 +330,29 @@ extension Workspace {
 
         private func mapRegistryIdentity(
             url: SourceControlURL,
-            observabilityScope: ObservabilityScope,
-            callbackQueue: DispatchQueue,
-            completion: @escaping (Result<PackageIdentity?, Error>) -> Void
-        ) {
+            observabilityScope: ObservabilityScope
+        ) async throws -> PackageIdentity? {
             if let cached = self.identityLookupCache[url], cached.expirationTime > .now() {
                 switch cached.result {
                 case .success(let identity):
-                    return completion(.success(identity))
+                    return identity;
                 case .failure:
                     // server error, do not try again
-                    return completion(.success(.none))
+                    return nil
                 }
             }
 
-            self.registryClient.lookupIdentities(
-                scmURL: url,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue
-            ) { result in
-                switch result {
-                case .failure(let error):
-                    self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
-                    completion(.failure(error))
-                case .success(let identities):
-                    // FIXME: returns first result... need to consider how to address multiple ones
-                    let identity = identities.sorted().first
-                    self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
-                    completion(.success(identity))
-                }
+            do {
+                let identities = try await self.registryClient.lookupIdentities(
+                    scmURL: url,
+                    observabilityScope: observabilityScope
+                )
+                let identity = identities.sorted().first
+                self.identityLookupCache[url] = (result: .success(identity), expirationTime: .now() + self.cacheTTL)
+                return identity
+            } catch {
+                self.identityLookupCache[url] = (result: .failure(error), expirationTime: .now() + self.cacheTTL)
+                throw error
             }
         }
 
@@ -375,7 +382,7 @@ extension PackageDependency.SourceControl.Requirement {
         case .exact(let version):
             return .exact(version)
         case .branch, .revision:
-            throw InternalError("invalid source control to registry requirement tranformation")
+            throw InternalError("invalid source control to registry requirement transformation")
         }
     }
 }
@@ -387,50 +394,44 @@ extension Workspace {
         package: PackageReference,
         at version: Version,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        // FIXME: this should not block
-        let downloadPath = try temp_await {
-            self.registryDownloadsManager.lookup(
-                package: package.identity,
-                version: version,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+    ) async throws -> AbsolutePath {
+        let downloadPath = try await self.registryDownloadsManager.lookup(
+            package: package.identity,
+            version: version,
+            observabilityScope: observabilityScope
+        )
 
         // Record the new state.
         observabilityScope.emit(
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try self.state.dependencies.add(
-            .registryDownload(
+        try await self.state.add(
+            dependency: .registryDownload(
                 packageRef: package,
                 version: version,
                 subpath: downloadPath.relative(to: self.location.registryDownloadDirectory)
             )
         )
-        try self.state.save()
+        try await self.state.save()
 
         return downloadPath
     }
 
     func downloadRegistryArchive(
         package: PackageReference,
-        at pinState: PinsStore.PinState,
+        at resolutionState: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        switch pinState {
+    ) async throws -> AbsolutePath {
+        switch resolutionState {
         case .version(let version, _):
-            return try self.downloadRegistryArchive(
+            return try await self.downloadRegistryArchive(
                 package: package,
                 at: version,
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionState)")
         }
     }
 

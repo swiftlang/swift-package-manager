@@ -14,17 +14,18 @@ import Basics
 import Dispatch
 import Foundation
 import PackageModel
+import TSCBasic
 
 import struct TSCUtility.Version
 
 public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
     let fileSystem: FileSystem
-    let directoryPath: AbsolutePath
+    let directoryPath: Basics.AbsolutePath
 
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
 
-    public init(fileSystem: FileSystem, directoryPath: AbsolutePath) {
+    public init(fileSystem: FileSystem, directoryPath: Basics.AbsolutePath) {
         self.fileSystem = fileSystem
         self.directoryPath = directoryPath
 
@@ -34,19 +35,10 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
 
     public func get(
         package: PackageIdentity,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<PackageSigners, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
-
-        do {
-            let packageSigners = try self.withLock {
-                try self.loadFromDisk(package: package)
-            }
-            callback(.success(packageSigners))
-        } catch {
-            callback(.failure(error))
+        observabilityScope: ObservabilityScope
+    ) throws -> PackageSigners {
+        try self.withLock {
+            try self.loadFromDisk(package: package)
         }
     }
 
@@ -55,39 +47,29 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.withLock {
+            var packageSigners = try self.loadFromDisk(package: package)
 
-        do {
-            try self.withLock {
-                var packageSigners = try self.loadFromDisk(package: package)
-
-                let otherSigningEntities = packageSigners.signingEntities(of: version).filter { $0 != signingEntity }
-                // Error if we try to write a different signing entity for a version
-                guard otherSigningEntities.isEmpty else {
-                    throw PackageSigningEntityStorageError.conflict(
-                        package: package,
-                        version: version,
-                        given: signingEntity,
-                        existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
-                    )
-                }
-
-                try self.add(
-                    packageSigners: &packageSigners,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
+            let otherSigningEntities = packageSigners.signingEntities(of: version).filter { $0 != signingEntity }
+            // Error if we try to write a different signing entity for a version
+            guard otherSigningEntities.isEmpty else {
+                throw PackageSigningEntityStorageError.conflict(
+                    package: package,
+                    version: version,
+                    given: signingEntity,
+                    existing: otherSigningEntities.first! // !-safe because otherSigningEntities is not empty
                 )
-
-                try self.saveToDisk(package: package, packageSigners: packageSigners)
             }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+
+            try self.add(
+                packageSigners: &packageSigners,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
+            try self.saveToDisk(package: package, packageSigners: packageSigners)
         }
     }
 
@@ -96,26 +78,17 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
-
-        do {
-            try self.withLock {
-                var packageSigners = try self.loadFromDisk(package: package)
-                try self.add(
-                    packageSigners: &packageSigners,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
-                )
-                try self.saveToDisk(package: package, packageSigners: packageSigners)
-            }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.withLock {
+            var packageSigners = try self.loadFromDisk(package: package)
+            try self.add(
+                packageSigners: &packageSigners,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
+            try self.saveToDisk(package: package, packageSigners: packageSigners)
         }
     }
 
@@ -124,27 +97,18 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
-
-        do {
-            try self.withLock {
-                var packageSigners = try self.loadFromDisk(package: package)
-                packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
-                try self.add(
-                    packageSigners: &packageSigners,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
-                )
-                try self.saveToDisk(package: package, packageSigners: packageSigners)
-            }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.withLock {
+            var packageSigners = try self.loadFromDisk(package: package)
+            packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
+            try self.add(
+                packageSigners: &packageSigners,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
+            try self.saveToDisk(package: package, packageSigners: packageSigners)
         }
     }
 
@@ -153,29 +117,20 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        callback: @escaping (Result<Void, Error>) -> Void
-    ) {
-        let callback = self.makeAsync(callback, on: callbackQueue)
-
-        do {
-            try self.withLock {
-                var packageSigners = try self.loadFromDisk(package: package)
-                packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
-                // Delete all other signers
-                packageSigners.signers = packageSigners.signers.filter { $0.key == signingEntity }
-                try self.add(
-                    packageSigners: &packageSigners,
-                    signingEntity: signingEntity,
-                    origin: origin,
-                    version: version
-                )
-                try self.saveToDisk(package: package, packageSigners: packageSigners)
-            }
-            callback(.success(()))
-        } catch {
-            callback(.failure(error))
+        observabilityScope: ObservabilityScope
+    ) throws {
+        try self.withLock {
+            var packageSigners = try self.loadFromDisk(package: package)
+            packageSigners.expectedSigner = (signingEntity: signingEntity, fromVersion: version)
+            // Delete all other signers
+            packageSigners.signers = packageSigners.signers.filter { $0.key == signingEntity }
+            try self.add(
+                packageSigners: &packageSigners,
+                signingEntity: signingEntity,
+                origin: origin,
+                version: version
+            )
+            try self.saveToDisk(package: package, packageSigners: packageSigners)
         }
     }
 

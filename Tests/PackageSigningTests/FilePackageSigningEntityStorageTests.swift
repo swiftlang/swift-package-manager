@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2023-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,15 +15,14 @@ import Foundation
 import Basics
 import PackageModel
 @testable import PackageSigning
-import SPMTestSupport
-import XCTest
-
-import class TSCBasic.InMemoryFileSystem
+import _InternalTestSupport
+import Testing
 
 import struct TSCUtility.Version
 
-final class FilePackageSigningEntityStorageTests: XCTestCase {
-    func testHappyCase() async throws {
+struct FilePackageSigningEntityStorageTests {
+    @Test
+    func happyCase() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -42,19 +41,19 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organizationalUnit: "SwiftPM Test Unit 2",
             organization: "SwiftPM Test"
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             signingEntity: davinci,
             origin: .registry(URL("http://foo.com"))
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.1.0"),
             signingEntity: davinci,
             origin: .registry(URL("http://bar.com"))
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("2.0.0"),
             signingEntity: appleseed,
@@ -62,7 +61,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
         // Record signing entity for another package
         let otherPackage = PackageIdentity.plain("other.LinkedList")
-        try await storage.put(
+        try storage.put(
             package: otherPackage,
             version: Version("1.0.0"),
             signingEntity: appleseed,
@@ -70,36 +69,32 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // A data file should have been created for each package
-        XCTAssertTrue(mockFileSystem.exists(storage.directoryPath.appending(component: package.signedVersionsFilename)))
-        XCTAssertTrue(
-            mockFileSystem
-                .exists(storage.directoryPath.appending(component: otherPackage.signedVersionsFilename))
-        )
+        #expect(mockFileSystem.exists(storage.directoryPath.appending(component: package.signedVersionsFilename)))
+        #expect(mockFileSystem
+            .exists(storage.directoryPath.appending(component: otherPackage.signedVersionsFilename)))
 
         // Signed versions should be saved
         do {
-            let packageSigners = try await storage.get(package: package)
-            XCTAssertNil(packageSigners.expectedSigner)
-            XCTAssertEqual(packageSigners.signers.count, 2)
-            XCTAssertEqual(packageSigners.signers[davinci]?.versions, [Version("1.0.0"), Version("1.1.0")])
-            XCTAssertEqual(
-                packageSigners.signers[davinci]?.origins,
-                [.registry(URL("http://foo.com")), .registry(URL("http://bar.com"))]
-            )
-            XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("2.0.0")])
-            XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://foo.com"))])
+            let packageSigners = try storage.get(package: package)
+            #expect(packageSigners.expectedSigner == nil)
+            #expect(packageSigners.signers.count == 2)
+            #expect(packageSigners.signers[davinci]?.versions == [Version("1.0.0"), Version("1.1.0")])
+            #expect(packageSigners.signers[davinci]?.origins == [.registry(URL("http://foo.com")), .registry(URL("http://bar.com"))])
+            #expect(packageSigners.signers[appleseed]?.versions == [Version("2.0.0")])
+            #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://foo.com"))])
         }
 
         do {
-            let packageSigners = try await storage.get(package: otherPackage)
-            XCTAssertNil(packageSigners.expectedSigner)
-            XCTAssertEqual(packageSigners.signers.count, 1)
-            XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.0.0")])
-            XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://foo.com"))])
+            let packageSigners = try storage.get(package: otherPackage)
+            #expect(packageSigners.expectedSigner == nil)
+            #expect(packageSigners.signers.count == 1)
+            #expect(packageSigners.signers[appleseed]?.versions == [Version("1.0.0")])
+            #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://foo.com"))])
         }
     }
 
-    func testPutDifferentSigningEntityShouldConflict() async throws {
+    @Test
+    func putDifferentSigningEntityShouldConflict() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -118,7 +113,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: version,
             signingEntity: davinci,
@@ -126,19 +121,24 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // Writing different signing entities for the same version should fail
-        await XCTAssertAsyncThrowsError(try await storage.put(
-            package: package,
-            version: version,
-            signingEntity: appleseed,
-            origin: .registry(URL("http://foo.com"))
-        )) { error in
+        #expect {
+            try storage.put(
+                package: package,
+                version: version,
+                signingEntity: appleseed,
+                origin: .registry(URL("http://foo.com"))
+            )
+        } throws: { error in
             guard case PackageSigningEntityStorageError.conflict = error else {
-                return XCTFail("Expected PackageSigningEntityStorageError.conflict, got \(error)")
+                Issue.record("Expected PackageSigningEntityStorageError.conflict, got \(error)")
+                return false
             }
+            return true
         }
     }
 
-    func testPutSameSigningEntityShouldNotConflict() async throws {
+    @Test
+    func putSameSigningEntityShouldNotConflict() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -151,7 +151,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: version,
             signingEntity: appleseed,
@@ -159,24 +159,22 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // Writing same signing entity for version should be ok
-        try await storage.put(
+        try storage.put(
             package: package,
             version: version,
             signingEntity: appleseed,
             origin: .registry(URL("http://bar.com")) // origin is different and should be added
         )
 
-        let packageSigners = try await storage.get(package: package)
-        XCTAssertNil(packageSigners.expectedSigner)
-        XCTAssertEqual(packageSigners.signers.count, 1)
-        XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.0.0")])
-        XCTAssertEqual(
-            packageSigners.signers[appleseed]?.origins,
-            [.registry(URL("http://foo.com")), .registry(URL("http://bar.com"))]
-        )
+        let packageSigners = try storage.get(package: package)
+        #expect(packageSigners.expectedSigner == nil)
+        #expect(packageSigners.signers.count == 1)
+        #expect(packageSigners.signers[appleseed]?.versions == [Version("1.0.0")])
+        #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://foo.com")), .registry(URL("http://bar.com"))])
     }
 
-    func testPutUnrecognizedSigningEntityShouldError() async throws {
+    @Test
+    func putUnrecognizedSigningEntityShouldError() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -185,19 +183,24 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         let appleseed = SigningEntity.unrecognized(name: "J. Appleseed", organizationalUnit: nil, organization: nil)
         let version = Version("1.0.0")
 
-        await XCTAssertAsyncThrowsError(try await storage.put(
-            package: package,
-            version: version,
-            signingEntity: appleseed,
-            origin: .registry(URL("http://bar.com")) // origin is different and should be added
-        )) { error in
+        #expect {
+            try storage.put(
+                package: package,
+                version: version,
+                signingEntity: appleseed,
+                origin: .registry(URL("http://bar.com")) // origin is different and should be added
+            )
+        } throws: { error in
             guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                return false
             }
+            return true
         }
     }
 
-    func testAddDifferentSigningEntityShouldNotConflict() async throws {
+    @Test
+    func addDifferentSigningEntityShouldNotConflict() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -216,7 +219,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: version,
             signingEntity: davinci,
@@ -224,24 +227,25 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // Adding different signing entity for the same version should not fail
-        try await storage.add(
+        try storage.add(
             package: package,
             version: version,
             signingEntity: appleseed,
             origin: .registry(URL("http://bar.com"))
         )
 
-        let packageSigners = try await storage.get(package: package)
-        XCTAssertNil(packageSigners.expectedSigner)
-        XCTAssertEqual(packageSigners.signers.count, 2)
-        XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.0.0")])
-        XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://bar.com"))])
-        XCTAssertEqual(packageSigners.signers[davinci]?.versions, [Version("1.0.0")])
-        XCTAssertEqual(packageSigners.signers[davinci]?.origins, [.registry(URL("http://foo.com"))])
-        XCTAssertEqual(packageSigners.signingEntities(of: Version("1.0.0")), [appleseed, davinci])
+        let packageSigners = try storage.get(package: package)
+        #expect(packageSigners.expectedSigner == nil)
+        #expect(packageSigners.signers.count == 2)
+        #expect(packageSigners.signers[appleseed]?.versions == [Version("1.0.0")])
+        #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://bar.com"))])
+        #expect(packageSigners.signers[davinci]?.versions == [Version("1.0.0")])
+        #expect(packageSigners.signers[davinci]?.origins == [.registry(URL("http://foo.com"))])
+        #expect(packageSigners.signingEntities(of: Version("1.0.0")) == [appleseed, davinci])
     }
 
-    func testAddUnrecognizedSigningEntityShouldError() async throws {
+    @Test
+    func addUnrecognizedSigningEntityShouldError() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -255,26 +259,31 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organization: "SwiftPM Test"
         )
         let version = Version("1.0.0")
-        try await storage.put(
+        try storage.put(
             package: package,
             version: version,
             signingEntity: davinci,
             origin: .registry(URL("http://foo.com"))
         )
 
-        await XCTAssertAsyncThrowsError(try await storage.add(
-            package: package,
-            version: version,
-            signingEntity: appleseed,
-            origin: .registry(URL("http://bar.com"))
-        )) { error in
+        #expect {
+            try storage.add(
+                package: package,
+                version: version,
+                signingEntity: appleseed,
+                origin: .registry(URL("http://bar.com"))
+            )
+        } throws: { error in
             guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                return false
             }
+            return true
         }
     }
 
-    func testChangeSigningEntityFromVersion() async throws {
+    @Test
+    func changeSigningEntityFromVersion() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -292,7 +301,7 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organizationalUnit: "SwiftPM Test Unit 2",
             organization: "SwiftPM Test"
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             signingEntity: davinci,
@@ -300,24 +309,25 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // Sets package's expectedSigner and add package version signer
-        try await storage.changeSigningEntityFromVersion(
+        try storage.changeSigningEntityFromVersion(
             package: package,
             version: Version("1.5.0"),
             signingEntity: appleseed,
             origin: .registry(URL("http://bar.com"))
         )
 
-        let packageSigners = try await storage.get(package: package)
-        XCTAssertEqual(packageSigners.expectedSigner?.signingEntity, appleseed)
-        XCTAssertEqual(packageSigners.expectedSigner?.fromVersion, Version("1.5.0"))
-        XCTAssertEqual(packageSigners.signers.count, 2)
-        XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.5.0")])
-        XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://bar.com"))])
-        XCTAssertEqual(packageSigners.signers[davinci]?.versions, [Version("1.0.0")])
-        XCTAssertEqual(packageSigners.signers[davinci]?.origins, [.registry(URL("http://foo.com"))])
+        let packageSigners = try storage.get(package: package)
+        #expect(packageSigners.expectedSigner?.signingEntity == appleseed)
+        #expect(packageSigners.expectedSigner?.fromVersion == Version("1.5.0"))
+        #expect(packageSigners.signers.count == 2)
+        #expect(packageSigners.signers[appleseed]?.versions == [Version("1.5.0")])
+        #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://bar.com"))])
+        #expect(packageSigners.signers[davinci]?.versions == [Version("1.0.0")])
+        #expect(packageSigners.signers[davinci]?.origins == [.registry(URL("http://foo.com"))])
     }
 
-    func testChangeSigningEntityFromVersion_unrecognizedSigningEntityShouldError() async throws {
+    @Test
+    func changeSigningEntityFromVersion_unrecognizedSigningEntityShouldError() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -330,26 +340,31 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organizationalUnit: "SwiftPM Test Unit",
             organization: "SwiftPM Test"
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             signingEntity: davinci,
             origin: .registry(URL("http://foo.com"))
         )
 
-        await XCTAssertAsyncThrowsError(try await storage.changeSigningEntityFromVersion(
-            package: package,
-            version: Version("1.5.0"),
-            signingEntity: appleseed,
-            origin: .registry(URL("http://bar.com"))
-        )) { error in
+        #expect {
+            try storage.changeSigningEntityFromVersion(
+                package: package,
+                version: Version("1.5.0"),
+                signingEntity: appleseed,
+                origin: .registry(URL("http://bar.com"))
+            )
+        } throws: { error in
             guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                return false
             }
+            return true
         }
     }
 
-    func testChangeSigningEntityForAllVersions() async throws {
+    @Test
+    func changeSigningEntityForAllVersions() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -367,13 +382,13 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organizationalUnit: "SwiftPM Test Unit 2",
             organization: "SwiftPM Test"
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             signingEntity: davinci,
             origin: .registry(URL("http://foo.com"))
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("2.0.0"),
             signingEntity: appleseed,
@@ -381,22 +396,23 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
         )
 
         // Sets package's expectedSigner and remove all other signers
-        try await storage.changeSigningEntityForAllVersions(
+        try storage.changeSigningEntityForAllVersions(
             package: package,
             version: Version("1.5.0"),
             signingEntity: appleseed,
             origin: .registry(URL("http://bar.com"))
         )
 
-        let packageSigners = try await storage.get(package: package)
-        XCTAssertEqual(packageSigners.expectedSigner?.signingEntity, appleseed)
-        XCTAssertEqual(packageSigners.expectedSigner?.fromVersion, Version("1.5.0"))
-        XCTAssertEqual(packageSigners.signers.count, 1)
-        XCTAssertEqual(packageSigners.signers[appleseed]?.versions, [Version("1.5.0"), Version("2.0.0")])
-        XCTAssertEqual(packageSigners.signers[appleseed]?.origins, [.registry(URL("http://bar.com"))])
+        let packageSigners = try storage.get(package: package)
+        #expect(packageSigners.expectedSigner?.signingEntity == appleseed)
+        #expect(packageSigners.expectedSigner?.fromVersion == Version("1.5.0"))
+        #expect(packageSigners.signers.count == 1)
+        #expect(packageSigners.signers[appleseed]?.versions == [Version("1.5.0"), Version("2.0.0")])
+        #expect(packageSigners.signers[appleseed]?.origins == [.registry(URL("http://bar.com"))])
     }
 
-    func testChangeSigningEntityForAllVersions_unrecognizedSigningEntityShouldError() async throws {
+    @Test
+    func changeSigningEntityForAllVersions_unrecognizedSigningEntityShouldError() async throws {
         let mockFileSystem = InMemoryFileSystem()
         let directoryPath = AbsolutePath("/signing")
         let storage = FilePackageSigningEntityStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
@@ -409,32 +425,35 @@ final class FilePackageSigningEntityStorageTests: XCTestCase {
             organizationalUnit: "SwiftPM Test Unit",
             organization: "SwiftPM Test"
         )
-        try await storage.put(
+        try storage.put(
             package: package,
             version: Version("1.0.0"),
             signingEntity: davinci,
             origin: .registry(URL("http://foo.com"))
         )
 
-        await XCTAssertAsyncThrowsError(try await storage.changeSigningEntityForAllVersions(
-            package: package,
-            version: Version("1.5.0"),
-            signingEntity: appleseed,
-            origin: .registry(URL("http://bar.com"))
-        )) { error in
+        #expect {
+            try storage.changeSigningEntityForAllVersions(
+                package: package,
+                version: Version("1.5.0"),
+                signingEntity: appleseed,
+                origin: .registry(URL("http://bar.com"))
+            )
+        } throws: { error in
             guard case PackageSigningEntityStorageError.unrecognizedSigningEntity = error else {
-                return XCTFail("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                Issue.record("Expected PackageSigningEntityStorageError.unrecognizedSigningEntity but got \(error)")
+                return false
             }
+            return true
         }
     }
 }
 
 extension PackageSigningEntityStorage {
-    fileprivate func get(package: PackageIdentity) async throws -> PackageSigners {
-        try await self.get(
+    fileprivate func get(package: PackageIdentity) throws -> PackageSigners {
+        try self.get(
             package: package,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -443,14 +462,13 @@ extension PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
-    ) async throws {
-        try await self.put(
-                package: package,
-                version: version,
-                signingEntity: signingEntity,
-                origin: origin,
-                observabilityScope: ObservabilitySystem.NOOP,
-                callbackQueue: .sharedConcurrent
+    ) throws {
+        try self.put(
+            package: package,
+            version: version,
+            signingEntity: signingEntity,
+            origin: origin,
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -459,14 +477,13 @@ extension PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
-    ) async throws {
-        try await self.add(
+    ) throws {
+        try self.add(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 
@@ -475,16 +492,14 @@ extension PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
-    ) async throws {
-        try await self.changeSigningEntityFromVersion(
+    ) throws {
+        try self.changeSigningEntityFromVersion(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
-
     }
 
     fileprivate func changeSigningEntityForAllVersions(
@@ -492,14 +507,13 @@ extension PackageSigningEntityStorage {
         version: Version,
         signingEntity: SigningEntity,
         origin: SigningEntity.Origin
-    ) async throws {
-        try await self.changeSigningEntityForAllVersions(
+    ) throws {
+        try self.changeSigningEntityForAllVersions(
             package: package,
             version: version,
             signingEntity: signingEntity,
             origin: origin,
-            observabilityScope: ObservabilitySystem.NOOP,
-            callbackQueue: .sharedConcurrent
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }

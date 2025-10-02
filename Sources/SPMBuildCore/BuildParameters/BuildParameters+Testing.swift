@@ -38,17 +38,6 @@ extension BuildParameters {
             explicitlySpecifiedPath: AbsolutePath?
         )
 
-        /// Whether this test product style requires additional, derived test targets, i.e. there must be additional test targets, beyond those
-        /// listed explicitly in the package manifest, created in order to add additional behavior (such as entry point logic).
-        public var requiresAdditionalDerivedTestTargets: Bool {
-            switch self {
-            case .loadableBundle:
-                return false
-            case .entryPointExecutable:
-                return true
-            }
-        }
-
         /// The explicitly-specified entry point file path, if this style of test product supports it and a path was specified.
         public var explicitlySpecifiedEntryPointPath: AbsolutePath? {
             switch self {
@@ -88,59 +77,51 @@ extension BuildParameters {
         /// Whether to enable code coverage.
         public var enableCodeCoverage: Bool
 
-        /// Whether building for testability is enabled.
-        public var enableTestability: Bool
+        /// Whether building for testability is explicitly enabled or disabled.
+        package var explicitlyEnabledTestability: Bool?
 
         /// Whether or not to enable the experimental test output mode.
         public var experimentalTestOutput: Bool
 
-        /// The style of test product to produce.
-        public var testProductStyle: TestProductStyle
+        /// Whether to force test discovery.
+        fileprivate var explicitlyEnabledDiscovery: Bool
 
-        /// The testing libraries supported by the package manager.
-        public enum Library: String, Codable, CustomStringConvertible {
-            /// The XCTest library.
-            ///
-            /// This case represents both the open-source swift-corelibs-xctest
-            /// package and Apple's XCTest framework that ships with Xcode.
-            case xctest = "XCTest"
-
-            /// The swift-testing library.
-            case swiftTesting = "swift-testing"
-
-            public var description: String {
-                rawValue
-            }
-        }
-
-        /// Which testing library to use for this build.
-        public var library: Library
+        /// The path to the test entry point file, if one was specified explicitly
+        /// via `--experimental-test-entry-point-path <file>`.
+        fileprivate var explicitlySpecifiedPath: AbsolutePath?
 
         public init(
-            configuration: BuildConfiguration,
-            targetTriple: Triple,
             enableCodeCoverage: Bool = false,
             enableTestability: Bool? = nil,
             experimentalTestOutput: Bool = false,
             forceTestDiscovery: Bool = false,
-            testEntryPointPath: AbsolutePath? = nil,
-            library: Library = .xctest
+            testEntryPointPath: AbsolutePath? = nil
         ) {
             self.enableCodeCoverage = enableCodeCoverage
             self.experimentalTestOutput = experimentalTestOutput
-            // decide on testability based on debug/release config
-            // the goals of this being based on the build configuration is
-            // that `swift build` followed by a `swift test` will need to do minimal rebuilding
-            // given that the default configuration for `swift build` is debug
-            // and that `swift test` normally requires building with testable enabled.
-            // when building and testing in release mode, one can use the '--disable-testable-imports' flag
-            // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
-            self.enableTestability =  enableTestability ?? (.debug == configuration)
-            self.testProductStyle = (targetTriple.isDarwin() && library == .xctest) ? .loadableBundle : .entryPointExecutable(
-                explicitlyEnabledDiscovery: forceTestDiscovery,
-                explicitlySpecifiedPath: testEntryPointPath
-            )
-            self.library = library
+            self.explicitlyEnabledTestability = enableTestability
+            self.explicitlyEnabledDiscovery = forceTestDiscovery
+            self.explicitlySpecifiedPath = testEntryPointPath
         }
+    }
+
+    /// Whether building for testability is enabled.
+    public var enableTestability: Bool {
+        // decide on testability based on debug/release config
+        // the goals of this being based on the build configuration is
+        // that `swift build` followed by a `swift test` will need to do minimal rebuilding
+        // given that the default configuration for `swift build` is debug
+        // and that `swift test` normally requires building with testable enabled.
+        // when building and testing in release mode, one can use the '--disable-testable-imports' flag
+        // to disable testability in `swift test`, but that requires that the tests do not use the testable imports feature
+        self.testingParameters.explicitlyEnabledTestability ?? (self.configuration == .debug)
+    }
+
+    /// The style of test product to produce.
+    public var testProductStyle: TestProductStyle {
+        return triple.isDarwin() ? .loadableBundle : .entryPointExecutable(
+            explicitlyEnabledDiscovery: testingParameters.explicitlyEnabledDiscovery,
+            explicitlySpecifiedPath: testingParameters.explicitlySpecifiedPath
+        )
     }
 }

@@ -14,18 +14,18 @@ import LLBuildManifest
 
 import protocol TSCBasic.OutputByteStream
 
-/// Serializes an LLBuildManifest graph to a .dot file
-public struct DOTManifestSerializer {
+/// Serializes an LLBuildManifest graph to a .dot file.
+struct DOTManifestSerializer {
     var kindCounter = [String: Int]()
     var hasEmittedStyling = Set<String>()
     let manifest: LLBuildManifest
 
     /// Creates a serializer that will serialize the given manifest.
-    public init(manifest: LLBuildManifest) {
+    init(manifest: LLBuildManifest) {
         self.manifest = manifest
     }
 
-    /// Gets a unique label for a job name
+    /// Gets a unique label for a job name.
     mutating func label(for command: Command) -> String {
         let toolName = "\(type(of: command.tool).name)"
         var label = toolName
@@ -36,13 +36,13 @@ public struct DOTManifestSerializer {
         return label
     }
 
-    /// Quote the name and escape the quotes and backslashes
+    /// Quote the name and escape the quotes and backslashes.
     func quoteName(_ name: String) -> String {
-        return "\"" + name.replacingOccurrences(of: "\"", with: "\\\"")
-                          .replacingOccurrences(of: "\\", with: "\\\\") + "\""
+        "\"" + name.replacing("\"", with: "\\\"")
+                   .replacing("\\", with: "\\\\") + "\""
     }
 
-    public mutating func writeDOT(to stream: OutputByteStream) {
+    mutating func writeDOT(to stream: OutputByteStream) {
         stream.write("digraph Jobs {\n")
         for (name, command) in manifest.commands {
             let jobName = quoteName(label(for: command))

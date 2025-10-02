@@ -3,11 +3,75 @@ Note: This is in reverse chronological order, so newer entries are added to the 
 Swift Next
 -----------
 
+Swift 6.2
+---------
+
+* [#8314]
+
+  Starting from tools-version 6.2, `SwiftSetting` provides a `strictMemorySafety` setting to enable the strict memory safety checking introduced in [SE-0458].
+
+* [#8301]
+
+  Starting from tools-version 6.2, `SwiftSetting` provides a `defaultIsolation` setting to allow specifying default actor isolation for a target [SE-0466].
+
+Swift 6.0
+-----------
+
+* [#7813]
+
+  Starting from tools-version 6.0, `swiftLanguageMode` can be specified at the target level, allowing for gradual per-target migration to the Swift 6 language mode.
+  The `swiftLanguageVersions` setting has been deprecated and renamed to `swiftLanguageModes`.
+
+* [#7530]
+
+  Starting from tools-version 6.0 makes it possible for packages to depend on each other if such dependency doesn't form any target-level cycles.
+  For example, package `A` can depend on `B` and `B` on `A` unless targets in `B` depend on products of `A` that depend on some of the same
+  targets from `B` and vice versa.
+
+* [#7741]
+
+  Fixed an issue where repositories would be re-cloned each build rather than using the cache due to git validation errors.
+
+* [#7507] 
+
+  `swift experimental-sdk` command is deprecated with `swift sdk` command replacing it. `--experimental-swift-sdk` and
+  `--experimental-swift-sdks-path` options on `swift build` are deprecated with replacements that don't have the
+  `experimental` prefix.
+
+* [#7722]
+
+  An additional `--checksum` option  is now required for `swift sdk install` subcommand with remote URLs as arguments. `--checksum` allows users of a Swift SDK to specify a checksum provided by the SDK publisher. A checksum can be produced by running `swift package compute-checksum` command (introduced in [SE-0272]) with the Swift SDK bundle archive as an argument.
+
+* [#7535]
+
+  The `swift sdk configuration` subcommand is deprecated with a replacement named `configure` that has options that exactly match
+  [SE-0387 proposal text].
+
+
+* [#7202]
+
+  Package manifests can now access information about the Git repository the given package is in via the context object's 
+  `gitInformation` property. This allows to determine the current tag (if any), the current commit and whether or not there are uncommited changes.
+
+* [#7201]
+
+  `// swift-tools-version:` can now be specified on subsequent lines of `Package.swift`, for example when first few lines are required to contain a licensing comment header.
+
+* [#7118]
+
+  Macros cross-compiled by SwiftPM with Swift SDKs are now correctly built, loaded, and evaluated for the host triple.
+
+  Packages with modules that incorrectly imported macro modules directly instead of importing macro interface modules will no longer build
+  with `swift build`.
+
+Swift 5.10
+-----------
+
 * [#7010]
 
   On macOS, `swift build` and `swift run` now produce binaries that allow backtraces in debug builds. Pass `SWIFT_BACKTRACE=enable=yes` environment variable to enable backtraces on such binaries when running them.
 
-* [7101]
+* [#7101]
 
    Binary artifacts are now cached along side repository checkouts so they do not need to be re-downloaded across projects.
 
@@ -58,7 +122,7 @@ Swift 5.9
 
 * [#6185], [#6200]
 
-  Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/apple/swift-evolution/blob/main/proposals/0382-expression-macros.md).
+  Add a new `CompilerPluginSupport` module which contains the definition for macro targets. Macro targets allow authoring and distribution of custom Swift macros such as [expression macros](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0382-expression-macros.md).
 
 * [#6276]
 
@@ -324,62 +388,76 @@ Swift 3.0
 
 * The `Package` initializer now requires the `name:` parameter.
 
-[SE-0129]: https://github.com/apple/swift-evolution/blob/main/proposals/0129-package-manager-test-naming-conventions.md
-[SE-0135]: https://github.com/apple/swift-evolution/blob/main/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
-[SE-0201]: https://github.com/apple/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
-[SE-0208]: https://github.com/apple/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
-[SE-0209]: https://github.com/apple/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
-[SE-0292]: https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md
-[SE-0303]: https://github.com/apple/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
-[SE-0332]: https://github.com/apple/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
-[SE-0339]: https://github.com/apple/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
-[SE-0362]: https://github.com/apple/swift-evolution/blob/main/proposals/0362-piecemeal-future-features.md
-[SE-0378]: https://github.com/apple/swift-evolution/blob/main/proposals/0378-package-registry-auth.md
-[SE-0386]: https://github.com/apple/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
-[SE-0387]: https://github.com/apple/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
-[SE-0391]: https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
-
+[SE-0129]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0129-package-manager-test-naming-conventions.md
+[SE-0135]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0135-package-manager-support-for-differentiating-packages-by-swift-version.md
+[SE-0201]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0201-package-manager-local-dependencies.md
+[SE-0208]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0208-package-manager-system-library-targets.md
+[SE-0209]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0209-package-manager-swift-lang-version-update.md
+[SE-0272]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0272-swiftpm-binary-dependencies.md
+[SE-0292]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md
+[SE-0303]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0303-swiftpm-extensible-build-tools.md
+[SE-0332]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0332-swiftpm-command-plugins.md
+[SE-0339]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0339-module-aliasing-for-disambiguation.md
+[SE-0362]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0362-piecemeal-future-features.md
+[SE-0378]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md
+[SE-0386]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0386-package-access-modifier.md
+[SE-0387]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md
+[SE-0391]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md
+[SE-0387 proposal text]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md#swift-sdk-installation-and-configuration
+[SE-0458]: https://github.com/swiftlang/swift-evolution/blob/main/proposals/0458-strict-memory-safety.md
 [SR-5918]: https://bugs.swift.org/browse/SR-5918
 [SR-6978]: https://bugs.swift.org/browse/SR-6978
 [SR-13566]: https://bugs.swift.org/browse/SR-13566
 
-[#1485]: https://github.com/apple/swift-package-manager/pull/1485
-[#1489]: https://github.com/apple/swift-package-manager/pull/1489
-[#1604]: https://github.com/apple/swift-package-manager/pull/1604
-[#2937]: https://github.com/apple/swift-package-manager/pull/2937
-[#3280]: https://github.com/apple/swift-package-manager/pull/3280
-[#3292]: https://github.com/apple/swift-package-manager/pull/3292
-[#3310]: https://github.com/apple/swift-package-manager/pull/3310
-[#3316]: https://github.com/apple/swift-package-manager/pull/3316
-[#3410]: https://github.com/apple/swift-package-manager/pull/3410
-[#3486]: https://github.com/apple/swift-package-manager/pull/3486
-[#3641]: https://github.com/apple/swift-package-manager/pull/3641
-[#3649]: https://github.com/apple/swift-package-manager/pull/3649
-[#3670]: https://github.com/apple/swift-package-manager/pull/3670
-[#3717]: https://github.com/apple/swift-package-manager/pull/3717
-[#3890]: https://github.com/apple/swift-package-manager/pull/3890
-[#3901]: https://github.com/apple/swift-package-manager/pull/3901
-[#3942]: https://github.com/apple/swift-package-manager/pull/3942
-[#4119]: https://github.com/apple/swift-package-manager/pull/4119
-[#4131]: https://github.com/apple/swift-package-manager/pull/4131
-[#4135]: https://github.com/apple/swift-package-manager/pull/4135
-[#4168]: https://github.com/apple/swift-package-manager/pull/4168
-[#5728]: https://github.com/apple/swift-package-manager/pull/5728
-[#5810]: https://github.com/apple/swift-package-manager/pull/5810
-[#5819]: https://github.com/apple/swift-package-manager/pull/5819
-[#5874]: https://github.com/apple/swift-package-manager/pull/5874
-[#5949]: https://github.com/apple/swift-package-manager/pull/5949
-[#5892]: https://github.com/apple/swift-package-manager/pull/5892
-[#5966]: https://github.com/apple/swift-package-manager/pull/5966
-[#6060]: https://github.com/apple/swift-package-manager/pull/6060
-[#6067]: https://github.com/apple/swift-package-manager/pull/6067
-[#6111]: https://github.com/apple/swift-package-manager/pull/6111
-[#6114]: https://github.com/apple/swift-package-manager/pull/6114
-[#6144]: https://github.com/apple/swift-package-manager/pull/6144
-[#6294]: https://github.com/apple/swift-package-manager/pull/6294
-[#6185]: https://github.com/apple/swift-package-manager/pull/6185
-[#6200]: https://github.com/apple/swift-package-manager/pull/6200
-[#6276]: https://github.com/apple/swift-package-manager/pull/6276
-[#6540]: https://github.com/apple/swift-package-manager/pull/6540
-[#6663]: https://github.com/apple/swift-package-manager/pull/6663
-[#7101]: https://github.com/apple/swift-package-manager/pull/7101
+[#1485]: https://github.com/swiftlang/swift-package-manager/pull/1485
+[#1489]: https://github.com/swiftlang/swift-package-manager/pull/1489
+[#1604]: https://github.com/swiftlang/swift-package-manager/pull/1604
+[#2937]: https://github.com/swiftlang/swift-package-manager/pull/2937
+[#3280]: https://github.com/swiftlang/swift-package-manager/pull/3280
+[#3292]: https://github.com/swiftlang/swift-package-manager/pull/3292
+[#3310]: https://github.com/swiftlang/swift-package-manager/pull/3310
+[#3316]: https://github.com/swiftlang/swift-package-manager/pull/3316
+[#3410]: https://github.com/swiftlang/swift-package-manager/pull/3410
+[#3486]: https://github.com/swiftlang/swift-package-manager/pull/3486
+[#3641]: https://github.com/swiftlang/swift-package-manager/pull/3641
+[#3649]: https://github.com/swiftlang/swift-package-manager/pull/3649
+[#3670]: https://github.com/swiftlang/swift-package-manager/pull/3670
+[#3717]: https://github.com/swiftlang/swift-package-manager/pull/3717
+[#3890]: https://github.com/swiftlang/swift-package-manager/pull/3890
+[#3901]: https://github.com/swiftlang/swift-package-manager/pull/3901
+[#3942]: https://github.com/swiftlang/swift-package-manager/pull/3942
+[#4119]: https://github.com/swiftlang/swift-package-manager/pull/4119
+[#4131]: https://github.com/swiftlang/swift-package-manager/pull/4131
+[#4135]: https://github.com/swiftlang/swift-package-manager/pull/4135
+[#4168]: https://github.com/swiftlang/swift-package-manager/pull/4168
+[#5728]: https://github.com/swiftlang/swift-package-manager/pull/5728
+[#5810]: https://github.com/swiftlang/swift-package-manager/pull/5810
+[#5819]: https://github.com/swiftlang/swift-package-manager/pull/5819
+[#5874]: https://github.com/swiftlang/swift-package-manager/pull/5874
+[#5949]: https://github.com/swiftlang/swift-package-manager/pull/5949
+[#5892]: https://github.com/swiftlang/swift-package-manager/pull/5892
+[#5966]: https://github.com/swiftlang/swift-package-manager/pull/5966
+[#6060]: https://github.com/swiftlang/swift-package-manager/pull/6060
+[#6067]: https://github.com/swiftlang/swift-package-manager/pull/6067
+[#6111]: https://github.com/swiftlang/swift-package-manager/pull/6111
+[#6114]: https://github.com/swiftlang/swift-package-manager/pull/6114
+[#6144]: https://github.com/swiftlang/swift-package-manager/pull/6144
+[#6294]: https://github.com/swiftlang/swift-package-manager/pull/6294
+[#6185]: https://github.com/swiftlang/swift-package-manager/pull/6185
+[#6200]: https://github.com/swiftlang/swift-package-manager/pull/6200
+[#6276]: https://github.com/swiftlang/swift-package-manager/pull/6276
+[#6540]: https://github.com/swiftlang/swift-package-manager/pull/6540
+[#6663]: https://github.com/swiftlang/swift-package-manager/pull/6663
+[#7010]: https://github.com/swiftlang/swift-package-manager/pull/7010
+[#7101]: https://github.com/swiftlang/swift-package-manager/pull/7101
+[#7118]: https://github.com/swiftlang/swift-package-manager/pull/7118
+[#7201]: https://github.com/swiftlang/swift-package-manager/pull/7201
+[#7202]: https://github.com/swiftlang/swift-package-manager/pull/7202
+[#7507]: https://github.com/swiftlang/swift-package-manager/pull/7507
+[#7530]: https://github.com/swiftlang/swift-package-manager/pull/7530
+[#7535]: https://github.com/swiftlang/swift-package-manager/pull/7535
+[#7722]: https://github.com/swiftlang/swift-package-manager/pull/7722
+[#7741]: https://github.com/swiftlang/swift-package-manager/pull/7741
+[#7813]: https://github.com/swiftlang/swift-package-manager/pull/7813
+[#8301]: https://github.com/swiftlang/swift-package-manager/pull/8301
+[#8314]: https://github.com/swiftlang/swift-package-manager/pull/8314

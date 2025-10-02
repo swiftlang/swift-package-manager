@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,17 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import _Concurrency
 import PackageModel
 import PackageLoading
 @testable import PackageRegistry
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
-class RegistryDownloadsManagerTests: XCTestCase {
+final class RegistryDownloadsManagerTests: XCTestCase {
     func testNoCache() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem()
@@ -296,7 +295,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
                 for packageVersion in packageVersions {
                     group.addTask {
                         delegate.prepare(fetchExpected: true)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
                     }
                 }
                 try await group.waitForAll()
@@ -336,7 +335,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
                     group.addTask {
                         delegate.prepare(fetchExpected: index < concurrency / repeatRatio)
                         let packageVersion = Version(index % (concurrency / repeatRatio), 0 , 0)
-                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope, delegateQueue: .sharedConcurrent, callbackQueue: .sharedConcurrent)
+                        results[packageVersion] = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
                     }
                 }
                 try await group.waitForAll()
@@ -355,7 +354,7 @@ class RegistryDownloadsManagerTests: XCTestCase {
     }
 }
 
-private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate {
+private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate, @unchecked Sendable {
     private var _willFetch = [(packageVersion: PackageVersion, fetchDetails: RegistryDownloadsManager.FetchDetails)]()
     private var _didFetch = [(packageVersion: PackageVersion, result: Result<RegistryDownloadsManager.FetchDetails, Error>)]()
 
@@ -410,19 +409,7 @@ private class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDele
     }
 }
 
-extension RegistryDownloadsManager {
-    fileprivate func lookup(package: PackageIdentity, version: Version, observabilityScope: ObservabilityScope) async throws -> AbsolutePath {
-        try await self.lookup(
-            package: package,
-            version: version,
-            observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
-        )
-    }
-}
-
-fileprivate struct PackageVersion: Hashable, Equatable {
+fileprivate struct PackageVersion: Hashable, Equatable, Sendable {
     let package: PackageIdentity
     let version: Version
 }

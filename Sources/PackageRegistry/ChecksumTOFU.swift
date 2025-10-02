@@ -10,24 +10,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
 import Dispatch
 
 import Basics
 import PackageFingerprint
 import PackageModel
+import Foundation
 
 import struct TSCUtility.Version
 
 struct PackageVersionChecksumTOFU {
     private let fingerprintStorage: PackageFingerprintStorage?
     private let fingerprintCheckingMode: FingerprintCheckingMode
-    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
+    private let versionMetadataProvider: (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
         .PackageVersionMetadata
 
     init(
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
-        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) throws -> RegistryClient
+        versionMetadataProvider: @escaping (PackageIdentity.RegistryIdentity, Version) async throws -> RegistryClient
             .PackageVersionMetadata
     ) {
         self.fingerprintStorage = fingerprintStorage
@@ -42,23 +44,29 @@ struct PackageVersionChecksumTOFU {
         version: Version,
         checksum: String,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
+        observabilityScope: ObservabilityScope
     ) async throws {
-        try await safe_async {
-            self.validateSourceArchive(
-                registry: registry,
-                package: package,
-                version: version,
-                checksum: checksum,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                completion: $0
-            )
+        let expectedChecksum = try await self.getExpectedChecksum(
+            registry: registry,
+            package: package,
+            version: version,
+            timeout: timeout,
+            observabilityScope: observabilityScope
+        )
+
+        if checksum != expectedChecksum {
+            switch self.fingerprintCheckingMode {
+            case .strict:
+                throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
+            case .warn:
+                observabilityScope
+                    .emit(
+                        warning: "the checksum \(checksum) for source archive of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
+                    )
+            }
         }
     }
-    
+
     @available(*, noasync, message: "Use the async alternative")
     func validateSourceArchive(
         registry: Registry,
@@ -68,30 +76,16 @@ struct PackageVersionChecksumTOFU {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
-        self.getExpectedChecksum(
-            registry: registry,
-            package: package,
-            version: version,
-            timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            completion(
-                result.tryMap { expectedChecksum in
-                    if checksum != expectedChecksum {
-                        switch self.fingerprintCheckingMode {
-                        case .strict:
-                            throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
-                        case .warn:
-                            observabilityScope
-                                .emit(
-                                    warning: "the checksum \(checksum) for source archive of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
-                                )
-                        }
-                    }
-                }
+        callbackQueue.asyncResult(completion) {
+            try await self.validateSourceArchive(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: checksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
             )
         }
     }
@@ -101,88 +95,50 @@ struct PackageVersionChecksumTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) async throws -> String {
         // We either use a previously recorded checksum, or fetch it from the registry.
-        self.readFromStorage(
-            package: package,
-            version: version,
-            contentType: .sourceCode,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(.some(let savedChecksum)):
-                completion(.success(savedChecksum))
-            default:
-                // Try fetching checksum from registry if:
-                //   - No storage available
-                //   - Checksum not found in storage
-                //   - Reading from storage resulted in error
-                do {
-                    let versionMetadata = try self.versionMetadataProvider(package, version)
-                    guard let sourceArchiveResource = versionMetadata.sourceArchive else {
-                        throw RegistryError.missingSourceArchive
-                    }
-                    guard let checksum = sourceArchiveResource.checksum else {
-                        throw RegistryError.sourceArchiveMissingChecksum(
-                            registry: registry,
-                            package: package.underlying,
-                            version: version
-                        )
-                    }
-
-                    self.writeToStorage(
-                        registry: registry,
-                        package: package,
-                        version: version,
-                        checksum: checksum,
-                        contentType: .sourceCode,
-                        observabilityScope: observabilityScope,
-                        callbackQueue: callbackQueue
-                    ) { writeResult in
-                        completion(writeResult.tryMap { _ in checksum })
-                    }
-                } catch {
-                    completion(.failure(RegistryError.failedRetrievingReleaseChecksum(
-                        registry: registry,
-                        package: package.underlying,
-                        version: version,
-                        error: error
-                    )))
-                }
-            }
+        if let savedChecksum = try? self.readFromStorage(package: package, version: version, contentType: .sourceCode, observabilityScope: observabilityScope) {
+            return savedChecksum
         }
-    }
 
-    // MARK: - manifests
-    func validateManifest(
-        registry: Registry,
-        package: PackageIdentity.RegistryIdentity,
-        version: Version,
-        toolsVersion: ToolsVersion?,
-        checksum: String,
-        timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue
-    ) async throws {
-        try await safe_async {
-            self.validateManifest(
+        // Try fetching checksum from registry if:
+        //   - No storage available
+        //   - Checksum not found in storage
+        //   - Reading from storage resulted in error
+        var checksum: String
+        do {
+            let versionMetadata = try await self.versionMetadataProvider(package, version)
+            guard let sourceArchiveResource = versionMetadata.sourceArchive else {
+                throw RegistryError.missingSourceArchive
+            }
+            guard let archiveChecksum = sourceArchiveResource.checksum else {
+                throw RegistryError.sourceArchiveMissingChecksum(
+                    registry: registry,
+                    package: package.underlying,
+                    version: version
+                )
+            }
+            checksum = archiveChecksum
+        } catch {
+            throw RegistryError.failedRetrievingReleaseChecksum(
                 registry: registry,
-                package: package,
+                package: package.underlying,
                 version: version,
-                toolsVersion: toolsVersion,
-                checksum: checksum,
-                timeout: timeout,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue, 
-                completion: $0
+                error: error
             )
         }
+        try self.writeToStorage(
+            registry: registry,
+            package: package,
+            version: version,
+            checksum: checksum,
+            contentType: .sourceCode,
+            observabilityScope: observabilityScope
+        )
+        return checksum
     }
-    @available(*, noasync, message: "Use the async alternative")
+
     func validateManifest(
         registry: Registry,
         package: PackageIdentity.RegistryIdentity,
@@ -190,50 +146,35 @@ struct PackageVersionChecksumTOFU {
         toolsVersion: ToolsVersion?,
         checksum: String,
         timeout: DispatchTimeInterval?,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         let contentType = Fingerprint.ContentType.manifest(toolsVersion)
 
-        self.readFromStorage(
+        guard let expectedChecksum = try? self.readFromStorage(
             package: package,
             version: version,
             contentType: .manifest(toolsVersion),
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(.some(let expectedChecksum)):
-                // Previously recorded checksum
-                do {
-                    if checksum != expectedChecksum {
-                        switch self.fingerprintCheckingMode {
-                        case .strict:
-                            throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
-                        case .warn:
-                            observabilityScope
-                                .emit(
-                                    warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
-                                )
-                        }
-                    }
-                    completion(.success(()))
-                } catch {
-                    completion(.failure(error))
-                }
-            default:
-                self.writeToStorage(
-                    registry: registry,
-                    package: package,
-                    version: version,
-                    checksum: checksum,
-                    contentType: .manifest(toolsVersion),
-                    observabilityScope: observabilityScope,
-                    callbackQueue: callbackQueue
-                ) { writeResult in
-                    completion(writeResult.tryMap { _ in () })
-                }
+            observabilityScope: observabilityScope
+        ) else {
+            return try self.writeToStorage(
+                registry: registry,
+                package: package,
+                version: version,
+                checksum: checksum,
+                contentType: .manifest(toolsVersion),
+                observabilityScope: observabilityScope
+            )
+        }
+        // Previously recorded checksum
+        if checksum != expectedChecksum {
+            switch self.fingerprintCheckingMode {
+            case .strict:
+                throw RegistryError.invalidChecksum(expected: expectedChecksum, actual: checksum)
+            case .warn:
+                observabilityScope
+                    .emit(
+                        warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) does not match previously recorded value \(expectedChecksum)"
+                    )
             }
         }
     }
@@ -244,35 +185,29 @@ struct PackageVersionChecksumTOFU {
         package: PackageIdentity.RegistryIdentity,
         version: Version,
         contentType: Fingerprint.ContentType,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<String?, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws -> String? {
         guard let fingerprintStorage else {
-            return completion(.success(nil))
+            return nil
         }
 
-        fingerprintStorage.get(
-            package: package.underlying,
-            version: version,
-            kind: .registry,
-            contentType: contentType,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success(let fingerprint):
-                completion(.success(fingerprint.value))
-            case .failure(PackageFingerprintStorageError.notFound):
-                completion(.success(nil))
-            case .failure(let error):
-                observabilityScope
-                    .emit(
-                        error: "failed to get registry fingerprint for \(contentType) of \(package) \(version) from storage",
-                        underlyingError: error
-                    )
-                completion(.failure(error))
-            }
+        do {
+            return try fingerprintStorage.get(
+                package: package.underlying,
+                version: version,
+                kind: .registry,
+                contentType: contentType,
+                observabilityScope: observabilityScope
+            ).value
+        } catch PackageFingerprintStorageError.notFound {
+            return nil
+        } catch {
+            observabilityScope
+                .emit(
+                    error: "failed to get registry fingerprint for \(contentType) of \(package) \(version) from storage",
+                    underlyingError: error
+                )
+            throw error
         }
     }
 
@@ -282,38 +217,29 @@ struct PackageVersionChecksumTOFU {
         version: Version,
         checksum: String,
         contentType: Fingerprint.ContentType,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
+        observabilityScope: ObservabilityScope
+    ) throws {
         guard let fingerprintStorage else {
-            return completion(.success(()))
+            return
         }
 
         let fingerprint = Fingerprint(origin: .registry(registry.url), value: checksum, contentType: contentType)
-        fingerprintStorage.put(
-            package: package.underlying,
-            version: version,
-            fingerprint: fingerprint,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            switch result {
-            case .success:
-                completion(.success(()))
-            case .failure(PackageFingerprintStorageError.conflict(_, let existing)):
-                switch self.fingerprintCheckingMode {
-                case .strict:
-                    completion(.failure(RegistryError.checksumChanged(latest: checksum, previous: existing.value)))
-                case .warn:
-                    observabilityScope
-                        .emit(
-                            warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
-                        )
-                    completion(.success(()))
-                }
-            case .failure(let error):
-                completion(.failure(error))
+        do {
+            try fingerprintStorage.put(
+                package: package.underlying,
+                version: version,
+                fingerprint: fingerprint,
+                observabilityScope: observabilityScope
+            )
+        } catch PackageFingerprintStorageError.conflict(_, let existing){
+            switch self.fingerprintCheckingMode {
+            case .strict:
+                throw RegistryError.checksumChanged(latest: checksum, previous: existing.value)
+            case .warn:
+                observabilityScope
+                    .emit(
+                        warning: "the checksum \(checksum) for \(contentType) of \(package) \(version) from \(registry.url.absoluteString) does not match previously recorded value \(existing.value) from \(String(describing: existing.origin.url?.absoluteString))"
+                    )
             }
         }
     }

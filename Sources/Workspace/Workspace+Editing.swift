@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,26 +10,29 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+import PackageModel
+import TSCBasic
+
 import struct Basics.AbsolutePath
+import class Basics.InMemoryFileSystem
 import class Basics.ObservabilityScope
 import struct Basics.RelativePath
-import func Basics.temp_await
 import struct PackageGraph.PackageGraphRootInput
 import struct SourceControl.Revision
-import class TSCBasic.InMemoryFileSystem
 
 extension Workspace {
     /// Edit implementation.
     func _edit(
-        packageName: String,
+        packageIdentity: String,
         path: AbsolutePath? = nil,
         revision: Revision? = nil,
         checkoutBranch: String? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Look up the dependency and check if we can edit it.
-        guard let dependency = self.state.dependencies[.plain(packageName)] else {
-            observabilityScope.emit(.dependencyNotFound(packageName: packageName))
+        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
+            observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
 
@@ -58,40 +61,36 @@ extension Workspace {
 
         // If a path is provided then we use it as destination. If not, we
         // use the folder with packageName inside editablesPath.
-        let destination = path ?? self.location.editsDirectory.appending(component: packageName)
+        let destination = path ?? self.location.editsDirectory.appending(component: packageIdentity)
 
         // If there is something present at the destination, we confirm it has
-        // a valid manifest with name same as the package we are trying to edit.
+        // a valid manifest with name canonical location as the package we are trying to edit.
         if fileSystem.exists(destination) {
-            // FIXME: this should not block
-            let manifest = try temp_await {
-                self.loadManifest(
-                    packageIdentity: dependency.packageRef.identity,
-                    packageKind: .fileSystem(destination),
-                    packagePath: destination,
-                    packageLocation: dependency.packageRef.locationString,
-                    observabilityScope: observabilityScope,
-                    completion: $0
-                )
-            }
+            let manifest = try await self.loadManifest(
+                packageIdentity: dependency.packageRef.identity,
+                packageKind: .fileSystem(destination),
+                packagePath: destination,
+                packageLocation: dependency.packageRef.locationString,
+                observabilityScope: observabilityScope
+            )
 
-            guard manifest.displayName == packageName else {
+            guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
                 return observabilityScope
                     .emit(
-                        error: "package at '\(destination)' is \(manifest.displayName) but was expecting \(packageName)"
+                        error: "package at '\(destination)' is \(dependency.packageRef.identity) but was expecting \(packageIdentity)"
                     )
             }
 
             // Emit warnings for branch and revision, if they're present.
             if let checkoutBranch {
                 observabilityScope.emit(.editBranchNotCheckedOut(
-                    packageName: packageName,
+                    packageName: packageIdentity,
                     branchName: checkoutBranch
                 ))
             }
             if let revision {
                 observabilityScope.emit(.editRevisionNotUsed(
-                    packageName: packageName,
+                    packageName: packageIdentity,
                     revisionIdentifier: revision.identifier
                 ))
             }
@@ -99,20 +98,14 @@ extension Workspace {
             // Otherwise, create a checkout at the destination from our repository store.
             //
             // Get handle to the repository.
-            // TODO: replace with async/await when available
             let repository = try dependency.packageRef.makeRepositorySpecifier()
-            let handle = try temp_await {
-                repositoryManager.lookup(
-                    package: dependency.packageRef.identity,
-                    repository: repository,
-                    updateStrategy: .never,
-                    observabilityScope: observabilityScope,
-                    delegateQueue: .sharedConcurrent,
-                    callbackQueue: .sharedConcurrent,
-                    completion: $0
-                )
-            }
-            let repo = try handle.open()
+            let handle = try await repositoryManager.lookup(
+                package: dependency.packageRef.identity,
+                repository: repository,
+                updateStrategy: .never,
+                observabilityScope: observabilityScope
+            )
+            let repo = try await handle.open()
 
             // Do preliminary checks on branch and revision, if provided.
             if let branch = checkoutBranch, repo.exists(revision: Revision(identifier: branch)) {
@@ -122,7 +115,7 @@ extension Workspace {
                 throw WorkspaceDiagnostics.RevisionDoesNotExist(revision: revision.identifier)
             }
 
-            let workingCopy = try handle.createWorkingCopy(at: destination, editable: true)
+            let workingCopy = try await handle.createWorkingCopy(at: destination, editable: true)
             try workingCopy.checkout(revision: revision ?? checkoutState.revision)
 
             // Checkout to the new branch if provided.
@@ -136,7 +129,7 @@ extension Workspace {
             try fileSystem.createDirectory(self.location.editsDirectory)
             // FIXME: We need this to work with InMem file system too.
             if !(fileSystem is InMemoryFileSystem) {
-                let symLinkPath = self.location.editsDirectory.appending(component: packageName)
+                let symLinkPath = self.location.editsDirectory.appending(component: packageIdentity)
 
                 // Cleanup any existing symlink.
                 if fileSystem.isSymlink(symLinkPath) {
@@ -158,10 +151,10 @@ extension Workspace {
         }
 
         // Save the new state.
-        try self.state.dependencies.add(
-            dependency.edited(subpath: RelativePath(validating: packageName), unmanagedPath: path)
+        try await self.state.add(
+            dependency: dependency.edited(subpath: RelativePath(validating: packageIdentity), unmanagedPath: path)
         )
-        try self.state.save()
+        try await self.state.save()
     }
 
     /// Unedit a managed dependency. See public API unedit(packageName:forceRemove:).
@@ -170,7 +163,7 @@ extension Workspace {
         forceRemove: Bool,
         root: PackageGraphRootInput? = nil,
         observabilityScope: ObservabilityScope
-    ) throws {
+    ) async throws {
         // Compute if we need to force remove.
         var forceRemove = forceRemove
 
@@ -189,11 +182,11 @@ extension Workspace {
 
         // Form the edit working repo path.
         let path = self.location.editSubdirectory(for: dependency)
-        // Check for uncommited and unpushed changes if force removal is off.
+        // Check for uncommitted and unpushed changes if force removal is off.
         if !forceRemove {
-            let workingCopy = try repositoryManager.openWorkingCopy(at: path)
+            let workingCopy = try await repositoryManager.openWorkingCopy(at: path)
             guard !workingCopy.hasUncommittedChanges() else {
-                throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: path)
+                throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: path)
             }
             guard try !workingCopy.hasUnpushedCommits() else {
                 throw WorkspaceDiagnostics.UnpushedChanges(repositoryPath: path)
@@ -216,21 +209,21 @@ extension Workspace {
             // Restore the original checkout.
             //
             // The retrieve method will automatically update the managed dependency state.
-            _ = try self.checkoutRepository(
+            _ = try await self.checkoutRepository(
                 package: dependency.packageRef,
                 at: checkoutState,
                 observabilityScope: observabilityScope
             )
         } else {
             // The original dependency was removed, update the managed dependency state.
-            self.state.dependencies.remove(dependency.packageRef.identity)
-            try self.state.save()
+            await self.state.remove(identity: dependency.packageRef.identity)
+            try await self.state.save()
         }
 
         // Resolve the dependencies if workspace root is provided. We do this to
         // ensure the unedited version of this dependency is resolved properly.
         if let root {
-            try self._resolve(
+            try await self._resolve(
                 root: root,
                 explicitProduct: .none,
                 resolvedFileStrategy: .update(forceResolution: false),

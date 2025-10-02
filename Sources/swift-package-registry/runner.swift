@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Commands
-import PackageRegistryTool
+import PackageRegistryCommand
 
 @main
 struct Runner {
     static func main() async {
-        await SwiftPackageRegistryTool.main()
+        await PackageRegistryCommand.main()
     }
 }

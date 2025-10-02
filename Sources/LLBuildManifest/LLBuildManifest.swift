@@ -12,8 +12,10 @@
 
 import Basics
 import Foundation
+import TSCBasic
+import TSCUtility
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 public protocol AuxiliaryFileType {
     static var name: String { get }
@@ -27,7 +29,8 @@ public enum WriteAuxiliary {
         LinkFileList.self,
         SourcesFileList.self,
         SwiftGetVersion.self,
-        XCTestInfoPlist.self
+        XCTestInfoPlist.self,
+        EmbeddedResources.self,
     ]
 
     public struct EntitlementPlist: AuxiliaryFileType {
@@ -58,7 +61,7 @@ public enum WriteAuxiliary {
         public static let name = "link-file-list"
 
         // FIXME: We should extend the `InProcessTool` support to allow us to specify these in a typed way, but today we have to flatten all the inputs into a generic `Node` array (rdar://109844243).
-        public static func computeInputs(objects: [AbsolutePath]) -> [Node] {
+        public static func computeInputs(objects: [Basics.AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + objects.map { Node.file($0) }
         }
 
@@ -87,7 +90,7 @@ public enum WriteAuxiliary {
     public struct SourcesFileList: AuxiliaryFileType {
         public static let name = "sources-file-list"
 
-        public static func computeInputs(sources: [AbsolutePath]) -> [Node] {
+        public static func computeInputs(sources: [Basics.AbsolutePath]) -> [Node] {
             return [.virtual(Self.name)] + sources.map { Node.file($0) }
         }
 
@@ -113,7 +116,7 @@ public enum WriteAuxiliary {
     public struct SwiftGetVersion: AuxiliaryFileType {
         public static let name = "swift-get-version"
 
-        public static func computeInputs(swiftCompilerPath: AbsolutePath) -> [Node] {
+        public static func computeInputs(swiftCompilerPath: Basics.AbsolutePath) -> [Node] {
             return [.virtual(Self.name), .file(swiftCompilerPath)]
         }
 
@@ -121,8 +124,8 @@ public enum WriteAuxiliary {
             guard let swiftCompilerPathString = inputs.first(where: { $0.kind == .file })?.name else {
                 throw Error.unknownSwiftCompilerPath
             }
-            let swiftCompilerPath = try AbsolutePath(validating: swiftCompilerPathString)
-            return try TSCBasic.Process.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
+            let swiftCompilerPath = try Basics.AbsolutePath(validating: swiftCompilerPathString)
+            return try AsyncProcess.checkNonZeroExit(args: swiftCompilerPath.pathString, "-version")
         }
 
         private enum Error: Swift.Error {
@@ -157,6 +160,35 @@ public enum WriteAuxiliary {
 
         private enum Error: Swift.Error {
             case undefinedPrincipalClass
+        }
+    }
+
+    public struct EmbeddedResources: AuxiliaryFileType {
+        public static let name = "embedded-resources"
+
+        public static func computeInputs(resources: [Basics.AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + resources.map { Node.file($0) }
+        }
+
+        // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
+        // representation in memory.
+        public static func getFileContents(inputs: [Node]) throws -> String {
+            var content =
+                """
+                struct PackageResources {
+
+                """
+
+            for input in inputs where input.kind == .file {
+                let resourcePath = try Basics.AbsolutePath(validating: input.name)
+                let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
+                let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString)).map { String($0) }.joined(separator: ",")
+
+                content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+            }
+
+            content += "}"
+            return content
         }
     }
 }
@@ -196,14 +228,18 @@ public struct LLBuildManifest {
         targets[target, default: Target(name: target, nodes: [])].nodes.append(node)
     }
 
+    private mutating func addCommand(name: String, tool: ToolProtocol) {
+        assert(commands[name] == nil, "already had a command named '\(name)'")
+        commands[name] = Command(name: name, tool: tool)
+    }
+
     public mutating func addPhonyCmd(
         name: String,
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = PhonyTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addTestDiscoveryCmd(
@@ -211,9 +247,8 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = TestDiscoveryTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addTestEntryPointCmd(
@@ -221,9 +256,8 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = TestEntryPointTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addCopyCmd(
@@ -231,53 +265,62 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = CopyTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
-    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: AbsolutePath) {
+    public mutating func addEntitlementPlistCommand(entitlement: String, outputPath: Basics.AbsolutePath) {
         let inputs = WriteAuxiliary.EntitlementPlist.computeInputs(entitlement: entitlement)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addWriteLinkFileListCommand(
-        objects: [AbsolutePath],
-        linkFileListPath: AbsolutePath
+        objects: [Basics.AbsolutePath],
+        linkFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.LinkFileList.computeInputs(objects: objects)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: linkFileListPath)
         let name = linkFileListPath.pathString
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addWriteSourcesFileListCommand(
-        sources: [AbsolutePath],
-        sourcesFileListPath: AbsolutePath
+        sources: [Basics.AbsolutePath],
+        sourcesFileListPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.SourcesFileList.computeInputs(sources: sources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: sourcesFileListPath)
         let name = sourcesFileListPath.pathString
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addSwiftGetVersionCommand(
-        swiftCompilerPath: AbsolutePath,
-        swiftVersionFilePath: AbsolutePath
+        swiftCompilerPath: Basics.AbsolutePath,
+        swiftVersionFilePath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.SwiftGetVersion.computeInputs(swiftCompilerPath: swiftCompilerPath)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: swiftVersionFilePath, alwaysOutOfDate: true)
         let name = swiftVersionFilePath.pathString
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
-    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: AbsolutePath) {
+    public mutating func addWriteInfoPlistCommand(principalClass: String, outputPath: Basics.AbsolutePath) {
         let inputs = WriteAuxiliary.XCTestInfoPlist.computeInputs(principalClass: principalClass)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
+    }
+
+    public mutating func addWriteEmbeddedResourcesCommand(
+        resources: [Basics.AbsolutePath],
+        outputPath: Basics.AbsolutePath
+    ) {
+        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(resources: resources)
+        let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
+        let name = outputPath.pathString
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addPkgStructureCmd(
@@ -285,9 +328,8 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = PackageStructureTool(inputs: inputs, outputs: outputs)
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addShellCmd(
@@ -296,11 +338,10 @@ public struct LLBuildManifest {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: EnvironmentVariables = .empty(),
+        environment: Environment = [:],
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = ShellTool(
             description: description,
             inputs: inputs,
@@ -310,7 +351,7 @@ public struct LLBuildManifest {
             workingDirectory: workingDirectory,
             allowMissingInputs: allowMissingInputs
         )
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addSwiftFrontendCmd(
@@ -322,7 +363,6 @@ public struct LLBuildManifest {
         outputs: [Node],
         arguments: [String]
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftFrontendTool(
                 moduleName: moduleName,
                 description: description,
@@ -330,7 +370,7 @@ public struct LLBuildManifest {
                 outputs: outputs,
                 arguments: arguments
         )
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addClangCmd(
@@ -341,7 +381,6 @@ public struct LLBuildManifest {
         arguments: [String],
         dependencies: String? = nil
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = ClangTool(
             description: description,
             inputs: inputs,
@@ -349,28 +388,28 @@ public struct LLBuildManifest {
             arguments: arguments,
             dependencies: dependencies
         )
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 
     public mutating func addSwiftCmd(
         name: String,
         inputs: [Node],
         outputs: [Node],
-        executable: AbsolutePath,
+        executable: Basics.AbsolutePath,
         moduleName: String,
         moduleAliases: [String: String]?,
-        moduleOutputPath: AbsolutePath,
-        importPath: AbsolutePath,
-        tempsPath: AbsolutePath,
-        objects: [AbsolutePath],
+        moduleOutputPath: Basics.AbsolutePath,
+        importPath: Basics.AbsolutePath,
+        tempsPath: Basics.AbsolutePath,
+        objects: [Basics.AbsolutePath],
         otherArguments: [String],
-        sources: [AbsolutePath],
-        fileList: AbsolutePath,
+        sources: [Basics.AbsolutePath],
+        fileList: Basics.AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath
+        outputFileMapPath: Basics.AbsolutePath,
+        prepareForIndexing: Bool
     ) {
-        assert(commands[name] == nil, "already had a command named '\(name)'")
         let tool = SwiftCompilerTool(
             inputs: inputs,
             outputs: outputs,
@@ -386,8 +425,9 @@ public struct LLBuildManifest {
             fileList: fileList,
             isLibrary: isLibrary,
             wholeModuleOptimization: wholeModuleOptimization,
-            outputFileMapPath: outputFileMapPath
+            outputFileMapPath: outputFileMapPath,
+            prepareForIndexing: prepareForIndexing
         )
-        commands[name] = Command(name: name, tool: tool)
+        addCommand(name: name, tool: tool)
     }
 }

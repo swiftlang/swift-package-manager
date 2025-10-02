@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _Concurrency
+
 /// The build configuration, such as debug or release.
-public struct BuildConfiguration {
+public struct BuildConfiguration: Sendable {
     /// The configuration of the build. Valid values are `debug` and `release`.
     let config: String
 
@@ -54,15 +56,18 @@ public struct BuildConfiguration {
 ///     ]
 /// ),
 /// ```
-public struct BuildSettingCondition {
+public struct BuildSettingCondition: Sendable {
     /// The applicable platforms for this build setting condition.
     let platforms: [Platform]?
     /// The applicable build configuration for this build setting condition.
     let config: BuildConfiguration?
+    /// The applicable traits for this build setting condition.
+    let traits: Set<String>?
 
-    private init(platforms: [Platform]?, config: BuildConfiguration?) {
+    private init(platforms: [Platform]?, config: BuildConfiguration?, traits: Set<String>?) {
         self.platforms = platforms
         self.config = config
+        self.traits = traits
     }
 
     @available(_PackageDescription, deprecated: 5.7)
@@ -71,7 +76,23 @@ public struct BuildSettingCondition {
         configuration: BuildConfiguration? = nil
     ) -> BuildSettingCondition {
         precondition(!(platforms == nil && configuration == nil))
-        return BuildSettingCondition(platforms: platforms, config: configuration)
+        return BuildSettingCondition(platforms: platforms, config: configuration, traits: nil)
+    }
+
+    /// Creates a build setting condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this build setting condition.
+    ///   - configuration: The applicable build configuration for this build setting condition.
+    ///   - traits: The applicable traits for this build setting condition.
+    @available(_PackageDescription, introduced: 6.1)
+    public static func when(
+        platforms: [Platform]? = nil,
+        configuration: BuildConfiguration? = nil,
+        traits: Set<String>? = nil
+    ) -> BuildSettingCondition {
+        precondition(!(platforms == nil && configuration == nil && traits == nil))
+        return BuildSettingCondition(platforms: platforms, config: configuration, traits: traits)
     }
 
     /// Creates a build setting condition.
@@ -81,7 +102,7 @@ public struct BuildSettingCondition {
     ///   - configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform], configuration: BuildConfiguration) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: platforms, config: configuration)
+        BuildSettingCondition(platforms: platforms, config: configuration, traits: nil)
     }
 
     /// Creates a build setting condition.
@@ -89,7 +110,7 @@ public struct BuildSettingCondition {
     /// - Parameter platforms: The applicable platforms for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(platforms: [Platform]) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: platforms, config: .none)
+        BuildSettingCondition(platforms: platforms, config: .none, traits: nil)
     }
 
     /// Creates a build setting condition.
@@ -97,7 +118,7 @@ public struct BuildSettingCondition {
     /// - Parameter configuration: The applicable build configuration for this build setting condition.
     @available(_PackageDescription, introduced: 5.7)
     public static func when(configuration: BuildConfiguration) -> BuildSettingCondition {
-        BuildSettingCondition(platforms: .none, config: configuration)
+        BuildSettingCondition(platforms: .none, config: configuration, traits: nil)
     }
 }
 
@@ -115,7 +136,7 @@ struct BuildSettingData {
 }
 
 /// A C language build setting.
-public struct CSetting {
+public struct CSetting: Sendable {
     /// The abstract build setting data.
     let data: BuildSettingData
 
@@ -182,10 +203,96 @@ public struct CSetting {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
+    
+    /// Controls how all C compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-Werror` or `-Wno-error`
+    /// to the C compiler.
+    ///
+    /// This setting applies to all warnings emitted by the C compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific C compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror=` or `-Wno-error=`
+    /// followed by the warning name to the C compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Enable a specific C compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "disableWarning", value: [name], condition: condition)
+    }
 }
 
 /// A CXX-language build setting.
-public struct CXXSetting {
+public struct CXXSetting: Sendable {
     /// The data store for the CXX build setting.
     let data: BuildSettingData
 
@@ -252,10 +359,96 @@ public struct CXXSetting {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
+    
+    /// Controls how all C++ compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-Werror` or `-Wno-error`
+    /// to the C++ compiler.
+    ///
+    /// This setting applies to all warnings emitted by the C++ compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific C++ compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror=` or `-Wno-error=`
+    /// followed by the warning name to the C++ compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Enable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to enable a specific warning group. This is equivalent to passing
+    /// `-W` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to enable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func enableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "enableWarning", value: [name], condition: condition)
+    }
+
+    /// Disable a specific C++ compiler warning group.
+    ///
+    /// Use this setting to disable a specific warning group. This is equivalent to passing
+    /// `-Wno-` followed by the group name to the C++ compiler.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the warning group to disable.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func disableWarning(
+      _ name: String,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "disableWarning", value: [name], condition: condition)
+    }
 }
 
 /// A Swift language build setting.
-public struct SwiftSetting {
+public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
     let data: BuildSettingData
 
@@ -360,15 +553,40 @@ public struct SwiftSetting {
             name: "enableExperimentalFeature", value: [name], condition: condition)
     }
 
+    /// Enable strict memory safety checking.
+    ///
+    /// Strict memory safety checking is an opt-in compiler feature that
+    /// identifies any uses of language constructs or APIs that break
+    /// memory safety. Issues are reported as warnings and can generally
+    /// be suppressed by adding annotations (such as `@unsafe` and `unsafe`)
+    /// that acknowledge the presence of unsafe code, making it easier to
+    /// review and audit at a later time.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - condition: A condition that restricts the application of the build
+    /// setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func strictMemorySafety(
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "strictMemorySafety", value: ["ON"], condition: condition)
+    }
+
+    /// The interoperability mode
     public enum InteroperabilityMode: String {
+        /// Emit code compatible with being imported from C and Objective-C.
         case C
+        /// Emit code compatible with being imported from C++ and Objective-C++.
         case Cxx
     }
 
-    /// Enable Swift interoperability with a given language.
+    /// Enables Swift interoperability with a given language.
     ///
-    /// This is useful for enabling interoperability with Swift and C++ for a given
-    /// target.
+    /// This is useful for enabling interoperability between Swift and C++ for
+    /// a given target.
     ///
     /// Enabling C++ interoperability mode might alter the way some existing
     /// C and Objective-C APIs are imported.
@@ -376,7 +594,7 @@ public struct SwiftSetting {
     /// - Since: First available in PackageDescription 5.9.
     ///
     /// - Parameters:
-    ///   - mode: The language mode, either C or CXX.
+    ///   - mode: The interoperability mode, either C-compatible or C++-compatible.
     ///   - condition: A condition that restricts the application of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.9)
@@ -387,10 +605,119 @@ public struct SwiftSetting {
         return SwiftSetting(
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
+
+    /// Defines a `-swift-version` to pass  to the
+    /// corresponding build tool.
+    ///
+    /// - Since: First available in PackageDescription 6.0.
+    ///
+    /// - Parameters:
+    ///   - version: The Swift language version to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.0, deprecated: 6.0, renamed: "swiftLanguageMode(_:_:)")
+    public static func swiftLanguageVersion(
+      _ version: SwiftVersion,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "swiftLanguageMode", value: [.init(describing: version)], condition: condition)
+    }
+
+    /// Defines a `-language-mode` to pass  to the
+    /// corresponding build tool.
+    ///
+    /// - Since: First available in PackageDescription 6.0.
+    ///
+    /// - Parameters:
+    ///   - mode: The Swift language mode to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.0)
+    public static func swiftLanguageMode(
+      _ mode: SwiftLanguageMode,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "swiftLanguageMode", value: [.init(describing: mode)], condition: condition)
+    }
+
+    /// Controls how all Swift compiler warnings are treated during compilation.
+    ///
+    /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
+    /// or as errors. This is equivalent to passing `-warnings-as-errors` or `-no-warnings-as-errors`
+    /// to the Swift compiler.
+    ///
+    /// This setting applies to all warnings emitted by the Swift compiler. To control specific
+    /// warnings individually, use `treatWarning(name:as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - level: The treatment level for all warnings (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatAllWarnings(
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatAllWarnings", value: [level.rawValue], condition: condition)
+    }
+
+    /// Controls how a specific Swift compiler warning is treated during compilation.
+    ///
+    /// Use this setting to specify whether a particular warning should be treated as a warning
+    /// (default behavior) or as an error. This is equivalent to passing `-Werror` or `-Wwarning`
+    /// followed by the warning name to the Swift compiler.
+    ///
+    /// This setting allows for fine-grained control over individual warnings. To control all
+    /// warnings at once, use `treatAllWarnings(as:_:)` instead.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the specific warning to control.
+    ///   - level: The treatment level for the warning (`.warning` or `.error`).
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func treatWarning(
+      _ name: String,
+      as level: WarningLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "treatWarning", value: [name, level.rawValue], condition: condition)
+    }
+
+    /// Set the default isolation to the given global actor type.
+    ///
+    /// - Since: First available in PackageDescription 6.2.
+    ///
+    /// - Parameters:
+    ///   - isolation: The type of global actor to use for default actor isolation
+    ///     inference. The only valid arguments are `MainActor.self` and `nil`.
+    ///   - condition: A condition that restricts the application of the build
+    ///     setting.
+    ///
+    /// The compiler defaults to inferring unannotated code as `nonisolated` if unspecified,
+    /// or if the `isolation` parameter is set to `nil`.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func defaultIsolation(
+        _ isolation: MainActor.Type?,
+        _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        let isolationString =
+            if isolation == nil {
+                "nonisolated"
+            } else {
+                "MainActor"
+            }
+        return SwiftSetting(
+            name: "defaultIsolation", value: [isolationString], condition: condition)
+    }
 }
 
 /// A linker build setting.
-public struct LinkerSetting {
+public struct LinkerSetting: Sendable {
     /// The data store for the Linker setting.
     let data: BuildSettingData
 

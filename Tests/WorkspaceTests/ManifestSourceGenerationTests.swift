@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -14,7 +14,7 @@ import Basics
 import PackageGraph
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import Workspace
 import XCTest
 
@@ -33,8 +33,7 @@ extension String {
     }
 }
 
-class ManifestSourceGenerationTests: XCTestCase {
-
+final class ManifestSourceGenerationTests: XCTestCase {
     /// Private function that writes the contents of a package manifest to a temporary package directory and then loads it, then serializes the loaded manifest back out again and loads it once again, after which it compares that no information was lost. Return the source of the newly generated manifest.
     @discardableResult
     private func testManifestWritingRoundTrip(
@@ -42,7 +41,9 @@ class ManifestSourceGenerationTests: XCTestCase {
         toolsVersion: ToolsVersion,
         toolsVersionHeaderComment: String? = .none,
         additionalImportModuleNames: [String] = [],
-        fs: FileSystem = localFileSystem
+        fs: FileSystem = localFileSystem,
+        file: StaticString = #file,
+        line: UInt = #line,
     ) async throws -> String {
         try await withTemporaryDirectory { packageDir in
             let observability = ObservabilitySystem.makeForTesting()
@@ -64,8 +65,7 @@ class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -93,26 +93,26 @@ class ManifestSourceGenerationTests: XCTestCase {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
-            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, failureDetails)
-            XCTAssertEqual(newManifest.displayName, manifest.displayName, failureDetails)
-            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, failureDetails)
-            XCTAssertEqual(newManifest.platforms, manifest.platforms, failureDetails)
-            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, failureDetails)
-            XCTAssertEqual(newManifest.providers, manifest.providers, failureDetails)
-            XCTAssertEqual(newManifest.products, manifest.products, failureDetails)
-            XCTAssertEqual(newManifest.dependencies, manifest.dependencies, failureDetails)
-            XCTAssertEqual(newManifest.targets, manifest.targets, failureDetails)
-            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, failureDetails)
-            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, failureDetails)
-            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, failureDetails)
+            XCTAssertEqual(newManifest.toolsVersion, manifest.toolsVersion, "toolsVersion not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.displayName, manifest.displayName, "displayName not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.defaultLocalization, manifest.defaultLocalization, "defaultLocalization not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.platforms, manifest.platforms, "platforms not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.pkgConfig, manifest.pkgConfig, "pkgConfig not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.providers, manifest.providers, "providers not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.products, manifest.products, "products not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.traits, manifest.traits, "traits not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.dependencies, manifest.dependencies, "dependencies not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.targets, manifest.targets, "targets not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.swiftLanguageVersions, manifest.swiftLanguageVersions, "swiftLanguageVersions not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.cLanguageStandard, manifest.cLanguageStandard, "cLanguageStandard not as expected" + failureDetails, file: file, line: line)
+            XCTAssertEqual(newManifest.cxxLanguageStandard, manifest.cxxLanguageStandard, "cxxLanguageStandard not as expected" + failureDetails, file: file, line: line)
 
             // Return the generated manifest so that the caller can do further testing on it.
             return newContents
@@ -136,6 +136,45 @@ class ManifestSourceGenerationTests: XCTestCase {
                     // Products define the executables and libraries a package produces, and make them visible to other packages.
                     .library(
                         name: "MyPackage",
+                        targets: ["MyPackage"]),
+                ],
+                dependencies: [
+                    // Dependencies declare other packages that this package depends on.
+                    // .package(url: /* package url */, from: "1.0.0"),
+                ],
+                targets: [
+                    // Targets are the basic building blocks of a package. A target can define a module or a test suite.
+                    // Targets can depend on other targets in this package, and on products in packages this package depends on.
+                    .target(
+                        name: "MyPackage",
+                        dependencies: []),
+                    .testTarget(
+                        name: "MyPackageTests",
+                        dependencies: ["MyPackage"]),
+                ]
+            )
+            """
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_3)
+    }
+
+    func testDynamicLibraryType() async throws {
+        let manifestContents = """
+            // swift-tools-version:5.3
+            // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                platforms: [
+                    .macOS(.v10_14),
+                    .iOS(.v13)
+                ],
+                products: [
+                    // Products define the executables and libraries a package produces, and make them visible to other packages.
+                    .library(
+                        name: "MyPackage",
+                        type: .dynamic,
                         targets: ["MyPackage"]),
                 ],
                 dependencies: [
@@ -195,6 +234,8 @@ class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testAdvancedFeatures() async throws {
+        try XCTSkipOnWindows()
+
         let manifestContents = """
             // swift-tools-version:5.3
             // The swift-tools-version declares the minimum version of Swift required to build this package.
@@ -244,6 +285,10 @@ class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testPackageDependencyVariations() async throws {
+        try XCTSkipOnWindows(
+            because:"Intermittently fails",
+            skipPlatformCi: true,
+        )
         let manifestContents = """
             // swift-tools-version:5.4
             import PackageDescription
@@ -459,7 +504,8 @@ class ManifestSourceGenerationTests: XCTestCase {
                         dependencies: [
                             .target(name: "MyLib", condition: .when(platforms: [
                                 .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS,
-                                .driverKit, .linux, .windows, .android, .wasi, .openbsd
+                                .driverKit, .linux, .windows, .android, .wasi, .openbsd,
+                                .custom("freebsd"), .custom("toasterOS")
                             ]))
                         ]
                     ),
@@ -479,6 +525,7 @@ class ManifestSourceGenerationTests: XCTestCase {
             displayName: "MyLibrary",
             path: packageDir.appending("Package.swift"),
             packageKind: .root("/tmp/MyLibrary"),
+            packageIdentity: .plain("MyLibrary"),
             packageLocation: packageDir.pathString,
             platforms: [],
             toolsVersion: .v5_5,
@@ -509,6 +556,183 @@ class ManifestSourceGenerationTests: XCTestCase {
 
         // Check that we generated what we expected.
         XCTAssertTrue(contents.contains(".library(name: \"Foo\", targets: [\"Bar\"], type: .static)"), "contents: \(contents)")
+    }
+
+    /// Tests a fully customized iOSApplication (one that exercises every parameter in at least some way).
+    func testAppleProductSettings() throws {
+      #if ENABLE_APPLE_PRODUCT_TYPES
+        let manifestContents = """
+            // swift-tools-version: 999.0
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .iOSApplication(
+                        name: "Foo",
+                        targets: ["Foo"],
+                        bundleIdentifier: "com.my.app",
+                        teamIdentifier: "ZXYTEAM123",
+                        displayVersion: "1.4.2 Extra Cool",
+                        bundleVersion: "1.4.2",
+                        appIcon: .placeholder(icon: .cloud),
+                        accentColor: .presetColor(.red),
+                        supportedDeviceFamilies: [.phone, .pad, .mac],
+                        supportedInterfaceOrientations: [
+                            .portrait,
+                            .landscapeRight(),
+                            .landscapeLeft(.when(deviceFamilies: [.mac]))
+                        ],
+                        capabilities: [
+                            .camera(purposeString: "All the better to see you with…", .when(deviceFamilies: [.pad, .phone])),
+                            .fileAccess(.userSelectedFiles, mode: .readOnly, .when(deviceFamilies: [.mac])),
+                            .fileAccess(.pictureFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                            .fileAccess(.musicFolder, mode: .readOnly),
+                            .fileAccess(.downloadsFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                            .fileAccess(.moviesFolder, mode: .readWrite, .when(deviceFamilies: [.mac])),
+                            .incomingNetworkConnections(.when(deviceFamilies: [.mac])),
+                            .outgoingNetworkConnections(),
+                            .microphone(purposeString: "All the better to hear you with…"),
+                            .motion(purposeString: "Move along, move along, …"),
+                            .localNetwork(
+                                purposeString: "Communication is key…",
+                                bonjourServiceTypes: ["_ipp._tcp", "_ipps._tcp"],
+                                .when(deviceFamilies: [.mac])
+                            ),
+                            .appTransportSecurity(
+                                configuration: .init(
+                                    allowsArbitraryLoadsInWebContent: true,
+                                    allowsArbitraryLoadsForMedia: false,
+                                    allowsLocalNetworking: false,
+                                    exceptionDomains: [
+                                        .init(
+                                            domainName: "not-shady-at-all-domain.biz",
+                                            includesSubdomains: true,
+                                            exceptionAllowsInsecureHTTPLoads: true,
+                                            exceptionMinimumTLSVersion: "2",
+                                            exceptionRequiresForwardSecrecy: false,
+                                            requiresCertificateTransparency: false
+                                        )
+                                    ],
+                                    pinnedDomains: [
+                                        .init(
+                                            domainName: "honest-harrys-pinned-domain.biz",
+                                            includesSubdomains : false,
+                                            pinnedCAIdentities : [["a": "b", "x": "y"], [:]],
+                                            pinnedLeafIdentities : [["v": "w"]]
+                                        )
+                                    ]
+                                ),
+                                .when(deviceFamilies: [.phone, .pad])
+                            )
+                        ],
+                        appCategory: .weather,
+                        additionalInfoPlistContentFilePath: "some/path/to/a/file.plist"
+                    ),
+                ],
+                targets: [
+                    .executableTarget(
+                        name: "Foo"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+      #else
+        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+      #endif
+    }
+
+    /// Tests loading an iOSApplication product configured with the `.asset(_)` variant of the
+    /// appIcon and accentColor parameters.
+    func testAssetBasedAccentColorAndAppIconAppleProductSettings() throws {
+      #if ENABLE_APPLE_PRODUCT_TYPES
+        let manifestContents = """
+            // swift-tools-version: 999.0
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .iOSApplication(
+                        name: "Foo",
+                        targets: ["Foo"],
+                        appIcon: .asset("AppIcon"),
+                        accentColor: .asset("AccentColor")
+                    ),
+                ],
+                targets: [
+                    .executableTarget(
+                        name: "Foo"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+      #else
+        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+      #endif
+    }
+
+    /// Tests loading an iOSApplication product configured with legacy 'iconAssetName' and 'accentColorAssetName' parameters.
+    func testLegacyAccentColorAndAppIconAppleProductSettings() throws {
+      #if ENABLE_APPLE_PRODUCT_TYPES
+        let manifestContents = """
+            // swift-tools-version: 999.0
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .iOSApplication(
+                        name: "Foo",
+                        targets: ["Foo"],
+                        iconAssetName: "icon",
+                        accentColorAssetName: "accentColor"
+                    ),
+                ],
+                targets: [
+                    .executableTarget(
+                        name: "Foo"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+      #else
+        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+      #endif
+    }
+
+    /// Tests the smallest allowed iOSApplication (one that has default values for everything not required). Make sure no defaults get added to it.
+    func testMinimalAppleProductSettings() throws {
+      #if ENABLE_APPLE_PRODUCT_TYPES
+        let manifestContents = """
+            // swift-tools-version: 999.0
+            import PackageDescription
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .iOSApplication(
+                        name: "Foo",
+                        targets: ["Foo"],
+                        accentColor: .asset("AccentColor"),
+                        supportedDeviceFamilies: [
+                            .mac
+                        ],
+                        supportedInterfaceOrientations: [
+                            .portrait
+                        ]
+                    ),
+                ],
+                targets: [
+                    .executableTarget(
+                        name: "Foo"
+                    ),
+                ]
+            )
+            """
+        try testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_5)
+      #else
+        throw XCTSkip("ENABLE_APPLE_PRODUCT_TYPES is not set")
+      #endif
     }
 
     func testModuleAliasGeneration() async throws {
@@ -577,6 +801,28 @@ class ManifestSourceGenerationTests: XCTestCase {
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_8)
     }
 
+    func testStrictMemorySafety() async throws {
+        try XCTSkipIfCompilerLessThan6_2()
+
+        let manifestContents = """
+            // swift-tools-version:6.2
+            import PackageDescription
+
+            let package = Package(
+                name: "UpcomingAndExperimentalFeatures",
+                targets: [
+                    .target(
+                        name: "MyTool",
+                        swiftSettings: [
+                            .strictMemorySafety(),
+                        ]
+                    ),
+                ]
+            )
+            """
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v6_2)
+    }
+
     func testPluginNetworkingPermissionGeneration() async throws {
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
@@ -588,5 +834,174 @@ class ManifestSourceGenerationTests: XCTestCase {
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
         try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v5_9)
+    }
+
+    func testManifestGenerationWithSwiftLanguageMode() async throws {
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_0,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "v5",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v6))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "custom",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageMode(.init(string: "5.10")!))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "conditional",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v5), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .swiftLanguageMode(.v4), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                )
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_0)
+    }
+
+    func testManifestGenerationWithWarningControlFlags() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_2,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "swiftTarget",
+                    settings: [
+                        .init(tool: .swift, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .warning), condition: .init(config: "release")),
+                        .init(tool: .swift, kind: .treatWarning("DeprecatedDeclaration", .error), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cTarget",
+                    settings: [
+                        .init(tool: .c, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .error), condition: .init(config: "release")),
+                        .init(tool: .c, kind: .treatWarning("implicit-function-declaration", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "cxxTarget",
+                    settings: [
+                        .init(tool: .cxx, kind: .disableWarning("unused-parameter"), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .enableWarning("implicit-fallthrough"), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatAllWarnings(.warning), condition: .init(config: "debug")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .error), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .treatWarning("deprecated-declarations", .warning), condition: .init(config: "debug")),
+                    ]
+                ),
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
+    }
+
+    func testDefaultIsolation() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: "/pkg",
+            toolsVersion: .v6_2,
+            dependencies: [],
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "B",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor))
+                    ]
+                ),
+                try TargetDescription(
+                    name: "conditional",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .defaultIsolation(.nonisolated), condition: .init(platformNames: ["linux"])),
+                        .init(tool: .swift, kind: .defaultIsolation(.MainActor), condition: .init(platformNames: ["macos"], config: "debug"))
+                    ]
+                )
+            ])
+        let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        try await testManifestWritingRoundTrip(manifestContents: contents, toolsVersion: .v6_2)
+    }
+
+    func testTraits() async throws {
+        try XCTSkipIfCompilerLessThan6_1()
+
+        let manifestContents = """
+            // swift-tools-version: 6.1
+            import PackageDescription
+
+            let package = Package(
+                name: "TraitExample",
+                traits: [
+                    "Foo",
+                    .trait(
+                        name: "Bar",
+                        enabledTraits: [
+                            "Foo",
+                        ]
+                    ),
+                    .trait(
+                        name: "FooBar",
+                        enabledTraits: [
+                            "Foo",
+                            "Bar",
+                        ]
+                    ),
+                    .default(enabledTraits: ["Foo"]),
+                ],
+                dependencies: [
+                    .package(
+                        url: "https://github.com/Org/SomePackage.git",
+                        from: "1.0.0",
+                        traits: [
+                            .defaults,
+                            "SomeTrait",
+                            .trait(name: "SomeOtherTrait", condition: .when(traits: ["Foo"])),
+                        ]
+                    ),
+                ],
+                targets: [
+                    .target(
+                        name: "SomeTarget",
+                        dependencies: [
+                            .product(
+                                name: "SomeProduct",
+                                package: "SomePackage",
+                                condition: .when(traits: ["Foo"])
+                            ),
+                        ]
+                    )
+                ]
+            )
+            """
+        try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v6_1)
     }
 }

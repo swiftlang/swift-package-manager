@@ -29,29 +29,41 @@ public struct GraphLoadingNode: Equatable, Hashable {
     /// The product filter applied to the package.
     public let productFilter: ProductFilter
 
-    public init(identity: PackageIdentity, manifest: Manifest, productFilter: ProductFilter) {
+    /// The enabled traits for this package.
+    package var enabledTraits: Set<String>
+
+    public init(
+        identity: PackageIdentity,
+        manifest: Manifest,
+        productFilter: ProductFilter,
+        enabledTraits: Set<String>
+    ) throws {
         self.identity = identity
         self.manifest = manifest
         self.productFilter = productFilter
+        self.enabledTraits = enabledTraits
     }
 
     /// Returns the dependencies required by this node.
-    internal var requiredDependencies: [PackageDependency] {
-        return self.manifest.dependenciesRequired(for: self.productFilter)
+    var requiredDependencies: [PackageDependency] {
+        guard let requiredDeps = try? self.manifest.dependenciesRequired(for: self.productFilter, enabledTraits) else {
+            return []
+        }
+        return requiredDeps
+    }
+
+    var traitGuardedDependencies: [PackageDependency] {
+        self.manifest.dependenciesTraitGuarded(withEnabledTraits: self.enabledTraits)
     }
 }
 
 extension GraphLoadingNode: CustomStringConvertible {
     public var description: String {
-        switch productFilter {
+        switch self.productFilter {
         case .everything:
-            return self.identity.description
+            self.identity.description
         case .specific(let set):
-            return "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
+            "\(self.identity.description)[\(set.sorted().joined(separator: ", "))]"
         }
     }
-}
-
-extension GraphLoadingNode: Identifiable {
-    public var id: PackageIdentity { self.identity }
 }

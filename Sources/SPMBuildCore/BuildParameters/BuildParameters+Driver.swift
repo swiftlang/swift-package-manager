@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -25,13 +25,13 @@ extension BuildParameters {
             enableParseableModuleInterfaces: Bool = false,
             explicitTargetDependencyImportCheckingMode: TargetDependencyImportCheckingMode = .none,
             useIntegratedSwiftDriver: Bool = false,
-            useExplicitModuleBuild: Bool = false
+            isPackageAccessModifierSupported: Bool = false
         ) {
             self.canRenameEntrypointFunctionName = canRenameEntrypointFunctionName
             self.enableParseableModuleInterfaces = enableParseableModuleInterfaces
             self.explicitTargetDependencyImportCheckingMode = explicitTargetDependencyImportCheckingMode
             self.useIntegratedSwiftDriver = useIntegratedSwiftDriver
-            self.useExplicitModuleBuild = useExplicitModuleBuild
+            self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         }
 
         /// Whether to enable the entry-point-function-name feature.
@@ -45,11 +45,13 @@ extension BuildParameters {
         /// `.swiftmodule`s.
         public var enableParseableModuleInterfaces: Bool
 
-        /// Whether to use the integrated Swift driver rather than shelling out
+        /// Whether to use the integrated Swift Driver rather than shelling out
         /// to a separate process.
         public var useIntegratedSwiftDriver: Bool
 
-        /// Whether to use the explicit module build flow (with the integrated driver).
-        public var useExplicitModuleBuild: Bool
+        /// Whether the version of Swift Driver used in the currently selected toolchain
+        /// supports `-package-name` options.
+        @_spi(SwiftPMInternal)
+        public var isPackageAccessModifierSupported: Bool
     }
 }

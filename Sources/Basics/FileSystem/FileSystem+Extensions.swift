@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,7 +13,6 @@
 import struct Foundation.Data
 import class Foundation.FileManager
 import struct Foundation.UUID
-import SystemPackage
 
 import struct TSCBasic.ByteString
 import struct TSCBasic.FileInfo
@@ -25,7 +24,7 @@ import var TSCBasic.localFileSystem
 import protocol TSCBasic.WritableByteStream
 
 public typealias FileSystem = TSCBasic.FileSystem
-public var localFileSystem = TSCBasic.localFileSystem
+public let localFileSystem = TSCBasic.localFileSystem
 
 // MARK: - Custom path
 
@@ -196,8 +195,13 @@ extension FileSystem {
     }
 
     /// Execute the given block while holding the lock.
-    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, _ body: () throws -> T) throws -> T {
-        try self.withLock(on: path.underlying, type: type, body)
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool = true, _ body: () throws -> T) throws -> T {
+        try self.withLock(on: path.underlying, type: type, blocking: blocking, body)
+    }
+
+    /// Execute the given block while holding the lock.
+    public func withLock<T>(on path: AbsolutePath, type: FileLock.LockType, blocking: Bool = true, _ body: () async throws -> T) async throws -> T {
+        return try await FileLock.withLock(fileToLock: path.underlying, type: type, blocking: blocking, body: body)
     }
 
     /// Returns any known item replacement directories for a given path. These may be used by platform-specific
@@ -211,9 +215,14 @@ extension FileSystem {
 
 extension FileSystem {
     /// SwiftPM directory under user's home directory (~/.swiftpm)
+    /// or under $XDG_CONFIG_HOME/swiftpm if the environmental variable is defined
     public var dotSwiftPM: AbsolutePath {
         get throws {
-            try self.homeDirectory.appending(".swiftpm")
+            if let configurationDirectory = Environment.current["XDG_CONFIG_HOME"] {
+                return try AbsolutePath(validating: configurationDirectory).appending("swiftpm")
+            } else {
+                return try self.homeDirectory.appending(".swiftpm")
+            }
         }
     }
 
@@ -614,5 +623,75 @@ extension FileSystem {
         }
 
         try self.removeFileTree(tempDirectory)
+    }
+}
+
+// MARK: - Locking
+
+extension FileLock {
+    public static func prepareLock(
+        fileToLock: AbsolutePath,
+        at lockFilesDirectory: AbsolutePath? = nil
+    ) throws -> FileLock {
+        return try Self.prepareLock(fileToLock: fileToLock.underlying, at: lockFilesDirectory?.underlying)
+    }
+}
+
+/// Convenience initializers for testing purposes.
+extension InMemoryFileSystem {
+    /// Create a new file system with the given files, provided as a map from
+    /// file path to contents.
+    public convenience init(files: [String: ByteString]) {
+        self.init()
+
+        for (path, contents) in files {
+            let path = try! AbsolutePath(validating: path)
+            try! createDirectory(path.parentDirectory, recursive: true)
+            try! writeFileContents(path, bytes: contents)
+        }
+    }
+
+    /// Create a new file system with an empty file at each provided path.
+    public convenience init(emptyFiles files: String...) {
+        self.init(emptyFiles: files)
+    }
+
+    /// Create a new file system with an empty file at each provided path.
+    public convenience init(emptyFiles files: [String]) {
+        self.init()
+        self.createEmptyFiles(at: .root, files: files)
+    }
+}
+
+extension FileSystem {
+    public func createEmptyFiles(at root: AbsolutePath, files: String...) {
+        self.createEmptyFiles(at: root, files: files)
+    }
+
+    public func createEmptyFiles(at root: AbsolutePath, files: [String]) {
+        do {
+            try createDirectory(root, recursive: true)
+            for path in files {
+                let path = try AbsolutePath(validating: String(path.dropFirst()), relativeTo: root)
+                try createDirectory(path.parentDirectory, recursive: true)
+                try writeFileContents(path, bytes: "")
+            }
+        } catch {
+            fatalError("Failed to create empty files: \(error)")
+        }
+    }
+}
+
+extension FileSystem {
+    /// Do a deep enumeration, passing each file to block
+    public func enumerate(directory: AbsolutePath, block: (AbsolutePath) throws -> ()) throws {
+        for file in try getDirectoryContents(directory) {
+            let path = directory.appending(file)
+            if isDirectory(path) {
+                try enumerate(directory: path, block: block)
+            } else {
+                try block(path)
+            }
+        }
     }
 }

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -13,16 +13,14 @@
 @testable import Basics
 @testable import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-import enum TSCBasic.ProcessEnv
-import func TSCTestSupport.withCustomEnv
+@available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
+final class ManifestLoaderCacheTests: XCTestCase {
 
-class ManifestLoaderCacheTests: XCTestCase {
-    func testDBCaching() throws {
-        try testWithTemporaryDirectory { path in
+    func testDBCaching() async throws {
+        try await testWithTemporaryDirectory { path in
             let fileSystem = localFileSystem
             let observability = ObservabilitySystem.makeForTesting()
 
@@ -52,11 +50,10 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
 
-            func check(loader: ManifestLoader, expectCached: Bool) throws {
+            func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try XCTUnwrap(loader.load(
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
                     packageKind: .root(manifestPath.parentDirectory),
                     toolsVersion: .current,
@@ -65,15 +62,15 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, (expectCached ? 0 : 1))
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            try check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                try check(loader: manifestLoader, expectCached: true)
+                try await check(loader: manifestLoader, expectCached: true)
             }
 
             try fileSystem.writeFileContents(
@@ -93,9 +90,9 @@ class ManifestLoaderCacheTests: XCTestCase {
                     """
             )
 
-            try check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: false)
             for _ in 0..<2 {
-                try check(loader: manifestLoader, expectCached: true)
+                try await check(loader: manifestLoader, expectCached: true)
             }
 
             let noCacheLoader = ManifestLoader(
@@ -105,18 +102,18 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
             for _ in 0..<2 {
-                try check(loader: noCacheLoader, expectCached: false)
+                try await check(loader: noCacheLoader, expectCached: false)
             }
 
             // Resetting the cache should allow us to remove the cache
             // directory without triggering assertions in sqlite.
-            manifestLoader.purgeCache(observabilityScope: observability.topScope)
+            await manifestLoader.purgeCache(observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
             try fileSystem.removeFileTree(path)
         }
     }
 
-    func testInMemoryCaching() throws {
+    func testInMemoryCaching() async throws {
         let fileSystem = InMemoryFileSystem()
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -146,11 +143,10 @@ class ManifestLoaderCacheTests: XCTestCase {
             delegate: delegate
         )
 
-        func check(loader: ManifestLoader, expectCached: Bool) throws {
+        func check(loader: ManifestLoader, expectCached: Bool) async throws {
             delegate.clear()
-            delegate.prepare(expectParsing: !expectCached)
 
-            let manifest = try XCTUnwrap(loader.load(
+            let manifest = try await XCTAsyncUnwrap(try await loader.load(
                 manifestPath: manifestPath,
                 packageKind: .root(manifestPath.parentDirectory),
                 toolsVersion: .current,
@@ -159,15 +155,15 @@ class ManifestLoaderCacheTests: XCTestCase {
             ))
 
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-            XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+            try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
         }
 
-        try check(loader: manifestLoader, expectCached: false)
+        try await check(loader: manifestLoader, expectCached: false)
         for _ in 0..<2 {
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: true)
         }
 
         try fileSystem.writeFileContents(
@@ -187,9 +183,9 @@ class ManifestLoaderCacheTests: XCTestCase {
                 """
         )
 
-        try check(loader: manifestLoader, expectCached: false)
+        try await check(loader: manifestLoader, expectCached: false)
         for _ in 0..<2 {
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: true)
         }
 
         let noCacheLoader = ManifestLoader(
@@ -199,15 +195,15 @@ class ManifestLoaderCacheTests: XCTestCase {
             delegate: delegate
         )
         for _ in 0..<2 {
-            try check(loader: noCacheLoader, expectCached: false)
+            try await check(loader: noCacheLoader, expectCached: false)
         }
 
-        manifestLoader.purgeCache(observabilityScope: observability.topScope)
+        await manifestLoader.purgeCache(observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
-    func testContentBasedCaching() throws {
-        try testWithTemporaryDirectory { path in
+    func testContentBasedCaching() async throws {
+        try await testWithTemporaryDirectory { path in
             let manifest = """
                 import PackageDescription
                 let package = Package(
@@ -226,14 +222,14 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
 
-            func check(loader: ManifestLoader, manifest: String) throws {
+            func check(loader: ManifestLoader, manifest: String) async throws {
                 let fileSystem = InMemoryFileSystem()
                 let observability = ObservabilitySystem.makeForTesting()
 
                 let manifestPath = AbsolutePath.root.appending(component: Manifest.filename)
                 try fileSystem.writeFileContents(manifestPath, string: manifest)
 
-                let m = try manifestLoader.load(
+                let m = try await manifestLoader.load(
                     manifestPath: manifestPath,
                     packageKind: .root(.root),
                     toolsVersion: .current,
@@ -246,30 +242,87 @@ class ManifestLoaderCacheTests: XCTestCase {
             }
 
             do {
-                delegate.prepare()
-                try check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 1)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+                try await check(loader: manifestLoader, manifest: manifest)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 1)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
             }
 
             do {
-                delegate.prepare(expectParsing: false)
-                try check(loader: manifestLoader, manifest: manifest)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 2)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 1)
+                try await check(loader: manifestLoader, manifest: manifest)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 2)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
             }
 
             do {
-                delegate.prepare()
-                try check(loader: manifestLoader, manifest: manifest + "\n\n")
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1).count, 3)
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, 2)
+                try await check(loader: manifestLoader, manifest: manifest + "\n\n")
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 3)
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 2)
             }
         }
     }
 
-    func testCacheInvalidationOnEnv() throws {
-        try testWithTemporaryDirectory { path in
+    func testCacheInvalidateOnBuildToolsFlags() async throws {
+        try await testWithTemporaryDirectory { path in
+            let fileSystem = InMemoryFileSystem()
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let manifestPath = path.appending(components: "pkg", "Package.swift")
+            try fileSystem.createDirectory(manifestPath.parentDirectory, recursive: true)
+            try fileSystem.writeFileContents(
+                manifestPath,
+                string: """
+                    import PackageDescription
+                    let package = Package(
+                        name: "Trivial",
+                        targets: [
+                            .target(
+                                name: "foo",
+                                dependencies: []),
+                        ]
+                    )
+                    #if TEST_BUILD_FLAG
+                    package.targets[0].name = "bar"
+                    #endif
+                    """
+            )
+
+            try await check(expectCached: false, extraManifestFlags: [], targetName: "foo")
+            try await check(expectCached: true, extraManifestFlags: [], targetName: "foo")
+            // Cache key should take into account the extra flags.
+            try await check(expectCached: false, extraManifestFlags: ["-DTEST_BUILD_FLAG"], targetName: "bar")
+            try await check(expectCached: true, extraManifestFlags: ["-DTEST_BUILD_FLAG"], targetName: "bar")
+            // Cache should hit after back to original flags.
+            try await check(expectCached: true, extraManifestFlags: [], targetName: "foo")
+
+            func check(expectCached: Bool, extraManifestFlags: [String], targetName: String) async throws {
+                let delegate = ManifestTestDelegate()
+
+                let loader = ManifestLoader(
+                    toolchain: try UserToolchain.default,
+                    cacheDir: path,
+                    extraManifestFlags: extraManifestFlags,
+                    delegate: delegate
+                )
+
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
+                    manifestPath: manifestPath,
+                    packageKind: .root(manifestPath.parentDirectory),
+                    toolsVersion: .current,
+                    fileSystem: fileSystem,
+                    observabilityScope: observability.topScope
+                ))
+
+                XCTAssertNoDiagnostics(observability.diagnostics)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+                XCTAssertEqual(manifest.displayName, "Trivial")
+                XCTAssertEqual(manifest.targets[0].name, targetName)
+            }
+        }
+    }
+
+    func testCacheInvalidationOnEnv() async throws {
+        try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
 
@@ -298,26 +351,25 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
 
-            try check(loader: manifestLoader, expectCached: false)
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: true)
 
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
+            try await Environment.makeCustom(["SWIFTPM_MANIFEST_CACHE_TEST": "1"]) {
+                try await check(loader: manifestLoader, expectCached: false)
+                try await check(loader: manifestLoader, expectCached: true)
             }
 
-            try withCustomEnv(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
-                try check(loader: manifestLoader, expectCached: false)
-                try check(loader: manifestLoader, expectCached: true)
+            try await Environment.makeCustom(["SWIFTPM_MANIFEST_CACHE_TEST": "2"]) {
+                try await check(loader: manifestLoader, expectCached: false)
+                try await check(loader: manifestLoader, expectCached: true)
             }
 
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: true)
 
-            func check(loader: ManifestLoader, expectCached: Bool) throws {
+            func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try XCTUnwrap(loader.load(
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
                     packageKind: .root(manifestPath.parentDirectory),
                     toolsVersion: .current,
@@ -326,16 +378,16 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
         }
     }
 
-    func testCacheDoNotInvalidationExpectedEnv() throws {
-        try testWithTemporaryDirectory { path in
+    func testCacheDoNotInvalidationExpectedEnv() async throws {
+        try await testWithTemporaryDirectory { path in
             let fileSystem = InMemoryFileSystem()
             let observability = ObservabilitySystem.makeForTesting()
 
@@ -364,11 +416,10 @@ class ManifestLoaderCacheTests: XCTestCase {
                 delegate: delegate
             )
 
-            func check(loader: ManifestLoader, expectCached: Bool) throws {
+            func check(loader: ManifestLoader, expectCached: Bool) async throws {
                 delegate.clear()
-                delegate.prepare(expectParsing: !expectCached)
 
-                let manifest = try XCTUnwrap(loader.load(
+                let manifest = try await XCTAsyncUnwrap(try await loader.load(
                     manifestPath: manifestPath,
                     packageKind: .root(manifestPath.parentDirectory),
                     toolsVersion: .current,
@@ -377,22 +428,22 @@ class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                XCTAssertEqual(try delegate.loaded(timeout: .now() + 1), [manifestPath])
-                XCTAssertEqual(try delegate.parsed(timeout: .now() + 1).count, expectCached ? 0 : 1)
+                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
+                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            try check(loader: manifestLoader, expectCached: false)
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: false)
+            try await check(loader: manifestLoader, expectCached: true)
 
-            for key in EnvironmentVariables.nonCachableKeys {
-                try withCustomEnv([key: UUID().uuidString]) {
-                    try check(loader: manifestLoader, expectCached: true)
+            for key in EnvironmentKey.nonCachable {
+                try await Environment.makeCustom([key: UUID().uuidString]) {
+                    try await check(loader: manifestLoader, expectCached: true)
                 }
             }
 
-            try check(loader: manifestLoader, expectCached: true)
+            try await check(loader: manifestLoader, expectCached: true)
         }
     }
 
@@ -420,7 +471,7 @@ class ManifestLoaderCacheTests: XCTestCase {
         }
     }
 
-    func testInMemoryCacheHappyCase() throws {
+    func testInMemoryCacheHappyCase() async throws {
         let content = """
             import PackageDescription
             let package = Package(
@@ -442,7 +493,7 @@ class ManifestLoaderCacheTests: XCTestCase {
 
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try PackageDescriptionLoadingTests.loadAndValidateManifest(
+            let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests.loadAndValidateManifest(
                 content,
                 toolsVersion: .current,
                 packageKind: .remoteSourceControl(.init(packageURL)),
@@ -467,7 +518,7 @@ class ManifestLoaderCacheTests: XCTestCase {
         // second time should come from in-memory cache
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try PackageDescriptionLoadingTests.loadAndValidateManifest(
+            let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests.loadAndValidateManifest(
                 content,
                 toolsVersion: .current,
                 packageKind: .remoteSourceControl(.init(packageURL)),
@@ -492,7 +543,7 @@ class ManifestLoaderCacheTests: XCTestCase {
         let newPackageURL = "https://scm.com/\(UUID().uuidString)/foo"
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try PackageDescriptionLoadingTests.loadAndValidateManifest(
+            let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests.loadAndValidateManifest(
                 content,
                 toolsVersion: .current,
                 packageKind: .remoteSourceControl(.init(newPackageURL)),
@@ -516,7 +567,7 @@ class ManifestLoaderCacheTests: XCTestCase {
         // second time should come from in-memory cache
         do {
             let observability = ObservabilitySystem.makeForTesting()
-            let (manifest, validationDiagnostics) = try PackageDescriptionLoadingTests.loadAndValidateManifest(
+            let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests.loadAndValidateManifest(
                 content,
                 toolsVersion: .current,
                 packageKind: .remoteSourceControl(.init(newPackageURL)),
@@ -539,7 +590,11 @@ class ManifestLoaderCacheTests: XCTestCase {
     }
 }
 
-private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, count: Int = Int.random(in: 50 ..< 100)) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
+private func makeMockManifests(
+    fileSystem: FileSystem,
+    rootPath: AbsolutePath,
+    count: Int = Int.random(in: 50 ..< 100)
+) throws -> [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult] {
     var manifests = [ManifestLoader.CacheKey: ManifestLoader.EvaluationResult]()
     for index in 0 ..< count {
         let packagePath = rootPath.appending("\(index)")
@@ -567,6 +622,7 @@ private func makeMockManifests(fileSystem: FileSystem, rootPath: AbsolutePath, c
             toolsVersion: ToolsVersion.current,
             env: [:],
             swiftpmVersion: SwiftVersion.current.displayString,
+            extraManifestFlags: [],
             fileSystem: fileSystem
         )
         manifests[key] = ManifestLoader.EvaluationResult(

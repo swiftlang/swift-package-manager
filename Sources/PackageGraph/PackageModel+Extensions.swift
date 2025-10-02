@@ -35,12 +35,21 @@ extension PackageDependency {
 
 extension Manifest {
     /// Constructs constraints of the dependencies in the raw package.
-    public func dependencyConstraints(productFilter: ProductFilter) throws -> [PackageContainerConstraint] {
-        return try self.dependenciesRequired(for: productFilter).map({
+    public func dependencyConstraints(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
+        return try self.dependenciesRequired(for: productFilter, enabledTraits).map({
+            let explicitlyEnabledTraits = $0.traits?.filter {
+                guard let condition = $0.condition else { return true }
+                return condition.isSatisfied(by: enabledTraits)
+            }.map(\.name)
+
+            let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) ?? ["default"]
+
             return PackageContainerConstraint(
                 package: $0.packageRef,
                 requirement: try $0.toConstraintRequirement(),
-                products: $0.productFilter)
+                products: $0.productFilter,
+                enabledTraits: enabledTraitsSet
+            )
         })
     }
 }

@@ -11,17 +11,29 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
+import TSCUtility
 
-import class TSCBasic.Process
-import struct TSCBasic.ProcessResult
-
+import class Basics.AsyncProcess
 
 public struct MinimumDeploymentTarget {
-    public let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
+    private struct MinimumDeploymentTargetKey: Hashable {
+        let binaryPath: Basics.AbsolutePath
+        let platform: PackageModel.Platform
+    }
+
+    private let minimumDeploymentTargets = ThreadSafeKeyValueStore<MinimumDeploymentTargetKey,PlatformVersion>()
+    private let xcTestMinimumDeploymentTargets = ThreadSafeKeyValueStore<PackageModel.Platform,PlatformVersion>()
 
     public static let `default`: MinimumDeploymentTarget = .init()
 
     private init() {
+    }
+
+    public func computeMinimumDeploymentTarget(of binaryPath: Basics.AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion {
+        try self.minimumDeploymentTargets.memoize(MinimumDeploymentTargetKey(binaryPath: binaryPath, platform: platform)) {
+            return try Self.computeMinimumDeploymentTarget(of: binaryPath, platform: platform) ?? platform.oldestSupportedVersion
+        }
     }
 
     public func computeXCTestMinimumDeploymentTarget(for platform: PackageModel.Platform) -> PlatformVersion {
@@ -30,12 +42,12 @@ public struct MinimumDeploymentTarget {
         }
     }
 
-    static func computeMinimumDeploymentTarget(of binaryPath: AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion? {
+    static func computeMinimumDeploymentTarget(of binaryPath: Basics.AbsolutePath, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let (_, platformName) = platform.sdkNameAndPlatform else {
             return nil
         }
 
-        let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
+        let runResult = try AsyncProcess.popen(arguments: ["/usr/bin/xcrun", "vtool", "-show-build", binaryPath.pathString])
         var lines = try runResult.utf8Output().components(separatedBy: "\n")
         while !lines.isEmpty {
             let first = lines.removeFirst()
@@ -46,10 +58,10 @@ public struct MinimumDeploymentTarget {
         return nil
     }
 
-    static func computeXCTestMinimumDeploymentTarget(with runResult: ProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
+    static func computeXCTestMinimumDeploymentTarget(with runResult: AsyncProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
-        let sdkPath = try AbsolutePath(validating: output)
-        let xcTestPath = try AbsolutePath(validating: "Developer/Library/Frameworks/XCTest.framework/XCTest", relativeTo: sdkPath)
+        let sdkPath = try Basics.AbsolutePath(validating: output)
+        let xcTestPath = try Basics.AbsolutePath(validating: "Developer/Library/Frameworks/XCTest.framework/XCTest", relativeTo: sdkPath)
         return try computeMinimumDeploymentTarget(of: xcTestPath, platform: platform)
     }
 
@@ -61,7 +73,7 @@ public struct MinimumDeploymentTarget {
         // On macOS, we are determining the deployment target by looking at the XCTest binary.
         #if os(macOS)
         do {
-            let runResult = try Process.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
+            let runResult = try AsyncProcess.popen(arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-platform-path"])
 
             if let version = try computeXCTestMinimumDeploymentTarget(with: runResult, platform: platform) {
                 return version

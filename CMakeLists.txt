@@ -10,7 +10,7 @@ if(POLICY CMP0091)
   cmake_policy(SET CMP0091 NEW)
 endif()
 
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.24)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
@@ -45,11 +45,19 @@ if(FIND_PM_DEPS)
   find_package(SwiftASN1 CONFIG REQUIRED)
   find_package(SwiftCertificates CONFIG REQUIRED)
   find_package(SwiftCrypto CONFIG REQUIRED)
+  find_package(SwiftBuild CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)
 find_package(Foundation QUIET)
 find_package(SQLite3 REQUIRED)
 
+# Enable `package` modifier for the whole package.
+add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:SHELL:-package-name swift_package_manager>")
+if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
+  link_directories(/usr/local/lib)
+endif()
+
+add_subdirectory(BuildSupport/SwiftSyntax)
 add_subdirectory(Sources)
 add_subdirectory(cmake/modules)

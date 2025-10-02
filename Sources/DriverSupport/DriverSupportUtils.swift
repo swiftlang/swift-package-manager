@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2022-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,17 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_spi(SwiftPMInternal)
 import Basics
+import Foundation
 import PackageModel
 import SwiftDriver
 import class TSCBasic.Process
-import enum TSCBasic.ProcessEnv
 import struct TSCBasic.ProcessResult
 
 public enum DriverSupport {
     private static var flagsMap = ThreadSafeBox<[String: Set<String>]>()
 
-    // This checks _frontend_ supported flags, which are not necessarily supported in the driver.
+    /// This checks _frontend_ supported flags, which are not necessarily supported in the driver.
     public static func checkSupportedFrontendFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
@@ -41,6 +42,7 @@ public enum DriverSupport {
             let driver = try Driver(
                 args: ["swiftc"],
                 executor: executor,
+                compilerIntegratedTooling: false,
                 compilerExecutableDir: TSCAbsolutePath(toolchain.swiftCompilerPath.parentDirectory)
             )
             let supportedFlagSet = Set(driver.supportedFrontendFlags.map { $0.trimmingCharacters(in: ["-"]) })
@@ -54,7 +56,7 @@ public enum DriverSupport {
     // This checks if given flags are supported in the built-in toolchain driver. Currently
     // there's no good way to get the supported flags from it, so run `swiftc -h` directly
     // to get the flags and cache the result.
-    public static func checkToolchainDriverFlags(
+    static func checkToolchainDriverFlags(
         flags: Set<String>,
         toolchain: PackageModel.Toolchain,
         fileSystem: FileSystem
@@ -66,9 +68,9 @@ public enum DriverSupport {
             return cachedSupportedFlagSet.intersection(trimmedFlagSet) == trimmedFlagSet
         }
         do {
-            let helpJob = try Process.launchProcess(
+            let helpJob = try TSCBasic.Process.launchProcess(
                 arguments: [swiftcPathString, "-h"],
-                env: ProcessEnv.vars
+                env: .init(Environment.current)
             )
             let processResult = try helpJob.waitUntilExit()
             guard processResult.exitStatus == .terminated(code: 0) else {
@@ -82,5 +84,10 @@ public enum DriverSupport {
         } catch {
             return false
         }
+    }
+
+    @_spi(SwiftPMInternal)
+    public static func isPackageNameSupported(toolchain: PackageModel.Toolchain, fileSystem: FileSystem) -> Bool {
+        DriverSupport.checkToolchainDriverFlags(flags: ["-package-name"], toolchain: toolchain, fileSystem: fileSystem)
     }
 }

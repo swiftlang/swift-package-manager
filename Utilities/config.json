@@ -1,1 +1,3 @@
-{"version":1,"swiftSyntaxVersionForMacroTemplate":{"major":509,"minor":0,"patch":0}}
+{"version":1,
+  "swiftSyntaxVersionForMacroTemplate":{"major":602,"minor":0,"patch":0, "prereleaseIdentifier":"latest"},
+  "swiftTestingVersionForTestTemplate":{"major":0,"minor":8,"patch":0}}

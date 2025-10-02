@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @testable import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
 final class LegacyHTTPClientTests: XCTestCase {
@@ -349,7 +349,9 @@ final class LegacyHTTPClientTests: XCTestCase {
         wait(for: [promise], timeout: 1)
     }
 
-    func testExponentialBackoff() {
+    func testExponentialBackoff() throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8501")
+
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date>()
         let maxAttempts = 5

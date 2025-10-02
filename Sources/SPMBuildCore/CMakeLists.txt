@@ -9,6 +9,7 @@
 add_library(SPMBuildCore
   BinaryTarget+Extensions.swift
   BuildParameters/BuildParameters.swift
+  BuildParameters/BuildParameters+APIDigester.swift
   BuildParameters/BuildParameters+Debugging.swift
   BuildParameters/BuildParameters+Driver.swift
   BuildParameters/BuildParameters+Linking.swift
@@ -17,14 +18,19 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystem.swift
   BuildSystem/BuildSystemCommand.swift
   BuildSystem/BuildSystemDelegate.swift
+  BuildSystem/DiagnosticsCapturingBuildSystemDelegate.swift
   BuiltTestProduct.swift
+  Plugins/DefaultPluginScriptRunner.swift
   Plugins/PluginContextSerializer.swift
   Plugins/PluginInvocation.swift
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
-  PrebuildCommandResult.swift
+  CommandPluginResult.swift
+  MainAttrDetection.swift
+  ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
-  XCFrameworkMetadata.swift)
+  XCFrameworkMetadata.swift
+  XcodeProjectRepresentation.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(SPMBuildCore PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
@@ -32,6 +38,7 @@ target_link_libraries(SPMBuildCore PUBLIC
   TSCBasic
   TSCUtility
   Basics
+  SwiftCollections::OrderedCollections
   PackageGraph)
 
 

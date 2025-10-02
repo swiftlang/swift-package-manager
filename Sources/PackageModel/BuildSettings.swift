@@ -12,12 +12,13 @@
 
 /// Namespace for build settings.
 public enum BuildSettings {
-
     /// Build settings declarations.
-    public struct Declaration: Hashable, Codable {
+    public struct Declaration: Hashable {
         // Swift.
-        public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration = .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
+        public static let SWIFT_ACTIVE_COMPILATION_CONDITIONS: Declaration =
+            .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
         public static let OTHER_SWIFT_FLAGS: Declaration = .init("OTHER_SWIFT_FLAGS")
+        public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")
@@ -39,48 +40,48 @@ public enum BuildSettings {
     }
 
     /// An individual build setting assignment.
-    public struct Assignment: Codable, Equatable, Hashable {
+    public struct Assignment: Equatable, Hashable {
         /// The assignment value.
         public var values: [String]
 
-        // FIXME: This should use `Set` but we need to investigate potential build failures on Linux caused by using it.
-        /// The condition associated with this assignment.
-        public var conditions: [PackageCondition] {
-            get {
-                return _conditions.map { $0.underlying }
-            }
-            set {
-                _conditions = newValue.map { PackageConditionWrapper($0) }
-            }
+        public var conditions: [PackageCondition]
+
+        /// Indicates whether this assignment represents a default
+        /// that should be used only if no other assignments match.
+        public let `default`: Bool
+
+        public init(default: Bool = false) {
+            self.conditions = []
+            self.values = []
+            self.default = `default`
         }
 
-        private var _conditions: [PackageConditionWrapper]
-
-        public init() {
-            self._conditions = []
-            self.values = []
+        public init(values: [String] = [], conditions: [PackageCondition] = []) {
+            self.values = values
+            self.default = false // TODO(franz): Check again
+            self.conditions = conditions
         }
     }
 
     /// Build setting assignment table which maps a build setting to a list of assignments.
-    public struct AssignmentTable: Codable {
+    public struct AssignmentTable {
         public private(set) var assignments: [Declaration: [Assignment]]
 
         public init() {
-            assignments = [:]
+            self.assignments = [:]
         }
 
         /// Add the given assignment to the table.
-        mutating public func add(_ assignment: Assignment, for decl: Declaration) {
+        public mutating func add(_ assignment: Assignment, for decl: Declaration) {
             // FIXME: We should check for duplicate assignments.
-            assignments[decl, default: []].append(assignment)
+            self.assignments[decl, default: []].append(assignment)
         }
     }
 
     /// Provides a view onto assignment table with a given set of bound parameters.
     ///
     /// This class can be used to get the assignments matching the bound parameters.
-    public final class Scope {
+    public struct Scope {
         /// The assignment table.
         public let table: AssignmentTable
 
@@ -100,12 +101,18 @@ public enum BuildSettings {
             }
 
             // Add values from each assignment if it satisfies the build environment.
-            let values = assignments
+            let allViableAssignments = assignments
                 .lazy
                 .filter { $0.conditions.allSatisfy { $0.satisfies(self.environment) } }
-                .flatMap { $0.values }
 
-            return Array(values)
+            let nonDefaultAssignments = allViableAssignments.filter { !$0.default }
+
+            // If there are no non-default assignments, let's fallback to defaults.
+            if nonDefaultAssignments.isEmpty {
+                return allViableAssignments.filter(\.default).flatMap(\.values)
+            }
+
+            return nonDefaultAssignments.flatMap(\.values)
         }
     }
 }

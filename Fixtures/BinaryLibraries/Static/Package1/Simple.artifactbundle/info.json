@@ -1,0 +1,35 @@
+{
+    "schemaVersion": "1.0",
+    "artifacts": {
+        "simple": {
+            "type": "staticLibrary",
+            "version": "1.0.0",
+            "variants": [
+                {
+                    "path": "dist/macOS/libSimple.a",
+                    "supportedTriples": ["arm64-apple-macosx", "x86_64-apple-macosx"],
+                    "staticLibraryMetadata": {
+                        "headerPaths": ["include"],
+                        "moduleMapPath": "include/simple.modulemap"
+                    }
+                },
+                {
+                    "path": "dist/linux/libSimple_arm64.a",
+                    "supportedTriples": ["aarch64-unknown-linux-gnu"],
+                    "staticLibraryMetadata": {
+                        "headerPaths": ["include"],
+                        "moduleMapPath": "include/simple.modulemap"
+                    }
+                },
+                {
+                    "path": "dist/linux/libSimple_x86_64.a",
+                    "supportedTriples": ["x86_64-unknown-linux-gnu"],
+                    "staticLibraryMetadata": {
+                        "headerPaths": ["include"],
+                        "moduleMapPath": "include/simple.modulemap"
+                    }
+                }
+            ]
+        }
+    }
+}

@@ -3,7 +3,7 @@
 ##
 ## This source file is part of the Swift open source project
 ##
-## Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+## Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 ## Licensed under Apache License v2.0 with Runtime Library Exception
 ##
 ## See http://swift.org/LICENSE.txt for license information
@@ -11,19 +11,37 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-import subprocess
-import sys
-import os
+import contextlib
+import enum
 import errno
+import logging
+import os
+import pathlib
+import subprocess
+import typing as t
 
-def note(message):
-    print("--- %s: note: %s" % (os.path.basename(sys.argv[0]), message))
-    sys.stdout.flush()
 
-def error(message):
-    print("--- %s: error: %s" % (os.path.basename(sys.argv[0]), message))
-    sys.stdout.flush()
-    raise SystemExit(1)
+@contextlib.contextmanager
+def change_directory(directory: pathlib.Path) -> t.Iterator[pathlib.Path]:
+    current_directory = pathlib.Path.cwd()
+    logging.info("Current directory is %s", current_directory)
+    logging.info("Changing directory to: %s", directory)
+    os.chdir(directory)
+
+    try:
+        yield directory
+    finally:
+        logging.debug("Chaning directory back to %s", current_directory)
+        os.chdir(current_directory)
+
+
+class Configuration(str, enum.Enum):
+    DEBUG = "debug"
+    RELEASE = "release"
+
+    def __str__(self) -> str:
+        return self.value
+
 
 def symlink_force(source, destination):
     try:
@@ -32,6 +50,7 @@ def symlink_force(source, destination):
         if e.errno == errno.EEXIST:
             os.remove(destination)
             os.symlink(source, destination)
+
 
 def mkdir_p(path):
     """Create the given directory, if it does not exist."""
@@ -42,24 +61,68 @@ def mkdir_p(path):
         if e.errno != errno.EEXIST:
             raise
 
+
 def call(cmd, cwd=None, verbose=False):
     """Calls a subprocess."""
-    if verbose:
-        print(' '.join(cmd))
+    cwd = cwd or pathlib.Path.cwd()
     try:
+        logging.info("executing command >>> %r with cwd %s", cmd, cwd)
         subprocess.check_call(cmd, cwd=cwd)
-    except Exception as e:
-        if not verbose:
-            print(' '.join(cmd))
-        error(str(e))
+    except subprocess.CalledProcessError as cpe:
+        logging.debug("executing command >>> %r with cwd %s", cmd, cwd)
+        logging.error(
+            "\n".join([
+                "Process failure with return code %d: %s",
+                "[---- START stdout ----]",
+                "%s",
+                "[---- END stdout ----]",
+                "[---- START stderr ----]",
+                "%s",
+                "[---- END stderr ----]",
+                "[---- START OUTPUT ----]",
+                "%s",
+                "[---- END OUTPUT ----]",
+            ]),
+            cpe.returncode,
+            str(cpe),
+            cpe.stdout,
+            cpe.stderr,
+            cpe.output,
+        )
+        raise cpe
+
 
 def call_output(cmd, cwd=None, stderr=False, verbose=False):
     """Calls a subprocess for its return data."""
-    if verbose:
-        print(' '.join(cmd))
+    stderr = subprocess.STDOUT if stderr else False
+    cwd = cwd or pathlib.Path.cwd()
+    logging.info("executing command >>> %r with cwd %s", cmd, cwd)
     try:
-        return subprocess.check_output(cmd, cwd=cwd, stderr=stderr, universal_newlines=True).strip()
-    except Exception as e:
-        if not verbose:
-            print(' '.join(cmd))
-        error(str(e))
+        return subprocess.check_output(
+            cmd,
+            cwd=cwd,
+            stderr=stderr,
+            universal_newlines=True,
+        ).strip()
+    except subprocess.CalledProcessError as cpe:
+        logging.debug("executing command >>> %r with cwd %s", cmd, cwd)
+        logging.error(
+            "\n".join([
+                "Process failure with return code %d: %s",
+                "[---- START stdout ----]",
+                "%s",
+                "[---- END stdout ----]",
+                "[---- START stderr ----]",
+                "%s",
+                "[---- END stderr ----]",
+                "[---- START OUTPUT ----]",
+                "%s",
+                "[---- END OUTPUT ----]",
+            ]),
+            cpe.returncode,
+            str(cpe),
+            cpe.stdout,
+            cpe.stderr,
+            cpe.output,
+        )
+        raise cpe

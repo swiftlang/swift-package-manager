@@ -34,14 +34,18 @@ extension Manifest {
         packageDirectory: AbsolutePath,
         toolsVersionHeaderComment: String? = .none,
         additionalImportModuleNames: [String] = [],
-        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator? = .none
+        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator? = .none,
+        overridingToolsVersion: ToolsVersion? = nil
     ) rethrows -> String {
+        let toolsVersion = overridingToolsVersion ?? self.toolsVersion
+        
         // Generate the source code fragment for the top level of the package
         // expression.
         let packageExprFragment = try SourceCodeFragment(
             from: self,
             packageDirectory: packageDirectory,
-            customProductTypeSourceGenerator: customProductTypeSourceGenerator)
+            customProductTypeSourceGenerator: customProductTypeSourceGenerator,
+            toolsVersion: toolsVersion)
         
         // Generate the source code from the module names and code fragment.
         // We only write out the major and minor (not patch) versions of the
@@ -57,18 +61,19 @@ extension Manifest {
     }
 }
 
-/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifer and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
+/// Constructs and returns a SourceCodeFragment that represents the instantiation of a custom product type with the specified identifier and having the given serialized parameters (the contents of whom are a private matter between the serialized form in PackageDescription and the client). The generated source code should, if evaluated as a part of a package manifest, result in the same serialized parameters.
 public typealias ManifestCustomProductTypeSourceGenerator = (ProductDescription) throws -> SourceCodeFragment?
 
 
 /// Convenience initializers for package manifest structures.
 fileprivate extension SourceCodeFragment {
-    
+
     /// Instantiates a SourceCodeFragment to represent an entire manifest.
     init(
         from manifest: Manifest,
         packageDirectory: AbsolutePath,
-        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?
+        customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?,
+        toolsVersion: ToolsVersion
     ) rethrows {
         var params: [SourceCodeFragment] = []
         
@@ -93,8 +98,13 @@ fileprivate extension SourceCodeFragment {
         }
 
         if !manifest.products.isEmpty {
-            let nodes = try manifest.products.map{ try SourceCodeFragment(from: $0, customProductTypeSourceGenerator: customProductTypeSourceGenerator) }
+            let nodes = try manifest.products.map{ try SourceCodeFragment(from: $0, customProductTypeSourceGenerator: customProductTypeSourceGenerator, toolsVersion: toolsVersion) }
             params.append(SourceCodeFragment(key: "products", subnodes: nodes))
+        }
+
+        if !manifest.traits.isEmpty {
+            let nodes = manifest.traits.map { SourceCodeFragment(from: $0) }
+            params.append(SourceCodeFragment(key: "traits", subnodes: nodes))
         }
 
         if !manifest.dependencies.isEmpty {
@@ -153,7 +163,7 @@ fileprivate extension SourceCodeFragment {
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
     init(from dependency: PackageDependency, pathAnchor: AbsolutePath) {
         var params: [SourceCodeFragment] = []
-        if let explicitName = dependency.explicitNameForTargetDependencyResolutionOnly {
+        if let explicitName = dependency.explicitNameForModuleDependencyResolutionOnly {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
@@ -187,12 +197,71 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }
         }
+
+        if let traits = dependency.traits {
+            // If only `.defaults` is specified, do not output `traits:` .
+            // This is because `traits:` is not available in toolchains earlier than 6.1.
+            let isDefault = traits.count == 1 &&
+                traits.allSatisfy(\.isDefaultsCase)
+
+            if !isDefault {
+                let traits = traits.sorted { a, b in
+                    PackageDependency.Trait.precedes(a, b)
+                }
+                params.append(
+                    SourceCodeFragment(
+                        key: "traits",
+                        subnodes: traits.map { SourceCodeFragment(from: $0) }
+                    )
+                )
+            }
+        }
+
         self.init(enum: "package", subnodes: params)
     }
-    
+
+    init(from trait: PackageDependency.Trait) {
+        if trait.isDefaultsCase {
+            self.init(enum: "defaults")
+            return
+        }
+
+        guard let condition = trait.condition else {
+            self.init(string: trait.name)
+            return
+        }
+
+        let conditionNode = SourceCodeFragment(
+            key: "condition",
+            subnode: SourceCodeFragment(from: condition)
+        )
+
+        self.init(enum: "trait", subnodes: [
+            SourceCodeFragment(key: "name", string: trait.name),
+            conditionNode
+        ])
+    }
+
+    init(from condition: PackageDependency.Trait.Condition) {
+        var params: [SourceCodeFragment] = []
+
+        if let trait = condition.traits {
+            params.append(
+                SourceCodeFragment(
+                    key: "traits",
+                    subnodes: trait.sorted().map {
+                        SourceCodeFragment(string: $0)
+                    }
+                )
+            )
+        }
+
+        self.init(enum: "when", subnodes: params)
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single product. If there's a custom product generator, it gets
     /// a chance to generate the source code fragments before checking the default types.
-    init(from product: ProductDescription, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?) rethrows {
+    init(from product: ProductDescription, customProductTypeSourceGenerator: ManifestCustomProductTypeSourceGenerator?, toolsVersion: ToolsVersion) rethrows {
         // Use a custom source code fragment if we have a custom generator and it returns a value.
         if let customSubnode = try customProductTypeSourceGenerator?(product) {
             self = customSubnode
@@ -201,7 +270,7 @@ fileprivate extension SourceCodeFragment {
         else {
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "name", string: product.name))
-            if !product.targets.isEmpty {
+            if !product.targets.isEmpty && !product.type.isLibrary {
                 params.append(SourceCodeFragment(key: "targets", strings: product.targets))
             }
             switch product.type {
@@ -209,21 +278,88 @@ fileprivate extension SourceCodeFragment {
                 if type != .automatic {
                     params.append(SourceCodeFragment(key: "type", enum: type.rawValue))
                 }
-	            self.init(enum: "library", subnodes: params, multiline: true)
-	        case .executable:
-	            self.init(enum: "executable", subnodes: params, multiline: true)
-	        case .snippet:
-	            self.init(enum: "sample", subnodes: params, multiline: true)
-	        case .plugin:
-	            self.init(enum: "plugin", subnodes: params, multiline: true)
-	        case .test:
-	            self.init(enum: "test", subnodes: params, multiline: true)
+                if !product.targets.isEmpty {
+                    params.append(SourceCodeFragment(key: "targets", strings: product.targets))
+                }
+                self.init(enum: "library", subnodes: params, multiline: true)
+            case .executable:
+                // For iOSApplication targets, we temporarily do something special
+                // This will be generalized once we are sure of how it should look.
+                let isIOSApp = product.settings.contains(where: {
+                    // iOS apps are currently identifier by an iOSAppInfo product
+                    // setting.
+                    if case .iOSAppInfo(_) = $0 {
+                        return true
+                    }
+                    return false
+                })
+                if isIOSApp {
+                    // Create a parameter for each of the product settings.
+                    for setting in product.settings {
+                        let subnode = SourceCodeFragment(from: setting, toolsVersion: toolsVersion)
+                        switch setting {
+                        case .iOSAppInfo(_):
+                            // For the app info only, we hoist the subnodes of the
+                            // initializer out to the top level, since that is the
+                            // form of the instantiator function.
+                            params.append(contentsOf: subnode.subnodes?.first?.subnodes ?? [])
+                        default:
+                            // Other product settings are just added as they are.
+                            params.append(subnode)
+                        }
+                    }
+                    self.init(enum: "iOSApplication", subnodes: params, multiline: true)
+                }
+                else {
+                    self.init(enum: "executable", subnodes: params, multiline: true)
+                }
+            case .snippet:
+                self.init(enum: "sample", subnodes: params, multiline: true)
+            case .plugin:
+                self.init(enum: "plugin", subnodes: params, multiline: true)
+            case .test:
+                self.init(enum: "test", subnodes: params, multiline: true)
             case .macro:
                 self.init(enum: "macro", subnodes: params, multiline: true)
             }
         }
     }
-    
+
+    init(from trait: TraitDescription) {
+        let enabledTraitsNode = SourceCodeFragment(
+            key: "enabledTraits",
+            subnodes: trait.enabledTraits.sorted().map {
+                SourceCodeFragment(string: $0)
+            }
+        )
+
+        if trait.isDefault {
+            self.init(enum: "default", subnodes: [enabledTraitsNode])
+            return
+        }
+
+        if trait.description == nil, trait.enabledTraits.isEmpty {
+            self.init(string: trait.name)
+            return
+        }
+
+        var params: [SourceCodeFragment] = [
+            SourceCodeFragment(key: "name", string: trait.name)
+        ]
+
+        if let description = trait.description {
+            params.append(
+                SourceCodeFragment(key: "description", string: description)
+            )
+        }
+
+        if !trait.enabledTraits.isEmpty {
+            params.append(enabledTraitsNode)
+        }
+
+        self.init(enum: "trait", subnodes: params)
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single target.
     init(from target: TargetDescription) {
         var params: [SourceCodeFragment] = []
@@ -370,7 +506,19 @@ fileprivate extension SourceCodeFragment {
             case "watchos": return SourceCodeFragment(enum: "watchOS")
             case "visionos": return SourceCodeFragment(enum: "visionOS")
             case "driverkit": return SourceCodeFragment(enum: "driverKit")
-            default: return SourceCodeFragment(enum: platformName)
+
+            // Among known cases, those not requiring capitalization changes
+            case "linux", "windows", "android", "wasi", "openbsd":
+                return SourceCodeFragment(enum: platformName)
+
+            // Known cases but not yet available
+            case "freebsd": fallthrough
+            default:
+                // For unknown cases, output using custom notation
+                return SourceCodeFragment(
+                    enum: "custom",
+                    subnodes: [.init(string: platformName)]
+                )
             }
         }
         if !platformNodes.isEmpty {
@@ -378,6 +526,13 @@ fileprivate extension SourceCodeFragment {
         }
         if let configName = condition.config {
             params.append(SourceCodeFragment(key: "configuration", enum: configName))
+        }
+        if let traits = condition.traits {
+            params.append(
+                SourceCodeFragment(key: "traits", subnodes: traits.sorted().map { trait in
+                    SourceCodeFragment(string: trait)
+                })
+            )
         }
         self.init(enum: "when", subnodes: params)
     }
@@ -413,6 +568,9 @@ fileprivate extension SourceCodeFragment {
         case .nuget(let names):
             let params = [SourceCodeFragment(strings: names)]
             self.init(enum: "nuget", subnodes: params)
+        case .pkg(let names):
+            let params = [SourceCodeFragment(strings: names)]
+            self.init(enum: "pkg", subnodes: params)
         }
     }
 
@@ -505,6 +663,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .strictMemorySafety:
+          self.init(enum: setting.kind.name, subnodes: [])
         case .define(let value):
             let parts = value.split(separator: "=", maxSplits: 1)
             assert(parts.count == 1 || parts.count == 2)
@@ -525,6 +685,322 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .swiftLanguageMode(let version):
+            params.append(SourceCodeFragment(from: version))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .treatAllWarnings(let level):
+            params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .treatWarning(let name, let level):
+            params.append(SourceCodeFragment(string: name))
+            params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .enableWarning(let name):
+            params.append(SourceCodeFragment(string: name))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .disableWarning(let name):
+            params.append(SourceCodeFragment(string: name))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .defaultIsolation(let isolation):
+            switch isolation {
+            case .MainActor:
+                params.append(SourceCodeFragment("MainActor.self"))
+            case .nonisolated:
+                params.append(SourceCodeFragment("nil"))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.
+    init(from productSetting: ProductSetting, toolsVersion: ToolsVersion) {
+        switch productSetting {
+        case .bundleIdentifier(let value):
+            self.init(key: "bundleIdentifier", string: value)
+        case .teamIdentifier(let value):
+            self.init(key: "teamIdentifier", string: value)
+        case .displayVersion(let value):
+            self.init(key: "displayVersion", string: value)
+        case .bundleVersion(let value):
+            self.init(key: "bundleVersion", string: value)
+        case .iOSAppInfo(let value):
+            self.init(key: "iOSAppInfo", subnode: SourceCodeFragment(from: value, toolsVersion: toolsVersion))
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.
+    init(from appInfo: ProductSetting.IOSAppInfo, toolsVersion: ToolsVersion) {
+        var params: [SourceCodeFragment] = []
+        if let appIcon = appInfo.appIcon {
+            switch appIcon {
+            case let .placeholder(icon):
+                params.append(SourceCodeFragment(key: "appIcon", enum: "placeholder", subnodes: [SourceCodeFragment(from: icon)]))
+            case let .asset(name):
+                if toolsVersion < .v5_6 {
+                    params.append(SourceCodeFragment(key: "iconAssetName", string: "\(name)"))
+                }
+                else {
+                    params.append(SourceCodeFragment(key: "appIcon", enum: "asset", string: "\(name)"))
+                }
+            }
+        }
+        if let accentColor = appInfo.accentColor {
+            switch accentColor {
+            case let .presetColor(presetColor):
+                params.append(SourceCodeFragment(key: "accentColor", enum: "presetColor", subnodes: [SourceCodeFragment(from: presetColor)]))
+            case let .asset(name):
+                if toolsVersion < .v5_6 {
+                    params.append(SourceCodeFragment(key: "accentColorAssetName", string: "\(name)"))
+                }
+                else {
+                    params.append(SourceCodeFragment(key: "accentColor", enum: "asset", string: "\(name)"))
+                }
+            }
+        }
+        params.append(SourceCodeFragment(key: "supportedDeviceFamilies", subnodes: appInfo.supportedDeviceFamilies.map{
+            SourceCodeFragment(from: $0)
+        }))
+        params.append(SourceCodeFragment(key: "supportedInterfaceOrientations", subnodes: appInfo.supportedInterfaceOrientations.map{ SourceCodeFragment(from: $0)
+        }))
+        if !appInfo.capabilities.isEmpty {
+            params.append(SourceCodeFragment(key: "capabilities", subnodes: appInfo.capabilities.map{ SourceCodeFragment(from: $0) }))
+        }
+        if let appCategory = appInfo.appCategory {
+            params.append(SourceCodeFragment(subnode: SourceCodeFragment(from: appCategory)))
+        }
+        if let additionalInfoPlistContentFilePath = appInfo.additionalInfoPlistContentFilePath {
+            params.append(SourceCodeFragment(key: "additionalInfoPlistContentFilePath", string: additionalInfoPlistContentFilePath))
+        }
+        self.init(enum: "init", subnodes: params, multiline: true)
+    }
+    
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon.
+    init(from placeholderIcon: ProductSetting.IOSAppInfo.AppIcon.PlaceholderIcon) {
+        self.init(key: "icon", enum: placeholderIcon.rawValue)
+    }
+    
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AccentColor.PresetColor.
+    init(from presetColor: ProductSetting.IOSAppInfo.AccentColor.PresetColor) {
+        self.init(enum: presetColor.rawValue)
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.DeviceFamily.
+    init(from deviceFamily: ProductSetting.IOSAppInfo.DeviceFamily) {
+        self.init(enum: deviceFamily.rawValue)
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.DeviceFamilyCondition.
+    init(from deviceFamilyCondition: ProductSetting.IOSAppInfo.DeviceFamilyCondition) {
+        let deviceFamilyNodes = deviceFamilyCondition.deviceFamilies.map{ SourceCodeFragment(from: $0) }
+        let deviceFamiliesList = SourceCodeFragment(key: "deviceFamilies", subnodes: deviceFamilyNodes, multiline: false)
+        self.init(enum: "when", subnodes: [deviceFamiliesList])
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.InterfaceOrientation.
+    init(from orientation: ProductSetting.IOSAppInfo.InterfaceOrientation) {
+        switch orientation {
+        case .portrait(let condition):
+            self.init(enum: "portrait", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+        case .portraitUpsideDown(let condition):
+            self.init(enum: "portraitUpsideDown", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+        case .landscapeLeft(let condition):
+            self.init(enum: "landscapeLeft", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+        case .landscapeRight(let condition):
+            self.init(enum: "landscapeRight", subnodes: condition.map{ [SourceCodeFragment(from: $0)] })
+        }
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.Capability.
+    init(from capability: ProductSetting.IOSAppInfo.Capability) {
+        var params: [SourceCodeFragment] = []
+        if let purposeString = capability.purposeString {
+            params.append(SourceCodeFragment(key: "purposeString", string: purposeString))
+        }
+        if let configuration = capability.appTransportSecurityConfiguration {
+            params.append(SourceCodeFragment(key: "configuration", subnode: .init(from: configuration)))
+        }
+        if let bonjourServiceTypes = capability.bonjourServiceTypes {
+            params.append(SourceCodeFragment(key: "bonjourServiceTypes", strings: bonjourServiceTypes))
+        }
+        if let fileAccessLocation = capability.fileAccessLocation {
+            params.append(SourceCodeFragment(enum: fileAccessLocation))
+        }
+        if let fileAccessMode = capability.fileAccessMode {
+            params.append(SourceCodeFragment(key: "mode", enum: fileAccessMode))
+        }
+
+        if let condition = capability.condition {
+            params.append(SourceCodeFragment(from: condition))
+        }
+        self.init(enum: capability.purpose, subnodes: params)
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.
+    init(from configuration: ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration) {
+        var params: [SourceCodeFragment] = []
+        if let allowsArbitraryLoadsInWebContent = configuration.allowsArbitraryLoadsInWebContent {
+            params.append(SourceCodeFragment(key: "allowsArbitraryLoadsInWebContent", boolean: allowsArbitraryLoadsInWebContent))
+        }
+        if let allowsArbitraryLoadsForMedia = configuration.allowsArbitraryLoadsForMedia {
+            params.append(SourceCodeFragment(key: "allowsArbitraryLoadsForMedia", boolean: allowsArbitraryLoadsForMedia))
+        }
+        if let allowsLocalNetworking = configuration.allowsLocalNetworking {
+            params.append(SourceCodeFragment(key: "allowsLocalNetworking", boolean: allowsLocalNetworking))
+        }
+        if let exceptionDomains = configuration.exceptionDomains {
+            let subnodes = exceptionDomains.map{ SourceCodeFragment(from: $0) }
+            params.append(SourceCodeFragment(key: "exceptionDomains", subnodes: subnodes))
+        }
+        if let pinnedDomains = configuration.pinnedDomains {
+            let subnodes = pinnedDomains.map{ SourceCodeFragment(from: $0) }
+            params.append(SourceCodeFragment(key: "pinnedDomains", subnodes: subnodes))
+        }
+        self.init(enum: "init", subnodes: params, multiline: true)
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.ExceptionDomain.
+    init(from domain: ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.ExceptionDomain) {
+        var params: [SourceCodeFragment] = []
+        params.append(SourceCodeFragment(key: "domainName", string: domain.domainName))
+        if let includesSubdomains = domain.includesSubdomains {
+            params.append(SourceCodeFragment(key: "includesSubdomains", boolean: includesSubdomains))
+        }
+        if let exceptionAllowsInsecureHTTPLoads = domain.exceptionAllowsInsecureHTTPLoads {
+            params.append(SourceCodeFragment(key: "exceptionAllowsInsecureHTTPLoads", boolean: exceptionAllowsInsecureHTTPLoads))
+        }
+        if let exceptionMinimumTLSVersion = domain.exceptionMinimumTLSVersion {
+            params.append(SourceCodeFragment(key: "exceptionMinimumTLSVersion", string: exceptionMinimumTLSVersion))
+        }
+        if let exceptionRequiresForwardSecrecy = domain.exceptionRequiresForwardSecrecy {
+            params.append(SourceCodeFragment(key: "exceptionRequiresForwardSecrecy", boolean: exceptionRequiresForwardSecrecy))
+        }
+        if let requiresCertificateTransparency = domain.requiresCertificateTransparency {
+            params.append(SourceCodeFragment(key: "requiresCertificateTransparency", boolean: requiresCertificateTransparency))
+        }
+        self.init(enum: "init", subnodes: params, multiline: true)
+    }
+
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.ExceptionDomain.
+    init(from domain: ProductSetting.IOSAppInfo.AppTransportSecurityConfiguration.PinnedDomain) {
+        var params: [SourceCodeFragment] = []
+        params.append(SourceCodeFragment(key: "domainName", string: domain.domainName))
+        if let includesSubdomains = domain.includesSubdomains {
+            params.append(SourceCodeFragment(key: "includesSubdomains", boolean: includesSubdomains))
+        }
+        if let pinnedCAIdentities = domain.pinnedCAIdentities {
+            let subnodes = pinnedCAIdentities.map{ SourceCodeFragment(stringPairs: $0.sorted{ $0.key < $1.key }.map{ ($0.key, $0.value) }) }
+            params.append(SourceCodeFragment(key: "pinnedCAIdentities", subnodes: subnodes))
+        }
+        if let pinnedLeafIdentities = domain.pinnedLeafIdentities {
+            let subnodes = pinnedLeafIdentities.map{ SourceCodeFragment(stringPairs: $0.sorted{ $0.key < $1.key }.map{ ($0.key, $0.value) }) }
+            params.append(SourceCodeFragment(key: "pinnedLeafIdentities", subnodes: subnodes))
+        }
+        self.init(enum: "init", subnodes: params, multiline: true)
+    }
+    
+    /// Instantiates a SourceCodeFragment from a single ProductSetting.IOSAppInfo.AppCategory.
+    init(from appCategory: ProductSetting.IOSAppInfo.AppCategory) {
+        switch appCategory.rawValue {
+        case "public.app-category.action-games":
+            self.init(key: "appCategory", enum: "actionGames")
+        case "public.app-category.adventure-games":
+            self.init(key: "appCategory", enum: "adventureGames")
+        case "public.app-category.arcade-games":
+            self.init(key: "appCategory", enum: "arcadeGames")
+        case "public.app-category.board-games":
+            self.init(key: "appCategory", enum: "boardGames")
+        case "public.app-category.business":
+            self.init(key: "appCategory", enum: "business")
+        case "public.app-category.card-games":
+            self.init(key: "appCategory", enum: "cardGames")
+        case "public.app-category.casino-games":
+            self.init(key: "appCategory", enum: "casinoGames")
+        case "public.app-category.developer-tools":
+            self.init(key: "appCategory", enum: "developerTools")
+        case "public.app-category.dice-games":
+            self.init(key: "appCategory", enum: "diceGames")
+        case "public.app-category.education":
+            self.init(key: "appCategory", enum: "education")
+        case "public.app-category.educational-games":
+            self.init(key: "appCategory", enum: "educationalGames")
+        case "public.app-category.entertainment":
+            self.init(key: "appCategory", enum: "entertainment")
+        case "public.app-category.family-games":
+            self.init(key: "appCategory", enum: "familyGames")
+        case "public.app-category.finance":
+            self.init(key: "appCategory", enum: "finance")
+        case "public.app-category.games":
+            self.init(key: "appCategory", enum: "games")
+        case "public.app-category.graphics-design":
+            self.init(key: "appCategory", enum: "graphicsDesign")
+        case "public.app-category.healthcare-fitness":
+            self.init(key: "appCategory", enum: "healthcareFitness")
+        case "public.app-category.kids-games":
+            self.init(key: "appCategory", enum: "kidsGames")
+        case "public.app-category.lifestyle":
+            self.init(key: "appCategory", enum: "lifestyle")
+        case "public.app-category.medical":
+            self.init(key: "appCategory", enum: "medical")
+        case "public.app-category.music":
+            self.init(key: "appCategory", enum: "music")
+        case "public.app-category.music-games":
+            self.init(key: "appCategory", enum: "musicGames")
+        case "public.app-category.news":
+            self.init(key: "appCategory", enum: "news")
+        case "public.app-category.photography":
+            self.init(key: "appCategory", enum: "photography")
+        case "public.app-category.productivity":
+            self.init(key: "appCategory", enum: "productivity")
+        case "public.app-category.puzzle-games":
+            self.init(key: "appCategory", enum: "puzzleGames")
+        case "public.app-category.racing-games":
+            self.init(key: "appCategory", enum: "racingGames")
+        case "public.app-category.reference":
+            self.init(key: "appCategory", enum: "reference")
+        case "public.app-category.role-playing-games":
+            self.init(key: "appCategory", enum: "rolePlayingGames")
+        case "public.app-category.simulation-games":
+            self.init(key: "appCategory", enum: "simulationGames")
+        case "public.app-category.social-networking":
+            self.init(key: "appCategory", enum: "socialNetworking")
+        case "public.app-category.sports":
+            self.init(key: "appCategory", enum: "sports")
+        case "public.app-category.sports-games":
+            self.init(key: "appCategory", enum: "sportsGames")
+        case "public.app-category.strategy-games":
+            self.init(key: "appCategory", enum: "strategyGames")
+        case "public.app-category.travel":
+            self.init(key: "appCategory", enum: "travel")
+        case "public.app-category.trivia-games":
+            self.init(key: "appCategory", enum: "triviaGames")
+        case "public.app-category.utilities":
+            self.init(key: "appCategory", enum: "utilities")
+        case "public.app-category.video":
+            self.init(key: "appCategory", enum: "video")
+        case "public.app-category.weather":
+            self.init(key: "appCategory", enum: "weather")
+        case "public.app-category.word-games":
+            self.init(key: "appCategory", enum: "wordGames")
+        default:
+            self.init(key: "appCategory", string: appCategory.rawValue)
         }
     }
 }
@@ -576,6 +1052,13 @@ public extension SourceCodeFragment {
     init(key: String? = nil, strings: [String], multiline: Bool = false) {
         let prefix = key.map{ $0 + ": " } ?? ""
         let subnodes = strings.map{ SourceCodeFragment($0.quotedForPackageManifest) }
+        self.init(prefix, delimiters: .brackets, multiline: multiline, subnodes: subnodes)
+    }
+
+    /// Initializes a SourceCodeFragment for a string map in a generated manifest.
+    init(key: String? = nil, stringPairs: [(String, String)], multiline: Bool = false) {
+        let prefix = key.map{ $0 + ": " } ?? ""
+        let subnodes = stringPairs.isEmpty ? [SourceCodeFragment(":")] : stringPairs.map{ SourceCodeFragment($0.quotedForPackageManifest + ": " + $1.quotedForPackageManifest) }
         self.init(prefix, delimiters: .brackets, multiline: multiline, subnodes: subnodes)
     }
 
@@ -658,6 +1141,47 @@ public struct SourceCodeFragment {
     }
 }
 
+extension Optional {
+    fileprivate static func precedes(
+        _ a: Wrapped?, _ b: Wrapped?,
+        compareWrapped: (Wrapped, Wrapped) -> Bool
+    ) -> Bool {
+        switch (a, b) {
+        case (.none, .none): return false
+        case (.none, .some): return true
+        case (.some, .none): return false
+        case (.some(let a), .some(let b)):
+            return compareWrapped(a, b)
+        }
+    }
+}
+
+extension PackageDependency.Trait {
+    fileprivate static func precedes(_ a: PackageDependency.Trait, _ b: PackageDependency.Trait) -> Bool {
+        if a.name != b.name { return a.name < b.name }
+
+        if a.condition != b.condition {
+            return Optional.precedes(a.condition, b.condition) { a, b in
+                PackageDependency.Trait.Condition.precedes(a, b)
+            }
+        }
+
+        return false
+    }
+}
+
+extension PackageDependency.Trait.Condition {
+    fileprivate static func precedes(_ a: PackageDependency.Trait.Condition, _ b: PackageDependency.Trait.Condition) -> Bool {
+        if a.traits != b.traits {
+            return Optional.precedes(a.traits, b.traits) { a, b in
+                a.sorted().lexicographicallyPrecedes(b.sorted())
+            }
+        }
+
+        return false
+    }
+}
+
 extension TargetBuildSettingDescription.Kind {
     fileprivate var name: String {
         switch self {
@@ -677,6 +1201,20 @@ extension TargetBuildSettingDescription.Kind {
             return "enableUpcomingFeature"
         case .enableExperimentalFeature:
             return "enableExperimentalFeature"
+        case .strictMemorySafety:
+            return "strictMemorySafety"
+        case .swiftLanguageMode:
+            return "swiftLanguageMode"
+        case .treatAllWarnings:
+            return "treatAllWarnings"
+        case .treatWarning:
+            return "treatWarning"
+        case .enableWarning:
+            return "enableWarning"
+        case .disableWarning:
+            return "disableWarning"
+        case .defaultIsolation:
+            return "defaultIsolation"
         }
     }
 }
@@ -684,8 +1222,8 @@ extension TargetBuildSettingDescription.Kind {
 extension String {
     fileprivate var quotedForPackageManifest: String {
         return "\"" + self
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacing("\\", with: "\\\\")
+            .replacing("\"", with: "\\\"")
             + "\""
     }
 }

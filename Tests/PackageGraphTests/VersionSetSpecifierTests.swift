@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCUtility
 import XCTest
 
 import PackageGraph
@@ -150,5 +151,30 @@ final class VersionSetSpecifierTests: XCTestCase {
         // A range is equal to a list of ranges with that one range.
         XCTAssertTrue(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
         XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
+    }
+
+    func testPrereleases() {
+        XCTAssertFalse(VersionSetSpecifier.any.supportsPrereleases)
+        XCTAssertFalse(VersionSetSpecifier.empty.supportsPrereleases)
+        XCTAssertFalse(VersionSetSpecifier.exact("0.0.1").supportsPrereleases)
+
+        XCTAssertTrue(VersionSetSpecifier.exact("0.0.1-latest").supportsPrereleases)
+        XCTAssertTrue(VersionSetSpecifier.range("0.0.1-latest" ..< "2.0.0").supportsPrereleases)
+        XCTAssertTrue(VersionSetSpecifier.range("0.0.1" ..< "2.0.0-latest").supportsPrereleases)
+
+        XCTAssertTrue(VersionSetSpecifier.ranges([
+            "0.0.1" ..< "0.0.2",
+            "0.0.1" ..< "2.0.0-latest",
+        ]).supportsPrereleases)
+
+        XCTAssertTrue(VersionSetSpecifier.ranges([
+            "0.0.1-latest" ..< "0.0.2",
+            "0.0.1" ..< "2.0.0",
+        ]).supportsPrereleases)
+
+        XCTAssertFalse(VersionSetSpecifier.ranges([
+            "0.0.1" ..< "0.0.2",
+            "0.0.1" ..< "2.0.0",
+        ]).supportsPrereleases)
     }
 }

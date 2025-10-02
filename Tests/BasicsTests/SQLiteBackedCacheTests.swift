@@ -2,25 +2,31 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
-import SPMTestSupport
+import _InternalTestSupport
 import tsan_utils
-import XCTest
+import Testing
 
-final class SQLiteBackedCacheTests: XCTestCase {
-    func testHappyCase() throws {
+struct SQLiteBackedCacheTests {
+    @Test
+    func happyCase() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
-            defer { XCTAssertNoThrow(try cache.close()) }
+            defer {
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+            }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
             try mockData.forEach { key, value in
@@ -29,38 +35,42 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
             try mockData.forEach { key, _ in
                 let result = try cache.get(key: key)
-                XCTAssertEqual(mockData[key], result)
+                #expect(mockData[key] == result)
             }
 
             let key = mockData.first!.key
 
             _ = try cache.put(key: key, value: "foobar", replace: false)
-            XCTAssertEqual(mockData[key], try cache.get(key: key))
+            #expect(try cache.get(key: key) == mockData[key], "Actual is not as expected")
 
             _ = try cache.put(key: key, value: "foobar", replace: true)
-            XCTAssertEqual("foobar", try cache.get(key: key))
+            #expect(try cache.get(key: key) == "foobar", "Actual is not as expected")
 
             try cache.remove(key: key)
-            XCTAssertNil(try cache.get(key: key))
+            #expect(try cache.get(key: key) == nil, "Actual is not as expected")
 
             guard case .path(let cachePath) = cache.location else {
-                return XCTFail("invalid location \(cache.location)")
+                Issue.record("invalid location \(cache.location)")
+                return
             }
 
-            XCTAssertTrue(cache.fileSystem.exists(cachePath), "expected file to be written")
+            #expect(cache.fileSystem.exists(cachePath), "expected file to be written")
         }
     }
 
-    func testFileDeleted() throws {
-#if os(Windows)
-        try XCTSkipIf(true, "open file cannot be deleted on Windows")
-#endif
-        try XCTSkipIf(is_tsan_enabled())
-
+    @Test(
+        .disabled(if: (ProcessInfo.hostOperatingSystem == .windows), "open file cannot be deleted on Windows"),
+        .disabled(if: is_tsan_enabled(), "Disabling as tsan is enabled")
+    )
+    func fileDeleted() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
-            defer { XCTAssertNoThrow(try cache.close()) }
+            defer {
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+            }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
             try mockData.forEach { key, value in
@@ -69,40 +79,49 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
             try mockData.forEach { key, _ in
                 let result = try cache.get(key: key)
-                XCTAssertEqual(mockData[key], result)
+                #expect(mockData[key] == result)
             }
 
             guard case .path(let cachePath) = cache.location else {
-                return XCTFail("invalid location \(cache.location)")
+                Issue.record("invalid location \(cache.location)")
+                return
             }
 
-            XCTAssertTrue(cache.fileSystem.exists(cachePath), "expected file to exist at \(cachePath)")
+            #expect(cache.fileSystem.exists(cachePath), "expected file to exist at \(cachePath)")
             try cache.fileSystem.removeFileTree(cachePath)
 
             let key = mockData.first!.key
 
             do {
                 let result = try cache.get(key: key)
-                XCTAssertNil(result)
+                #expect(result == nil)
             }
 
             do {
-                XCTAssertNoThrow(try cache.put(key: key, value: mockData[key]!))
+                #expect(throws: Never.self) {
+                    try cache.put(key: key, value: mockData[key]!)
+                }
                 let result = try cache.get(key: key)
-                XCTAssertEqual(mockData[key], result)
+                #expect(mockData[key] == result)
             }
 
-            XCTAssertTrue(cache.fileSystem.exists(cachePath), "expected file to exist at \(cachePath)")
+            #expect(cache.fileSystem.exists(cachePath), "expected file to exist at \(cachePath)")
         }
     }
 
-    func testFileCorrupt() throws {
-        try XCTSkipIf(is_tsan_enabled())
+    @Test(
+        .disabled(if: is_tsan_enabled(), "Disabling as tsan is enabled")
+    )
+    func fileCorrupt() throws {
 
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
-            defer { XCTAssertNoThrow(try cache.close()) }
+            defer {
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+            }
 
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath)
             try mockData.forEach { key, value in
@@ -111,36 +130,46 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
             try mockData.forEach { key, _ in
                 let result = try cache.get(key: key)
-                XCTAssertEqual(mockData[key], result)
+                #expect(mockData[key] == result)
             }
 
             guard case .path(let cachePath) = cache.location else {
-                return XCTFail("invalid location \(cache.location)")
+                Issue.record("invalid location \(cache.location)")
+                return
             }
 
             try cache.close()
 
-            XCTAssertTrue(cache.fileSystem.exists(cachePath), "expected file to exist at \(path)")
+            #expect(cache.fileSystem.exists(cachePath), "expected file to exist at \(path)")
             try cache.fileSystem.writeFileContents(cachePath, string: "blah")
 
-            XCTAssertThrowsError(try cache.get(key: mockData.first!.key), "expected error") { error in
-                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
+            #expect {
+                try cache.get(key: mockData.first!.key)
+            } throws: { error in
+                return "\(error)".contains("is not a database")
             }
 
-            XCTAssertThrowsError(try cache.put(key: mockData.first!.key, value: mockData.first!.value), "expected error") { error in
-                XCTAssert("\(error)".contains("is not a database"), "Expected file is not a database error")
+            #expect {
+                try cache.put(key: mockData.first!.key, value: mockData.first!.value)
+            } throws: { error in
+                return "\(error)".contains("is not a database")
             }
         }
     }
 
-    func testMaxSizeNotHandled() throws {
+    @Test
+    func maxSizeNotHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = false
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path, configuration: configuration)
-            defer { XCTAssertNoThrow(try cache.close()) }
+            defer {
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+            }
 
             func create() throws {
                 let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath, count: 500)
@@ -149,20 +178,28 @@ final class SQLiteBackedCacheTests: XCTestCase {
                 }
             }
 
-            XCTAssertThrowsError(try create(), "expected error") { error in
-                XCTAssertEqual(error as? SQLite.Errors, .databaseFull, "Expected 'databaseFull' error")
+            #expect {
+                try create()
+            } throws: { error in
+                let error = try #require(error as? SQLite.Errors)
+                return error == .databaseFull
             }
         }
     }
 
-    func testMaxSizeHandled() throws {
+    @Test
+    func maxSizeHandled() throws {
         try testWithTemporaryDirectory { tmpPath in
             let path = tmpPath.appending("test.db")
             var configuration = SQLiteBackedCacheConfiguration()
             configuration.maxSizeInBytes = 1024 * 3
             configuration.truncateWhenFull = true
             let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path, configuration: configuration)
-            defer { XCTAssertNoThrow(try cache.close()) }
+            defer {
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+            }
 
             var keys = [String]()
             let mockData = try makeMockData(fileSystem: localFileSystem, rootPath: tmpPath, count: 500)
@@ -173,12 +210,35 @@ final class SQLiteBackedCacheTests: XCTestCase {
 
             do {
                 let result = try cache.get(key: mockData.first!.key)
-                XCTAssertNil(result)
+                #expect(result == nil)
             }
 
             do {
                 let result = try cache.get(key: keys.last!)
-                XCTAssertEqual(mockData[keys.last!], result)
+                #expect(mockData[keys.last!] == result)
+            }
+        }
+    }
+
+    @Test
+    func initialFileCreation() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let paths = [
+                tmpPath.appending("foo", "test.db"),
+                // Ensure it works recursively.
+                tmpPath.appending("bar", "baz", "test.db"),
+            ]
+
+            for path in paths {
+                let cache = SQLiteBackedCache<String>(tableName: "SQLiteBackedCacheTest", path: path)
+                // Put an entry to ensure the file is created.
+                #expect(throws: Never.self) {
+                    try cache.put(key: "foo", value: "bar")
+                }
+                #expect(throws: Never.self) {
+                    try cache.close()
+                }
+                #expect(localFileSystem.exists(path), "expected file to be created at \(path)")
             }
         }
     }

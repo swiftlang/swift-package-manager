@@ -7,25 +7,33 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
-  PackageTools/APIDiff.swift
-  PackageTools/ArchiveSource.swift
-  PackageTools/CompletionTool.swift
-  PackageTools/ComputeChecksum.swift
-  PackageTools/Config.swift
-  PackageTools/Describe.swift
-  PackageTools/DumpCommands.swift
-  PackageTools/EditCommands.swift
-  PackageTools/Format.swift
-  PackageTools/Init.swift
-  PackageTools/InstalledPackages.swift
-  PackageTools/Learn.swift
-  PackageTools/PluginCommand.swift
-  PackageTools/ResetCommands.swift
-  PackageTools/Resolve.swift
-  PackageTools/ShowDependencies.swift
-  PackageTools/SwiftPackageTool.swift
-  PackageTools/ToolsVersionCommand.swift
-  PackageTools/Update.swift
+  PackageCommands/AddDependency.swift
+  PackageCommands/AddProduct.swift
+  PackageCommands/AddTarget.swift
+  PackageCommands/AddTargetDependency.swift
+  PackageCommands/AddSetting.swift
+  PackageCommands/APIDiff.swift
+  PackageCommands/ArchiveSource.swift
+  PackageCommands/AuditBinaryArtifact.swift
+  PackageCommands/CompletionCommand.swift
+  PackageCommands/ComputeChecksum.swift
+  PackageCommands/Config.swift
+  PackageCommands/Describe.swift
+  PackageCommands/DumpCommands.swift
+  PackageCommands/EditCommands.swift
+  PackageCommands/Format.swift
+  PackageCommands/Init.swift
+  PackageCommands/Install.swift
+  PackageCommands/Learn.swift
+  PackageCommands/Migrate.swift
+  PackageCommands/PluginCommand.swift
+  PackageCommands/ResetCommands.swift
+  PackageCommands/Resolve.swift
+  PackageCommands/ShowDependencies.swift
+  PackageCommands/ShowExecutables.swift
+  PackageCommands/SwiftPackageCommand.swift
+  PackageCommands/ToolsVersionCommand.swift
+  PackageCommands/Update.swift
   Snippets/CardEvent.swift
   Snippets/Cards/SnippetCard.swift
   Snippets/Cards/SnippetGroupCard.swift
@@ -33,27 +41,34 @@ add_library(Commands
   Snippets/CardStack.swift
   Snippets/Card.swift
   Snippets/Colorful.swift
-  SwiftBuildTool.swift
-  SwiftRunTool.swift
-  SwiftTestTool.swift
-  ToolWorkspaceDelegate.swift
+  SwiftBuildCommand.swift
+  SwiftRunCommand.swift
+  SwiftTestCommand.swift
+  CommandWorkspaceDelegate.swift
   Utilities/APIDigester.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
+  Utilities/MermaidPackageSerializer.swift
   Utilities/MultiRootSupport.swift
+  Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
+  Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
+  SwiftCollections::OrderedCollections
+  SwiftSyntax::SwiftRefactor
   ArgumentParser
   Basics
+  BinarySymbols
   Build
   CoreCommands
   LLBuildManifest
   PackageGraph
   SourceControl
+  SwiftFixIt
   TSCBasic
   TSCUtility
   Workspace

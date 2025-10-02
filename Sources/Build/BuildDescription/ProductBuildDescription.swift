@@ -12,9 +12,13 @@
 
 import Basics
 import PackageGraph
+
+@_spi(SwiftPMInternal)
 import PackageModel
+
 import OrderedCollections
 import SPMBuildCore
+import TSCUtility
 
 import struct TSCBasic.SortedArray
 
@@ -34,6 +38,11 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// The build parameters.
     public let buildParameters: BuildParameters
 
+    /// The destination for while this product is built.
+    public var destination: BuildParameters.Destination {
+        self.buildParameters.destination
+    }
+
     /// All object files to link into this product.
     ///
     // Computed during build planning.
@@ -47,7 +56,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     var additionalFlags: [String] = []
 
     /// The list of targets that are going to be linked statically in this product.
-    var staticTargets: [ResolvedTarget] = []
+    var staticTargets: [ResolvedModule] = []
 
     /// The list of Swift modules that should be passed to the linker. This is required for debugging to work.
     var swiftASTs: SortedArray<AbsolutePath> = .init()
@@ -60,7 +69,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
-        self.buildParameters.buildPath.appending(component: self.product.name + ".product")
+        let suffix = buildParameters.suffix
+        return self.buildParameters.buildPath.appending(component: "\(self.product.name)\(suffix).product")
     }
 
     /// Path to the link filelist file.
@@ -119,15 +129,6 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 return ["-Xlinker", "-dead_strip"]
             } else if triple.isWindows() {
                 return ["-Xlinker", "/OPT:REF"]
-            } else if triple.arch == .wasm32 {
-                // FIXME: wasm-ld strips data segments referenced through __start/__stop symbols
-                // during GC, and it removes Swift metadata sections like swift5_protocols
-                // We should add support of SHF_GNU_RETAIN-like flag for __attribute__((retain))
-                // to LLVM and wasm-ld
-                // This workaround is required for not only WASI but also all WebAssembly triples
-                // using wasm-ld (e.g. wasm32-unknown-unknown). So this branch is conditioned by
-                // arch == .wasm32
-                return []
             } else {
                 return ["-Xlinker", "--gc-sections"]
             }
@@ -166,14 +167,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         args += ["-L", self.buildParameters.buildPath.pathString]
         args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
-        args += self.dylibs.map { "-l" + $0.product.name }
+        args += self.dylibs.map { "-l" + $0.product.name + $0.buildParameters.suffix }
 
         // Add arguments needed for code coverage if it is enabled.
         if self.buildParameters.testingParameters.enableCodeCoverage {
             args += ["-profile-coverage-mapping", "-profile-generate"]
         }
 
-        let containsSwiftTargets = self.product.containsSwiftTargets
+        let containsSwiftTargets = self.product.containsSwiftModules
 
         let derivedProductType: ProductType
         switch self.product.type {
@@ -189,6 +190,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         var isLinkingStaticStdlib = false
         let triple = self.buildParameters.triple
+
+        // radar://112671586 supress unnecessary warnings
+        if triple.isMacOSX {
+            args += ["-Xlinker", "-no_warn_duplicate_libraries"]
+        }
+        // We may also need to turn off locally defined symbol imported on Windows
+        // args += ["-Xlinker", "/ignore:4217"]
+
         switch derivedProductType {
         case .macro:
             throw InternalError("macro not supported") // should never be reached
@@ -198,8 +207,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // No arguments for static libraries.
             return []
         case .test:
-            // Test products are bundle when using objectiveC, executable when using test entry point.
-            switch self.buildParameters.testingParameters.testProductStyle {
+            // Test products are bundle when using Objective-C, executable when using test entry point.
+            switch self.buildParameters.testProductStyle {
             case .loadableBundle:
                 args += ["-Xlinker", "-bundle"]
             case .entryPointExecutable:
@@ -235,8 +244,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             // we will instead have generated a source file containing the redirect.
             // Support for linking tests against executables is conditional on the tools
             // version of the package that defines the executable product.
-            let executableTarget = try product.executableTarget
-            if let target = executableTarget.underlying as? SwiftTarget, 
+            let executableTarget = try product.executableModule
+            if let target = executableTarget.underlying as? SwiftModule, 
                 self.toolsVersion >= .v5_5,
                 self.buildParameters.driverParameters.canRenameEntrypointFunctionName,
                 target.supportsTestableExecutablesFeature
@@ -261,18 +270,44 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Set rpath such that dynamic libraries are looked up
         // adjacent to the product, unless overridden.
-        if !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
-            if triple.isLinux() {
+        if triple.os != .noneOS, !self.buildParameters.linkingParameters.shouldDisableLocalRpath {
+            switch triple.objectFormat {
+            case .elf:
                 args += ["-Xlinker", "-rpath=$ORIGIN"]
-            } else if triple.isDarwin() {
+            case .macho:
                 let rpath = self.product.type == .test ? "@loader_path/../../../" : "@loader_path"
                 args += ["-Xlinker", "-rpath", "-Xlinker", rpath]
+            default:
+                break
             }
         }
         args += ["@\(self.linkFileListPath.pathString)"]
 
-        // Embed the swift stdlib library path inside tests and executables on Darwin.
         if containsSwiftTargets {
+            // Pass experimental features to link jobs in addition to compile jobs. Preserve ordering while eliminating
+            // duplicates with `OrderedSet`.
+            var experimentalFeatures = OrderedSet<String>()
+            var strictMemorySafety = false
+            for target in self.product.modules {
+                let swiftSettings = target.underlying.buildSettingsDescription.filter { $0.tool == .swift }
+              for kind in swiftSettings.map(\.kind) {
+                if case let .enableExperimentalFeature(feature) = kind {
+                    experimentalFeatures.append(feature)
+                } else if kind == .strictMemorySafety {
+                    strictMemorySafety = true
+                }
+              }
+            }
+
+            for feature in experimentalFeatures {
+                args += ["-enable-experimental-feature", feature]
+            }
+
+            if strictMemorySafety {
+                args.append("-strict-memory-safety")
+            }
+
+            // Embed the swift stdlib library path inside tests and executables on Darwin.
             let useStdlibRpath: Bool
             switch self.product.type {
             case .library(let type):
@@ -283,12 +318,12 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                 throw InternalError("unexpectedly asked to generate linker arguments for a plugin product")
             }
 
-            // When deploying to macOS prior to macOS 12, add an rpath to the
-            // back-deployed concurrency libraries.
             if useStdlibRpath, triple.isMacOSX {
                 let macOSSupportedPlatform = self.package.getSupportedPlatform(for: .macOS, usingXCTest: product.isLinkingXCTest)
 
                 if macOSSupportedPlatform.version.major < 12 {
+                    // When deploying to macOS prior to macOS 12, add an rpath to the
+                    // back-deployed concurrency libraries.
                     let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
                         .parentDirectory
                         .parentDirectory
@@ -296,12 +331,25 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
                         .appending("macosx")
                     args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
                 }
-            }
-        }
 
-        // Don't link runtime compatibility patch libraries if there are no
-        // Swift sources in the target.
-        if !containsSwiftTargets {
+                if macOSSupportedPlatform.version.major < 26 {
+                    // When deploying to macOS prior to macOS 26, add an rpath to the
+                    // back-deployed Span library.
+                    let backDeployedStdlib = try buildParameters.toolchain.macosSwiftStdlib
+                        .parentDirectory
+                        .parentDirectory
+                        .appending("swift-6.2")
+                        .appending("macosx")
+                    args += ["-Xlinker", "-rpath", "-Xlinker", backDeployedStdlib.pathString]
+                }
+
+                // If either back deployment library is used, the driver is responsible for injecting
+                // a /usr/lib/swift -rpath at the front to ensure OS content is preferred when
+                // available.
+            }
+        } else {
+            // Don't link runtime compatibility patch libraries if there are no
+            // Swift sources in the target.
             args += ["-runtime-compatibility-version", "none"]
         }
 
@@ -311,7 +359,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // setting is the package-level right now. We might need to figure out a better
         // answer for libraries if/when we support specifying deployment target at the
         // target-level.
-        args += try self.buildParameters.targetTripleArgs(for: self.product.targets[0])
+        args += try self.buildParameters.tripleArgs(for: self.product.modules[self.product.modules.startIndex])
 
         // Add arguments from declared build settings.
         args += self.buildSettingsFlags
@@ -346,7 +394,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // Library search path for the toolchain's copy of SwiftSyntax.
         #if BUILD_MACROS_AS_DYLIBS
         if product.type == .macro {
-            args += try ["-L", buildParameters.toolchain.hostLibDir.pathString]
+            args += try ["-L", defaultBuildParameters.toolchain.hostLibDir.pathString]
         }
         #endif
 
@@ -385,13 +433,24 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     }
 }
 
+extension ProductBuildDescription: Identifiable {
+    public struct ID: Hashable {
+        let productID: ResolvedProduct.ID
+        let destination: BuildParameters.Destination
+    }
+
+    public var id: ID {
+        ID(productID: self.product.id, destination: self.destination)
+    }
+}
+
 extension SortedArray where Element == AbsolutePath {
     public static func +=<S: Sequence>(lhs: inout SortedArray, rhs: S) where S.Iterator.Element == AbsolutePath {
         lhs.insert(contentsOf: rhs)
     }
 }
 
-extension Triple {
+extension Basics.Triple {
     var supportsFrameworks: Bool {
         return self.isDarwin()
     }

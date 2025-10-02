@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2020-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2020-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -19,8 +19,6 @@ import PackageCollectionsModel
 import PackageCollectionsSigning
 import PackageModel
 import SourceControl
-
-import class TSCBasic.InMemoryFileSystem
 
 import struct TSCUtility.Version
 
@@ -158,15 +156,14 @@ struct MockCollectionsProvider: PackageCollectionProvider {
         self.collectionsWithInvalidSignature = collectionsWithInvalidSignature
     }
 
-    func get(_ source: PackageCollectionsModel.CollectionSource, callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void) {
+    func get(_ source: PackageCollectionsModel.CollectionSource) async throws -> PackageCollectionsModel.Collection {
         if let collection = (self.collections.first { $0.source == source }) {
             if self.collectionsWithInvalidSignature?.contains(source) ?? false {
-                return callback(.failure(PackageCollectionError.invalidSignature))
+                throw PackageCollectionError.invalidSignature
             }
-            callback(.success(collection))
-        } else {
-            callback(.failure(NotFoundError("\(source)")))
+            return collection
         }
+        throw NotFoundError("\(source)")
     }
 }
 
@@ -181,14 +178,12 @@ struct MockMetadataProvider: PackageMetadataProvider {
 
     func get(
         identity: PackageIdentity,
-        location: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) -> Void
-    ) {
-        if let package = self.packages[identity] {
-            callback(.success(package), nil)
-        } else {
-            callback(.failure(NotFoundError("\(identity)")), nil)
+        location: String
+    ) async -> (Result<PackageCollectionsModel.PackageBasicMetadata, Error>, PackageMetadataProviderContext?) {
+        guard let packageMetadata = self.packages[identity] else {
+            return (.failure(NotFoundError("\(identity)")), nil)
         }
+        return (.success(packageMetadata), nil)
     }
 }
 

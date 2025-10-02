@@ -12,8 +12,9 @@
 
 import Basics
 import PackageModel
+import Foundation
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
 
 import enum TSCUtility.Platform
@@ -62,7 +63,7 @@ public struct PkgConfigResult {
 
 /// Get pkgConfig result for a system library target.
 public func pkgConfigArgs(
-    for target: SystemLibraryTarget,
+    for target: SystemLibraryModule,
     pkgConfigDirectories: [AbsolutePath],
     sdkRootPath: AbsolutePath? = nil,
     brewPrefix: AbsolutePath? = .none,
@@ -103,7 +104,7 @@ public func pkgConfigArgs(
             var (cFlags, libs) = try removeDefaultFlags(cFlags: filtered.cFlags, libs: filtered.libs)
 
             // Patch any paths containing an SDK to the current SDK
-            // See https://github.com/apple/swift-package-manager/issues/6439
+            // See https://github.com/swiftlang/swift-package-manager/issues/6439
             if let sdkRootPath = sdkRootPath {
                 cFlags = try patchSDKPaths(in: cFlags, to: sdkRootPath)
                 libs = try patchSDKPaths(in: libs, to: sdkRootPath)
@@ -154,6 +155,8 @@ extension SystemPackageProviderDescription {
             return "    yum install \(packages.joined(separator: " "))\n"
         case .nuget(let packages):
             return "    nuget install \(packages.joined(separator: " "))\n"
+        case .pkg(let packages):
+            return "    pkg install \(packages.joined(separator: " "))\n"
         }
     }
 
@@ -180,8 +183,12 @@ extension SystemPackageProviderDescription {
             switch platform {
             case .darwin, .windows, .linux:
                 return true
-            case .android:
+            case .android, .freebsd:
                 return false
+            }
+        case .pkg:
+            if case .freebsd = platform {
+                return true
             }
         }
         return false
@@ -200,7 +207,7 @@ extension SystemPackageProviderDescription {
                 // to the latest version. Instead use the version as symlinked
                 // in /usr/local/opt/(NAME)/lib/pkgconfig.
                 struct Static {
-                    static let value = { try? TSCBasic.Process.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
+                    static let value = { try? AsyncProcess.checkNonZeroExit(args: "brew", "--prefix").spm_chomp() }()
                 }
                 if let value = Static.value {
                     brewPrefix = value
@@ -214,6 +221,8 @@ extension SystemPackageProviderDescription {
         case .yum:
             return []
         case .nuget:
+            return []
+        case .pkg:
             return []
         }
     }
@@ -316,7 +325,7 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([Str
 
 /// Replaces any path containing *.sdk with the current SDK to avoid conflicts.
 ///
-/// See https://github.com/apple/swift-package-manager/issues/6439 for details.
+/// See https://github.com/swiftlang/swift-package-manager/issues/6439 for details.
 public func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
     let sdkRegex = try! RegEx(pattern: #"^.*\.sdk(\/.*|$)"#)
 
@@ -334,7 +343,7 @@ extension ObservabilityMetadata {
     public static func pkgConfig(pcFile: String, targetName: String) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.pcFile = "\(pcFile).pc"
-        metadata.targetName = targetName
+        metadata.moduleName = targetName
         return metadata
     }
 }

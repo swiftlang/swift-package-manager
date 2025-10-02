@@ -10,17 +10,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// Emits errors, warnings, and remarks to be shown as a result of running the
-/// plugin. After emitting one or more errors, the plugin should return a
+/// Emits errors, warnings, and remarks to show as a result of running the
+/// plugin.
+///
+/// After emitting one or more errors, a plugin should return a
 /// non-zero exit code.
 public struct Diagnostics {
 
-    /// Severity of the diagnostic.
+    /// The severity of the diagnostic.
     public enum Severity: String, Encodable {
         case error, warning, remark
     }
     
     /// Emits an error with a specified severity and message, and optional file path and line number.
+    /// - Parameters:
+    ///   - severity: The severity of the diagnostic.
+    ///   - description: The description of the diagnostic.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func emit(_ severity: Severity, _ description: String, file: String? = #file, line: Int? = #line) {
         let message: PluginToHostMessage
         switch severity {
@@ -35,18 +42,36 @@ public struct Diagnostics {
         try? pluginHostConnection.sendMessage(message)
     }
 
-    /// Emits an error with the specified message, and optional file path and line number.
+    /// Emits an error with the message you specify.
+    /// - Parameters:
+    ///   - message: The description of the error.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func error(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.error, message, file: file, line: line)
     }
 
-    /// Emits a warning with the specified message, and optional file path and line number.
+    /// Emits a warning with the message you specify.
+    /// - Parameters:
+    ///   - message: The description of the warning.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func warning(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.warning, message, file: file, line: line)
     }
 
-    /// Emits a remark with the specified message, and optional file path and line number.
+    /// Emits a remark with the message you specify.
+    /// - Parameters:
+    ///   - message: The description of the remark.
+    ///   - file: The file responsible for the diagnostic, that defaults to `#file`.
+    ///   - line: The line responsible for the diagnostic, that defaults to `#line`.
     public static func remark(_ message: String, file: String? = #file, line: Int? = #line) {
         self.emit(.remark, message, file: file, line: line)
+    }
+
+    /// Emits a progress message.
+    /// - Parameter message: The description of the progress.
+    public static func progress(_ message: String) {
+        try? pluginHostConnection.sendMessage(.emitProgress(message: message))
     }
 }

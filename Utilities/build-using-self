@@ -1,36 +1,274 @@
-#!/bin/bash
-##===----------------------------------------------------------------------===##
-##
-## This source file is part of the Swift open source project
-##
-## Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
-## Licensed under Apache License v2.0 with Runtime Library Exception
-##
-## See http://swift.org/LICENSE.txt for license information
-## See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
-##
-##===----------------------------------------------------------------------===##
+#!/usr/bin/env python3
+# ===----------------------------------------------------------------------===##
+#
+# This source file is part of the Swift open source project
+#
+# Copyright (c) 2025 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+#
+# ===----------------------------------------------------------------------===##
 
-set -eu
+import argparse
+import dataclasses
+import itertools
+import logging
+import os
+import pathlib
+import platform
+import shlex
+import sys
+from datetime import datetime
 
-__dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+import typing as t
 
-cd "${__dir}/.."
-echo "Current directory is ${PWD}"
+from helpers import (
+    Configuration,
+    change_directory,
+    call,
+    call_output,
+)
 
-CONFIGURATION=debug
-export SWIFTCI_IS_SELF_HOSTED=1
+logging.basicConfig(
+    format=" | ".join(
+        [
+            # Prefix script name to the log in an attempt to avoid confusion when parsing logs
+            f"{pathlib.Path(sys.argv[0]).name}",
+            "%(asctime)s",
+            "%(levelname)-8s",
+            "%(module)s",
+            "%(funcName)s",
+            "Line:%(lineno)d",
+            "%(message)s",
+        ]
+    ),
+    level=logging.INFO,
+)
 
-set -x
 
-# Perform package update in order to get the latest commits for the dependencies.
-swift package update
-swift build -c $CONFIGURATION
-swift test -c $CONFIGURATION --parallel
+REPO_ROOT_PATH = pathlib.Path(__file__).parent.parent.resolve()
 
-# Run the integration tests with just built SwiftPM.
-export SWIFTPM_BIN_DIR=$(swift build -c $CONFIGURATION --show-bin-path)
-cd IntegrationTests
-# Perform package update in order to get the latest commits for the dependencies.
-swift package update
-$SWIFTPM_BIN_DIR/swift-test --parallel
+
+class UnsupportedArchitecture(Exception):
+
+    pass
+
+
+def get_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        dest="is_verbose",
+        action="store_true",
+        help="When set, prints verbose information.",
+    )
+    parser.add_argument(
+        "-c",
+        "--configuration",
+        type=Configuration,
+        dest="config",
+        default=Configuration.DEBUG,
+        choices=[e for e in Configuration],
+        help="The configuration to use.",
+    )
+    parser.add_argument(
+        "-t",
+        "--triple",
+        type=str,
+        dest="triple",
+    )
+    parser.add_argument(
+        "-b",
+        "--build-system",
+        type=str,
+        dest="build_system",
+    )
+    parser.add_argument(
+        "--additional-build-args",
+        type=str,
+        dest="additional_build_args",
+        default=""
+    )
+    parser.add_argument(
+        "--additional-run-args",
+        type=str,
+        dest="additional_run_args",
+        default=""
+    )
+    parser.add_argument(
+        "--additional-test-args",
+        type=str,
+        dest="additional_test_args",
+        default=""
+    )
+    parser.add_argument(
+        "--skip-bootstrap",
+        dest="skip_bootstrap",
+        action="store_true"
+    )
+    parser.set_defaults(skip_bootstrap=False)
+    args = parser.parse_args()
+    return args
+
+
+def log_environment() -> None:
+    logging.info("Environment Variables")
+    for key, value in sorted(os.environ.items()):
+        logging.info("  --> %s=%r", key, value)
+
+
+def get_swiftpm_bin_dir(config: Configuration) -> pathlib.Path:
+    logging.info("Retrieving Swift PM binary directory.")
+    swiftpm_bin_dir = pathlib.Path(
+        call_output(["swift", "build", "--configuration", config, "--show-bin-path"])
+    )
+    logging.info("SwiftPM BIN DIR: %s", swiftpm_bin_dir)
+    return swiftpm_bin_dir
+
+
+def is_on_darwin() -> bool:
+    return platform.system() == "Darwin"
+
+
+def set_environment(
+    *,
+    swiftpm_bin_dir: pathlib.Path,
+) -> None:
+    os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
+
+    # Ensure SDKROOT is configure
+    if is_on_darwin():
+        sdk_root = call_output(shlex.split("xcrun --show-sdk-path --sdk macosx"))
+        logging.debug("macos sdk root = %r", sdk_root)
+        os.environ["SDKROOT"] = sdk_root
+    log_environment()
+
+
+def run_bootstrap(swiftpm_bin_dir: pathlib.Path) -> None:
+    logging.info("Current working directory is %s", pathlib.Path.cwd())
+    logging.info("Bootstrapping with the XCBuild codepath...")
+    cross_compile_arch: str
+    arch = platform.machine()
+    if arch == "arm64":
+        cross_compile_arch = "x86_64"
+    elif arch == "x86_64":
+        cross_compile_arch = "arm64"
+    else:
+        raise UnsupportedArchitecture(f"Architecture {arch} is not supported.")
+
+    call(
+        [
+            REPO_ROOT_PATH / "Utilities" / "bootstrap",
+            "build",
+            "--release",
+            "--verbose",
+            "--cross-compile-hosts",
+            f"macosx-{cross_compile_arch}",
+            "--skip-cmake-bootstrap",
+            "--swift-build-path",
+            (swiftpm_bin_dir / "swift-build").resolve(),
+        ],
+    )
+
+
+GlobalArgsValueType = str
+
+
+@dataclasses.dataclass
+class GlobalArgs:
+    global_argument: str
+    value: t.Optional[GlobalArgsValueType]
+
+
+def filterIsTruthy(items: t.Iterable) -> t.Iterable:
+    return list(filter(lambda x: x, items))
+
+
+def main() -> None:
+    args = get_arguments()
+    logging.getLogger().setLevel(logging.DEBUG if args.is_verbose else logging.INFO)
+    logging.debug("Args: %r", args)
+    ignore_args = ["-Xlinker", "/ignore:4217"] if os.name == "nt" else []
+    globalArgsData = [
+        GlobalArgs(global_argument="--triple", value=args.triple),
+        GlobalArgs(global_argument="--build-system", value=args.build_system),
+    ]
+    global_args: t.Iterator[GlobalArgsValueType] = list(
+        itertools.chain.from_iterable(
+            [[arg.global_argument, arg.value] for arg in globalArgsData if arg.value]
+        )
+    )
+    logging.debug("Global Args: %r", global_args)
+    start_time = datetime.now()
+    with change_directory(REPO_ROOT_PATH):
+        swiftpm_bin_dir = get_swiftpm_bin_dir(config=args.config)
+        set_environment(swiftpm_bin_dir=swiftpm_bin_dir)
+
+        call(
+            filterIsTruthy(
+                [
+                    "swift",
+                    "--version",
+                ]
+            )
+        )
+
+        call(
+            filterIsTruthy(
+                [
+                    "swift",
+                    "package",
+                    "update",
+                ]
+            )
+        )
+        call(
+            filterIsTruthy(
+                [
+                    "swift",
+                    "build",
+                    *global_args,
+                    "--configuration",
+                    args.config,
+                    *ignore_args,
+                    *args.additional_build_args.split(" ")
+                ]
+            )
+        )
+        call(
+            filterIsTruthy(
+                [
+                    "swift",
+                    "run",
+                    *ignore_args,
+                    *args.additional_run_args.split(" "),
+                    "swift-test",
+                    *global_args,
+                    "--configuration",
+                    args.config,
+                    "--parallel",
+                    "--scratch-path",
+                    ".test",
+                    *ignore_args,
+                    *args.additional_test_args.split(" ")
+                ]
+            )
+        )
+
+    if is_on_darwin() and not args.skip_bootstrap:
+        run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
+
+    end_time = datetime.now()
+    elapsed_time = end_time - start_time
+
+    logging.info("Done (%s)", str(elapsed_time))
+
+
+if __name__ == "__main__":
+    main()

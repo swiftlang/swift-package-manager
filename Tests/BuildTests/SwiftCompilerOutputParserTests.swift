@@ -9,12 +9,14 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
-import XCTest
+import Testing
 import Build
 
-class SwiftCompilerOutputParserTests: XCTestCase {
-    func testParse() throws {
+struct SwiftCompilerOutputParserTests {
+    @Test
+    func parse() throws {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
@@ -147,7 +149,8 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         ], errorDescription: nil)
     }
 
-    func testRawTextTransformsIntoUnknown() {
+    @Test
+    func rawTextTransformsIntoUnknown() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
@@ -174,7 +177,8 @@ class SwiftCompilerOutputParserTests: XCTestCase {
         ], errorDescription: nil)
     }
 
-    func testSignalledStopsParsing() {
+    @Test
+    func signalledStopsParsing() {
         let delegate = MockSwiftCompilerOutputParserDelegate()
         let parser = SwiftCompilerOutputParser(targetName: "dummy", delegate: delegate)
 
@@ -222,12 +226,11 @@ class MockSwiftCompilerOutputParserDelegate: SwiftCompilerOutputParserDelegate {
     func assert(
         messages: [SwiftCompilerMessage],
         errorDescription: String?,
-        file: StaticString = #file,
-        line: UInt = #line
+        sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        XCTAssertEqual(messages, self.messages, file: file, line: line)
+        #expect(messages == self.messages, sourceLocation: sourceLocation)
         let errorReason = (self.error as? LocalizedError)?.errorDescription ?? error?.localizedDescription
-        XCTAssertEqual(errorDescription, errorReason, file: file, line: line)
+        #expect(errorDescription == errorReason, sourceLocation: sourceLocation)
         self.messages = []
         self.error = nil
     }

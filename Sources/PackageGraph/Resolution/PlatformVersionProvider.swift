@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct Basics.IdentifiableSet
 import struct PackageModel.MinimumDeploymentTarget
 import struct PackageModel.Platform
 import struct PackageModel.PlatformVersion
@@ -31,7 +32,7 @@ func merge(into partial: inout [SupportedPlatform], platforms: [SupportedPlatfor
 
 public struct PlatformVersionProvider: Hashable {
     public enum Implementation: Hashable {
-        case mergingFromTargets([ResolvedTarget])
+        case mergingFromModules(IdentifiableSet<ResolvedModule>)
         case customXCTestMinimumDeploymentTargets([PackageModel.Platform: PlatformVersion])
         case minimumDeploymentTargetDefault
     }
@@ -44,7 +45,7 @@ public struct PlatformVersionProvider: Hashable {
 
     func derivedXCTestPlatformProvider(_ declared: PackageModel.Platform) -> PlatformVersion? {
         switch self.implementation {
-        case .mergingFromTargets(let targets):
+        case .mergingFromModules(let targets):
             let platforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
                 merge(
                     into: &partial,

@@ -2,8 +2,14 @@
 	import Glibc
 #elseif canImport(Musl)
 	import Musl
-#else
+#elseif canImport(Android)
+	import Android
+#elseif canImport(Darwin.C)
 	import Darwin.C
+#elseif canImport(ucrt)
+	import ucrt
+	let PATH_MAX = 260
+	typealias Int = Int32
 #endif
 
 let cwd = getcwd(nil, Int(PATH_MAX))

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCUtility
 import enum TSCBasic.JSON
-import class TSCBasic.Process
 
 extension Triple {
     public init(_ description: String) throws {
@@ -24,6 +24,10 @@ extension Triple {
 }
 
 extension Triple {
+    public var isWasm: Bool {
+        [.wasm32, .wasm64].contains(self.arch)
+    }
+
     public func isApple() -> Bool {
         vendor == .apple
     }
@@ -59,6 +63,10 @@ extension Triple {
         os == .openbsd
     }
 
+    public func isFreeBSD() -> Bool {
+        os == .freebsd
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.
@@ -81,7 +89,7 @@ extension Triple {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
         do {
-            let result = try Process.popen(args: swiftCompiler.pathString, "-print-target-info")
+            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
             compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
             throw InternalError("Failed to get target info (\(error.interpolationDescription))")
@@ -130,24 +138,45 @@ extension Triple {
     /// The file extension for dynamic libraries (eg. `.dll`, `.so`, or `.dylib`)
     public var dynamicLibraryExtension: String {
         guard let os = self.os else {
-            fatalError("Cannot create dynamic libraries unknown os.")
+            fatalError("Cannot create dynamic libraries for unknown os.")
         }
 
         switch os {
         case _ where isDarwin():
             return ".dylib"
-        case .linux, .openbsd:
+        case .linux, .openbsd, .freebsd:
             return ".so"
         case .win32:
             return ".dll"
         case .wasi:
             return ".wasm"
         default:
-            fatalError("Cannot create dynamic libraries for os \"\(os)\".")
+          break
+        }
+
+        guard let objectFormat = self.objectFormat else {
+            fatalError("Cannot create dynamic libraries for unknown object format.")
+        }
+
+        switch objectFormat {
+        case .coff:
+            return ".coff"
+        case .elf:
+            return ".elf"
+        case .macho:
+            return ".macho"
+        case .wasm:
+            return ".wasm"
+        case .xcoff:
+            return ".xcoff"
         }
     }
 
     public var executableExtension: String {
+        guard !self.isWasm else {
+            return ".wasm"
+        }
+
         guard let os = self.os else {
             return ""
         }
@@ -155,10 +184,8 @@ extension Triple {
         switch os {
         case _ where isDarwin():
             return ""
-        case .linux, .openbsd:
+        case .linux, .openbsd, .freebsd:
             return ""
-        case .wasi:
-            return ".wasm"
         case .win32:
             return ".exe"
         case .noneOS:

@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "Bar",
     dependencies: [
-        .package(url: "../NonExistantPackage", from: "1.0.0"),
+        .package(url: "../NonExistentPackage", from: "1.0.0"),
     ],
     targets: [
         .target(name: "Bar", path: "./"),

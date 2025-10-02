@@ -26,8 +26,8 @@ struct Example {
 
         let package = try await workspace.loadRootPackage(at: packagePath, observabilityScope: observability.topScope)
 
-        let graph = try workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
-        
+        let graph = try await workspace.loadPackageGraph(rootPath: packagePath, observabilityScope: observability.topScope)
+
         // EXAMPLES
         // ========
 
@@ -39,11 +39,11 @@ struct Example {
         print("Targets:", targets)
 
         // Package
-        let executables = package.targets.filter({ $0.type == .executable }).map({ $0.name })
+        let executables = package.modules.filter({ $0.type == .executable }).map({ $0.name })
         print("Executable targets:", executables)
 
         // PackageGraph
-        let numberOfFiles = graph.reachableTargets.reduce(0, { $0 + $1.sources.paths.count })
+        let numberOfFiles = graph.reachableModules.reduce(0, { $0 + $1.sources.paths.count })
         print("Total number of source files (including dependencies):", numberOfFiles)
     }
 }

@@ -12,42 +12,44 @@
 
 import Basics
 import Foundation
+import TSCBasic
 
-import class TSCBasic.Process
+import class Basics.AsyncProcess
 
 private func isAndroid() -> Bool {
-    (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
-        (try? localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
+    (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
+        (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
 }
 
-public enum Platform: Equatable {
+public enum Platform: Equatable, Sendable {
     case android
     case darwin
     case linux(LinuxFlavor)
     case windows
+    case freebsd
 
     /// Recognized flavors of linux.
-    public enum LinuxFlavor: Equatable {
+    public enum LinuxFlavor: Equatable, Sendable {
         case debian
         case fedora
     }
 }
 
 extension Platform {
-    // This is not just a computed property because the ToolchainRegistryTests
-    // change the value.
-    public static var current: Platform? = {
+    public static let current: Platform? = {
         #if os(Windows)
         return .windows
         #else
-        switch try? Process.checkNonZeroExit(args: "uname")
+        switch try? AsyncProcess.checkNonZeroExit(args: "uname")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
         {
         case "darwin"?:
             return .darwin
+        case "freebsd"?:
+            return .freebsd
         case "linux"?:
-            return Platform.findCurrentPlatformLinux(localFileSystem)
+            return Platform.findCurrentPlatformLinux(Basics.localFileSystem)
         default:
             return nil
         }
@@ -91,7 +93,7 @@ extension Platform {
     public var dynamicLibraryExtension: String {
         switch self {
         case .darwin: return ".dylib"
-        case .linux, .android: return ".so"
+        case .linux, .android, .freebsd: return ".so"
         case .windows: return ".dll"
         }
     }
@@ -99,7 +101,7 @@ extension Platform {
     public var executableExtension: String {
         switch self {
         case .windows: return ".exe"
-        case .linux, .android, .darwin: return ""
+        case .linux, .android, .darwin, .freebsd: return ""
         }
     }
 }

@@ -14,8 +14,20 @@ import Basics
 import class Foundation.ProcessInfo
 import PackageModel
 import PackageGraph
+import TSCBasic
 
 public struct BuildParameters: Encodable {
+    public enum PrepareForIndexingMode: Encodable {
+        /// Perform a normal build and don't prepare for indexing
+        case off
+        /// Prepare for indexing but don't pass `-experimental-lazy-typecheck`.
+        ///
+        /// This is intended as a workaround if lazy type checking is causing compiler crashes.
+        case noLazy
+        /// Do minimal build to prepare for indexing
+        case on
+    }
+
     /// Mode for the indexing-while-building feature.
     public enum IndexStoreMode: String, Encodable {
         /// Index store should be enabled.
@@ -26,8 +38,20 @@ public struct BuildParameters: Encodable {
         case auto
     }
 
+    /// The destination for which code should be compiled for.
+    public enum Destination: Hashable, Encodable {
+        /// The destination for which build tools are compiled.
+        case host
+
+        /// The destination for which end products are compiled.
+        case target
+    }
+
+    /// The destination these parameters are going to be used for.
+    public var destination: Destination
+
     /// The path to the data directory.
-    public var dataPath: AbsolutePath
+    public var dataPath: Basics.AbsolutePath
 
     /// The build configuration.
     public var configuration: BuildConfiguration
@@ -46,7 +70,7 @@ public struct BuildParameters: Encodable {
     public var flags: BuildFlags
 
     /// An array of paths to search for pkg-config `.pc` files.
-    public var pkgConfigDirectories: [AbsolutePath]
+    public var pkgConfigDirectories: [Basics.AbsolutePath]
 
     /// The architectures to build for.
     // FIXME: this may be inconsistent with `targetTriple`.
@@ -92,15 +116,21 @@ public struct BuildParameters: Encodable {
             return .windows
         } else if self.triple.isOpenBSD() {
             return .openbsd
+        } else if self.triple.isFreeBSD() {
+            return .freebsd
         } else {
             return .linux
         }
     }
 
-    /// Whether the Xcode build system is used.
-    public var isXcodeBuildSystemEnabled: Bool
+    public var buildSystemKind: BuildSystemProvider.Kind
 
     public var shouldSkipBuilding: Bool
+
+    public var printPIFManifestGraphviz: Bool = false
+
+    /// Do minimal build to prepare for indexing
+    public var prepareForIndexing: PrepareForIndexingMode
 
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
@@ -117,25 +147,31 @@ public struct BuildParameters: Encodable {
     /// Build parameters related to testing.
     public var testingParameters: Testing
 
+    /// The mode to run the API digester in, if any.
+    public var apiDigesterMode: APIDigesterMode?
+
     public init(
-        dataPath: AbsolutePath,
+        destination: Destination,
+        dataPath: Basics.AbsolutePath,
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
         flags: BuildFlags,
-        pkgConfigDirectories: [AbsolutePath] = [],
+        buildSystemKind: BuildSystemProvider.Kind,
+        pkgConfigDirectories: [Basics.AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
         sanitizers: EnabledSanitizers = EnabledSanitizers(),
         indexStoreMode: IndexStoreMode = .auto,
-        isXcodeBuildSystemEnabled: Bool = false,
         shouldSkipBuilding: Bool = false,
+        prepareForIndexing: PrepareForIndexingMode = .off,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
-        testingParameters: Testing? = nil
+        testingParameters: Testing = .init(),
+        apiDigesterMode: APIDigesterMode? = nil
     ) throws {
         let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
@@ -144,10 +180,12 @@ public struct BuildParameters: Encodable {
             omitFramePointers: nil
         )
 
+        self.destination = destination
         self.dataPath = dataPath
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf:
             var flags = flags
@@ -183,102 +221,130 @@ public struct BuildParameters: Encodable {
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
         self.sanitizers = sanitizers
         self.indexStoreMode = indexStoreMode
-        self.isXcodeBuildSystemEnabled = isXcodeBuildSystemEnabled
         self.shouldSkipBuilding = shouldSkipBuilding
+        self.prepareForIndexing = prepareForIndexing
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters
-        self.testingParameters = testingParameters ?? .init(configuration: configuration, targetTriple: triple)
+        self.testingParameters = testingParameters
+        self.apiDigesterMode = apiDigesterMode
     }
 
     /// The path to the build directory (inside the data directory).
-    public var buildPath: AbsolutePath {
-        if isXcodeBuildSystemEnabled {
-            return dataPath.appending(components: "Products", configuration.dirname.capitalized)
-        } else {
+    public var buildPath: Basics.AbsolutePath {
+        // TODO: query the build system for this.
+        switch buildSystemKind {
+        case .xcode, .swiftbuild:
+            var configDir: String = configuration.dirname.capitalized
+            if self.triple.isWindows() {
+                configDir += "-windows"
+            } else if self.triple.isLinux() {
+                configDir += "-linux"
+            }
+            return dataPath.appending(components: "Products", configDir)
+        case .native:
             return dataPath.appending(component: configuration.dirname)
         }
     }
 
     /// The path to the index store directory.
-    public var indexStore: AbsolutePath {
+    public var indexStore: Basics.AbsolutePath {
         assert(indexStoreMode != .off, "index store is disabled")
         return buildPath.appending(components: "index", "store")
     }
 
     /// The path to the code coverage directory.
-    public var codeCovPath: AbsolutePath {
+    public var codeCovPath: Basics.AbsolutePath {
         return buildPath.appending("codecov")
     }
 
     /// The path to the code coverage profdata file.
-    public var codeCovDataFile: AbsolutePath {
+    public var codeCovDataFile: Basics.AbsolutePath {
         return codeCovPath.appending("default.profdata")
     }
 
-    public var llbuildManifest: AbsolutePath {
+    public var llbuildManifest: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
         // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", configuration.dirname + ".yaml")
     }
 
-    public var pifManifest: AbsolutePath {
+    public var pifManifest: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters` due to its use of `..`
         // FIXME: it should be calculated in a different place
         return dataPath.appending(components: "..", "manifest.pif")
     }
 
-    public var buildDescriptionPath: AbsolutePath {
+    public var buildDescriptionPath: Basics.AbsolutePath {
         // FIXME: this path isn't specific to `BuildParameters`, should be moved one directory level higher
         return buildPath.appending(components: "description.json")
     }
 
-    public var testOutputPath: AbsolutePath {
+    public var testOutputPath: Basics.AbsolutePath {
         return buildPath.appending(component: "testOutput.txt")
     }
     /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) throws -> AbsolutePath {
+    public func binaryPath(for product: ResolvedProduct) throws -> Basics.AbsolutePath {
         return try buildPath.appending(binaryRelativePath(for: product))
     }
 
+    public func macroBinaryPath(_ module: ResolvedModule) throws -> Basics.AbsolutePath {
+        assert(module.type == .macro)
+        #if BUILD_MACROS_AS_DYLIBS
+        return buildPath.appending(try dynamicLibraryPath(for: module.name))
+        #else
+        return buildPath.appending(try executablePath(for: module.name))
+        #endif
+    }
+
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    func potentialDynamicLibraryPath(for product: ResolvedProduct) throws -> RelativePath {
-        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(product.name)\(self.triple.dynamicLibraryExtension)")
+    private func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
+        try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
+    }
+
+    /// Returns the path to the executable of a product for the current build parameters.
+    package func executablePath(for name: String) throws -> Basics.RelativePath {
+        try RelativePath(validating: "\(name)\(self.suffix)\(self.triple.executableExtension)")
     }
 
     /// Returns the path to the binary of a product for the current build parameters, relative to the build directory.
-    public func binaryRelativePath(for product: ResolvedProduct) throws -> RelativePath {
-        let potentialExecutablePath = try RelativePath(validating: "\(product.name)\(self.triple.executableExtension)")
-
+    public func binaryRelativePath(for product: ResolvedProduct) throws -> Basics.RelativePath {
         switch product.type {
         case .executable, .snippet:
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
         case .library(.static):
-            return try RelativePath(validating: "lib\(product.name)\(self.triple.staticLibraryExtension)")
+            return try RelativePath(validating: "lib\(product.name)\(self.suffix)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
         case .library(.automatic), .plugin:
             fatalError()
         case .test:
-            guard !self.triple.isWASI() else {
-                return try RelativePath(validating: "\(product.name).wasm")
-            }
-            switch testingParameters.library {
-            case .xctest:
+            switch buildSystemKind {
+            case .native, .xcode:
                 let base = "\(product.name).xctest"
                 if self.triple.isDarwin() {
                     return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
                 } else {
                     return try RelativePath(validating: base)
                 }
-            case .swiftTesting:
-                return try RelativePath(validating: "\(product.name).swift-testing")
+            case .swiftbuild:
+                if self.triple.isDarwin() {
+                    let base = "\(product.name).xctest"
+                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
+                } else {
+                    var base = "\(product.name)-test-runner"
+                    let ext = self.triple.executableExtension
+                    if !ext.isEmpty {
+                        base += ext
+                    }
+                    return try RelativePath(validating: base)
+                }
             }
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
-            return try potentialDynamicLibraryPath(for: product)
+            return try dynamicLibraryPath(for: product.name)
             #else
-            return potentialExecutablePath
+            return try executablePath(for: product.name)
             #endif
         }
     }
@@ -310,22 +376,16 @@ private struct _Toolchain: Encodable {
     }
 }
 
-extension BuildParameters {
-    /// Whether to build Swift code with whole module optimization (WMO)
-    /// enabled.
-    public var useWholeModuleOptimization: Bool {
-        switch configuration {
-        case .debug:
-            return false
-
-        case .release:
-            return true
-        }
-    }
-}
-
 extension Triple {
     public var supportsTestSummary: Bool {
         return !self.isWindows()
+    }
+}
+
+extension BuildParameters {
+    /// Suffix appended to build manifest nodes to distinguish nodes created for tools from nodes created for
+    /// end products, i.e. nodes for host vs target triples.
+    package var suffix: String {
+        if destination == .host { "-tool" } else { "" }
     }
 }

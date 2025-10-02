@@ -27,30 +27,20 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - identifiers: Optional. If specified, only `PackageCollection`s with matching identifiers will be returned.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func listCollections(
-        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<[PackageCollectionsModel.Collection], Error>) -> Void
-    )
+        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> [PackageCollectionsModel.Collection]
 
     /// Refreshes all configured package collections.
-    ///
-    /// - Parameters:
-    ///   - callback: The closure to invoke after triggering a refresh for the configured package collections.
-    @available(*, noasync, message: "Use the async alternative")
-    func refreshCollections(callback: @escaping (Result<[PackageCollectionsModel.CollectionSource], Error>) -> Void)
+    func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource]
 
     /// Refreshes a package collection.
     ///
     /// - Parameters:
     ///   - source: The package collection to be refreshed
-    ///   - callback: The closure to invoke with the refreshed `PackageCollection`
-    @available(*, noasync, message: "Use the async alternative")
     func refreshCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    )
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws -> PackageCollectionsModel.Collection
 
     /// Adds a package collection.
     ///
@@ -59,77 +49,46 @@ public protocol PackageCollectionsProtocol {
     ///   - order: Optional. The order that the `PackageCollection` should take after being added to the list.
     ///            By default the new collection is appended to the end (i.e., the least relevant order).
     ///   - trustConfirmationProvider: The closure to invoke when the collection is not signed and user confirmation is required to proceed
-    ///   - callback: The closure to invoke with the newly added `PackageCollection`
-    @available(*, noasync, message: "Use the async alternative")
     func addCollection(
         _ source: PackageCollectionsModel.CollectionSource,
         order: Int?,
-        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    )
+        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)?
+    ) async throws -> PackageCollectionsModel.Collection
 
     /// Removes a package collection.
     ///
     /// - Parameters:
     ///   - source: The package collection's source
-    ///   - callback: The closure to invoke with the result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func removeCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws
 
     /// Moves a package collection to a different order.
     ///
     /// - Parameters:
     ///   - source: The source of the `PackageCollection` to be reordered
     ///   - order: The new order that the `PackageCollection` should be positioned after the move
-    ///   - callback: The closure to invoke with the result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func moveCollection(
         _ source: PackageCollectionsModel.CollectionSource,
-        to order: Int,
-        callback: @escaping (Result<Void, Error>) -> Void
-    )
+        to order: Int
+    ) async throws
 
     /// Updates settings of a `PackageCollection` source (e.g., if it is trusted or not).
     ///
     /// - Parameters:
     ///   - source: The `PackageCollection` source to be updated
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func updateCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    )
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws -> PackageCollectionsModel.Collection
 
     /// Returns information about a package collection. The collection is not required to be in the configured list. If
     /// not found locally, the collection will be fetched from the source.
     ///
     /// - Parameters:
     ///   - source: The package collection's source
-    ///   - callback: The closure to invoke with the `PackageCollection`
-    @available(*, noasync, message: "Use the async alternative")
     func getCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        callback: @escaping (Result<PackageCollectionsModel.Collection, Error>) -> Void
-    )
-
-    /// Returns metadata for the package identified by the given `PackageIdentity`, along with the
-    /// identifiers of `PackageCollection`s where the package is found.
-    ///
-    /// A failure is returned if the package is not found.
-    ///
-    /// - Parameters:
-    ///   - identity: The package identity
-    ///   - location: The package location (optional for deduplication)
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func getPackageMetadata(
-        identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    )
+        _ source: PackageCollectionsModel.CollectionSource
+    ) async throws -> PackageCollectionsModel.Collection
 
     /// Returns metadata for the package identified by the given `PackageIdentity`, along with the
     /// identifiers of `PackageCollection`s where the package is found.
@@ -141,25 +100,19 @@ public protocol PackageCollectionsProtocol {
     ///   - location: The package location (optional for deduplication)
     ///   - collections: Optional. If specified, only look for package in these collections. Data from the most recently
     ///                  processed collection will be used.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func getPackageMetadata(
         identity: PackageIdentity,
         location: String?,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    )
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> PackageCollectionsModel.PackageMetadata
 
     /// Lists packages from the specified collections.
     ///
     /// - Parameters:
     ///   - collections: Optional. If specified, only packages in these collections are included.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func listPackages(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    )
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> PackageCollectionsModel.PackageSearchResult
 
     // MARK: - Target (Module) APIs
 
@@ -171,12 +124,9 @@ public protocol PackageCollectionsProtocol {
     ///
     /// - Parameters:
     ///   - collections: Optional. If specified, only list targets within these collections.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func listTargets(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<PackageCollectionsModel.TargetListResult, Error>) -> Void
-    )
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> PackageCollectionsModel.TargetListResult
 
     // MARK: - Search APIs
 
@@ -188,13 +138,10 @@ public protocol PackageCollectionsProtocol {
     /// - Parameters:
     ///   - query: The search query
     ///   - collections: Optional. If specified, only search within these collections.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func findPackages(
         _ query: String,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    )
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> PackageCollectionsModel.PackageSearchResult
 
     /// Finds targets by name and returns the corresponding packages.
     ///
@@ -206,168 +153,13 @@ public protocol PackageCollectionsProtocol {
     ///   - searchType: Optional. Target names must either match exactly or contain the prefix.
     ///                 For more flexibility, use the `findPackages` API instead.
     ///   - collections: Optional. If specified, only search within these collections.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
     func findTargets(
         _ query: String,
         searchType: PackageCollectionsModel.TargetSearchType?,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>?,
-        callback: @escaping (Result<PackageCollectionsModel.TargetSearchResult, Error>) -> Void
-    )
+        collections: Set<PackageCollectionsModel.CollectionIdentifier>?
+    ) async throws -> PackageCollectionsModel.TargetSearchResult
 }
 
-public extension PackageCollectionsProtocol {
-    func listCollections(
-        identifiers: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> [PackageCollectionsModel.Collection]  {
-        try await safe_async {
-            self.listCollections(identifiers: identifiers, callback: $0)
-        }
-    }
-
-    func refreshCollections() async throws -> [PackageCollectionsModel.CollectionSource] {
-        try await safe_async {
-            self.refreshCollections(callback: $0)
-        }
-    }
-
-    func refreshCollection(
-        _ source: PackageCollectionsModel.CollectionSource
-    ) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.refreshCollection(
-                source,
-                callback: $0
-            )
-        }
-    }
-
-    func addCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        order: Int? = nil,
-        trustConfirmationProvider: ((PackageCollectionsModel.Collection, @escaping (Bool) -> Void) -> Void)? = nil
-    ) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.addCollection(
-                source,
-                order: order,
-                trustConfirmationProvider:trustConfirmationProvider,
-                callback: $0
-            )
-        }
-    }
-
-    func removeCollection(
-        _ source: PackageCollectionsModel.CollectionSource
-    ) async throws {
-        try await safe_async {
-            self.removeCollection(
-                source,
-                callback: $0
-            )
-        }
-    }
-
-    func moveCollection(
-        _ source: PackageCollectionsModel.CollectionSource,
-        to order: Int
-    ) async throws {
-        try await safe_async {
-            self.moveCollection(
-                source,
-                to: order,
-                callback: $0
-            )
-        }
-    }
-
-    func updateCollection(
-        _ source: PackageCollectionsModel.CollectionSource
-    ) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.updateCollection(
-                source,
-                callback: $0
-            )
-        }
-    }
-
-    func getCollection(
-        _ source: PackageCollectionsModel.CollectionSource
-    ) async throws -> PackageCollectionsModel.Collection {
-        try await safe_async {
-            self.getCollection(
-                source,
-                callback: $0
-            )
-        }
-    }
-
-    func getPackageMetadata(
-        identity: PackageIdentity,
-        location: String? = nil,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.PackageMetadata {
-        try await safe_async {
-            self.getPackageMetadata(
-                identity: identity,
-                location: location,
-                collections: collections,
-                callback: $0
-            )
-        }
-    }
-
-    func listPackages(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await safe_async {
-            self.listPackages(
-                collections: collections,
-                callback: $0
-            )
-        }
-    }
-
-    func listTargets(
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.TargetListResult {
-        try await safe_async {
-            self.listTargets(
-                collections: collections,
-                callback: $0
-            )
-        }
-    }
-
-    func findPackages(
-        _ query: String,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await safe_async {
-            self.findPackages(
-                query,
-                collections: collections,
-                callback: $0
-            )
-        }
-    }
-
-    func findTargets(
-        _ query: String,
-        searchType: PackageCollectionsModel.TargetSearchType? = nil,
-        collections: Set<PackageCollectionsModel.CollectionIdentifier>? = nil
-    ) async throws -> PackageCollectionsModel.TargetSearchResult {
-        try await safe_async {
-            self.findTargets(
-                query,
-                searchType: searchType,
-                collections: collections,
-                callback: $0
-            )
-        }
-    }
-}
 
 public enum PackageCollectionError: Equatable, Error {
     /// Package collection is not signed and there is no record of user's trust selection
@@ -400,84 +192,28 @@ public protocol PackageIndexProtocol {
     /// - Parameters:
     ///   - identity: The package identity
     ///   - location: The package location (optional for deduplication)
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func getPackageMetadata(
-        identity: PackageIdentity,
-        location: String?,
-        callback: @escaping (Result<PackageCollectionsModel.PackageMetadata, Error>) -> Void
-    )
-
-    /// Finds and returns packages that match the query.
-    ///
-    /// - Parameters:
-    ///   - query: The search query
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func findPackages(
-        _ query: String,
-        callback: @escaping (Result<PackageCollectionsModel.PackageSearchResult, Error>) -> Void
-    )
-    
-    /// A paginated list of packages in the index.
-    ///
-    /// - Parameters:
-    ///   - offset: Offset of the first item in the result
-    ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
-    ///   - callback: The closure to invoke when result becomes available
-    @available(*, noasync, message: "Use the async alternative")
-    func listPackages(
-        offset: Int,
-        limit: Int,
-        callback: @escaping (Result<PackageCollectionsModel.PaginatedPackageList, Error>) -> Void
-    )
-}
-
-public extension PackageIndexProtocol {
     func getPackageMetadata(
         identity: PackageIdentity,
         location: String?
-    ) async throws -> PackageCollectionsModel.PackageMetadata {
-        try await safe_async {
-            self.getPackageMetadata(
-                identity: identity,
-                location: location,
-                callback: $0
-            )
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PackageMetadata
 
     /// Finds and returns packages that match the query.
     ///
     /// - Parameters:
     ///   - query: The search query
-    ///   - callback: The closure to invoke when result becomes available
     func findPackages(
         _ query: String
-    ) async throws -> PackageCollectionsModel.PackageSearchResult {
-        try await safe_async {
-            self.findPackages(query, callback: $0)
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PackageSearchResult
 
     /// A paginated list of packages in the index.
     ///
     /// - Parameters:
     ///   - offset: Offset of the first item in the result
     ///   - limit: Number of items to return in the result. Implementations might impose a threshold for this.
-    ///   - callback: The closure to invoke when result becomes available
     func listPackages(
         offset: Int,
         limit: Int
-    ) async throws -> PackageCollectionsModel.PaginatedPackageList {
-        try await safe_async {
-            self.listPackages(
-                offset: offset,
-                limit: limit,
-                callback: $0
-            )
-        }
-    }
+    ) async throws -> PackageCollectionsModel.PaginatedPackageList
 }
 
 public enum PackageIndexError: Equatable, Error {

@@ -27,6 +27,7 @@ import X509
 #endif
 
 import Basics
+import TSCBasic
 
 public protocol SigningIdentity {}
 

@@ -35,7 +35,7 @@
 /// Increase the third digit of a version, or _patch version_, if you're making
 /// a backward-compatible bug fix. This allows clients to benefit from bugfixes
 /// to your package without incurring any maintenance burden.
-public struct Version {
+public struct Version: Sendable {
 
     /// The major version according to the semantic versioning standard.
     public let major: Int
@@ -59,11 +59,11 @@ public struct Version {
     ///   - minor: The minor version number.
     ///   - patch: The patch version number.
     ///   - prereleaseIdentifiers: The pre-release identifier.
-    ///   - buildMetaDataIdentifiers: Build metadata that identifies a build.
+    ///   - buildMetadataIdentifiers: Build metadata that identifies a build.
     ///
     /// - Precondition: `major >= 0 && minor >= 0 && patch >= 0`.
     /// - Precondition: `prereleaseIdentifiers` can contain only ASCII alpha-numeric characters and "-".
-    /// - Precondition: `buildMetaDataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
+    /// - Precondition: `buildMetadataIdentifiers` can contain only ASCII alpha-numeric characters and "-".
     public init(
         _ major: Int,
         _ minor: Int,
@@ -93,7 +93,7 @@ public struct Version {
 }
 
 extension Version: Comparable {
-    // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/apple/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
+    // Although `Comparable` inherits from `Equatable`, it does not provide a new default implementation of `==`, but instead uses `Equatable`'s default synthesised implementation. The compiler-synthesised `==`` is composed of [member-wise comparisons](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0185-synthesize-equatable-hashable.md#implementation-details), which leads to a false `false` when 2 semantic versions differ by only their build metadata identifiers, contradicting SemVer 2.0.0's [comparison rules](https://semver.org/#spec-item-10).
     
     /// Returns a Boolean value indicating whether two values are equal.
     ///

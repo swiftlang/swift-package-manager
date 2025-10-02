@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2023 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,13 +12,14 @@
 
 import Basics
 import OrderedCollections
+
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import PackageGraph
+
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
-
-import class TSCBasic.InMemoryFileSystem
 
 import class TSCTestSupport.XCTestCasePerf
 
@@ -65,6 +66,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 displayName: name,
                 path: try AbsolutePath(validating: location).appending(component: Manifest.filename),
                 packageKind: isRoot ? .root(try .init(validating: location)) : .localSourceControl(try .init(validating: location)),
+                packageIdentity: .plain(name),
                 packageLocation: location,
                 platforms: [],
                 version: "1.0.0",
@@ -85,7 +87,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
 
         measure {
             let observability = ObservabilitySystem.makeForTesting()
-            let g = try! PackageGraph.load(
+            let g = try! ModulesGraph.load(
                 root: PackageGraphRoot(
                     input: PackageGraphRootInput(packages: [rootManifest.path]),
                     manifests: [rootManifest.path: rootManifest],
@@ -94,8 +96,10 @@ final class PackageGraphPerfTests: XCTestCasePerf {
                 identityResolver: identityResolver,
                 externalManifests: externalManifests,
                 binaryArtifacts: [:],
+                prebuilts: [:],
                 fileSystem: fs,
-                observabilityScope: observability.topScope
+                observabilityScope: observability.topScope,
+                enabledTraitsMap: [:]
             )
             XCTAssertEqual(g.packages.count, N)
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -150,7 +154,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try loadPackageGraph(
+                    _ = try loadModulesGraph(
                         fileSystem: fs,
                         manifests: [root] + packageSequence,
                         observabilityScope: observability.topScope
@@ -163,16 +167,18 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     }
 
     func testRecursiveDependencies() throws {
-        var resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t0")
+        try XCTSkipOnWindows()
+
+        var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
         for i in 1..<1000 {
-            resolvedTarget = ResolvedTarget.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
+            resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
         }        
 
         let N = 10
         measure {
             do {
                 for _ in 0..<N {
-                    _ = try resolvedTarget.recursiveTargetDependencies()
+                    _ = try resolvedTarget.recursiveModuleDependencies()
                 }
             } catch {
                 XCTFail("Loading package graph is not expected to fail in this test.")

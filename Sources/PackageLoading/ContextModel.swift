@@ -18,13 +18,16 @@ import Foundation
 
 struct ContextModel {
     let packageDirectory : String
-    
-    init(packageDirectory : String) {
-        self.packageDirectory = packageDirectory
-    }
+    let gitInformation: GitInformation?
     
     var environment : [String : String] {
         ProcessInfo.processInfo.environment
+    }
+
+    struct GitInformation: Codable {
+        let currentTag: String?
+        let currentCommit: String
+        let hasUncommittedChanges: Bool
     }
 }
 

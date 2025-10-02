@@ -13,7 +13,7 @@
 import Basics
 import PackageModel
 
-public struct ResolvedProduct: Hashable {
+public struct ResolvedProduct {
     /// The name of this product.
     public var name: String {
         self.underlying.name
@@ -29,11 +29,17 @@ public struct ResolvedProduct: Hashable {
     /// The underlying product.
     public let underlying: Product
 
-    /// The top level targets contained in this product.
-    public let targets: [ResolvedTarget]
+    @available(*, deprecated, renamed: "modules")
+    public var targets: IdentifiableSet<ResolvedModule> { self.modules }
 
-    /// Executable target for test entry point file.
-    public let testEntryPointTarget: ResolvedTarget?
+    /// The top level modules contained in this product.
+    public internal(set) var modules: IdentifiableSet<ResolvedModule>
+
+    @available(*, deprecated, renamed: "testEntryPointModule")
+    public var testEntryPointTarget: ResolvedModule? { self.testEntryPointModule }
+
+    /// Executable module for test entry point file.
+    public let testEntryPointModule: ResolvedModule?
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -41,91 +47,115 @@ public struct ResolvedProduct: Hashable {
     /// The list of platforms that are supported by this product.
     public let supportedPlatforms: [SupportedPlatform]
 
+    @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
-    /// Triple for which this resolved product should be compiled for.
-    public let buildTriple: BuildTriple
+    @available(*, deprecated, renamed: "executableModule")
+    public var executableTarget: ResolvedModule { get throws { try self.executableModule } }
 
-    /// The main executable target of product.
+    /// The main executable module of this product.
     ///
     /// Note: This property is only valid for executable products.
-    public var executableTarget: ResolvedTarget {
+    public var executableModule: ResolvedModule {
         get throws {
             guard self.type == .executable || self.type == .snippet || self.type == .macro else {
                 throw InternalError("`executableTarget` should only be called for executable targets")
             }
-            guard let underlyingExecutableTarget = targets.map(\.underlying).executables.first,
-                  let executableTarget = targets.first(where: { $0.underlying == underlyingExecutableTarget })
+            guard let underlyingExecutableModule = modules.map(\.underlying).executables.first,
+                  let executableModule = modules.first(where: { $0.underlying == underlyingExecutableModule })
             else {
                 throw InternalError("could not determine executable target")
             }
-            return executableTarget
+            return executableModule
         }
     }
 
-    public init(packageIdentity: PackageIdentity, product: Product, targets: [ResolvedTarget]) {
-        assert(product.targets.count == targets.count && product.targets.map(\.name) == targets.map(\.name))
+    package var hasDirectMacroDependencies: Bool {
+        self.modules.contains(where: \.hasDirectMacroDependencies)
+    }
+
+    @available(*, deprecated, renamed: "init(packageIdentity:product:modules:)")
+    public init(
+        packageIdentity: PackageIdentity,
+        product: Product,
+        targets: IdentifiableSet<ResolvedModule>
+    ) {
+        self.init(packageIdentity: packageIdentity, product: product, modules: targets)
+    }
+
+    public init(
+        packageIdentity: PackageIdentity,
+        product: Product,
+        modules: IdentifiableSet<ResolvedModule>
+    ) {
+        assert(product.modules.count == modules.count && product.modules.map(\.name).sorted() == modules.map(\.name).sorted())
         self.packageIdentity = packageIdentity
         self.underlying = product
-        self.targets = targets
+        self.modules = modules
 
         // defaultLocalization is currently shared across the entire package
-        // this may need to be enhanced if / when we support localization per target or product
-        let defaultLocalization = self.targets.first?.defaultLocalization
+        // this may need to be enhanced if / when we support localization per module or product
+        let defaultLocalization = self.modules.first?.defaultLocalization
         self.defaultLocalization = defaultLocalization
 
-        let (platforms, platformVersionProvider) = Self.computePlatforms(targets: targets)
+        let (platforms, platformVersionProvider) = Self.computePlatforms(modules: modules)
         self.supportedPlatforms = platforms
         self.platformVersionProvider = platformVersionProvider
 
-        self.testEntryPointTarget = product.testEntryPointPath.map { testEntryPointPath in
-            // Create an executable resolved target with the entry point file, adding product's targets as dependencies.
-            let dependencies: [Target.Dependency] = product.targets.map { .target($0, conditions: []) }
-            let swiftTarget = SwiftTarget(
+        self.testEntryPointModule = product.testEntryPointPath.map { testEntryPointPath in
+            // Create an executable resolved module with the entry point file, adding product's modules as dependencies.
+            let dependencies: [Module.Dependency] = product.modules.map { .module($0, conditions: []) }
+            let swiftModule = SwiftModule(
                 name: product.name,
                 dependencies: dependencies,
-                packageAccess: true, // entry point target so treated as a part of the package
+                packageAccess: true, // entry point module so treated as a part of the package
                 testEntryPointPath: testEntryPointPath
             )
-            return ResolvedTarget(
+            return ResolvedModule(
                 packageIdentity: packageIdentity,
-                underlying: swiftTarget,
-                dependencies: targets.map { .target($0, conditions: []) },
+                underlying: swiftModule,
+                dependencies: modules.map { .module($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 supportedPlatforms: platforms,
                 platformVersionProvider: platformVersionProvider
             )
         }
-        
-        self.buildTriple = .destination
     }
 
-    /// True if this product contains Swift targets.
-    public var containsSwiftTargets: Bool {
-        //  C targets can't import Swift targets in SwiftPM (at least not right
-        // now), so we can just look at the top-level targets.
+    @available(*, deprecated, renamed: "containsSwiftModules")
+    public var containsSwiftTargets: Bool { self.containsSwiftModules }
+
+    /// True if this product contains Swift modules.
+    public var containsSwiftModules: Bool {
+        //  C modules can't import Swift modules in SwiftPM (at least not right
+        // now), so we can just look at the top-level modules.
         //
         // If that ever changes, we'll need to do something more complex here,
-        // recursively checking dependencies for SwiftTargets, and considering
-        // dynamic library targets to be Swift targets (since the dylib could
+        // recursively checking dependencies for SwiftModules, and considering
+        // dynamic library modules to be Swift modules (since the dylib could
         // contain Swift code we don't know about as part of this build).
-        self.targets.contains { $0.underlying is SwiftTarget }
+        self.modules.contains { $0.underlying is SwiftModule }
     }
 
-    /// Returns the recursive target dependencies.
-    public func recursiveTargetDependencies() throws -> [ResolvedTarget] {
-        let recursiveDependencies = try targets.lazy.flatMap { try $0.recursiveTargetDependencies() }
-        return Array(Set(self.targets).union(recursiveDependencies))
+    @available(*, deprecated, renamed: "recursiveModuleDependencies")
+    public func recursiveTargetDependencies() throws -> [ResolvedModule] { try self.recursiveModuleDependencies() }
+
+    /// Returns the recursive module dependencies.
+    public func recursiveModuleDependencies() throws -> [ResolvedModule] {
+        let recursiveDependencies = try modules.lazy.flatMap { try $0.recursiveModuleDependencies() }
+        return Array(IdentifiableSet(self.modules).union(recursiveDependencies))
     }
 
-    private static func computePlatforms(targets: [ResolvedTarget]) -> ([SupportedPlatform], PlatformVersionProvider) {
-        let declaredPlatforms = targets.reduce(into: [SupportedPlatform]()) { partial, item in
+    private static func computePlatforms(
+        modules: IdentifiableSet<ResolvedModule>
+    ) -> ([SupportedPlatform], PlatformVersionProvider) {
+        let declaredPlatforms = modules.reduce(into: [SupportedPlatform]()) { partial, item in
             merge(into: &partial, platforms: item.supportedPlatforms)
         }
 
         return (
             declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name }),
-            PlatformVersionProvider(implementation: .mergingFromTargets(targets))
+            PlatformVersionProvider(implementation: .mergingFromModules(modules))
         )
     }
 
@@ -138,10 +168,10 @@ public struct ResolvedProduct: Hashable {
     }
 
     func diagnoseInvalidUseOfUnsafeFlags(_ diagnosticsEmitter: DiagnosticsEmitter) throws {
-        // Diagnose if any target in this product uses an unsafe flag.
-        for target in try self.recursiveTargetDependencies() {
-            if target.underlying.usesUnsafeFlags {
-                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: target.name))
+        // Diagnose if any module in this product uses an unsafe flag.
+        for module in try self.recursiveModuleDependencies() {
+            if module.underlying.usesUnsafeFlags {
+                diagnosticsEmitter.emit(.productUsesUnsafeFlags(product: self.name, target: module.name))
             }
         }
     }
@@ -149,14 +179,29 @@ public struct ResolvedProduct: Hashable {
 
 extension ResolvedProduct: CustomStringConvertible {
     public var description: String {
-        "<ResolvedProduct: \(self.name)>"
+        "<ResolvedProduct: \(self.packageIdentity), \(self.name), \(self.type)>"
     }
 }
 
 extension ResolvedProduct {
     public var isLinkingXCTest: Bool {
         // To retain existing behavior, we have to check both the product type, as well as the types of all of its
-        // targets.
-        self.type == .test || self.targets.contains(where: { $0.type == .test })
+        // modules.
+        self.type == .test || self.modules.contains(where: { $0.type == .test })
     }
 }
+
+extension ResolvedProduct: Identifiable {
+    /// Resolved module identity that uniquely identifies it in a resolution graph.
+    public struct ID: Hashable {
+        public let productName: String
+        let packageIdentity: PackageIdentity
+    }
+
+    public var id: ID {
+        ID(productName: self.name, packageIdentity: self.packageIdentity)
+    }
+}
+
+@available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
+extension ResolvedProduct: Hashable {}

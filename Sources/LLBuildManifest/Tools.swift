@@ -117,7 +117,7 @@ public struct ShellTool: ToolProtocol {
     public var inputs: [Node]
     public var outputs: [Node]
     public var arguments: [String]
-    public var environment: EnvironmentVariables
+    public var environment: Environment
     public var workingDirectory: String?
     public var allowMissingInputs: Bool
 
@@ -126,7 +126,7 @@ public struct ShellTool: ToolProtocol {
         inputs: [Node],
         outputs: [Node],
         arguments: [String],
-        environment: EnvironmentVariables = .empty(),
+        environment: Environment,
         workingDirectory: String? = nil,
         allowMissingInputs: Bool = false
     ) {
@@ -245,7 +245,7 @@ public struct SwiftFrontendTool: ToolProtocol {
     }
 
     public func write(to stream: inout ManifestToolStream) {
-      ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments, environment: [:]).write(to: &stream)
     }
 }
 
@@ -271,6 +271,7 @@ public struct SwiftCompilerTool: ToolProtocol {
     public var isLibrary: Bool
     public var wholeModuleOptimization: Bool
     public var outputFileMapPath: AbsolutePath
+    public var prepareForIndexing: Bool
 
     init(
         inputs: [Node],
@@ -287,7 +288,8 @@ public struct SwiftCompilerTool: ToolProtocol {
         fileList: AbsolutePath,
         isLibrary: Bool,
         wholeModuleOptimization: Bool,
-        outputFileMapPath: AbsolutePath
+        outputFileMapPath: AbsolutePath,
+        prepareForIndexing: Bool
     ) {
         self.inputs = inputs
         self.outputs = outputs
@@ -304,6 +306,7 @@ public struct SwiftCompilerTool: ToolProtocol {
         self.isLibrary = isLibrary
         self.wholeModuleOptimization = wholeModuleOptimization
         self.outputFileMapPath = outputFileMapPath
+        self.prepareForIndexing = prepareForIndexing
     }
 
     var description: String {
@@ -334,13 +337,16 @@ public struct SwiftCompilerTool: ToolProtocol {
         } else {
             arguments += ["-incremental"]
         }
-        arguments += ["-c", "@\(self.fileList.pathString)"]
+        if !prepareForIndexing {
+            arguments += ["-c"]
+        }
+        arguments += ["@\(self.fileList.pathString)"]
         arguments += ["-I", importPath.pathString]
         arguments += otherArguments
         return arguments
     }
 
     public func write(to stream: inout ManifestToolStream) {
-        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments).write(to: &stream)
+        ShellTool(description: description, inputs: inputs, outputs: outputs, arguments: arguments, environment: [:]).write(to: &stream)
     }
 }

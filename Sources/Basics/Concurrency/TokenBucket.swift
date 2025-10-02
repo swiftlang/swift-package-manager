@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import DequeModule
+private import DequeModule
 
 /// Type modeled after a "token bucket" pattern, which is similar to a semaphore, but is built with
 /// Swift Concurrency primitives.
@@ -30,7 +30,7 @@ public actor TokenBucket {
     /// invocations of `withToken` will suspend until a "free" token is available.
     /// - Parameter body: The closure to invoke when a token is available.
     /// - Returns: Resulting value returned by `body`.
-    public func withToken<ReturnType>(
+    public func withToken<ReturnType: Sendable>(
         _ body: @Sendable () async throws -> ReturnType
     ) async rethrows -> ReturnType {
         await self.getToken()

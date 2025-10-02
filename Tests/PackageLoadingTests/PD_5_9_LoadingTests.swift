@@ -13,15 +13,15 @@
 import Basics
 import PackageLoading
 import PackageModel
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
+final class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
         .v5_9
     }
 
-    func testPlatforms() throws {
+    func testPlatforms() async throws {
         let content =  """
             import PackageDescription
             let package = Package(
@@ -35,7 +35,7 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertNoDiagnostics(observability.diagnostics)
         XCTAssertNoDiagnostics(validationDiagnostics)
 
@@ -50,7 +50,7 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
         ])
     }
 
-    func testMacroTargets() throws {
+    func testMacroTargets() async throws {
         let content = """
             import CompilerPluginSupport
             import PackageDescription
@@ -63,7 +63,7 @@ class PackageDescription5_9LoadingTests: PackageDescriptionLoadingTests {
             """
 
         let observability = ObservabilitySystem.makeForTesting()
-        let (_, diagnostics) = try loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (_, diagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
         XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
     }
 }

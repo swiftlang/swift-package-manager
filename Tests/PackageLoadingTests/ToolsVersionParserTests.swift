@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,16 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 import Basics
 import PackageModel
 import PackageLoading
-import SPMTestSupport
+import _InternalTestSupport
 import XCTest
 
-import class TSCBasic.InMemoryFileSystem
-
-class ToolsVersionParserTests: XCTestCase {
+final class ToolsVersionParserTests: XCTestCase {
     func parse(_ content: String, _ body: ((ToolsVersion) -> Void)? = nil) throws {
         let toolsVersion = try ToolsVersionParser.parse(utf8String: content)
         body?(toolsVersion)
@@ -146,6 +143,67 @@ class ToolsVersionParserTests: XCTestCase {
             ) { toolsVersion in
                 XCTAssertEqual(toolsVersion.description, "3.1.0")
             }
+        }
+    }
+
+    func testToolsVersionAllowsComments() throws {
+        try self.parse(
+        """
+        // comment 1
+        // comment 2
+        // swift-tools-version: 6.0
+        // comment
+        let package = ..
+        """
+        ) { toolsVersion in
+            XCTAssertEqual(toolsVersion.description, "6.0.0")
+        }
+
+        do {
+            try self.parse(
+            """
+            // comment 1
+            // comment 2
+            // swift-tools-version:5.0
+            // comment
+            let package = ..
+            """
+            ) { _ in
+                XCTFail("expected an error to be thrown")
+            }
+        } catch ToolsVersionParser.Error.backwardIncompatiblePre6_0(let incompatibility, _) {
+            XCTAssertEqual(incompatibility, .toolsVersionNeedsToBeFirstLine)
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        do {
+            try self.parse(
+            """
+            // comment 1
+            // comment 2
+            let package = ..
+            """
+            ) { _ in
+                XCTFail("expected an error to be thrown")
+            }
+        } catch ToolsVersionParser.Error.malformedToolsVersionSpecification(.label(.isMisspelt(let label))) {
+            XCTAssertEqual(label, "comment")
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        try self.parse(
+        """
+        /*
+        this is a multiline comment
+        */
+        // swift-tools-version: 6.0
+        // comment
+        let package = ..
+        """
+        ) { toolsVersion in
+            XCTAssertEqual(toolsVersion.description, "6.0.0")
         }
     }
 

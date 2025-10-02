@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2020 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -17,187 +17,170 @@
 import Basics
 import PackageModel
 @testable import Workspace
-import XCTest
-
-import class TSCBasic.InMemoryFileSystem
+import Testing
 
 /// Test cases for `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`
-class ToolsVersionSpecificationRewriterTests: XCTestCase {
-    
-    /// Tests `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
-    func testNonVersionSpecificManifests() throws {
-        // Empty file.
-        rewriteToolsVersionSpecificationToDefaultManifest(content: "") { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n")
-        }
+fileprivate struct ToolsVersionSpecificationRewriterTests {
 
-        // File with just a new line.
-        rewriteToolsVersionSpecificationToDefaultManifest(content: "\n") { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n\n")
-        }
-
-        // File with some contents.
-        rewriteToolsVersionSpecificationToDefaultManifest(content: "let package = ... \n") { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
-        }
-
-        // File already having a valid version specifier.
-        let content = """
-            // swift-tools-version:3.1.2
-            ...
-            """
-
-        rewriteToolsVersionSpecificationToDefaultManifest(content: content) { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
-        }
-
-        // Write a version with zero in patch number.
-        rewriteToolsVersionSpecificationToDefaultManifest(
-            content: """
-            // swift-tools-version:3.1.2
-            ...
-            """,
-            version: ToolsVersion(version: "2.1.0")
-        ) { result in
-            XCTAssertEqual(result, "// swift-tools-version:2.1\n...")
-        }
-
-        // Contents with invalid tools version specification (ignoring the validity of the version specifier).
-        rewriteToolsVersionSpecificationToDefaultManifest(
-            content: """
-            // swift-tool-version:3.1.2
-            ...
-            """
-        ) { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n...")
-        }
-
-        // Contents with invalid version specifier.
-        rewriteToolsVersionSpecificationToDefaultManifest(
-            content: """
-            // swift-tools-version:3.1.2
-            ...
-            """
-        ) { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
-        }
-
-        // Contents with invalid version specifier and some meta data.
-        rewriteToolsVersionSpecificationToDefaultManifest(
-            content: """
-            // swift-tools-version:3.1.2
-            ...
-            """
-        ) { result in
-            // Note: Right now we lose the metadata but if we ever start using it, we should preserve it.
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\n...")
-        }
-
-        // Try to write a version with prerelease and build meta data.
-        let toolsVersion = ToolsVersion(version: "4.1.2-alpha.beta+sha.1234")
-        rewriteToolsVersionSpecificationToDefaultManifest(
-            content: "let package = ... \n",
-            version: toolsVersion
-        ) { result in
-            XCTAssertEqual(result, "// swift-tools-version:4.1.2\nlet package = ... \n")
-        }
+    struct NonVersionSpecificManifestTestData: Identifiable {
+        let id: String
+        let content: String
+        let version: ToolsVersion
+        let expected: String
     }
-    
-    func testManifestAccessFailures() throws {
+    @Test(
+        arguments:[
+            NonVersionSpecificManifestTestData(
+                id: "Empty file.",
+                content: "",
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\n"
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "File with just a new line.",
+                content: "\n",
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\n\n"
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "File with some contents.",
+                content: "let package = ... \n",
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\nlet package = ... \n"
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "File already having a valid version specifier.",
+                content: """
+                // swift-tools-version:3.1.2
+                ...
+                """,
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\n..."
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "File already having a valid version specifier.",
+                content: """
+                // swift-tools-version:3.1.2
+                ...
+                """,
+                version: ToolsVersion(version: "2.1.0"),
+                expected: "// swift-tools-version:2.1\n..."
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "Contents with invalid tools version specification (ignoring the validity of the version specifier).",
+                content: """
+                // swift-tool-version:3.1.2
+                ...
+                """,
+                version: ToolsVersion(version: "4.1.2"),
+                expected:  "// swift-tools-version:4.1.2\n// swift-tool-version:3.1.2\n..."
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "Contents with invalid version specifier.",
+                content: """
+                // swift-tools-version:3.1.2
+                ...
+                """,
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\n..."
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "Contents with invalid version specifier and some meta data.",
+                content: """
+                // swift-tools-version:3.1.2
+                ...
+                """,
+                version: ToolsVersion(version: "4.1.2"),
+                expected: "// swift-tools-version:4.1.2\n..."
+            ),
+            NonVersionSpecificManifestTestData(
+                id: "Try to write a version with prerelease and build meta data.",
+                content: "let package = ... \n",
+                version: ToolsVersion(version: "4.1.2-alpha.beta+sha.1234"),
+                expected: "// swift-tools-version:4.1.2\nlet package = ... \n"
+            )
+        ]
+    )
+    func nonVersionSpecificManifests(_ data: NonVersionSpecificManifestTestData) throws {
+        let content = data.content
+        let version = data.version
+        let expected =  data.expected
+
+        let inMemoryFileSystem = InMemoryFileSystem()
+
+        let manifestFilePath = AbsolutePath("/pkg/Package.swift")
+
+        try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
+        try inMemoryFileSystem.writeFileContents(manifestFilePath, string: content)
+
+        try ToolsVersionSpecificationWriter.rewriteSpecification(
+            manifestDirectory: manifestFilePath.parentDirectory,
+            toolsVersion: version,
+            fileSystem: inMemoryFileSystem
+        )
+
+        // resultHandler(try inMemoryFileSystem.readFileContents(manifestFilePath))
+        let actual = try inMemoryFileSystem.readFileContents(manifestFilePath)
+        #expect(actual.validDescription == expected, "Actual is not expected")
+    }
+
+    @Test
+    func manifestAccessFailures() throws {
         let toolsVersion = ToolsVersion.v5_3
-        
+
         let inMemoryFileSystem = InMemoryFileSystem()
         let manifestFilePath = AbsolutePath("/pkg/Package.swift/Package.swift")
         try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true) // /pkg/Package.swift/
-        
+
         // Test `ManifestAccessError.Kind.isADirectory`
-        XCTAssertThrowsError(
+
+        #expect{
             try ToolsVersionSpecificationWriter.rewriteSpecification(
                 manifestDirectory: manifestFilePath.parentDirectory.parentDirectory, // /pkg/
                 toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
-            ),
-            "'/pkg/Package.swift' is a directory, and an error should've been thrown"
-        ) { error in
-            guard let error = error as? ToolsVersionSpecificationWriter.ManifestAccessError else {
-                XCTFail("a ManifestAccessError should've been thrown")
-                return
-            }
-            XCTAssertEqual(
-                error.kind,
-                .isADirectory
             )
-            XCTAssertEqual(
-                error.description,
-                "no accessible Swift Package Manager manifest file found at '\(manifestFilePath.parentDirectory)'; the path is a directory; a file is expected" // /pkg/Package.swift/
+        } throws: { error in
+            let error = try #require(
+                error as? ToolsVersionSpecificationWriter.ManifestAccessError,
+                "a ManifestAccessError should've been thrown"
             )
+            let isExpectedKind = (error.kind == .isADirectory)
+            let isExpectedDescription = (error.description == "no accessible Swift Package Manager manifest file found at '\(manifestFilePath.parentDirectory)'; the path is a directory; a file is expected")
+
+            return isExpectedKind && isExpectedDescription
         }
-        
+
         // Test `ManifestAccessError.Kind.noSuchFileOrDirectory`
-        XCTAssertThrowsError(
+        #expect {
             try ToolsVersionSpecificationWriter.rewriteSpecification(
                 manifestDirectory: manifestFilePath.parentDirectory, // /pkg/Package.swift/
                 toolsVersion: toolsVersion,
                 fileSystem: inMemoryFileSystem
-            ),
-            "'/pkg/Package.swift' is a directory, and an error should've been thrown"
-        ) { error in
-            guard let error = error as? ToolsVersionSpecificationWriter.ManifestAccessError else {
-                XCTFail("a ManifestAccessError should've been thrown")
-                return
-            }
-            XCTAssertEqual(
-                error.kind,
-                .noSuchFileOrDirectory
             )
-            XCTAssertEqual(
-                error.description,
-                "no accessible Swift Package Manager manifest file found at '\(manifestFilePath)'; a component of the path does not exist, or the path is an empty string" // /pkg/Package.swift/Package.swift
+        } throws: { error in
+            let error = try #require(
+                error as? ToolsVersionSpecificationWriter.ManifestAccessError,
+                "a ManifestAccessError should've been thrown"
             )
+            let isExpectedKind = (error.kind == .noSuchFileOrDirectory)
+            let isExpectedDescription = (error.description == "no accessible Swift Package Manager manifest file found at '\(manifestFilePath)'; a component of the path does not exist, or the path is an empty string")
+
+            return isExpectedKind && isExpectedDescription
         }
-        
-        // TODO: Test `ManifestAccessError.Kind.unknown`
     }
-    
+
     // Private functions are not run in tests.
-    private func testVersionSpecificManifests() throws {
-        // TODO: Add the functionality and tests for version-specific manifests too.
+    @Test
+    func versionSpecificManifests() throws {
+
     }
 
-    func testZeroedPatchVersion() {
-        XCTAssertEqual(ToolsVersion(version: "4.2.1").zeroedPatch.description, "4.2.0")
-        XCTAssertEqual(ToolsVersion(version: "4.2.0").zeroedPatch.description, "4.2.0")
-        XCTAssertEqual(ToolsVersion(version: "6.0.129").zeroedPatch.description, "6.0.0")
+    @Test
+    func zeroedPatchVersion() {
+        #expect(ToolsVersion(version: "4.2.1").zeroedPatch.description == "4.2.0")
+        #expect(ToolsVersion(version: "4.2.0").zeroedPatch.description == "4.2.0")
+        #expect(ToolsVersion(version: "6.0.129").zeroedPatch.description == "6.0.0")
     }
-    
-    /// Does the boilerplate filesystem preparations, then calls `rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`, for `testNonVersionSpecificManifests()`.
-    /// - Parameters:
-    ///   - stream: The stream to read from and write to the filesystem.
-    ///   - version: The Swift tools version to specify.
-    ///   - resultHandler: The result handler.
-    func rewriteToolsVersionSpecificationToDefaultManifest(
-        content: String,
-        version: ToolsVersion = ToolsVersion(version: "4.1.2"),
-        resultHandler: (String) -> Void
-    ) {
-        do {
-            let inMemoryFileSystem = InMemoryFileSystem()
 
-            let manifestFilePath = AbsolutePath("/pkg/Package.swift")
-
-            try inMemoryFileSystem.createDirectory(manifestFilePath.parentDirectory, recursive: true)
-            try inMemoryFileSystem.writeFileContents(manifestFilePath, string: content)
-
-            try ToolsVersionSpecificationWriter.rewriteSpecification(
-                manifestDirectory: manifestFilePath.parentDirectory,
-                toolsVersion: version,
-                fileSystem: inMemoryFileSystem
-            )
-
-            resultHandler(try inMemoryFileSystem.readFileContents(manifestFilePath))
-        } catch {
-            XCTFail("Failed with error \(error)")
-        }
-    }
-    
 }

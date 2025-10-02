@@ -2,15 +2,11 @@
 # particular part of Swift are reviewed, either by themselves or by someone else.
 # They are also the gatekeepers for their part of Swift, with the final word on
 # what goes in or not.
-# 
+#
 # The list is sorted by surname and formatted to allow easy grepping and
 # beautification by scripts.  The fields are: name (N), email (E), web-address
 # (W), PGP key ID and fingerprint (P), description (D), and snail-mail address
 # (S).
- 
-# N: Boris Buegling
-# E: bbuegling@apple.com
-# D: Package Manager
 
 # N: Tomer Doron
 # E: tomer@apple.com
@@ -20,8 +16,16 @@
 # E: m_desiatov@apple.com
 # D: Package Manager
 
+# N: Ben Barham
+# E: ben_barham@apple.com
+# D: Package Manager
+
 ###
 
 # The following lines are used by GitHub to automatically recommend reviewers.
 
-* @neonichu @tomerd @MaxDesiatov
+* @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+
+Sources/Commands/PackageCommands/Migrate.swift @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Sources/SwiftFixIt/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9
+Tests/SwiftFixItTests/* @AnthonyLatsis @bnbarham @xedin @jakepetroules @dschaefer2 @shawnhyam @bripeticca @plemarquand @owenv @bkhouri @cmcgee1024 @daveyc123 @rconnell9

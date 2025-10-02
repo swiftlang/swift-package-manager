@@ -10,13 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+import TSCBasic
+
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import func Basics.temp_await
 import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
-import class PackageGraph.PinsStore
+import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
 import struct SourceControl.Revision
 import struct TSCUtility.Version
@@ -38,18 +39,18 @@ extension Workspace {
         package: PackageReference,
         at checkoutState: CheckoutState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
 
         // first fetch the repository
-        let checkoutPath = try self.fetchRepository(
+        let checkoutPath = try await self.fetchRepository(
             package: package,
             at: checkoutState.revision,
             observabilityScope: observabilityScope
         )
 
         // Check out the given revision.
-        let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
+        let workingCopy = try await self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
         // Inform the delegate that we're about to start.
         delegate?.willCheckOut(
@@ -70,14 +71,14 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        try self.state.dependencies.add(
-            .sourceControlCheckout(
+        try await self.state.add(
+            dependency: .sourceControlCheckout(
                 packageRef: package,
                 state: checkoutState,
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
             )
         )
-        try self.state.save()
+        try await self.state.save()
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
@@ -96,30 +97,30 @@ extension Workspace {
 
     func checkoutRepository(
         package: PackageReference,
-        at pinState: PinsStore.PinState,
+        at resolutionStater: ResolvedPackagesStore.ResolutionState,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
-        switch pinState {
+    ) async throws -> AbsolutePath {
+        switch resolutionStater {
         case .version(let version, revision: let revision) where revision != nil:
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .version(version, revision: .init(identifier: revision!)), // nil checked above
                 observabilityScope: observabilityScope
             )
         case .branch(let branch, revision: let revision):
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .branch(name: branch, revision: .init(identifier: revision)),
                 observabilityScope: observabilityScope
             )
         case .revision(let revision):
-            return try self.checkoutRepository(
+            return try await self.checkoutRepository(
                 package: package,
                 at: .revision(.init(identifier: revision)),
                 observabilityScope: observabilityScope
             )
         default:
-            throw InternalError("invalid pin state: \(pinState)")
+            throw InternalError("invalid resolution state: \(resolutionStater)")
         }
     }
 
@@ -134,19 +135,19 @@ extension Workspace {
         package: PackageReference,
         at revision: Revision,
         observabilityScope: ObservabilityScope
-    ) throws -> AbsolutePath {
+    ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
 
         // If we already have it, fetch to update the repo from its remote.
         // also compare the location as it may have changed
-        if let dependency = self.state.dependencies[comparingLocation: package] {
+        if let dependency = await self.state.dependencies[comparingLocation: package] {
             let checkoutPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
 
             // Make sure the directory is not missing (we will have to clone again if not).
             // This can become invalid if the build directory is moved.
             fetch: if self.fileSystem.isDirectory(checkoutPath) {
                 // Fetch the checkout in case there are updates available.
-                let workingCopy = try self.repositoryManager.openWorkingCopy(at: checkoutPath)
+                let workingCopy = try await self.repositoryManager.openWorkingCopy(at: checkoutPath)
 
                 // Ensure that the alternative object store is still valid.
                 guard try self.repositoryManager.isValidWorkingCopy(workingCopy, for: repository) else {
@@ -171,18 +172,12 @@ extension Workspace {
         }
 
         // If not, we need to get the repository from the checkouts.
-        // FIXME: this should not block
-        let handle = try temp_await {
-            self.repositoryManager.lookup(
-                package: package.identity,
-                repository: repository,
-                updateStrategy: .never,
-                observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent,
-                completion: $0
-            )
-        }
+        let handle = try await self.repositoryManager.lookup(
+            package: package.identity,
+            repository: repository,
+            updateStrategy: .never,
+            observabilityScope: observabilityScope
+        )
 
         // Clone the repository into the checkouts.
         let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
@@ -200,7 +195,7 @@ extension Workspace {
         let start = DispatchTime.now()
 
         // Create the working copy.
-        _ = try handle.createWorkingCopy(at: checkoutPath, editable: false)
+        _ = try await handle.createWorkingCopy(at: checkoutPath, editable: false)
 
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
@@ -215,16 +210,16 @@ extension Workspace {
     }
 
     /// Removes the clone and checkout of the provided specifier.
-    func removeRepository(dependency: ManagedDependency) throws {
+    func removeRepository(dependency: ManagedDependency) async throws {
         guard case .sourceControlCheckout = dependency.state else {
             throw InternalError("cannot remove repository for \(dependency) with state \(dependency.state)")
         }
 
         // Remove the checkout.
         let dependencyPath = self.location.repositoriesCheckoutSubdirectory(for: dependency)
-        let workingCopy = try self.repositoryManager.openWorkingCopy(at: dependencyPath)
+        let workingCopy = try await self.repositoryManager.openWorkingCopy(at: dependencyPath)
         guard !workingCopy.hasUncommittedChanges() else {
-            throw WorkspaceDiagnostics.UncommitedChanges(repositoryPath: dependencyPath)
+            throw WorkspaceDiagnostics.UncommittedChanges(repositoryPath: dependencyPath)
         }
 
         try self.fileSystem.chmod(.userWritable, path: dependencyPath, options: [.recursive, .onlyFiles])

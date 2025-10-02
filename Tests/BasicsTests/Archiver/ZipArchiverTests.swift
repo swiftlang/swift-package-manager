@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -11,14 +11,27 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import SPMTestSupport
+@testable import struct Basics.ZipArchiver
+import _InternalTestSupport
 import XCTest
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
-import class TSCBasic.InMemoryFileSystem
 import struct TSCBasic.FileSystemError
 
-class ZipArchiverTests: XCTestCase {
+final class ZipArchiverTests: XCTestCase {
+    override func setUp() async throws {
+        let archiver = ZipArchiver(fileSystem: localFileSystem)
+        #if os(Windows)
+            try XCTRequires(executable: archiver.windowsTar)
+        #else
+            try XCTRequires(executable: archiver.unzip)
+            try XCTRequires(executable: archiver.zip)
+        #endif
+        #if os(FreeBSD)
+            try XCTRequires(executable: archiver.tar)
+        #endif
+    }
+
     func testZipArchiverSuccess() async throws {
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
@@ -63,7 +76,8 @@ class ZipArchiverTests: XCTestCase {
             let inputArchivePath = AbsolutePath(#file).parentDirectory
                 .appending(components: "Inputs", "invalid_archive.zip")
             await XCTAssertAsyncThrowsError(try await archiver.extract(from: inputArchivePath, to: tmpdir)) { error in
-#if os(Windows)
+#if os(Windows) || os(FreeBSD)
+                // On FreeBSD, unzip (bsdunzip) is backed by libarchive
                 XCTAssertMatch((error as? StringError)?.description, .contains("Unrecognized archive format"))
 #else
                 XCTAssertMatch((error as? StringError)?.description, .contains("End-of-central-directory signature not found"))
@@ -98,7 +112,7 @@ class ZipArchiverTests: XCTestCase {
     }
 
     func testCompress() async throws {
-        #if os(Linux)
+        #if !os(Windows)
         guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
             throw XCTSkip("working directory not supported on this platform")
         }
@@ -119,6 +133,7 @@ class ZipArchiverTests: XCTestCase {
              try localFileSystem.createDirectory(dir2)
              try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
              try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
+             try localFileSystem.createSymbolicLink(dir2.appending("file5.txt"), pointingAt: dir1.appending("file2.txt"), relative: true)
 
              let archivePath = tmpdir.appending(component: UUID().uuidString + ".zip")
              try await archiver.compress(directory: rootDir, to: archivePath)
@@ -154,6 +169,12 @@ class ZipArchiverTests: XCTestCase {
              XCTAssertEqual(
                  try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
                  "Hello World 4!"
+             )
+            
+             XCTAssertTrue(localFileSystem.isSymlink(extractedDir2.appending("file5.txt")))
+             XCTAssertEqual(
+                 try? localFileSystem.readFileContents(extractedDir2.appending("file5.txt")),
+                 try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt"))
              )
          }
      }

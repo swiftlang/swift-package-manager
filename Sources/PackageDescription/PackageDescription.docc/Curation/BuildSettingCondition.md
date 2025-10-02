@@ -6,5 +6,6 @@
 
 - ``when(platforms:)``
 - ``when(configuration:)``
-- ``when(platforms:configuration:)-2991l``
 - ``when(platforms:configuration:)-475co``
+- ``when(platforms:configuration:traits:)``
+- ``when(platforms:configuration:)-2991l``

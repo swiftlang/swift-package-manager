@@ -9,18 +9,21 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
+import Testing
 import XCTest
 
 import _CryptoExtras // For RSA
 import Basics
 import Crypto
 @testable import PackageSigning
-import SPMTestSupport
+import _InternalTestSupport
 import X509
 
-final class SigningIdentityTests: XCTestCase {
-    func testSwiftSigningIdentityWithECKey() throws {
+struct SigningIdentityTests {
+    @Test
+    func swiftSigningIdentityWithECKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
@@ -30,9 +33,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (EC) leaf", subject.commonName)
-            XCTAssertEqual("Test (EC) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (EC) org", subject.organizationName)
+            #expect("Test (EC) leaf" == subject.commonName)
+            #expect("Test (EC) org unit" == subject.organizationalUnitName)
+            #expect("Test (EC) org" == subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,
@@ -43,17 +46,19 @@ final class SigningIdentityTests: XCTestCase {
             _ = SwiftSigningIdentity(certificate: certificate, privateKey: Certificate.PrivateKey(privateKey))
 
             // Test public API
-            XCTAssertNoThrow(
+            #expect(throws: Never.self) {
+
                 try SwiftSigningIdentity(
                     derEncodedCertificate: certificateBytes,
                     derEncodedPrivateKey: privateKeyBytes,
                     privateKeyType: .p256
                 )
-            )
+            }
         }
     }
 
-    func testSwiftSigningIdentityWithRSAKey() throws {
+    @Test
+    func swiftSigningIdentityWithRSAKey() throws {
         try fixture(name: "Signing", createGitRepo: false) { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
@@ -63,9 +68,9 @@ final class SigningIdentityTests: XCTestCase {
             let certificate = try Certificate(certificateBytes)
 
             let subject = certificate.subject
-            XCTAssertEqual("Test (RSA) leaf", subject.commonName)
-            XCTAssertEqual("Test (RSA) org unit", subject.organizationalUnitName)
-            XCTAssertEqual("Test (RSA) org", subject.organizationName)
+            #expect("Test (RSA) leaf" == subject.commonName)
+            #expect("Test (RSA) org unit" == subject.organizationalUnitName)
+            #expect("Test (RSA) org" == subject.organizationName)
 
             let privateKeyBytes = try readFileContents(
                 in: fixturePath,
@@ -76,6 +81,8 @@ final class SigningIdentityTests: XCTestCase {
             _ = SwiftSigningIdentity(certificate: certificate, privateKey: Certificate.PrivateKey(privateKey))
         }
     }
+}
+final class SigningIdentityXCTests: XCTestCase {
 
     #if os(macOS)
     func testSigningIdentityFromKeychain() async throws {
@@ -84,7 +91,7 @@ final class SigningIdentityTests: XCTestCase {
         try XCTSkipIf(true)
         #endif
 
-        guard let label = ProcessInfo.processInfo.environment["REAL_SIGNING_IDENTITY_LABEL"] else {
+        guard let label = Environment.current["REAL_SIGNING_IDENTITY_LABEL"] else {
             throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_LABEL' env var is not set")
         }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)

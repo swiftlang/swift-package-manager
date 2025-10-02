@@ -30,10 +30,10 @@
 ## Getting Started
 
 SwiftPM supports downloading dependencies from any package registry that implements 
-[SE-0292](https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md)
+[SE-0292](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md)
 and the corresponding [service specification](Registry.md). 
 
-In a registry, packages are identified by [package identifier](https://github.com/apple/swift-evolution/blob/main/proposals/0292-package-registry-service.md#package-identity)
+In a registry, packages are identified by [package identifier](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0292-package-registry-service.md#package-identity)
 in the form of `scope.package-name`.
 
 ### Configuring a registry
@@ -92,7 +92,7 @@ resolve and download the appropriate release version.
 ### Registry authentication
 
 If a registry requires authentication, it can be set up by using the 
-[`swift package-registry login` subcommand](https://github.com/apple/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#new-login-subcommand) 
+[`swift package-registry login` subcommand](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0378-package-registry-auth.md#new-login-subcommand)
 introduced by SE-0378:
 
 ```bash
@@ -137,7 +137,7 @@ Here is an example of a source control dependency:
 
 ```swift
 dependencies: [
-    .package(id: "https://github.com/mona/LinkedList", .upToNextMajor(from: "1.0.0")),
+    .package(url: "https://github.com/mona/LinkedList", .upToNextMajor(from: "1.0.0")),
 ],
 ```
 
@@ -158,7 +158,7 @@ any package identifier (e.g., `mona.LinkedList`).
 One can control if/how SwiftPM should use registry in conjunction with 
 source control dependencies by setting one of these flags:
 - `--disable-scm-to-registry-transformation` (default): SwiftPM will not transform source control dependency to registry dependency. Source control dependency will be downloaded from its corresponding URL, while registry dependency will be resolved and downloaded using the configured registry (if any).
-- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifer for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
+- `--use-registry-identity-for-scm`: SwiftPM will look up source control dependencies in the registry and use their registry identity whenever possible to help deduplicate packages across the two origins. In other words, suppose `mona.LinkedList` is the package identifier for `https://github.com/mona/LinkedList`, then SwiftPM will treat both references in the dependency graph as the same package. 
 - `--replace-scm-with-registry`: SwiftPM will look up source control dependencies in the registry and use the registry to retrieve them instead of source control when possible. In other words, SwiftPM will attempt to download a source control dependency from the registry first, and fall back to cloning the source repository iff the dependency is not found in the registry.
 
 ## Dependency Download From Registry
@@ -183,11 +183,11 @@ or previous value, SwiftPM will fail the build. This can be
 tuned down from error to warning by setting the build option 
 `--resolver-fingerprint-checking` to `warn` (default is `strict`).
 
-Checkum TOFU is also done for manifests downloaded from registry. 
+Checksum TOFU is also done for manifests downloaded from registry. 
 
 ### Validating signed packages
 
-[SE-0391](https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signing)
+[SE-0391](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signing)
 adds package signing support to SwiftPM. SwiftPM determines if
 a downloaded archive is signed by checking for presence of the
 `X-Swift-Package-Signature-Format` and `X-Swift-Package-Signature`
@@ -242,7 +242,7 @@ Data used by publisher TOFU is saved to `~/.swiftpm/security/signing-entities/`.
 
 ## Publishing to Registry
 
-[`swift package-registry publish`](https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand)
+[`swift package-registry publish`](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#new-package-registry-publish-subcommand)
 is an all-in-one command for publishing a package release to registry:
 
 ```bash
@@ -289,7 +289,7 @@ looks for a file named `package-metadata.json` in the
 package directory.
 
 Contents of the metadata file must conform to the 
-[JSON schema](https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards)
+[JSON schema](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-release-metadata-standards)
 defined in SE-0391. Also refer to registry documentation 
 for any additional requirements.
  
@@ -327,7 +327,7 @@ Refer to registry documentation for its certificate policy.
 
 | Signature Format | Specification |
 | ---------------- | ------------- |
-| `cms-1.0.0`      | [SE-391](https://github.com/apple/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signature-format-cms-100) |
+| `cms-1.0.0`      | [SE-391](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0391-package-registry-publish.md#package-signature-format-cms-100) |
 
 Since there is only one supported signature format, all
 signatures produced by SwiftPM are in `cms-1.0.0`.
@@ -456,7 +456,7 @@ $ swift package-registry set --scope foo https://local.example.com
 $ swift package-registry set --scope foo --global https://global.example.com  
 ```
 
-To remove a registry assignement, use the `swift package-registry unset` subcommand.
+To remove a registry assignment, use the `swift package-registry unset` subcommand.
   
 ### Security configuration
 

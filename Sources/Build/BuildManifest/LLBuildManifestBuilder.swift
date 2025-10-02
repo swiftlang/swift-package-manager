@@ -23,7 +23,6 @@ import SwiftDriver
 #endif
 
 import struct TSCBasic.ByteString
-import enum TSCBasic.ProcessEnv
 import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
@@ -94,33 +93,32 @@ public class LLBuildManifestBuilder {
 
         addPackageStructureCommand()
         addBinaryDependencyCommands()
-        if self.plan.destinationBuildParameters.driverParameters.useExplicitModuleBuild {
-            // Explicit module builds use the integrated driver directly and
-            // require that every target's build jobs specify its dependencies explicitly to plan
-            // its build.
-            // Currently behind:
-            // --experimental-explicit-module-build
-            try addTargetsToExplicitBuildManifest()
-        } else {
-            // Create commands for all target descriptions in the plan.
-            for (_, description) in self.plan.targetMap {
-                switch description {
-                case .swift(let desc):
-                    try self.createSwiftCompileCommand(desc)
-                case .clang(let desc):
+        // Create commands for all target descriptions in the plan.
+        for description in self.plan.targetMap {
+            switch description {
+            case .swift(let desc):
+                try self.createSwiftCompileCommand(desc)
+            case .clang(let desc):
+                if desc.buildParameters.prepareForIndexing == .off {
                     try self.createClangCompileCommand(desc)
+                } else {
+                    // Hook up the clang module target when preparing
+                    try self.createClangPrepareCommand(desc)
                 }
             }
         }
 
-        if self.plan.destinationBuildParameters.testingParameters.library == .xctest {
+        // Skip test discovery if preparing for indexing
+        if self.plan.destinationBuildParameters.prepareForIndexing == .off {
             try self.addTestDiscoveryGenerationCommand()
+            try self.addTestEntryPointGenerationCommand()
         }
-        try self.addTestEntryPointGenerationCommand()
 
         // Create command for all products in the plan.
-        for (_, description) in self.plan.productMap {
-            try self.createProductCommand(description)
+        for description in self.plan.productMap {
+            if description.buildParameters.prepareForIndexing == .off {
+                try self.createProductCommand(description)
+            }
         }
 
         try LLBuildManifestWriter.write(self.manifest, at: path, fileSystem: self.fileSystem)
@@ -136,28 +134,11 @@ public class LLBuildManifestBuilder {
 
 extension LLBuildManifestBuilder {
     private func addPackageStructureCommand() {
-        let inputs = self.plan.graph.rootPackages.flatMap { package -> [Node] in
-            var inputs = package.targets
-                .map(\.sources.root)
-                .sorted()
-                .map { Node.directoryStructure($0) }
-
-            // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
-            var derivedSourceDirPaths: [AbsolutePath] = []
-            for result in self.plan.prebuildCommandResults.values.flatMap({ $0 }) {
-                derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
+        let inputs = self.plan.inputs.map {
+            switch $0 {
+            case .directoryStructure(let path): return Node.directoryStructure(path)
+            case .file(let path): return Node.file(path)
             }
-            inputs.append(contentsOf: derivedSourceDirPaths.sorted().map { Node.directoryStructure($0) })
-
-            // FIXME: Need to handle version-specific manifests.
-            inputs.append(file: package.manifest.path)
-
-            // FIXME: This won't be the location of Package.resolved for multiroot packages.
-            inputs.append(file: package.path.appending("Package.resolved"))
-
-            // FIXME: Add config file as an input
-
-            return inputs
         }
 
         let name = "PackageStructure"
@@ -177,10 +158,13 @@ extension LLBuildManifestBuilder {
 extension LLBuildManifestBuilder {
     // Creates commands for copying all binary artifacts depended on in the plan.
     private func addBinaryDependencyCommands() {
-        // Make sure we don't have multiple copy commands for each destination by mapping each destination to 
+        // Make sure we don't have multiple copy commands for each destination by mapping each destination to
         // its source binary.
         var destinations = [AbsolutePath: AbsolutePath]()
         for target in self.plan.targetMap.values {
+            // skip if target is preparing for indexing
+            guard target.buildParameters.prepareForIndexing == .off else { continue }
+
             for binaryPath in target.libraryBinaryPaths {
                 destinations[target.buildParameters.destinationPath(forBinaryAt: binaryPath)] = binaryPath
             }
@@ -194,7 +178,7 @@ extension LLBuildManifestBuilder {
 // MARK: - Compilation
 
 extension LLBuildManifestBuilder {
-    func addBuildToolPlugins(_ target: TargetBuildDescription) throws -> [Node] {
+    func addBuildToolPlugins(_ target: ModuleBuildDescription) throws -> [Node] {
         // For any build command that doesn't declare any outputs, we need to create a phony output to ensure they will still be run by the build system.
         var phonyOutputs = [Node]()
         // If we have multiple commands with no output files and no display name, this serves as a way to disambiguate the virtual nodes being created.
@@ -220,12 +204,12 @@ extension LLBuildManifestBuilder {
                 }
                 let additionalOutputs: [Node]
                 if command.outputFiles.isEmpty {
-                    if target.toolsVersion >= .v5_11 {
-                        additionalOutputs = [.virtual("\(target.target.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
+                    if target.toolsVersion >= .v6_0 {
+                        additionalOutputs = [.virtual("\(target.module.c99name)-\(command.configuration.displayName ?? "\(pluginNumber)")")]
                         phonyOutputs += additionalOutputs
                     } else {
                         additionalOutputs = []
-                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.target.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 5.11 (or higher) which would run such a build tool command even without declared outputs.")
+                        observabilityScope.emit(warning: "Build tool command '\(displayName)' (applied to target '\(target.module.name)') does not declare any output files and therefore will not run. You may want to consider updating the given package to tools-version 6.0 (or higher) which would run such a build tool command even without declared outputs.")
                     }
                     pluginNumber += 1
                 } else {
@@ -253,7 +237,7 @@ extension LLBuildManifestBuilder {
     private func addTestDiscoveryGenerationCommand() throws {
         for testDiscoveryTarget in self.plan.targets.compactMap(\.testDiscoveryTargetBuildDescription) {
             let testTargets = testDiscoveryTarget.target.dependencies
-                .compactMap(\.target).compactMap { self.plan.targetMap[$0] }
+                .compactMap(\.module).compactMap { self.plan.description(for: $0, context: testDiscoveryTarget.destination) }
             let objectFiles = try testTargets.flatMap { try $0.objects }.sorted().map(Node.file)
             let outputs = testDiscoveryTarget.target.sources.paths
 
@@ -270,29 +254,31 @@ extension LLBuildManifestBuilder {
     }
 
     private func addTestEntryPointGenerationCommand() throws {
-        for target in self.plan.targets {
-            guard case .swift(let target) = target,
-                  case .entryPoint(let isSynthesized) = target.testTargetRole,
+        for module in self.plan.targets {
+            guard case .swift(let swiftModule) = module,
+                  case .entryPoint(let isSynthesized) = swiftModule.testTargetRole,
                   isSynthesized else { continue }
 
-            let testEntryPointTarget = target
+            let testEntryPointTarget = swiftModule
 
-            // Get the Swift target build descriptions of all discovery targets this synthesized entry point target
+            // Get the Swift target build descriptions of all discovery modules this synthesized entry point target
             // depends on.
-            let discoveredTargetDependencyBuildDescriptions = testEntryPointTarget.target.dependencies
-                .compactMap(\.target)
-                .compactMap { self.plan.targetMap[$0] }
+            let discoveredTargetDependencyBuildDescriptions = module.dependencies(using: self.plan)
+                .compactMap {
+                    if case .module(_, let description) = $0 {
+                        return description
+                    }
+                    return nil
+                }
                 .compactMap(\.testDiscoveryTargetBuildDescription)
 
-            // The module outputs of the discovery targets this synthesized entry point target depends on are
+            // The module outputs of the discovery modules this synthesized entry point target depends on are
             // considered the inputs to the entry point command.
             let inputs = discoveredTargetDependencyBuildDescriptions.map(\.moduleOutputPath)
 
             let outputs = testEntryPointTarget.target.sources.paths
 
-            let mainFileName = TestEntryPointTool.mainFileName(
-                for: self.plan.destinationBuildParameters.testingParameters.library
-            )
+            let mainFileName = TestEntryPointTool.mainFileName
             guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
                 throw InternalError("main output (\(mainFileName)) not found")
             }
@@ -306,59 +292,31 @@ extension LLBuildManifestBuilder {
     }
 }
 
-extension TargetBuildDescription {
+extension ModuleBuildDescription {
     /// If receiver represents a Swift target build description whose test target role is Discovery,
     /// then this returns that Swift target build description, else returns nil.
-    fileprivate var testDiscoveryTargetBuildDescription: SwiftTargetBuildDescription? {
+    fileprivate var testDiscoveryTargetBuildDescription: SwiftModuleBuildDescription? {
         guard case .swift(let targetBuildDescription) = self,
               case .discovery = targetBuildDescription.testTargetRole else { return nil }
         return targetBuildDescription
     }
 }
 
-extension ResolvedTarget {
-    public func getCommandName(config: String) -> String {
-        "C." + self.getLLBuildTargetName(config: config)
-    }
-
-    public func getLLBuildTargetName(config: String) -> String {
-        "\(name)-\(config).module"
-    }
-
-    public func getLLBuildResourcesCmdName(config: String) -> String {
-        "\(name)-\(config).module-resources"
+extension ModuleBuildDescription {
+    package var llbuildResourcesCmdName: String {
+        "\(self.module.name)-\(self.buildParameters.triple.tripleString)-\(self.buildParameters.buildConfig)\(self.buildParameters.suffix).module-resources"
     }
 }
 
-extension ResolvedProduct {
-    public func getLLBuildTargetName(config: String) throws -> String {
-        let potentialExecutableTargetName = "\(name)-\(config).exe"
-        let potentialLibraryTargetName = "\(name)-\(config).dylib"
-
-        switch type {
-        case .library(.dynamic):
-            return potentialLibraryTargetName
-        case .test:
-            return "\(name)-\(config).test"
-        case .library(.static):
-            return "\(name)-\(config).a"
-        case .library(.automatic):
-            throw InternalError("automatic library not supported")
-        case .executable, .snippet:
-            return potentialExecutableTargetName
-        case .macro:
-            #if BUILD_MACROS_AS_DYLIBS
-            return potentialLibraryTargetName
-            #else
-            return potentialExecutableTargetName
-            #endif
-        case .plugin:
-            throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
-        }
+extension ClangModuleBuildDescription {
+    package var llbuildTargetName: String {
+        self.target.getLLBuildTargetName(buildParameters: self.buildParameters)
     }
+}
 
-    public func getCommandName(config: String) throws -> String {
-        try "C." + self.getLLBuildTargetName(config: config)
+extension ResolvedModule {
+    public func getLLBuildTargetName(buildParameters: BuildParameters) -> String {
+        "\(self.name)-\(buildParameters.triple.tripleString)-\(buildParameters.buildConfig)\(buildParameters.suffix).module"
     }
 }
 

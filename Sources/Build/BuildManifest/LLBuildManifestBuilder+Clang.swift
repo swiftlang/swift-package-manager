@@ -14,13 +14,14 @@ import struct LLBuildManifest.Node
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
-import struct PackageGraph.ResolvedTarget
+import struct PackageGraph.ResolvedModule
 import PackageModel
+import SPMBuildCore
 
 extension LLBuildManifestBuilder {
     /// Create a llbuild target for a Clang target description.
     func createClangCompileCommand(
-        _ target: ClangTargetBuildDescription
+        _ target: ClangModuleBuildDescription
     ) throws {
         var inputs: [Node] = []
 
@@ -32,30 +33,33 @@ extension LLBuildManifestBuilder {
             inputs.append(resourcesNode)
         }
 
-        func addStaticTargetInputs(_ target: ResolvedTarget) {
-            if case .swift(let desc)? = self.plan.targetMap[target], target.type == .library {
+        func addStaticTargetInputs(_ description: ModuleBuildDescription?) {
+            if case .swift(let desc) = description, desc.target.type == .library {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }
 
-        for dependency in target.target.dependencies(satisfying: target.buildEnvironment) {
+        for dependency in target.dependencies(using: self.plan) {
             switch dependency {
-            case .target(let target, _):
-                addStaticTargetInputs(target)
+            case .module(_, let description):
+                addStaticTargetInputs(description)
 
-            case .product(let product, _):
+            case .product(let product, let productDescription):
                 switch product.type {
                 case .executable, .snippet, .library(.dynamic), .macro:
-                    guard let planProduct = plan.productMap[product] else {
-                        throw InternalError("unknown product \(product)")
+                    guard let productDescription else {
+                        throw InternalError("No build description for product: \(product)")
                     }
                     // Establish a dependency on binary of the product.
-                    let binary = try planProduct.binaryPath
-                    inputs.append(file: binary)
+                    try inputs.append(file: productDescription.binaryPath)
 
                 case .library(.automatic), .library(.static), .plugin:
-                    for target in product.targets {
-                        addStaticTargetInputs(target)
+                    for module in product.modules {
+                        let dependencyDescription = self.plan.description(
+                            for: module,
+                            context: product.type == .plugin ? .host : target.destination
+                        )
+                        addStaticTargetInputs(dependencyDescription)
                     }
                 case .test:
                     break
@@ -93,7 +97,7 @@ extension LLBuildManifestBuilder {
         let additionalInputs = try addBuildToolPlugins(.clang(target))
 
         // Create a phony node to represent the entire target.
-        let targetName = target.target.getLLBuildTargetName(config: target.buildParameters.buildConfig)
+        let targetName = target.llbuildTargetName
         let output: Node = .virtual(targetName)
 
         self.manifest.addNode(output, toTarget: targetName)
@@ -109,5 +113,16 @@ extension LLBuildManifestBuilder {
             }
             self.addNode(output, toTarget: .test)
         }
+    }
+
+    /// Create a llbuild target for a Clang target preparation
+    func createClangPrepareCommand(
+        _ target: ClangModuleBuildDescription
+    ) throws {
+        // Create the node for the target so you can --target it.
+        // It is a no-op for index preparation.
+        let targetName = target.llbuildTargetName
+        let output: Node = .virtual(targetName)
+        self.manifest.addNode(output, toTarget: targetName)
     }
 }
