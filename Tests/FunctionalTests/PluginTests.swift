@@ -63,7 +63,7 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -316,7 +316,7 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -1662,7 +1662,7 @@ final class PluginTests {
                 #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -1694,7 +1694,7 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(

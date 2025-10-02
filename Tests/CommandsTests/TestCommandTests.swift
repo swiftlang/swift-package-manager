@@ -242,9 +242,8 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
             // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
+            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
         }
     }
 
@@ -301,7 +300,6 @@ struct TestCommandTests {
             }
         } when: {
             (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-            || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 

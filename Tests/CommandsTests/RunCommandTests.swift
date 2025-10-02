@@ -170,7 +170,6 @@ struct RunCommandTests {
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
             || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
-            || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -231,7 +230,7 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            ([.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            ([.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
             || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
@@ -253,7 +252,6 @@ struct RunCommandTests {
             }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && [.native, .swiftbuild].contains(buildSystem))
-            || (ProcessInfo.hostOperatingSystem ==  .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -425,12 +423,7 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            (
-                ProcessInfo.hostOperatingSystem == .linux &&
-                buildSystem == .swiftbuild &&
-                CiEnvironment.runningInSelfHostedPipeline
-            )
-            || (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
+           (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
