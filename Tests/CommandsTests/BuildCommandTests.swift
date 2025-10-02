@@ -392,30 +392,45 @@ struct BuildCommandTestCases {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9138", relationship: .defect),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func buildExistingTargetIsSuccessfull(
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue("Could not find target named 'exec2'") {
-            try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
-                let fullPath = try resolveSymlinks(fixturePath)
+        try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
 
-                let result = try await build(
-                    ["--target", "exec2"],
-                    packagePath: fullPath,
-                    configuration: data.config,
-                    buildSystem: buildSystem,
-                )
-                #expect(result.binContents.contains("exec2.build"))
-                #expect(!result.binContents.contains(executableName("exec1")))
+            let result = try await build(
+                ["--target", "exec2"],
+                packagePath: fullPath,
+                configuration: data.config,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+            switch buildSystem {
+                case .native:
+                    #expect(result.binContents.contains("exec2.build"))
+                    #expect(!result.binContents.contains(executableName("exec1")))
+                case .swiftbuild:
+                    // Ensure there is a single file in the bin directory
+                    let binPathContents = try localFileSystem.getDirectoryContents(result.binPath).filter { fileName in
+                        let path = result.binPath.appending(fileName)
+                        return localFileSystem.isFile(path)
+                    }
+                    #expect(binPathContents.count == 1, "filtered contents: \(binPathContents)")
+                    expectFileExists(at: result.binPath.appending("lib1.o"))
+
+                    // Verify the taget was built
+                    let executableModulesDirectoryContents = try localFileSystem.getDirectoryContents(result.binPath.appending("ExecutableModules"))
+                    try #require(executableModulesDirectoryContents.count == 1)
+                    let content = executableModulesDirectoryContents.first!
+                    #expect(content.hasPrefix("exec2"))
+                    #expect(content.hasSuffix(".o"))
+                    break
+                case .xcode:
+                    Issue.record("Test expections have not bee specified")
             }
-        } when: {
-            [
-                .swiftbuild,
-                .xcode,
-            ].contains(buildSystem)
         }
     }
 
@@ -949,7 +964,7 @@ struct BuildCommandTestCases {
             #expect(stderr.contains("/usr/bin/false"))
         }
         } when: {
-            buildSystem == .swiftbuild
+            buildSystem == .swiftbuild && [.windows, .linux].contains(ProcessInfo.hostOperatingSystem)
         }
     }
 
