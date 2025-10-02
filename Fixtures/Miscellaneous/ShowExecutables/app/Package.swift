@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// swift-tools-version:999.0
-=======
 // swift-tools-version:6.3.0
->>>>>>> inbetween
 import PackageDescription
 
 let package = Package(
