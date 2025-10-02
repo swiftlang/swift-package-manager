@@ -199,7 +199,6 @@ extension PackagePIFProjectBuilder {
     /// we also construct a testable version of said executable.
     mutating func makeTestableExecutableSourceModule(_ executableModule: PackageGraph.ResolvedModule) throws {
         precondition(executableModule.type == .executable)
-        guard self.package.manifest.toolsVersion >= .v5_5 else { return }
 
         let inputResourceBundleName: String? = if mainModuleTargetNamesWithResources.contains(executableModule.name) {
             resourceBundleName(forModuleName: executableModule.name)

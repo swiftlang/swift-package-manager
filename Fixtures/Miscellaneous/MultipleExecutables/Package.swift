@@ -9,8 +9,8 @@ let package = Package(
         .library(name: "lib1", targets: ["lib1"]),
     ],
     targets: [
-        .target(name: "exec1"),
-        .target(name: "exec2"),
+        .target(name: "exec1", dependencies: ["lib1"]),
+        .target(name: "exec2", dependencies: ["lib1"]),
         .target(name: "lib1"),
     ]
 )
