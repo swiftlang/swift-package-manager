@@ -84,11 +84,6 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
-        .bug(
-            "https://github.com/swiftlang/swift-package-manager/issues/8514",
-            "[Windows] Integration test SwiftPMTests.packageInitExecutable with --build-system swiftbuild is skipped"
-        ),
         .tags(
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Executable,
