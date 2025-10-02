@@ -1445,7 +1445,6 @@ final class PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            .IssueSwiftBuildLinuxRunnable,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
         )
         func testBasicRunSnippets(
@@ -1465,7 +1464,7 @@ final class PluginTests {
                 #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
             }
             } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+                [.windows].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
             }
         }
     }
