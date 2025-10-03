@@ -29,6 +29,7 @@ extension Tag.Feature {
     public enum TargetType {}
 
     @Tag public static var CodeCoverage: Tag
+    @Tag public static var Encoding: Tag
     @Tag public static var Mirror: Tag
     @Tag public static var NetRc: Tag
     @Tag public static var Resource: Tag

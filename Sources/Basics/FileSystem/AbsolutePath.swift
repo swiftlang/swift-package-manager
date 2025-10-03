@@ -53,14 +53,19 @@ public struct AbsolutePath: Hashable, Sendable {
     /// The input string will be normalized if needed, as described in the
     /// documentation for AbsolutePath.
     public init(validating pathString: String) throws {
-        self.underlying = try .init(validating: pathString)
+        self.underlying = try .init(
+            validating: pathString.trimmingCharacters(in: .whitespacesAndNewlines),
+        )
     }
 
     /// Initializes an AbsolutePath from a string that may be either absolute
     /// or relative; if relative, `basePath` is used as the anchor; if absolute,
     /// it is used as is, and in this case `basePath` is ignored.
     public init(validating pathString: String, relativeTo basePath: AbsolutePath) throws {
-        self.underlying = try .init(validating: pathString, relativeTo: basePath.underlying)
+        self.underlying = try .init(
+            validating: pathString.trimmingCharacters(in: .whitespacesAndNewlines),
+            relativeTo: basePath.underlying,
+        )
     }
 
     /// Initializes the AbsolutePath by concatenating a relative path to an

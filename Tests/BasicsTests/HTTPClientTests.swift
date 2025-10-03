@@ -259,11 +259,8 @@ struct HTTPClientTests {
         var request = HTTPClient.Request(method: .get, url: "http://test")
         request.options.validResponseCodes = [200]
 
-        do {
-            let response = try await httpClient.execute(request)
-            Issue.record("unexpected success \(response)")
-        } catch {
-            #expect(error as? HTTPClientError == .badResponseStatusCode(statusCode))
+        await #expect(throws: HTTPClientError.badResponseStatusCode(statusCode)) {
+            try await httpClient.execute(request)
         }
     }
 
@@ -407,11 +404,8 @@ struct HTTPClientTests {
         var request = HTTPClient.Request(url: "http://test")
         request.options.maximumResponseSizeInBytes = 10
 
-        do {
-            let response = try await httpClient.execute(request)
-            Issue.record("unexpected success \(response)")
-        } catch {
-            #expect(error as? HTTPClientError == .responseTooLarge(maxSize * 2))
+        await #expect(throws: HTTPClientError.responseTooLarge(maxSize * 2)) {
+            try await httpClient.execute(request)
         }
     }
 
