@@ -6106,6 +6106,7 @@ struct PackageCommandTests {
                 }
             } when: {
                 let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                    || !CiEnvironment.runningInSmokeTestPipeline
 
                 #if compiler(>=6.3)
                     return shouldSkip

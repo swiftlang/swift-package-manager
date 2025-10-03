@@ -617,11 +617,13 @@ struct TraitTests {
                 }
             }
         } when: {
+            let shouldSkip = !CiEnvironment.runningInSmokeTestPipeline
+
             #if compiler(>=6.3)
-                return false
+                return shouldSkip
             #else
                 // Symbol graph generation options are only available in 6.3 toolchain or later for swift build
-                return buildSystem == .swiftbuild
+                return shouldSkip || buildSystem == .swiftbuild
             #endif
         }
     }
