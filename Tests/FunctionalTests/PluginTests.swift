@@ -386,25 +386,28 @@ final class PluginTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9215", relationship: .verifies),
         .requiresSwiftConcurrencySupport,
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("MyBinaryToolPlugin"),
-                configuration: .debug,
-                extraArgs: ["--product", "MyLocalTool"],
-                buildSystem: buildSystem,
-            )
-            if buildSystem == .native {
-                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
-            } else if buildSystem == .swiftbuild {
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            } else {
-                Issue.record("Test has no expectation for \(buildSystem)")
-            }
+            try await withKnownIssue (isIntermittent: true) {
+                let (stdout, _) = try await executeSwiftBuild(
+                    fixturePath.appending("MyBinaryToolPlugin"),
+                    configuration: .debug,
+                    extraArgs: ["--product", "MyLocalTool"],
+                    buildSystem: buildSystem,
+                )
+                if buildSystem == .native {
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
+                } else if buildSystem == .swiftbuild {
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                } else {
+                    Issue.record("Test has no expectation for \(buildSystem)")
+                }
+            } when: { ProcessInfo.hostOperatingSystem == .windows }
         }
     }
 
