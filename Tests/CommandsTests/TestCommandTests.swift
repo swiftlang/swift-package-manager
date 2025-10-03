@@ -663,8 +663,7 @@ struct TestCommandTests {
                 }
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
-                || ProcessInfo.hostOperatingSystem == .windows
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1011,7 +1010,7 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 

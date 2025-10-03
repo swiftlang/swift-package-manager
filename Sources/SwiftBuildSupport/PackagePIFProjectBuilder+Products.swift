@@ -1022,6 +1022,13 @@ extension PackagePIFProjectBuilder {
         // This should eventually be set universally for all package targets/products.
         settings[.LINKER_DRIVER] = "swiftc"
 
+        // A test-runner should always be adjacent to the dynamic library containing the tests,
+        // so add the appropriate rpaths.
+        settings[.LD_RUNPATH_SEARCH_PATHS] = [
+            "$(inherited)",
+            "$(RPATH_ORIGIN)"
+        ]
+
         let deploymentTargets = unitTestProduct.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
