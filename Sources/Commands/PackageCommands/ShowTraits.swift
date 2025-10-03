@@ -25,7 +25,7 @@ struct ShowTraits: AsyncSwiftCommand {
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
-    @Option(help: "Show traits for the package id")
+    @Option(help: "Show traits for the package id.")
     var packageId: String?
 
     @Option(help: "Set the output format.")
