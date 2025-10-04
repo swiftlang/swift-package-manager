@@ -746,6 +746,18 @@ def build_swiftpm_with_cmake(args):
 
     build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin", "CompilerPluginSupport"], args.project_root, args.bootstrap_dir)
 
+    triple = get_build_target(args)
+
+    mkdir_p(os.path.join(args.bootstrap_dir, "pm", "ManifestAPI"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "PackageDescription", "PackageDescription.swiftmodule", "%s.swiftmodule" % triple),
+                 os.path.join(args.bootstrap_dir, "pm", "ManifestAPI", "PackageDescription.swiftmodule"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "CompilerPluginSupport", "CompilerPluginSupport.swiftmodule", "%s.swiftmodule" % triple),
+                 os.path.join(args.bootstrap_dir, "pm", "ManifestAPI", "CompilerPluginSupport.swiftmodule"))
+
+    mkdir_p(os.path.join(args.bootstrap_dir, "pm", "PluginAPI"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "PackagePlugin", "PackagePlugin.swiftmodule", "%s.swiftmodule" % triple),
+                 os.path.join(args.bootstrap_dir, "pm", "PluginAPI", "PackagePlugin.swiftmodule"))
+
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.build_dirs["llbuild"])
 
