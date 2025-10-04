@@ -513,6 +513,12 @@ extension PackageGraph.ResolvedModule {
 
     func productRepresentingDependencyOfBuildPlugin(in mainModuleProducts: [ResolvedProduct]) -> ResolvedProduct? {
         mainModuleProducts.only { (mainModuleProduct: ResolvedProduct) -> Bool in
+            // Handle binary-only executable products that don't have a main module, i.e. binaryTarget
+            guard let mainModule = mainModuleProduct.mainModule else {
+                return mainModuleProduct.type == .executable &&
+                    mainModuleProduct.modules.only?.type == .binary &&
+                    mainModuleProduct.modules.only?.name == self.name
+            }
             // NOTE: We can't use the 'id' here as we need to explicitly ignore the build triple because our build
             // triple will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
             // See for more details:

@@ -1,0 +1,19 @@
+{
+    "schemaVersion": "1.0",
+    "artifacts": {
+        "mytool": {
+            "type": "executable",
+            "version": "1.2.3",
+            "variants": [
+                {
+                    "path": "mytool-macos/mytool",
+                    "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
+                },
+                {
+                    "path": "mytool-linux/mytool",
+                    "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                }
+            ]
+        }
+    }
+}
