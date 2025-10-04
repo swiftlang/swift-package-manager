@@ -7,6 +7,8 @@ struct MyPlugin: BuildToolPlugin {
         print("Hello from the Build Tool Plugin!")
         guard let target = target as? SourceModuleTarget else { return [] }
         let inputFiles = target.sourceFiles.filter({ $0.path.extension == "dat" })
+        let workDir = context.pluginWorkDirectoryURL
+
         return try inputFiles.map {
             let inputFile = $0
             let inputPath = inputFile.path
@@ -29,6 +31,16 @@ struct MyPlugin: BuildToolPlugin {
                     outputPath
                 ]
             )
-        }
+        } + [
+            .prebuildCommand(
+                displayName:
+                    "Generating files in \(workDir.path)",
+                executable:
+                    try context.tool(named: "mytool").url,
+                arguments:
+                    ["--verbose", "\(target.directoryURL.appendingPathComponent("bar.in").path)", "\(workDir.appendingPathComponent("bar.swift").path)"],
+                outputFilesDirectory: workDir
+            )
+        ]
     }
 }
