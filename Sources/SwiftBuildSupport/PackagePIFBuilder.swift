@@ -358,7 +358,7 @@ public final class PackagePIFBuilder {
         // Products.
         case application
         case staticArchive
-        case objectFile
+        case commonObject
         case dynamicLibrary
         case framework
         case executable
@@ -382,7 +382,7 @@ public final class PackagePIFBuilder {
             self = switch pifProductType {
             case .application: .application
             case .staticArchive: .staticArchive
-            case .objectFile: .objectFile
+            case .commonObject: .commonObject
             case .dynamicLibrary: .dynamicLibrary
             case .framework: .framework
             case .executable: .executable

@@ -250,11 +250,7 @@ extension PackagePIFProjectBuilder {
             }
 
         case .staticLibrary, .executable:
-            #if os(Windows) // Temporary until we get a new productType in swift-build
-            productType = .staticArchive
-            #else
-            productType = .objectFile
-            #endif
+            productType = .commonObject
 
         case .macro:
             productType = .hostBuildTool
