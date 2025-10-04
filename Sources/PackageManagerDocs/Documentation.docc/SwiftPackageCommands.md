@@ -41,6 +41,7 @@ Overview of package manager commands here...
 - <doc:PackageDescribe>
 - <doc:PackageShowDependencies>
 - <doc:PackageShowExecutables>
+- <doc:PackageShowTraits>
 - <doc:PackageToolsVersion>
 - <doc:PackageDumpPackage>
 - <doc:PackageDumpSymbolGraph>
