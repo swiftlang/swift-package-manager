@@ -914,18 +914,21 @@ public final class InitPackage {
 
 // Private helpers
 
-private enum InitError: Swift.Error {
+public enum InitError: Swift.Error {
     case manifestAlreadyExists
     case unsupportedTestingLibraryForPackageType(_ testingLibrary: TestingLibrary, _ packageType: InitPackage.PackageType)
+    case nonEmptyDirectory(_ content: [String])
 }
 
 extension InitError: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         switch self {
         case .manifestAlreadyExists:
             return "a manifest file already exists in this directory"
         case let .unsupportedTestingLibraryForPackageType(library, packageType):
             return "\(library) cannot be used when initializing a \(packageType) package"
+        case let .nonEmptyDirectory(content):
+            return "directory is not empty: \(content.joined(separator: ", "))"
         }
     }
 }

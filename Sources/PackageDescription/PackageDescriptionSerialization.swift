@@ -210,6 +210,32 @@ enum Serialization {
         case plugin(name: String, package: String?)
     }
 
+    enum TemplateInitializationOptions: Codable {
+        case packageInit(templateType: TemplateType, templatePermissions: [TemplatePermissions]?, description: String)
+    }
+
+    enum TemplateType: Codable {
+        case library
+        case executable
+        case tool
+        case buildToolPlugin
+        case commandPlugin
+        case `macro`
+        case empty
+    }
+
+    enum TemplateNetworkPermissionScope: Codable {
+        case none
+        case local(ports: [Int])
+        case all(ports: [Int])
+        case docker
+        case unixDomainSocket
+    }
+
+    enum TemplatePermissions: Codable {
+        case allowNetworkConnections(scope: TemplateNetworkPermissionScope, reason: String)
+    }
+
     struct Target: Codable {
         let name: String
         let path: String?
@@ -230,6 +256,7 @@ enum Serialization {
         let linkerSettings: [LinkerSetting]?
         let checksum: String?
         let pluginUsages: [PluginUsage]?
+        let templateInitializationOptions: TemplateInitializationOptions?
     }
 
     // MARK: - resource serialization
