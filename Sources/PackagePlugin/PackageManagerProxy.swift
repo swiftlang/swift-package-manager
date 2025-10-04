@@ -293,6 +293,9 @@ public struct PackageManager {
             case `private`, `fileprivate`, `internal`, `package`, `public`, open
         }
 
+        /// A Boolean value that indicates whether to include inherited docs from class or protocol members.
+        public var includeInheritedDocs: Bool
+
         /// A Boolean value that indicates whether to include synthesized members.
         public var includeSynthesized: Bool
 
@@ -305,16 +308,19 @@ public struct PackageManager {
         /// Creates a new set of options for returning the symbol graph for a target.
         /// - Parameters:
         ///   - minimumAccessLevel: The minimum access level of symbols to return.
+        ///   - includeInheritedDocs: A Boolean value that indicates whether to include inheirted docs from protocol or class members.
         ///   - includeSynthesized: A Boolean value that indicates whether to include synthesized members.
         ///   - includeSPI: A Boolean value that indicates whether to include symbols marked as SPI.
         ///   - emitExtensionBlocks: A Boolean value that indicates whether to emit symbols for extensions to external types.
         public init(
             minimumAccessLevel: AccessLevel = .public,
+            includeInheritedDocs: Bool = true,
             includeSynthesized: Bool = false,
             includeSPI: Bool = false,
             emitExtensionBlocks: Bool = false
         ) {
             self.minimumAccessLevel = minimumAccessLevel
+            self.includeInheritedDocs = includeInheritedDocs
             self.includeSynthesized = includeSynthesized
             self.includeSPI = includeSPI
             self.emitExtensionBlocks = emitExtensionBlocks
@@ -507,6 +513,7 @@ extension PackageManager.TestResult.TestTarget.TestCase.Test.Result {
 extension PluginToHostMessage.SymbolGraphOptions {
     fileprivate init(_ options: PackageManager.SymbolGraphOptions) {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
+        self.includeInheritedDocs = options.includeInheritedDocs
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
         self.emitExtensionBlocks = options.emitExtensionBlocks
