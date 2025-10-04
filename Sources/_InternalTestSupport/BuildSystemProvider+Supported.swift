@@ -12,6 +12,8 @@
 
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
+import struct Basics.Environment
+import struct Basics.EnvironmentKey
 
 public var SupportedBuildSystemOnAllPlatforms: [BuildSystemProvider.Kind] = BuildSystemProvider.Kind.allCases.filter { $0 != .xcode }
 
@@ -28,10 +30,29 @@ public struct BuildData {
     public let config: BuildConfiguration
 }
 
+package let TEST_ONLY_DEBUG_ENV_VAR = EnvironmentKey("SWIFTPM_TEST_ONLY_DEBUG_BUILD_CONFIGURATION")
 public func getBuildData(for buildSystems: [BuildSystemProvider.Kind]) -> [BuildData] {
-    buildSystems.flatMap { buildSystem in
-        BuildConfiguration.allCases.compactMap { config in
+    let buildConfigurations: [BuildConfiguration]
+    if let value = Environment.current[TEST_ONLY_DEBUG_ENV_VAR], value.isTruthy {
+        buildConfigurations = [.debug]
+    } else {
+        buildConfigurations = BuildConfiguration.allCases
+    }
+    return buildSystems.flatMap { buildSystem in
+        buildConfigurations.compactMap { config in
             return BuildData(buildSystem: buildSystem, config: config)
+        }
+    }
+}
+
+
+extension String {
+    package var isTruthy: Bool {
+        switch self.lowercased() {
+        case "true", "1", "yes":
+            return true
+        default:
+            return false
         }
     }
 }
