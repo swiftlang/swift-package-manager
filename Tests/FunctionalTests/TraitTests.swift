@@ -27,8 +27,8 @@ import _InternalTestSupport
 )
 struct TraitTests {
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -71,8 +71,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -124,8 +124,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -174,8 +174,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -228,8 +228,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -269,8 +269,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -315,8 +315,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -372,8 +372,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -457,8 +457,8 @@ struct TraitTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .tags(
             Tag.Feature.Command.Test,
         ),
