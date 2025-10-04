@@ -129,10 +129,9 @@ struct PIFBuilderTests {
                 .buildConfig(named: "Release")
 
             // The platforms with conditional settings should have those propagated to the PIF.
-            #expect(releaseConfig.settings.platformSpecificSettings[.linux]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)", "BAR"])
-            #expect(releaseConfig.settings.platformSpecificSettings[.macOS]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)", "BAZ"])
-            // Platforms without conditional settings should get the default.
-            #expect(releaseConfig.settings.platformSpecificSettings[.windows]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .linux] == ["$(inherited)", "BAR"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .macOS] == ["$(inherited)", "BAZ"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .windows] == nil)
         }
     }
 }
