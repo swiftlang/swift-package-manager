@@ -29,7 +29,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -40,9 +39,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("""
-        Linux: https://github.com/swiftlang/swift-package-manager/issues/8416
-        """, isIntermittent: (ProcessInfo.hostOperatingSystem == .linux) || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -66,14 +63,13 @@ struct TraitTests {
         }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && (CiEnvironment.runningInSmokeTestPipeline || buildSystem == .swiftbuild))
-            || (buildSystem == .swiftbuild && [.linux, .windows].contains(ProcessInfo.hostOperatingSystem))
+            || (buildSystem == .swiftbuild && [.windows].contains(ProcessInfo.hostOperatingSystem))
         }
     }
 
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -86,7 +82,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416
             Windows: "https://github.com/swiftlang/swift-build/issues/609"
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -126,7 +121,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -139,7 +133,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -176,7 +169,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -189,7 +181,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -230,7 +221,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -241,10 +231,7 @@ struct TraitTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("""
-        Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
-        """,
-        isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
+        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)) {
         try await fixture(name: "Traits") { fixturePath in
             let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Example"),
@@ -271,7 +258,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -283,7 +269,6 @@ struct TraitTests {
         configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue("""
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild),
@@ -317,7 +302,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -330,7 +314,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),
@@ -374,7 +357,6 @@ struct TraitTests {
     @Test(
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -387,7 +369,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows)
@@ -615,7 +596,6 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .tags(
             Tag.Feature.Command.Run,
         ),
@@ -626,38 +606,29 @@ struct TraitTests {
         configuration: BuildConfiguration,
     ) async throws {
         try await fixture(name: "Traits") { fixturePath in
-            try await withKnownIssue("""
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
-            """,
-            isIntermittent: true,
-            ) {
-                let error = await #expect(throws: SwiftPMError.self) {
-                    try await executeSwiftRun(
-                    fixturePath.appending("DisablingEmptyDefaultsExample"),
-                        "DisablingEmptyDefaultsExample",
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-
-                guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
-                    Issue.record("Incorrect error was raised.")
-                    return
-                }
-
-                let expectedErr = """
-                    error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
-
-                    """
-                #expect(stderr.contains(expectedErr))
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .linux
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await executeSwiftRun(
+                fixturePath.appending("DisablingEmptyDefaultsExample"),
+                    "DisablingEmptyDefaultsExample",
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
             }
+
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            let expectedErr = """
+                error: Disabled default traits by package 'disablingemptydefaultsexample' (DisablingEmptyDefaultsExample) on package 'package11' (Package11) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
+
+                """
+            #expect(stderr.contains(expectedErr))
         }
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -705,7 +676,6 @@ struct TraitTests {
     ) async throws {
         try await withKnownIssue(
             """
-            Linux: https://github.com/swiftlang/swift-package-manager/issues/8416,
             Windows: https://github.com/swiftlang/swift-build/issues/609
             """,
             isIntermittent: (ProcessInfo.hostOperatingSystem == .windows),

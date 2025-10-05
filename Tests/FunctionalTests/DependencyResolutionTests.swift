@@ -29,7 +29,6 @@ import enum TSCUtility.Git
 )
 struct DependencyResolutionTests {
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .IssueWindowsLongPath,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -161,7 +160,6 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .IssueWindowsLongPath,
         .tags(
             Tag.Feature.Command.Build,

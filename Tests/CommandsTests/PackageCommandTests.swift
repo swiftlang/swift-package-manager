@@ -2581,7 +2581,6 @@ struct PackageCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8774", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8380", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8416", relationship: .defect),  // swift run linux issue with swift build,
-        .IssueCannnotOpenSharedObjectFileLibSwiftCore,
         .tags(
             .Feature.Command.Package.Edit,
             .Feature.Command.Package.Unedit,
@@ -2902,7 +2901,6 @@ struct PackageCommandTests {
         // windows long path issue
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8774", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8380", relationship: .defect),
-        .IssueCannnotOpenSharedObjectFileLibSwiftCore,
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Package.Resolve,

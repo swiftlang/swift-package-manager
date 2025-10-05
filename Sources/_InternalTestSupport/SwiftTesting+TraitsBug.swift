@@ -75,19 +75,4 @@ extension Trait where Self == Testing.Bug {
             relationship: .defect,
         )
     }
-
-    public static var IssueSwiftBuildLinuxRunnable: Self {
-        .issue(
-            "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            relationship: .defect,
-        )
-    }
-
-    public static var IssueCannnotOpenSharedObjectFileLibSwiftCore : Self {
-        // /tmp/Miscellaneous_PackageEdit.H5ku8Q/foo/.build/aarch64-unknown-linux-gnu/Products/Debug-linux/foo: error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory
-        .issue(
-            "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            relationship: .defect,
-        )
-    }
 }
