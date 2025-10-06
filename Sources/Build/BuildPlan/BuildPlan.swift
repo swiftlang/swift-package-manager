@@ -337,7 +337,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     }
 
                     buildToolPluginInvocationResults[module.id] = pluginInvocationResults
-                    prebuildCommandResults[module.id] = try Self.runCommandPlugins(
+                    prebuildCommandResults[module.id] = try Self.runPluginCommands(
                         using: pluginConfiguration,
                         for: pluginInvocationResults,
                         fileSystem: fileSystem,
@@ -854,9 +854,9 @@ extension BuildPlan {
         return buildToolPluginResults
     }
 
-    /// Runs any command plugins associated with the given list of plugin invocation results,
+    /// Runs any commands associated with the given list of plugin invocation results,
     /// in order, and returns the results of running those prebuild commands.
-    fileprivate static func runCommandPlugins(
+    fileprivate static func runPluginCommands(
         using pluginConfiguration: PluginConfiguration,
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
