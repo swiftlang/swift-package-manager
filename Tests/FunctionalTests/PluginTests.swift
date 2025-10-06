@@ -24,8 +24,10 @@ import Testing
 import Foundation
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .Feature.Command.Package.Plugin,
+        .TestSize.large,
     )
 )
 final class PluginTests {

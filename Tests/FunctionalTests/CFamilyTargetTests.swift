@@ -40,6 +40,7 @@ fileprivate func expectDirectoryContainsFile(
 }
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
     ),

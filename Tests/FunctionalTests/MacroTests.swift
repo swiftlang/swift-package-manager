@@ -19,6 +19,7 @@ import PackageModel
 import Testing
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large
     ),

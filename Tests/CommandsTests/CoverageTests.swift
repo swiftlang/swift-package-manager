@@ -20,6 +20,7 @@ import struct SPMBuildCore.BuildSystemProvider
 import Testing
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
         .Feature.CodeCoverage,

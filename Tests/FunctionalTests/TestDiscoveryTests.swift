@@ -18,7 +18,9 @@ import Testing
 import struct Foundation.UUID
 import class Foundation.ProcessInfo
 
-@Suite
+@Suite(
+    .serializedIfOnWindows,
+)
 struct TestDiscoveryTests {
     static var buildSystems: [BuildSystemProvider.Kind] = [BuildSystemProvider.Kind.native, .swiftbuild]
 

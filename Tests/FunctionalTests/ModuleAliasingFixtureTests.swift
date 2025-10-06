@@ -20,6 +20,7 @@ import Workspace
 import Testing
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large,
     ),

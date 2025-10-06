@@ -31,6 +31,7 @@ let defaultRegistryBaseURL = URL("https://packages.example.com")
 let customRegistryBaseURL = URL("https://custom.packages.example.com")
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .Feature.Command.PackageRegistry.General,
     ),
