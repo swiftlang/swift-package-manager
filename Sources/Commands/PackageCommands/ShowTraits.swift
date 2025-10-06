@@ -29,7 +29,7 @@ struct ShowTraits: AsyncSwiftCommand {
     var packageId: String?
 
     @Option(help: "Set the output format.")
-    var format: ShowTraitsMode = .flatlist
+    var format: ShowTraitsMode = .text
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
         let packageGraph = try await swiftCommandState.loadPackageGraph()
@@ -41,7 +41,7 @@ struct ShowTraits: AsyncSwiftCommand {
         }
 
         switch self.format {
-        case .flatlist:
+        case .text:
             let defaultTraits = traits.filter( { $0.isDefault } ).flatMap( { $0.enabledTraits })
 
             for trait in traits {
@@ -53,7 +53,9 @@ struct ShowTraits: AsyncSwiftCommand {
             }
 
         case .json:
-            let encoder = JSONEncoder()
+            var encoder = JSONEncoder()
+            encoder.outputFormatting = .sortedKeys
+
             let data = try encoder.encode(traits)
             if let output = String(data: data, encoding: .utf8) {
                 print(output)
@@ -62,12 +64,12 @@ struct ShowTraits: AsyncSwiftCommand {
     }
 
     enum ShowTraitsMode: String, RawRepresentable, CustomStringConvertible, ExpressibleByArgument, CaseIterable {
-        case flatlist, json
+        case text, json
 
         public init?(rawValue: String) {
             switch rawValue.lowercased() {
-            case "flatlist":
-                self = .flatlist
+            case "text":
+                self = .text
             case "json":
                 self = .json
             default:
@@ -77,7 +79,7 @@ struct ShowTraits: AsyncSwiftCommand {
 
         public var description: String {
             switch self {
-            case .flatlist: return "flatlist"
+            case .text: return "text"
             case .json: return "json"
             }
         }
