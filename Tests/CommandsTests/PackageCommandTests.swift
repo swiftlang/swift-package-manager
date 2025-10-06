@@ -6025,8 +6025,13 @@ struct PackageCommandTests {
                                         ? context.package.targets
                                         : try context.package.targets(named: targetNames)
                                     for target in targets {
+                                        #if compiler(>=6.3)
+                                        let symbolGraph = try packageManager.getSymbolGraph(for: target,
+                                            options: .init(minimumAccessLevel: .public, includeInheritedDocs: false))
+                                        #else
                                         let symbolGraph = try packageManager.getSymbolGraph(for: target,
                                             options: .init(minimumAccessLevel: .public))
+                                        #endif
                                         print("\\(target.name): \\(symbolGraph.directoryPath)")
                                     }
                                 }
@@ -6083,8 +6088,15 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
-                || !CiEnvironment.runningInSmokeTestPipeline
+                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                    || !CiEnvironment.runningInSmokeTestPipeline
+
+                #if compiler(>=6.3)
+                    return shouldSkip
+                #else
+                    // Symbol graph generation options are only available in 6.3 toolchain or later for swift build
+                    return shouldSkip || data.buildSystem == .swiftbuild
+                #endif
             }
         }
 
