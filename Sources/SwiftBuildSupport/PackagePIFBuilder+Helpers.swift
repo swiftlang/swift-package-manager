@@ -523,8 +523,8 @@ extension PackageGraph.ResolvedModule {
             // triple will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
             // See for more details:
             // https://github.com/swiftlang/swift-package-manager/commit/b22168ec41061ddfa3438f314a08ac7a776bef7a.
-            return mainModuleProduct.mainModule!.packageIdentity == self.packageIdentity &&
-                mainModuleProduct.mainModule!.name == self.name
+            return mainModule.packageIdentity == self.packageIdentity &&
+                mainModule.name == self.name
             // Intentionally ignore the build triple!
         }
     }
