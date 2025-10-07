@@ -466,12 +466,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         var env = Environment.current
 
+        // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+        // removed once the Swift Build backend switches to use swiftc as the linker driver
+        // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+        // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+        // when built with a Swift.org toolchain.
+        #if !os(macOS)
         // Update the environment for any runtime library paths that tools compiled
         // for the command plugin might require after they have been built.
         let runtimeLibPaths = self.toolchain.runtimeLibraryPaths
         for libPath in runtimeLibPaths {
             env.appendPath(key: .libraryPath, value: libPath.pathString)
         }
+        #endif
 
 #if os(Windows)
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString

@@ -68,7 +68,7 @@ extension SwiftSDKSubcommand {
             ),
             environment: environment
         )
-        let triple = try Triple.getHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
+        let triple = try Triple.getVersionedHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil
         do {

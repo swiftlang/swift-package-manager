@@ -333,12 +333,19 @@ public final class PIFBuilder {
                         buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
                             var newEnv: Environment = buildCommand.configuration.environment
 
+                            // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+                            // removed once the Swift Build backend switches to use swiftc as the linker driver
+                            // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+                            // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+                            // when built with a Swift.org toolchain.
+                            #if !os(macOS)
                             let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
 
                             // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
                             for libPath in runtimeLibPaths {
                                 newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
                             }
+                            #endif
 
                             // Append the system path at the end so that necessary system tool paths can be found
                             if let pathValue = Environment.current[EnvironmentKey.path] {

@@ -1441,6 +1441,69 @@ struct BuildCommandTestCases {
             }
          }
      }
+
+    @Test(.requireHostOS(.macOS), arguments: SupportedBuildSystemOnPlatform)
+    func buildingPackageWhichRequiresOlderDeploymentTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+        // This fixture specifies a deployment target of macOS 12, and uses API obsoleted in macOS 13. The goal
+        // of this test is to ensure that SwiftPM respects the deployment target specified in the package manifest
+        // when passed no triple of an unversioned triple, rather than using the latests deployment target.
+
+        // No triple - build should pass
+        try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
+                try await executeSwiftBuild(
+                    path,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+        }
+
+        let hostArch: String
+        #if arch(arm64)
+        hostArch = "arm64"
+        #elseif arch(x86_64)
+        hostArch = "x86_64"
+        #else
+        Issue.record("test is not supported on host arch")
+        return
+        #endif
+
+        // Unversioned triple - build should pass
+        try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
+                try await executeSwiftBuild(
+                    path,
+                    extraArgs: ["--triple", "\(hostArch)-apple-macosx"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+        }
+
+        // Versioned triple with supported deployment target - build should pass
+        try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
+                try await executeSwiftBuild(
+                    path,
+                    extraArgs: ["--triple", "\(hostArch)-apple-macosx12.0"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+        }
+
+        // Versioned triple with unsupported deployment target - build should fail
+        try await withKnownIssue {
+            _ = try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
+                await #expect(throws: Error.self) {
+                    try await executeSwiftBuild(
+                        path,
+                        extraArgs: ["--triple", "\(hostArch)-apple-macosx14.0"],
+                        buildSystem: buildSystem,
+                        throwIfCommandFails: true
+                    )
+                }
+            }
+        } when: {
+            // The native build system does not correctly pass the elevated deployment target
+            buildSystem != .swiftbuild
+        }
+    }
 }
 
 extension Triple {
