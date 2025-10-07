@@ -64,9 +64,10 @@ struct InitTests {
         name: String = "Foo",
         supportedTestingLibraries: Set<TestingLibrary> = [.xctest],
         buildSystem: BuildSystemProvider.Kind? = nil,
-        customVerification: ((AbsolutePath, String) throws -> Void)? = nil
+        customVerification: ((AbsolutePath, String) throws -> Void)? = nil,
+        function: StaticString = #function
     ) async throws {
-        return try await testWithTemporaryDirectory { tmpPath in
+        return try await testWithTemporaryDirectory(function: function) { tmpPath in
             let fs = localFileSystem
             let path = tmpPath.appending(name)
             let packageName = path.basename
