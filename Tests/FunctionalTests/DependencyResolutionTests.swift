@@ -23,6 +23,7 @@ import struct SPMBuildCore.BuildSystemProvider
 import enum TSCUtility.Git
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large,
     ),

@@ -33,7 +33,9 @@ extension Trait where Self == Testing.ConditionTrait {
     }
 }
 
-@Suite
+@Suite(
+    .serializedIfOnWindows,
+)
 struct APIDiffTests {
     @discardableResult
     private func execute(

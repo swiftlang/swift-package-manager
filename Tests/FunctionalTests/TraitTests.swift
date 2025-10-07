@@ -20,6 +20,7 @@ import Testing
 import _InternalTestSupport
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Traits,
