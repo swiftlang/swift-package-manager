@@ -488,14 +488,16 @@ extension PackagePIFProjectBuilder {
         if enableDuplicateLinkageCulling {
             impartedSettings[.LD_WARN_DUPLICATE_LIBRARIES] = "NO"
         }
-        impartedSettings[.OTHER_LDFLAGS] = (sourceModule.isCxx ? ["-lc++"] : []) + ["$(inherited)"]
-        impartedSettings[.OTHER_LDRFLAGS] = []
-        log(
-            .debug,
-            indent: 1,
-            "Added '\(impartedSettings[.OTHER_LDFLAGS]!)' to imparted OTHER_LDFLAGS"
-        )
-
+        if sourceModule.isCxx {
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                // darwin & freebsd
+                if [.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd].contains(platform) {
+                    settings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
+                } else if [.android, .linux, .wasi, .openbsd].contains(platform) {
+                    settings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                }
+            }
+        }
         // This should be only for dynamic targets, but that isn't possible today.
         // Improvement is tracked by rdar://77403529 (Only impart `PackageFrameworks` search paths to clients of dynamic
         // package targets and products).
@@ -820,7 +822,6 @@ extension PackagePIFProjectBuilder {
         impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] +
             pkgConfig.cFlags.prepending("$(inherited)")
         impartedSettings[.OTHER_LDFLAGS] = pkgConfig.libs.prepending("$(inherited)")
-        impartedSettings[.OTHER_LDRFLAGS] = []
         impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc"] + impartedSettings[.OTHER_CFLAGS]!
         log(.debug, indent: 1, "Added '\(systemLibrary.path.pathString)' to imparted HEADER_SEARCH_PATHS")
 
