@@ -369,7 +369,7 @@ public final class PIFBuilder {
 
                     // Run the prebuild commands generated from the plugin invocation now for this module. This will
                     // also give use the derived source code files needed for PIF generation.
-                    let runResults = try Self.runCommandPlugins(
+                    let runResults = try Self.runPluginCommands(
                         using: self.pluginConfiguration,
                         for: buildToolPluginResults,
                         fileSystem: fileSystem,
@@ -429,9 +429,9 @@ public final class PIFBuilder {
         }
     }
 
-    /// Runs any command plugins associated with the given list of plugin invocation results,
+    /// Runs any commands associated with the given list of plugin invocation results,
     /// in order, and returns the results of running those prebuild commands.
-    fileprivate static func runCommandPlugins(
+    fileprivate static func runPluginCommands(
         using pluginConfiguration: PluginConfiguration,
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
