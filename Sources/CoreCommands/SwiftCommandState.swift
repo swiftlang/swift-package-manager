@@ -204,7 +204,7 @@ public final class SwiftCommandState {
     public let options: GlobalOptions
 
     /// Path to the root package directory, nil if manifest is not found.
-    private let packageRoot: AbsolutePath?
+    private var packageRoot: AbsolutePath?
 
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
@@ -229,7 +229,7 @@ public final class SwiftCommandState {
     }
 
     /// Scratch space (.build) directory.
-    public let scratchDirectory: AbsolutePath
+    public var scratchDirectory: AbsolutePath
 
     /// Path to the shared security directory
     public let sharedSecurityDirectory: AbsolutePath
@@ -1313,3 +1313,74 @@ extension Basics.Diagnostic {
     }
 }
 
+extension SwiftCommandState {
+    /// Temporarily switches to a different package directory and executes the provided closure.
+    ///
+    /// This method temporarily changes the current working directory and workspace context
+    /// to operate on a different package. It handles all the necessary state management
+    /// including workspace initialization, file system changes, and cleanup.
+    ///
+    /// - Parameters:
+    ///   - packagePath: The absolute path to switch to
+    ///   - createPackagePath: Whether to create the directory if it doesn't exist
+    ///   - perform: The closure to execute in the temporary workspace context
+    /// - Returns: The result of the performed closure
+    /// - Throws: Any error thrown by the closure or during workspace setup
+    public func withTemporaryWorkspace<R>(
+        switchingTo packagePath: AbsolutePath,
+        createPackagePath: Bool = true,
+        perform: @escaping (Workspace, PackageGraphRootInput) async throws -> R
+    ) async throws -> R {
+        let originalWorkspace = self._workspace
+        let originalDelegate = self._workspaceDelegate
+        let originalWorkingDirectory = self.fileSystem.currentWorkingDirectory
+        let originalLock = self.workspaceLock
+        let originalLockState = self.workspaceLockState
+
+        // Switch to temp directory
+        try Self.chdirIfNeeded(packageDirectory: packagePath, createPackagePath: createPackagePath)
+
+        // Reset for new context
+        self._workspace = nil
+        self._workspaceDelegate = nil
+        self.workspaceLock = nil
+        self.workspaceLockState = .needsLocking
+
+        defer {
+            if self.workspaceLockState == .locked {
+                self.releaseLockIfNeeded()
+            }
+
+            // Restore lock state
+            self.workspaceLock = originalLock
+            self.workspaceLockState = originalLockState
+
+            // Restore other context
+            if let cwd = originalWorkingDirectory {
+                try? Self.chdirIfNeeded(packageDirectory: cwd, createPackagePath: false)
+                do {
+                    self.scratchDirectory = try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd)
+                        ?? (packageRoot ?? cwd).appending(component: ".build")
+                } catch {
+                    self.scratchDirectory = (packageRoot ?? cwd).appending(component: ".build")
+                }
+            }
+
+            self._workspace = originalWorkspace
+            self._workspaceDelegate = originalDelegate
+        }
+
+        // Set up new context
+        self.packageRoot = findPackageRoot(fileSystem: self.fileSystem)
+
+        if let cwd = self.fileSystem.currentWorkingDirectory {
+            self.scratchDirectory = try BuildSystemUtilities
+                .getEnvBuildPath(workingDir: cwd) ?? (self.packageRoot ?? cwd).appending(".build")
+        }
+
+        let tempWorkspace = try self.getActiveWorkspace()
+        let tempRoot = try self.getWorkspaceRoot()
+
+        return try await perform(tempWorkspace, tempRoot)
+    }
+}

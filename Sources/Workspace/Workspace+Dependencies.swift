@@ -40,6 +40,7 @@ import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
 import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
+import struct Basics.SourceControlURL
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
