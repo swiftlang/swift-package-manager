@@ -115,7 +115,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = product.c99name
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
-        settings[.CLANG_ENABLE_MODULES] = "YES"
         settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
@@ -146,8 +145,7 @@ extension PackagePIFProjectBuilder {
         settings[.MACOSX_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.macOS] ?? nil
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.iOS] ?? nil
         if let deploymentTarget_macCatalyst = mainTargetDeploymentTargets[.macCatalyst] {
-            settings
-                .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
         }
         settings[.TVOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.tvOS] ?? nil
         settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.watchOS] ?? nil
@@ -472,19 +470,11 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).targetSettings {
-            for (platform, declarations) in declarationsByPlatform {
-                // A `nil` platform means that the declaration applies to *all* platforms.
-                for (declaration, stringValues) in declarations {
-                    switch buildConfig {
-                    case .debug:
-                        debugSettings.append(values: stringValues, to: declaration, platform: platform)
-                    case .release:
-                        releaseSettings.append(values: stringValues, to: declaration, platform: platform)
-                    }
-                }
-            }
-        }
+        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
+        
+        // Apply settings using the convenience methods
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
         self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: debugSettings)
         }
@@ -1026,7 +1016,7 @@ extension PackagePIFProjectBuilder {
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
         if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] ?? nil {
-            settings.platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
         }
         settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets?[.tvOS] ?? nil
         settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets?[.watchOS] ?? nil
