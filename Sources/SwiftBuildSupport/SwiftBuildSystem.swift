@@ -1109,9 +1109,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
-
-        // Coverage settings
-        settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
+        // TODO: enableCodeCoverage
+        // explicitlyEnabledTestability
 
         switch parameters.explicitlyEnabledTestability {
         case true:

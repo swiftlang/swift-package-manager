@@ -91,8 +91,8 @@ struct RunCommandTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .SWBINTTODO("Test package fails to build on Windows"),
         arguments: SupportedBuildSystemOnPlatform,
     )
@@ -135,8 +135,8 @@ struct RunCommandTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func productArgumentPassing(
@@ -237,8 +237,8 @@ struct RunCommandTests {
 
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func unreachableExecutable(

@@ -43,7 +43,6 @@ struct PathTests {
         }
 
         @Test(
-            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "/ab/cd/ef/", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
                 (path: "/ab/cd/ef//", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
@@ -111,7 +110,6 @@ struct PathTests {
             }
 
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/./a", expected: (windows ? #"\"# : "/")),
                     (path: "/../..", expected: (windows ? #"\"# : "/")),
@@ -145,7 +143,6 @@ struct PathTests {
             }
 
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/../..", expected: "/"),
                 ]
@@ -181,7 +178,6 @@ struct PathTests {
             }
 
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/../..", expected:  "/"),
                 ]
@@ -208,7 +204,6 @@ struct PathTests {
                 #expect(actual == expectedPath)
             }
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/", numParentDirectoryCalls: 1, expected: "/"),
                     (path: "/", numParentDirectoryCalls: 2, expected: "/"),
@@ -220,7 +215,6 @@ struct PathTests {
             }
 
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
                     (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
@@ -237,7 +231,6 @@ struct PathTests {
         }
 
         @Test(
-            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "/", expected: ["/"]),
                 (path: "/.", expected: ["/"]),
@@ -375,7 +368,6 @@ struct PathTests {
         }
 
         @Test(
-            .IssueWindowsPathTestsFailures,
             arguments: [
                 (path: "ab//cd//ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
                 (path: "ab//cd///ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
@@ -448,8 +440,7 @@ struct PathTests {
             }
 
             @Test(
-             .IssueWindowsPathTestsFailures,
-               arguments: [
+                arguments: [
                     (path: "../a/..", expected: "."),
                     (path: "a/..", expected: "."),
                     (path: "a/../////../////./////", expected: "."),
@@ -490,7 +481,6 @@ struct PathTests {
             }
 
             @Test(
-                .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "a/..", expected:  "."),
                     (path: "a/../////../////./////", expected:  ".."),
@@ -529,7 +519,6 @@ struct PathTests {
             }
 
             @Test(
-            .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "../..", expected:  ".."),
                     (path: "../a/..", expected:  ".."),
@@ -571,8 +560,7 @@ struct PathTests {
             }
 
             @Test(
-             .IssueWindowsPathTestsFailures,
-               arguments:[
+                arguments:[
                     "a.",
                     ".a",
                     "",
@@ -613,7 +601,6 @@ struct PathTests {
             }
 
             @Test(
-            .IssueWindowsPathTestsFailures,
                 arguments: [
                     (path: "foo/bar/..", expected: ["foo"]),
                     (path: "bar/../foo", expected: ["foo"]),
@@ -635,15 +622,13 @@ struct PathTests {
             }
         }
         
-        @Test(
-            .IssueWindowsPathTestsFailures,
-        )
+        @Test
         func relativePathValidation() throws {
             #expect(throws: Never.self) { 
                 try RelativePath(validating: "a/b/c/d")
             }
 
-            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: \\") {
+            withKnownIssue {
                 #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
                     ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
                 }
@@ -651,6 +636,7 @@ struct PathTests {
                 ProcessInfo.hostOperatingSystem == .windows
             }
         }
+
     }
 
     @Test
