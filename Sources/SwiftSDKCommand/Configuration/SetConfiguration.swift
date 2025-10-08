@@ -97,7 +97,7 @@ struct SetConfiguration: ConfigurationSubcommand {
         }
 
         if let swiftStaticResourcesPath {
-            configuration.swiftResourcesPath =
+            configuration.swiftStaticResourcesPath =
                 try AbsolutePath(validating: swiftStaticResourcesPath, relativeTo: currentWorkingDirectory)
             updatedProperties.append(CodingKeys.swiftStaticResourcesPath.stringValue)
         }
