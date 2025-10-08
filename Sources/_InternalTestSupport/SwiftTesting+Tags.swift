@@ -71,6 +71,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var Resolve: Tag
     @Tag public static var ShowDependencies: Tag
     @Tag public static var ShowExecutables: Tag
+    @Tag public static var ShowTraits: Tag
     @Tag public static var ToolsVersion: Tag
     @Tag public static var Unedit: Tag
     @Tag public static var Update: Tag

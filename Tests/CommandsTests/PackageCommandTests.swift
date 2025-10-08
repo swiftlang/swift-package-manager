@@ -1198,6 +1198,115 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.ShowTraits,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func showTraits(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/ShowTraits") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+            var (textOutput, _) = try await execute(
+                ["show-traits", "--format=text"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(textOutput.contains("trait1 - this trait is the default in app (default)"))
+            #expect(textOutput.contains("trait2 - this trait is not the default in app"))
+            #expect(!textOutput.contains("trait3"))
+
+            var (jsonOutput, _) = try await execute(
+                ["show-traits", "--format=json"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            var json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case .array(let contents) = json else {
+                Issue.record("unexpected result")
+                return
+            }
+
+            #expect(3 == contents.count)
+
+            guard case let first = contents.first else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let `default`) = first else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(`default`["name"]?.stringValue ==  "default")
+            guard case .array(let enabledTraits) = `default`["enabledTraits"] else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(enabledTraits.count == 1)
+            let firstEnabledTrait = enabledTraits[0]
+            #expect(firstEnabledTrait.stringValue == "trait1")
+
+            guard case let second = contents[1] else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait1) = second else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait1["name"]?.stringValue ==  "trait1")
+
+            guard case let third = contents[2] else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait2) = third else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait2["name"]?.stringValue ==  "trait2")
+
+            // Show traits for the dependency based on its package id
+            (textOutput, _) = try await execute(
+                ["show-traits", "--package-id=deck-of-playing-cards", "--format=text"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!textOutput.contains("trait1 - this trait is the default in app (default)"))
+            #expect(!textOutput.contains("trait2 - this trait is not the default in app"))
+            #expect(textOutput.contains("trait3"))
+
+            (jsonOutput, _) = try await execute(
+                ["show-traits", "--package-id=deck-of-playing-cards", "--format=json"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case .array(let contents) = json else {
+                Issue.record("unexpected result")
+                return
+            }
+
+            #expect(1 == contents.count)
+
+            guard case let first = contents.first else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait3) = first else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait3["name"]?.stringValue ==  "trait3")
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.ShowExecutables,
         ),
         arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
