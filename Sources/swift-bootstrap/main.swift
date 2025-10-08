@@ -132,19 +132,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     public var shouldDisableLocalRpath: Bool = false
 
     /// The build system to use.
-    @Option(name: .customLong("build-system"))
-    var _buildSystem: BuildSystemProvider.Kind = .native
-
-    private var buildSystem: BuildSystemProvider.Kind {
-        #if os(macOS)
-        // Force the Xcode build system if we want to build more than one arch.
-        return self.architectures.count > 1 ? .xcode : self._buildSystem
-        #else
-        // Use whatever the build system provided by the command-line, or default fallback
-        //  on other platforms.
-        return self._buildSystem
-        #endif
-    }
+    @Option
+    var buildSystem: BuildSystemProvider.Kind = .swiftbuild
 
     public var buildFlags: BuildFlags {
         BuildFlags(
