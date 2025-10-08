@@ -30,7 +30,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -72,7 +71,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -124,7 +122,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -173,7 +170,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -226,7 +222,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -264,7 +259,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -309,7 +303,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -365,7 +358,6 @@ struct TraitTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
-        .IssueSwiftBuildLinuxRunnable,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
