@@ -14,7 +14,7 @@ This guide shows you how to create a library that uses another library as a depe
 
 ### Creating a library package
 
-This example starts with using an existing package the represents a playing card in a standard 52-card deck.
+This example starts with using an existing package that represents a playing card in a standard 52-card deck.
 The package, [PlayingCard](https://github.com/apple/example-package-playingcard), is available through git and provides a library (`PlayingCard`) that this guide uses and expands upon.
 
 This example creates the library `DeckOfPlayingCards` that provides a type that represents a deck of cards and common interactions with the deck, including shuffling, counting, and dealing. 
@@ -85,7 +85,7 @@ The package manager uses the version requirements, which follow Semantic Version
 
 The above example uses the parameter `--from 3.0.0`, to indicate the version requirements for the dependency.
 The `from` constrains the dependency chosen to a minimum of `3.0.0` and extending up to the highest minor and patch release available from the git repository.
-Package Manager uses tags, interpretting them as semantic versions, to determine the versions available.
+Package Manager uses tags, interpreting them as semantic versions, to determine the versions available.
 The command updated the `Package.swift` manifest file, adding the `dependencies` section:
 
 ```swift
@@ -104,7 +104,7 @@ let package = Package(
 ```
 
 Adding the dependency makes it available to the package, but doesn't include it by default into the targets within the package.
-For example, if you attempting to build the package using `swift build`, the build would succeed, but provide the warning:
+For example, if you are attempting to build the package using `swift build`, the build would succeed, but provide the warning:
 
 ```bash
 warning: 'deckofplayingcards': dependency 'example-package-playingcard' is not used by any target
@@ -216,9 +216,9 @@ Test Suite 'All tests' passed at 2025-10-09 13:12:08.095.
 ✔ Test run with 1 test in 0 suites passed after 0.001 seconds.
 ```
 
-### Add test for your package
+### Add tests for your package
 
-Extend the tests to work the code in your library. Update the contents of `Tests/DeckOfPlayingCardsTests/DeckOfPlayingCardsTests.swift`:
+Extend the tests to work with the code in your library. Update the contents of `Tests/DeckOfPlayingCardsTests/DeckOfPlayingCardsTests.swift`:
 
 ```swift
 import DeckOfPlayingCards
@@ -321,8 +321,8 @@ For more information about sharing packages, see [Releasing and publishing a Swi
 
 ### Resolving transitive dependencies
 
-The Package Manager resolves dependencies for the package your're using and all of its transitive dependencies.
-Another example package, `Dealer`, illustrates how this by using the example of the package this guide created.
+The Package Manager resolves dependencies for the package you're using and all of its transitive dependencies.
+Another example package, `Dealer`, illustrates how this works by using the example of the package this guide created.
 You can explore the example package online at [https://github.com/swiftlang/example-package-dealer/](https://github.com/swiftlang/example-package-dealer/), or download it locally to explore:
 
 ```bash
@@ -330,7 +330,7 @@ git clone https://github.com/swiftlang/example-package-dealer.git
 cd example-package-dealer
 ```
 
-The dealer package includes an additional dependency to [Swift Argument Parser](https://github.com/apple/swift-argument-parser), a package that helps parse arguments for command line applications.
+The dealer package includes an additional dependency to [Swift Argument Parser](https://github.com/apple/swift-argument-parser), a package that helps parse arguments for command-line applications.
 
 
 To see the package resolution and choices, run the command `swift package resolve`.
