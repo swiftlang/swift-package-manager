@@ -97,7 +97,7 @@ public struct Resource: Sendable {
 
     /// Applies the embed rule to a resource at the given path.
     ///
-    /// Use the embed rule to embed the bytes that represents the contents of a resource into executable code.
+    /// Use the embed rule to embed the bytes that represent the contents of a resource into executable code.
     /// For example,  if you embed the file `identifier.txt` that has the contents:
     /// ```
     /// Hello Swift
