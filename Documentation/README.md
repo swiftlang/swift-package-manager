@@ -1,6 +1,7 @@
 # Swift Package Manager
 
 The documentation previously included here has primarily been migrated into DocC format, and is available for viewing online at Swift.org [Package Manager Docs](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs).
+The sources for the documentation content are in the [Sources/PackageManagerDocs](Sources/PackageManagerDocs) directory.
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](CONTRIBUTING.md).
 
