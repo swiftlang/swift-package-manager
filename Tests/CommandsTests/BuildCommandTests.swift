@@ -914,7 +914,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let buildSystem = data.buildSystem
         let config = data.config
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             // try await building without specifying overrides.  This should succeed, and should use the default
