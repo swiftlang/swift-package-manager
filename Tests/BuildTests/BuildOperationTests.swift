@@ -76,7 +76,7 @@ final class BuildOperationTests: XCTestCase {
 
             // Perform initial builds for each triple
             for triple in triples {
-                let targetBuildParameters = mockBuildParameters(
+                let targetBuildParameters = try await mockBuildParameters(
                     destination: .target,
                     buildPath: scratchDirectory.appending(triple.tripleString),
                     config: .debug,
@@ -84,7 +84,7 @@ final class BuildOperationTests: XCTestCase {
                 )
                 let buildOp = mockBuildOperation(
                     productsBuildParameters: targetBuildParameters,
-                    toolsBuildParameters: mockBuildParameters(destination: .host),
+                    toolsBuildParameters: try await mockBuildParameters(destination: .host),
                     cacheBuildManifest: false,
                     packageGraphLoader: { packageGraph },
                     scratchDirectory: scratchDirectory,
@@ -109,7 +109,7 @@ final class BuildOperationTests: XCTestCase {
             // Perform incremental build several times and switch triple for each time
             for _ in 0..<4 {
                 for triple in triples {
-                    let targetBuildParameters = mockBuildParameters(
+                    let targetBuildParameters = try await mockBuildParameters(
                         destination: .target,
                         buildPath: scratchDirectory.appending(triple.tripleString),
                         config: .debug,
@@ -117,7 +117,7 @@ final class BuildOperationTests: XCTestCase {
                     )
                     let buildOp = mockBuildOperation(
                         productsBuildParameters: targetBuildParameters,
-                        toolsBuildParameters: mockBuildParameters(destination: .host),
+                        toolsBuildParameters: try await mockBuildParameters(destination: .host),
                         cacheBuildManifest: true,
                         packageGraphLoader: { packageGraph },
                         scratchDirectory: scratchDirectory,
@@ -138,20 +138,21 @@ final class BuildOperationTests: XCTestCase {
     func testHostProductsAndTargetsWithoutExplicitDestination() async throws {
         let mock  = try macrosTestsPackageGraph()
 
-        let hostParameters = mockBuildParameters(destination: .host)
-        let targetParameters = mockBuildParameters(destination: .target)
+        let hostParameters = try await mockBuildParameters(destination: .host)
+        let targetParameters = try await mockBuildParameters(destination: .target)
+        let triple = try await hostTriple()
         let op = mockBuildOperation(
             productsBuildParameters: targetParameters,
             toolsBuildParameters: hostParameters,
             packageGraphLoader: { mock.graph },
-            scratchDirectory: AbsolutePath("/.build/\(hostTriple)"),
+            scratchDirectory: AbsolutePath("/.build/\(triple)"),
             fs: mock.fileSystem,
             observabilityScope: mock.observabilityScope
         )
 
         let mmioMacrosProductName = try await op.computeLLBuildTargetName(for: .product("MMIOMacros"))
         XCTAssertEqual(
-            "MMIOMacros-\(hostTriple)-debug-tool.exe",
+            "MMIOMacros-\(triple)-debug-tool.exe",
             mmioMacrosProductName
         )
 
@@ -159,7 +160,7 @@ final class BuildOperationTests: XCTestCase {
             for: .product("swift-mmioPackageTests")
         )
         XCTAssertEqual(
-            "swift-mmioPackageTests-\(hostTriple)-debug-tool.test",
+            "swift-mmioPackageTests-\(triple)-debug-tool.test",
             mmioTestsProductName
         )
 
@@ -174,7 +175,7 @@ final class BuildOperationTests: XCTestCase {
         for target in ["MMIOMacros", "MMIOPlugin", "MMIOMacrosTests", "MMIOMacro+PluginTests"] {
             let targetName = try await op.computeLLBuildTargetName(for: .target(target))
             XCTAssertEqual(
-                "\(target)-\(hostTriple)-debug-tool.module",
+                "\(target)-\(triple)-debug-tool.module",
                 targetName
             )
         }

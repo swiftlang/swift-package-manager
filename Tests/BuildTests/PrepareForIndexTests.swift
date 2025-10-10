@@ -210,7 +210,7 @@ class PrepareForIndexTests: XCTestCase {
         XCTAssertTrue(coreSwiftc.otherArguments.contains("-experimental-allow-module-with-compiler-errors"))
     }
 
-    func testToolsDontPrepare() throws {
+    func testToolsDontPrepare() async throws {
         let options = try GlobalOptions.parse(["--experimental-prepare-for-indexing"])
         let state = try SwiftCommandState(
             outputStream: stderrStream,
@@ -236,9 +236,11 @@ class PrepareForIndexTests: XCTestCase {
             environment: .current
         )
 
-        XCTAssertEqual(try state.productsBuildParameters.prepareForIndexing, .on)
+        let productsPrepareForIndexing = try await state.productsBuildParameters.prepareForIndexing
+        XCTAssertEqual(productsPrepareForIndexing, .on)
         // Tools builds should never do prepare for indexing since they're needed
         // for the prepare builds.
-        XCTAssertEqual(try state.toolsBuildParameters.prepareForIndexing, .off)
+        let toolsPrepareForIndexing = try await state.toolsBuildParameters.prepareForIndexing
+        XCTAssertEqual(toolsPrepareForIndexing, .off)
     }
 }

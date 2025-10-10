@@ -79,7 +79,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
                 }
             }
 
-            let configuration = try getRegistriesConfig(swiftCommandState, global: self.global)
+            let configuration = try await getRegistriesConfig(swiftCommandState, global: self.global)
             if self.global {
                 try configuration.updateShared(with: set)
             } else {
@@ -119,7 +119,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
                 }
             }
 
-            let configuration = try getRegistriesConfig(swiftCommandState, global: self.global)
+            let configuration = try await getRegistriesConfig(swiftCommandState, global: self.global)
             if self.global {
                 try configuration.updateShared(with: unset)
             } else {
@@ -143,7 +143,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         case credentialLengthLimitExceeded(Int)
     }
 
-    static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Registries {
+    static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) async throws -> Workspace.Configuration.Registries {
         if global {
             let sharedRegistriesFile = Workspace.DefaultLocations.registriesConfigurationFile(
                 at: swiftCommandState.sharedConfigurationDirectory
@@ -155,7 +155,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
                 sharedRegistriesFile: sharedRegistriesFile
             )
         } else {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+            let workspace = try await swiftCommandState.getActiveWorkspace()
             return try .init(
                 fileSystem: swiftCommandState.fileSystem,
                 localRegistriesFile: workspace.location.localRegistriesConfigurationFile,

@@ -1153,7 +1153,7 @@ struct TestCommandTests {
         try await withKnownIssue("produces a filepath that is too long, needs investigation", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/CheckTestLibraryEnvironmentVariable") { fixturePath in
                 var extraEnv = Environment()
-                if try UserToolchain.default.swiftTestingPath != nil {
+                if try await UserToolchain.default().swiftTestingPath != nil {
                     extraEnv["CONTAINS_SWIFT_TESTING"] = "1"
                 }
                 await #expect(throws: Never.self) {

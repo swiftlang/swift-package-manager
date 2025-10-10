@@ -81,11 +81,7 @@ public final class UserToolchain: Toolchain {
 
     public let targetTriple: Basics.Triple
 
-    private let _targetInfo: JSON?
-    private lazy var targetInfo: JSON? = {
-        // Only call out to the swift compiler to fetch the target info when necessary
-        try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
-    }()
+    private let targetInfo: JSON?
 
     // A version string that can be used to identify the swift compiler version
     public lazy var swiftCompilerVersion: String? = {
@@ -179,11 +175,11 @@ public final class UserToolchain: Toolchain {
         return try getTool(name, binDirectories: envSearchPaths, fileSystem: fileSystem)
     }
 
-    private static func getTargetInfo(swiftCompiler: AbsolutePath) throws -> JSON {
+    private static func getTargetInfo(swiftCompiler: AbsolutePath) async throws -> JSON {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
         do {
-            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            let result = try await AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
             compilerOutput = try result.utf8Output().spm_chomp()
         } catch {
             throw InternalError(
@@ -670,22 +666,6 @@ public final class UserToolchain: Toolchain {
         case custom(searchPaths: [AbsolutePath], useXcrun: Bool = true)
     }
 
-    @available(*, deprecated, message: "use init(swiftSDK:environment:searchStrategy:customLibrariesLocation) instead")
-    public convenience init(
-        destination: SwiftSDK,
-        environment: Environment = .current,
-        searchStrategy: SearchStrategy = .default,
-        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil
-    ) throws {
-        try self.init(
-            swiftSDK: destination,
-            environment: environment,
-            searchStrategy: searchStrategy,
-            customLibrariesLocation: customLibrariesLocation,
-            fileSystem: localFileSystem
-        )
-    }
-
     public init(
         swiftSDK: SwiftSDK,
         environment: Environment = .current,
@@ -694,7 +674,7 @@ public final class UserToolchain: Toolchain {
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
         fileSystem: any FileSystem = localFileSystem
-    ) throws {
+    ) async throws {
         self.swiftSDK = swiftSDK
         self.environment = environment
 
@@ -735,15 +715,20 @@ public final class UserToolchain: Toolchain {
 
         var triple: Basics.Triple
         if let targetTriple = swiftSDK.targetTriple {
-            self._targetInfo = nil
+            self.targetInfo = nil
             triple = targetTriple
         } else {
             // targetInfo from the compiler
-            let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
-            self._targetInfo = targetInfo
-            triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            let targetInfo: JSON
+            if let customTargetInfo = customTargetInfo {
+                targetInfo = customTargetInfo
+            } else {
+                targetInfo = try await Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+            }
+            self.targetInfo = targetInfo
+            triple = try await Self.getHostTriple(targetInfo: targetInfo, versioned: false)
             if !triple.isDarwin() {
-                triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: true)
+                triple = try await Self.getHostTriple(targetInfo: targetInfo, versioned: true)
             }
         }
 

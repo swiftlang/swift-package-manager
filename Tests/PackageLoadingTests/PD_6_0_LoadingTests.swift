@@ -109,7 +109,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             try repo.commit(message: "best")
             try repo.tag(name: "lunch")
 
-            let manifest = try await manifestLoader.load(
+            let manifest = try await (try await manifestLoader()).load(
                 manifestPath: manifestPath,
                 packageKind: .root(tmpdir),
                 toolsVersion: self.toolsVersion,

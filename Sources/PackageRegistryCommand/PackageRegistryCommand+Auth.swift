@@ -167,7 +167,7 @@ extension PackageRegistryCommand {
             }
 
             // Auth config is in user-level registries config only
-            let configuration = try getRegistriesConfig(swiftCommandState, global: true)
+            let configuration = try await getRegistriesConfig(swiftCommandState, global: true)
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
@@ -339,7 +339,7 @@ extension PackageRegistryCommand {
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // Auth config is in user-level registries config only
-            let configuration = try getRegistriesConfig(swiftCommandState, global: true)
+            let configuration = try await getRegistriesConfig(swiftCommandState, global: true)
 
             // compute and validate registry URL
             guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {

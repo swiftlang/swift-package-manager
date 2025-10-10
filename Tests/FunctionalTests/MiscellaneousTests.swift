@@ -55,7 +55,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 fixturePath.appending("app"),
                 buildSystem: .native,
             )
-            let buildDir = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug")
+            let buildDir = fixturePath.appending(components: "app", ".build", try await UserToolchain.default().targetTriple.platformBuildPathComponent, "debug")
             XCTAssertFileExists(buildDir.appending(executableName("FooExec")))
             XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib1.swiftmodule"))
             XCTAssertFileExists(buildDir.appending(components: "Modules", "FooLib2.swiftmodule"))
@@ -137,7 +137,7 @@ final class MiscellaneousTestCase: XCTestCase {
     */
     func testInternalDependencyEdges() async throws {
         try await fixtureXCTest(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let execpath = fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Foo").pathString
+            let execpath = fixturePath.appending(components: ".build", try await UserToolchain.default().targetTriple.platformBuildPathComponent, "debug", "Foo").pathString
 
             await XCTAssertBuilds(
                 fixturePath,
@@ -167,7 +167,7 @@ final class MiscellaneousTestCase: XCTestCase {
     */
     func testExternalDependencyEdges1() async throws {
         try await fixtureXCTest(name: "DependencyResolution/External/Complex") { fixturePath in
-            let execpath = fixturePath.appending(components: "app", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString
+            let execpath = fixturePath.appending(components: "app", ".build", try await UserToolchain.default().targetTriple.platformBuildPathComponent, "debug", "Dealer").pathString
 
             let packageRoot = fixturePath.appending("app")
             await XCTAssertBuilds(
@@ -200,7 +200,7 @@ final class MiscellaneousTestCase: XCTestCase {
      */
     func testExternalDependencyEdges2() async throws {
         try await fixtureXCTest(name: "Miscellaneous/DependencyEdges/External") { fixturePath in
-            let execpath = [fixturePath.appending(components: "root", ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "dep2").pathString]
+            let execpath = [fixturePath.appending(components: "root", ".build", try await UserToolchain.default().targetTriple.platformBuildPathComponent, "debug", "dep2").pathString]
 
             let packageRoot = fixturePath.appending("root")
             await XCTAssertBuilds(
@@ -233,7 +233,7 @@ final class MiscellaneousTestCase: XCTestCase {
                 fixturePath,
                 buildSystem: .native,
             )
-            XCTAssertFileExists(fixturePath.appending(components: ".build", try UserToolchain.default.targetTriple.platformBuildPathComponent, "debug", "Module_Name_1.build", "Foo.swift.o"))
+            XCTAssertFileExists(fixturePath.appending(components: ".build", try await UserToolchain.default().targetTriple.platformBuildPathComponent, "debug", "Module_Name_1.build", "Foo.swift.o"))
         }
     }
 
@@ -261,7 +261,7 @@ final class MiscellaneousTestCase: XCTestCase {
         try XCTSkipIf(true, "test is only supported on macOS")
         #endif
         try await fixtureXCTest(name: "Miscellaneous/DistantFutureDeploymentTarget") { fixturePath in
-            let hostTriple = try UserToolchain.default.targetTriple
+            let hostTriple = try await UserToolchain.default().targetTriple
             try await executeSwiftBuild(
                 fixturePath,
                 Xswiftc: ["-target", "\(hostTriple.archName)-apple-macosx41.0"],
@@ -276,7 +276,7 @@ final class MiscellaneousTestCase: XCTestCase {
             let systemModule = fixturePath.appending("SystemModule")
             // Create a shared library.
             let input = systemModule.appending(components: "Sources", "SystemModule.c")
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             let output = systemModule.appending("libSystemModule\(triple.dynamicLibraryExtension)")
             try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
@@ -764,7 +764,8 @@ final class MiscellaneousTestCase: XCTestCase {
 
     func testPluginGeneratedResources() async throws {
         // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
-        try XCTSkipIf(!UserToolchain.default.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
+        let defaultToolchain = try await UserToolchain.default()
+        try XCTSkipIf(!defaultToolchain.supportsSwiftConcurrency(), "skipping because test environment doesn't support concurrency")
         try XCTSkipOnWindows(
             because: """
             Invalid path. Possibly related to https://github.com/swiftlang/swift-package-manager/issues/8511 or https://github.com/swiftlang/swift-package-manager/issues/8602

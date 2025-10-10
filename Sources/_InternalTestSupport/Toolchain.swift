@@ -42,19 +42,15 @@ package func resolveBinDir() throws -> AbsolutePath {
 }
 
 extension SwiftSDK {
-    public static var `default`: Self {
-        get throws {
-            let binDir = try resolveBinDir()
-            return try! SwiftSDK.hostSwiftSDK(binDir, environment: .current)
-        }
+    public static func `default`() async throws -> Self {
+        let binDir = try resolveBinDir()
+        return try await SwiftSDK.hostSwiftSDK(binDir, environment: .current)
     }
 }
 
 extension UserToolchain {
-    public static var `default`: Self {
-        get throws {
-            return try .init(swiftSDK: SwiftSDK.default, environment: .current, fileSystem: localFileSystem)
-        }
+    public static func `default`() async throws -> Self {
+        return try await .init(swiftSDK: await SwiftSDK.default(), environment: .current, fileSystem: localFileSystem)
     }
 }
 

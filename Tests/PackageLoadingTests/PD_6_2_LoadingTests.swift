@@ -79,7 +79,7 @@ struct PackageDescription6_2LoadingTests {
                     toolsVersion: .v6_2,
                     packageKind: .fileSystem(.root),
                     manifestLoader: ManifestLoader(
-                        toolchain: try! UserToolchain.default
+                        toolchain: try await UserToolchain.default()
                     ),
                     observabilityScope: observability.topScope
                 )
