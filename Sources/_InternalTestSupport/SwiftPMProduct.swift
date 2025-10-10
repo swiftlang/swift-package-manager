@@ -18,6 +18,8 @@ import struct Basics.AsyncProcessResult
 
 import enum TSCBasic.ProcessEnv
 
+private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: 6)
+
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
@@ -82,28 +84,30 @@ extension SwiftPM {
         env: Environment? = nil,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
-        let result = try await executeProcess(
-            args,
-            packagePath: packagePath,
-            env: env
-        )
-        //Remove /r from stdout/stderr so that tests do not have to deal with them
-        let stdout = try String(decoding: result.output.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
-        let stderr = try String(decoding: result.stderrOutput.get().filter( { $0 != 13 }), as: Unicode.UTF8.self)
-        
-        let returnValue = (stdout: stdout, stderr: stderr)
-        if (!throwIfCommandFails) { return returnValue }
+        try await swiftPMExecutionQueue.withOperation {
+            let result = try await executeProcess(
+                args,
+                packagePath: packagePath,
+                env: env
+            )
+            // Remove /r from stdout/stderr so that tests do not have to deal with them
+            let stdout = try String(decoding: result.output.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stderr = try String(decoding: result.stderrOutput.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
 
-        if result.exitStatus == .terminated(code: 0) {
-            return returnValue
+            let returnValue = (stdout: stdout, stderr: stderr)
+            if !throwIfCommandFails { return returnValue }
+
+            if result.exitStatus == .terminated(code: 0) {
+                return returnValue
+            }
+            throw SwiftPMError.executionFailure(
+                underlying: AsyncProcessResult.Error.nonZeroExit(result),
+                stdout: stdout,
+                stderr: stderr
+            )
         }
-        throw SwiftPMError.executionFailure(
-            underlying: AsyncProcessResult.Error.nonZeroExit(result),
-            stdout: stdout,
-            stderr: stderr
-        )
     }
-    
+
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
