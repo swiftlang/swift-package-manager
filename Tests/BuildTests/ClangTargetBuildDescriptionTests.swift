@@ -19,35 +19,35 @@ import _InternalTestSupport
 import XCTest
 
 final class ClangTargetBuildDescriptionTests: XCTestCase {
-    func testClangIndexStorePath() throws {
-        let targetDescription = try makeTargetBuildDescription("test")
+    func testClangIndexStorePath() async throws {
+        let targetDescription = try await makeTargetBuildDescription("test")
         XCTAssertTrue(try targetDescription.basicArguments().contains("-index-store-path"))
         XCTAssertFalse(try targetDescription.basicArguments().contains("-w"))
     }
 
-    func testSwiftCorelibsFoundationIncludeWorkaround() throws {
+    func testSwiftCorelibsFoundationIncludeWorkaround() async throws {
         let toolchain = MockToolchain(swiftResourcesPath: AbsolutePath("/fake/path/lib/swift"))
 
-        let macosParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .macOS)
-        let linuxParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Linux)
-        let androidParameters = mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Android)
+        let macosParameters = try await mockBuildParameters(destination: .target, toolchain: toolchain, triple: .macOS)
+        let linuxParameters = try await mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Linux)
+        let androidParameters = try await mockBuildParameters(destination: .target, toolchain: toolchain, triple: .arm64Android)
 
-        let macDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+        let macDescription = try await makeTargetBuildDescription("swift-corelibs-foundation",
                                                             buildParameters: macosParameters)
         XCTAssertFalse(try macDescription.basicArguments().contains("\(macosParameters.toolchain.swiftResourcesPath!)"))
 
-        let linuxDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+        let linuxDescription = try await makeTargetBuildDescription("swift-corelibs-foundation",
                                                               buildParameters: linuxParameters)
         print(try linuxDescription.basicArguments())
         XCTAssertTrue(try linuxDescription.basicArguments().contains("\(linuxParameters.toolchain.swiftResourcesPath!)"))
 
-        let androidDescription = try makeTargetBuildDescription("swift-corelibs-foundation",
+        let androidDescription = try await makeTargetBuildDescription("swift-corelibs-foundation",
                                                                 buildParameters: androidParameters)
         XCTAssertTrue(try androidDescription.basicArguments().contains("\(androidParameters.toolchain.swiftResourcesPath!)"))
     }
 
-    func testWarningSuppressionForRemotePackages() throws {
-        let targetDescription = try makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
+    func testWarningSuppressionForRemotePackages() async throws {
+        let targetDescription = try await makeTargetBuildDescription("test-warning-supression", usesSourceControl: true)
         XCTAssertTrue(try targetDescription.basicArguments().contains("-w"))
     }
 
@@ -78,7 +78,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
 
     private func makeTargetBuildDescription(_ packageName: String,
                                             buildParameters: BuildParameters? = nil,
-                                            usesSourceControl: Bool = false) throws -> ClangModuleBuildDescription {
+                                            usesSourceControl: Bool = false) async throws -> ClangModuleBuildDescription {
         let observability = ObservabilitySystem.makeForTesting(verbose: false)
 
         let manifest: Manifest
@@ -102,6 +102,17 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                               targetSearchPath: .root,
                               testTargetSearchPath: .root)
 
+        let finalBuildParameters: BuildParameters
+        if let buildParameters = buildParameters {
+            finalBuildParameters = buildParameters
+        } else {
+            finalBuildParameters = try await mockBuildParameters(
+                destination: .target,
+                toolchain: try await UserToolchain.default(),
+                indexStoreMode: .on
+            )
+        }
+
         return try ClangModuleBuildDescription(
             package: .init(underlying: package,
                            defaultLocalization: nil,
@@ -114,11 +125,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
                            platformVersionProvider: .init(implementation: .minimumDeploymentTargetDefault)),
             target: target,
             toolsVersion: .current,
-            buildParameters: buildParameters ?? mockBuildParameters(
-                destination: .target,
-                toolchain: try UserToolchain.default,
-                indexStoreMode: .on
-            ),
+            buildParameters: finalBuildParameters,
             fileSystem: localFileSystem,
             observabilityScope: observability.topScope
         )
