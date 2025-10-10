@@ -44,7 +44,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(
-                toolchain: try UserToolchain.default,
+                toolchain: try await UserToolchain.default(),
                 useInMemoryCache: false,
                 cacheDir: path,
                 delegate: delegate
@@ -96,7 +96,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             }
 
             let noCacheLoader = ManifestLoader(
-                toolchain: try UserToolchain.default,
+                toolchain: try await UserToolchain.default(),
                 useInMemoryCache: false,
                 cacheDir: .none,
                 delegate: delegate
@@ -137,7 +137,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
         let delegate = ManifestTestDelegate()
 
         let manifestLoader = ManifestLoader(
-            toolchain: try UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             useInMemoryCache: true,
             cacheDir: .none,
             delegate: delegate
@@ -189,7 +189,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
         }
 
         let noCacheLoader = ManifestLoader(
-            toolchain: try UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             useInMemoryCache: false,
             cacheDir: .none,
             delegate: delegate
@@ -217,7 +217,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(
-                toolchain: try UserToolchain.default,
+                toolchain: try await UserToolchain.default(),
                 cacheDir: path,
                 delegate: delegate
             )
@@ -298,7 +298,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 let delegate = ManifestTestDelegate()
 
                 let loader = ManifestLoader(
-                    toolchain: try UserToolchain.default,
+                    toolchain: try await UserToolchain.default(),
                     cacheDir: path,
                     extraManifestFlags: extraManifestFlags,
                     delegate: delegate
@@ -346,7 +346,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(
-                toolchain: try UserToolchain.default,
+                toolchain: try await UserToolchain.default(),
                 cacheDir: path,
                 delegate: delegate
             )
@@ -411,7 +411,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             let delegate = ManifestTestDelegate()
 
             let manifestLoader = ManifestLoader(
-                toolchain: try UserToolchain.default,
+                toolchain: try await UserToolchain.default(),
                 cacheDir: path,
                 delegate: delegate
             )
@@ -484,7 +484,7 @@ final class ManifestLoaderCacheTests: XCTestCase {
             """
 
         let manifestLoader = ManifestLoader(
-            toolchain: try UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             cacheDir: .none,
             delegate: .none
         )

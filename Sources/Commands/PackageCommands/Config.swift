@@ -29,7 +29,7 @@ extension SwiftPackageCommand {
 }
 
 extension SwiftPackageCommand.Config {
-    struct SetMirror: SwiftCommand {
+    struct SetMirror: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Set a mirror for a dependency."
         )
@@ -52,8 +52,8 @@ extension SwiftPackageCommand.Config {
         @Option(help: "The mirror url or identity.")
         var mirror: String?
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let config = try await getMirrorsConfig(swiftCommandState)
 
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
@@ -87,7 +87,7 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    struct UnsetMirror: SwiftCommand {
+    struct UnsetMirror: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Remove an existing mirror."
         )
@@ -110,8 +110,8 @@ extension SwiftPackageCommand.Config {
         @Option(help: "The mirror url or identity.")
         var mirror: String?
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let config = try await getMirrorsConfig(swiftCommandState)
 
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
@@ -142,7 +142,7 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    struct GetMirror: SwiftCommand {
+    struct GetMirror: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Print mirror configuration for the given package dependency."
         )
@@ -158,8 +158,8 @@ extension SwiftPackageCommand.Config {
         @Option(help: "The original url or identity.")
         var original: String?
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let config = try await getMirrorsConfig(swiftCommandState)
 
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
@@ -187,8 +187,8 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState) throws -> Workspace.Configuration.Mirrors {
-        let workspace = try swiftCommandState.getActiveWorkspace()
+    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState) async throws -> Workspace.Configuration.Mirrors {
+        let workspace = try await swiftCommandState.getActiveWorkspace()
         return try .init(
             fileSystem: swiftCommandState.fileSystem,
             localMirrorsFile: workspace.location.localMirrorsConfigurationFile,

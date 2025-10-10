@@ -76,19 +76,19 @@ enum TestingSupport {
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
-    ) throws -> [AbsolutePath: [TestSuite]] {
-        let testSuitesByProduct = try testProducts
-            .map {(
-                $0.bundlePath,
-                try Self.getTestSuites(
-                    fromTestAt: $0.bundlePath,
-                    swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput,
-                    sanitizers: sanitizers
-                )
-            )}
+    ) async throws -> [AbsolutePath: [TestSuite]] {
+        var testSuitesByProduct: [(AbsolutePath, [TestSuite])] = []
+        for testProduct in testProducts {
+            let suites = try await Self.getTestSuites(
+                fromTestAt: testProduct.bundlePath,
+                swiftCommandState: swiftCommandState,
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding,
+                experimentalTestOutput: experimentalTestOutput,
+                sanitizers: sanitizers
+            )
+            testSuitesByProduct.append((testProduct.bundlePath, suites))
+        }
         return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
     }
 
@@ -109,22 +109,23 @@ enum TestingSupport {
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
         sanitizers: [Sanitizer]
-    ) throws -> [TestSuite] {
+    ) async throws -> [TestSuite] {
         // Run the correct tool.
         var args = [String]()
         #if os(macOS)
+        let toolchain = try await swiftCommandState.getTargetToolchain()
+        let env = try await Self.constructTestEnvironment(
+            toolchain: toolchain,
+            destinationBuildParameters: swiftCommandState.buildParametersForTest(
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding,
+                experimentalTestOutput: experimentalTestOutput
+            ).productsBuildParameters,
+            sanitizers: sanitizers,
+            library: .xctest
+        )
         let data: String = try withTemporaryFile { tempFile in
             args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
-            let env = try Self.constructTestEnvironment(
-                toolchain: try swiftCommandState.getTargetToolchain(),
-                destinationBuildParameters: swiftCommandState.buildParametersForTest(
-                    enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput
-                ).productsBuildParameters,
-                sanitizers: sanitizers,
-                library: .xctest
-            )
             try Self.runProcessWithExistenceCheck(
                 path: path,
                 fileSystem: swiftCommandState.fileSystem,
@@ -136,8 +137,8 @@ enum TestingSupport {
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
         #else
-        let env = try Self.constructTestEnvironment(
-            toolchain: try swiftCommandState.getTargetToolchain(),
+        let env = try await Self.constructTestEnvironment(
+            toolchain: try await swiftCommandState.getTargetToolchain(),
             destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
                 shouldSkipBuilding: shouldSkipBuilding
@@ -182,7 +183,7 @@ enum TestingSupport {
         destinationBuildParameters buildParameters: BuildParameters,
         sanitizers: [Sanitizer],
         library: TestingLibrary
-    ) throws -> Environment {
+    ) async throws -> Environment {
         var env = Environment.current
 
         // If the standard output or error stream is NOT a TTY, set the NO_COLOR
@@ -240,7 +241,7 @@ enum TestingSupport {
 
         // Add the sdk platform path if we have it.
         // Since XCTestHelper targets macOS, we need the macOS platform paths here.
-        if let sdkPlatformPaths = try? SwiftSDK.sdkPlatformPaths(for: .macOS) {
+        if let sdkPlatformPaths = try? await SwiftSDK.sdkPlatformPaths(for: .macOS) {
             // appending since we prefer the user setting (if set) to the one we inject
             for frameworkPath in sdkPlatformPaths.frameworks {
                 env.appendPath(key: "DYLD_FRAMEWORK_PATH", value: frameworkPath.pathString)
@@ -282,16 +283,16 @@ extension SwiftCommandState {
         enableTestability: Bool? = nil,
         shouldSkipBuilding: Bool = false,
         experimentalTestOutput: Bool = false
-    ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
+    ) async throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
         let productsBuildParameters = buildParametersForTest(
-            modifying: try productsBuildParameters,
+            modifying: try await productsBuildParameters,
             enableCodeCoverage: enableCodeCoverage,
             enableTestability: enableTestability,
             shouldSkipBuilding: shouldSkipBuilding,
             experimentalTestOutput: experimentalTestOutput
         )
         let toolsBuildParameters = buildParametersForTest(
-            modifying: try toolsBuildParameters,
+            modifying: try await toolsBuildParameters,
             enableCodeCoverage: enableCodeCoverage,
             enableTestability: enableTestability,
             shouldSkipBuilding: shouldSkipBuilding,

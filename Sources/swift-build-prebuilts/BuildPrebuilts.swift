@@ -77,15 +77,15 @@ struct BuildPrebuilts: AsyncParsableCommand {
         }
     }
 
-    func computeSwiftVersion() throws -> String? {
+    func computeSwiftVersion() async throws -> String? {
         let fileSystem = localFileSystem
-
         let environment = Environment.current
-        let hostToolchain = try UserToolchain(
-            swiftSDK: SwiftSDK.hostSwiftSDK(
-                environment: environment,
-                fileSystem: fileSystem
-            ),
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(
+            environment: environment,
+            fileSystem: fileSystem
+        )
+        let hostToolchain = try await UserToolchain(
+            swiftSDK: hostSwiftSDK,
             environment: environment
         )
 
@@ -107,7 +107,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
 
-        guard let swiftVersion = try computeSwiftVersion() else {
+        guard let swiftVersion = try await computeSwiftVersion() else {
             print("Unable to determine swift compiler version")
             return
         }
@@ -151,7 +151,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Update package with the libraries
             let packageFile = repoDir.appending(component: "Package.swift")
-            let workspace = try Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
+            let workspace = try await Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
             let package = try await workspace.loadRootPackage(
                 at: repoDir,
                 observabilityScope: ObservabilitySystem { _, diag in print(diag) }.topScope
@@ -249,7 +249,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
         let httpClient = HTTPClient()
 
-        guard let swiftVersion = try computeSwiftVersion() else {
+        guard let swiftVersion = try await computeSwiftVersion() else {
             print("Unable to determine swift compiler version")
             Foundation.exit(1)
         }

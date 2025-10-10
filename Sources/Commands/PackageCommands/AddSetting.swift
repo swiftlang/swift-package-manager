@@ -25,7 +25,7 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    struct AddSetting: SwiftCommand {
+    struct AddSetting: AsyncSwiftCommand {
         /// The Swift language setting that can be specified on the command line.
         enum SwiftSetting: String, Codable, ExpressibleByArgument, CaseIterable {
             case experimentalFeature
@@ -69,9 +69,9 @@ extension SwiftPackageCommand {
             }
         }
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             if !self._swiftSettings.isEmpty {
-                try Self.editSwiftSettings(
+                try await Self.editSwiftSettings(
                     of: self.target,
                     using: swiftCommandState,
                     self.swiftSettings,
@@ -85,8 +85,8 @@ extension SwiftPackageCommand {
             using swiftCommandState: SwiftCommandState,
             _ settings: [(SwiftSetting, String)],
             verbose: Bool = false
-        ) throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+        ) async throws {
+            let workspace = try await swiftCommandState.getActiveWorkspace()
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }

@@ -680,13 +680,13 @@ public struct TestLibraryOptions: ParsableArguments {
     /// It is intentional that `isEnabled()` is not simply this function with a
     /// default value for the `default` argument. There's no "true" default
     /// value to use; it depends on the semantics the caller is interested in.
-    private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) -> Bool {
+    private func isEnabled(_ library: TestingLibrary, `default`: Bool, swiftCommandState: SwiftCommandState) async -> Bool {
         switch library {
         case .xctest:
             if let explicitlyEnableXCTestSupport {
                 return explicitlyEnableXCTestSupport
             }
-            if let toolchain = try? swiftCommandState.getHostToolchain(),
+            if let toolchain = try? await swiftCommandState.getHostToolchain(),
                toolchain.swiftSDK.xctestSupport == .supported {
                 return `default`
             }
@@ -697,13 +697,13 @@ public struct TestLibraryOptions: ParsableArguments {
     }
 
     /// Test whether or not a given library is enabled.
-    public func isEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
-        isEnabled(library, default: true, swiftCommandState: swiftCommandState)
+    public func isEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) async -> Bool {
+        await isEnabled(library, default: true, swiftCommandState: swiftCommandState)
     }
 
     /// Test whether or not a given library was explicitly enabled by the developer.
-    public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) -> Bool {
-        isEnabled(library, default: false, swiftCommandState: swiftCommandState)
+    public func isExplicitlyEnabled(_ library: TestingLibrary, swiftCommandState: SwiftCommandState) async -> Bool {
+        await isEnabled(library, default: false, swiftCommandState: swiftCommandState)
     }
 }
 

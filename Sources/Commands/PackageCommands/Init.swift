@@ -21,7 +21,7 @@ import Workspace
 import SPMBuildCore
 
 extension SwiftPackageCommand {
-    struct Init: SwiftCommand {
+    struct Init: AsyncSwiftCommand {
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
@@ -55,7 +55,7 @@ extension SwiftPackageCommand {
         // This command should support creating the supplied --package-path if it isn't created.
         var createPackagePath = true
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             guard let cwd = swiftCommandState.fileSystem.currentWorkingDirectory else {
                 throw InternalError("Could not find the current working directory")
             }
@@ -66,13 +66,19 @@ extension SwiftPackageCommand {
             // For macros this is reversed, since we don't support testing
             // macros with Swift Testing yet.
             var supportedTestingLibraries = Set<TestingLibrary>()
-            if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
-                (initMode == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {
+            if await testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) {
                 supportedTestingLibraries.insert(.xctest)
+            } else if initMode == .macro {
+                if await testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+                    supportedTestingLibraries.insert(.xctest)
+                }
             }
-            if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
-                (initMode != .macro && testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState)) {
+            if await testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
                 supportedTestingLibraries.insert(.swiftTesting)
+            } else if initMode != .macro {
+                if await testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+                    supportedTestingLibraries.insert(.swiftTesting)
+                }
             }
 
             let initPackage = try InitPackage(
@@ -80,7 +86,7 @@ extension SwiftPackageCommand {
                 packageType: initMode,
                 supportedTestingLibraries: supportedTestingLibraries,
                 destinationPath: cwd,
-                installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
+                installedSwiftPMConfiguration: await swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
                 fileSystem: swiftCommandState.fileSystem
             )
             initPackage.progressReporter = { message in

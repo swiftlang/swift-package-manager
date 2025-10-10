@@ -158,11 +158,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try await Workspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
-            customHostToolchain: .mockHostToolchain(fs),
+            customHostToolchain: await .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -217,20 +217,20 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
-            return try Workspace._init(
+        func createProvider(_ currentToolsVersion: ToolsVersion) async throws -> PackageContainerProvider {
+            return try await Workspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
                 customToolsVersion: currentToolsVersion,
-                customHostToolchain: .mockHostToolchain(fs),
+                customHostToolchain: await .mockHostToolchain(fs),
                 customManifestLoader: MockManifestLoader(manifests: [:]),
                 customRepositoryManager: repositoryManager
             )
         }
 
         do {
-            let provider = try createProvider(ToolsVersion(version: "4.0.0"))
+            let provider = try await createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try await provider.getContainer(for: ref)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -238,7 +238,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(ToolsVersion(version: "4.2.0"))
+            let provider = try await createProvider(ToolsVersion(version: "4.2.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
@@ -251,7 +251,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         }
 
         do {
-            let provider = try createProvider(ToolsVersion(version: "3.0.0"))
+            let provider = try await createProvider(ToolsVersion(version: "3.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try await provider.getContainer(for: ref)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -260,7 +260,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         // Test that getting dependencies on a revision that has unsupported tools version is diagnosed properly.
         do {
-            let provider = try createProvider(ToolsVersion(version: "4.0.0"))
+            let provider = try await createProvider(ToolsVersion(version: "4.0.0"))
             let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
@@ -309,11 +309,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try await Workspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
-            customHostToolchain: .mockHostToolchain(fs),
+            customHostToolchain: await .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -365,11 +365,11 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try await Workspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
-            customHostToolchain: .mockHostToolchain(fs),
+            customHostToolchain: await .mockHostToolchain(fs),
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
@@ -551,7 +551,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = try Workspace._init(
+            let containerProvider = try await Workspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
@@ -604,7 +604,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                 delegate: repositoryManagerDelegate
             )
 
-            let containerProvider = try Workspace._init(
+            let containerProvider = try await Workspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
@@ -716,7 +716,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                     ),
                 ]
             )
-            let containerProvider = try Workspace._init(
+            let containerProvider = try await Workspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),

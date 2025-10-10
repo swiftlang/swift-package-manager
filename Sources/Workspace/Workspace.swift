@@ -206,8 +206,8 @@ public class Workspace {
         customRepositoryProvider: (any RepositoryProvider)? = .none,
         // delegate
         delegate: Delegate? = .none
-    ) throws {
-        try self.init(
+    ) async throws {
+        try await self.init(
             fileSystem: fileSystem,
             environment: environment,
             location: location,
@@ -272,10 +272,10 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
         delegate: Delegate? = .none
-    ) throws {
+    ) async throws {
         let fileSystem = fileSystem ?? localFileSystem
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
-        try self.init(
+        try await self.init(
             fileSystem: fileSystem,
             environment: environment,
             location: location,
@@ -326,7 +326,7 @@ public class Workspace {
         customRepositoryProvider: RepositoryProvider? = .none,
         // delegate
         delegate: Delegate? = .none
-    ) throws {
+    ) async throws {
         let fileSystem = fileSystem ?? localFileSystem
         let location = try Location(forRootPackage: packagePath, fileSystem: fileSystem)
         let manifestLoader = ManifestLoader(
@@ -336,7 +336,7 @@ public class Workspace {
             delegate: delegate.map(WorkspaceManifestLoaderDelegate.init(workspaceDelegate:)),
             pruneDependencies: configuration?.pruneDependencies ?? false
         )
-        try self.init(
+        try await self.init(
             fileSystem: fileSystem,
             location: location,
             authorizationProvider: authorizationProvider,
@@ -385,8 +385,8 @@ public class Workspace {
         customChecksumAlgorithm: HashAlgorithm? = .none,
         // delegate
         delegate: Delegate? = .none
-    ) throws -> Workspace {
-        try .init(
+    ) async throws -> Workspace {
+        try await .init(
             fileSystem: fileSystem,
             environment: environment,
             location: location,
@@ -446,7 +446,7 @@ public class Workspace {
         customChecksumAlgorithm: HashAlgorithm?,
         // delegate
         delegate: Delegate?
-    ) throws {
+    ) async throws {
         // we do not store an observabilityScope in the workspace initializer as the workspace is designed to be long
         // lived.
         // instead, observabilityScope is passed into the individual workspace methods which are short lived.
@@ -459,13 +459,18 @@ public class Workspace {
         )
 
         let currentToolsVersion = customToolsVersion ?? ToolsVersion.current
-        let hostToolchain = try customHostToolchain ?? UserToolchain(
-            swiftSDK: .hostSwiftSDK(
-                environment: environment
-            ),
-            environment: environment,
-            fileSystem: fileSystem
-        )
+        let hostToolchain: UserToolchain
+        if let customHostToolchain {
+            hostToolchain = customHostToolchain
+        } else {
+            hostToolchain = try await UserToolchain(
+                swiftSDK: .hostSwiftSDK(
+                    environment: environment
+                ),
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        }
         var manifestLoader = customManifestLoader ?? ManifestLoader(
             toolchain: hostToolchain,
             cacheDir: location.sharedManifestsCacheDirectory,

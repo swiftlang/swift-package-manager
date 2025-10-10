@@ -51,7 +51,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             // Write the original manifest file contents, and load it.
             let manifestPath = packageDir.appending(component: Manifest.filename)
             try fs.writeFileContents(manifestPath, string: manifestContents)
-            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
+            let manifestLoader = ManifestLoader(toolchain: try await UserToolchain.default())
             let identityResolver = DefaultIdentityResolver()
             let dependencyMapper = DefaultDependencyMapper(identityResolver: identityResolver)
             let manifest = try await manifestLoader.load(

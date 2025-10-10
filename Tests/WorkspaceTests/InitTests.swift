@@ -90,7 +90,7 @@ final class InitTests: XCTestCase {
                 path,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             let binPath = path.appending(components: ".build", triple.platformBuildPathComponent, "debug")
 #if os(Windows)
             XCTAssertFileExists(binPath.appending("Foo.exe"))
@@ -175,7 +175,7 @@ final class InitTests: XCTestCase {
                 path,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
         }
     }
@@ -214,7 +214,7 @@ final class InitTests: XCTestCase {
                 path,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
@@ -254,7 +254,7 @@ final class InitTests: XCTestCase {
                 path,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
@@ -291,7 +291,7 @@ final class InitTests: XCTestCase {
                 path,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             XCTAssertFileExists(path.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "Foo.swiftmodule"))
 #endif
         }
@@ -453,7 +453,7 @@ final class InitTests: XCTestCase {
                 packageRoot,
                 buildSystem: .native,
             )
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             XCTAssertFileExists(packageRoot.appending(components: ".build", triple.platformBuildPathComponent, "debug", "Modules", "some_package.swiftmodule"))
         }
     }

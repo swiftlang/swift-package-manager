@@ -18,8 +18,8 @@ import Testing
 
 struct BuildParametersTests {
     @Test
-    func configurationDependentProperties() throws {
-        var parameters = mockBuildParameters(
+    func configurationDependentProperties() async throws {
+        var parameters = try await mockBuildParameters(
             destination: .host,
             environment: BuildEnvironment(platform: .linux, configuration: .debug)
         )

@@ -146,7 +146,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             // Execute the REPL.
-            let interpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
+            let interpreterPath = try await swiftCommandState.getTargetToolchain().swiftInterpreterPath
             swiftCommandState.outputStream.send("Launching Swift (interpreter at \(interpreterPath)) REPL with arguments: \(arguments.joined(separator: " "))\n")
             swiftCommandState.outputStream.flush()
             try self.run(
@@ -168,8 +168,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
-                let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
-                let productAbsolutePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
+                let productRelativePath = try await swiftCommandState.productsBuildParameters.executablePath(for: productName)
+                let productAbsolutePath = try await swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
 
                 // Make sure we are running from the original working directory.
                 let cwd: AbsolutePath? = swiftCommandState.fileSystem.currentWorkingDirectory
@@ -177,7 +177,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try ProcessEnv.chdir(swiftCommandState.originalWorkingDirectory)
                 }
 
-                if let debugger = try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
+                if let debugger = try await swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
                    let debuggerPath = debugger.path {
                     try self.run(
                         fileSystem: swiftCommandState.fileSystem,
@@ -187,7 +187,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     )
                 } else {
                     let pathRelativeToWorkingDirectory = productAbsolutePath.relative(to: swiftCommandState.originalWorkingDirectory)
-                    let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
+                    let lldbPath = try await swiftCommandState.getTargetToolchain().getLLDB()
                     try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
                 }
             } catch let error as RunError {
@@ -200,7 +200,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             if let executable = options.executable, try isValidSwiftFilePath(fileSystem: swiftCommandState.fileSystem, path: executable) {
                 swiftCommandState.observabilityScope.emit(.runFileDeprecation(filePath: executable))
                 // Redirect execution to the toolchain's swift executable.
-                let swiftInterpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
+                let swiftInterpreterPath = try await swiftCommandState.getTargetToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
                 let arguments = [executable] + options.arguments
                 try self.run(
@@ -224,15 +224,15 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
-                let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
+                let executablePath = try await swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
 
-                let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
-                let productAbsolutePath = try swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
+                let productRelativePath = try await swiftCommandState.productsBuildParameters.executablePath(for: productName)
+                let productAbsolutePath = try await swiftCommandState.productsBuildParameters.buildPath.appending(productRelativePath)
 
                 let runnerPath: AbsolutePath
                 let arguments: [String]
 
-                if let debugger = try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
+                if let debugger = try await swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.debugger],
                    let debuggerPath = debugger.path {
                     runnerPath = debuggerPath
                     arguments = debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments

@@ -133,7 +133,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
-            return try print(swiftCommandState.productsBuildParameters.buildPath.description)
+            return try print(await swiftCommandState.productsBuildParameters.buildPath.description)
         }
 
         if options.printManifestGraphviz {
@@ -156,8 +156,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        var productsBuildParameters = try swiftCommandState.productsBuildParameters
-        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+        var productsBuildParameters = try await swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try await swiftCommandState.toolsBuildParameters
 
         if self.options.enableCodeCoverage {
             productsBuildParameters.testingParameters.enableCodeCoverage = true

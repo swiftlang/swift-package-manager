@@ -114,13 +114,13 @@ extension _SwiftCommand {
 }
 
 public protocol SwiftCommand: ParsableCommand, _SwiftCommand {
-    func run(_ swiftCommandState: SwiftCommandState) throws
+    func run(_ swiftCommandState: SwiftCommandState) async throws
 }
 
 extension SwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public func run() throws {
+    public func run() async throws {
         let swiftCommandState = try SwiftCommandState(
             options: globalOptions,
             toolWorkspaceConfiguration: self.toolWorkspaceConfiguration,
@@ -135,7 +135,7 @@ extension SwiftCommand {
         swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
-            try self.run(swiftCommandState)
+            try await self.run(swiftCommandState)
             if swiftCommandState.observabilityScope.errorsReported || swiftCommandState.executionStatus == .failure {
                 throw ExitCode.failure
             }
@@ -483,7 +483,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) async throws -> Workspace {
         if var workspace = _workspace {
             // if we decide to override the trait configuration, we can resolve accordingly for
             // calls like createSymbolGraphForPlugin.
@@ -507,7 +507,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let workspace = try Workspace(
+        let workspace = try await Workspace(
             fileSystem: self.fileSystem,
             location: .init(
                 scratchDirectory: self.scratchDirectory,
@@ -570,7 +570,7 @@ public final class SwiftCommandState {
 
         // Create manifest loader for manifest cache
         let manifestLoader = ManifestLoader(
-            toolchain: try self.getHostToolchain(),
+            toolchain: try await self.getHostToolchain(),
             cacheDir: Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory),
             importRestrictions: nil,
             delegate: nil,
@@ -605,7 +605,7 @@ public final class SwiftCommandState {
     }
 
     public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
-        let workspace = try self.getActiveWorkspace(enableAllTraits: enableAllTraits)
+        let workspace = try await self.getActiveWorkspace(enableAllTraits: enableAllTraits)
         let root = try self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
@@ -730,7 +730,7 @@ public final class SwiftCommandState {
 
     /// Resolve the dependencies.
     public func resolve() async throws {
-        let workspace = try getActiveWorkspace()
+        let workspace = try await getActiveWorkspace()
         let root = try getWorkspaceRoot()
 
         try await workspace.resolve(
@@ -776,7 +776,7 @@ public final class SwiftCommandState {
         testEntryPointPath: AbsolutePath? = nil
     ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
+            let workspace = try await getActiveWorkspace(enableAllTraits: enableAllTraits)
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
@@ -798,13 +798,19 @@ public final class SwiftCommandState {
         }
     }
 
-    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) throws -> PluginScriptRunner {
-        let pluginsDir = try customPluginsDir ?? self.getActiveWorkspace().location.pluginWorkingDirectory
+    public func getPluginScriptRunner(customPluginsDir: AbsolutePath? = .none) async throws -> PluginScriptRunner {
+        let pluginsDir: AbsolutePath
+        if let customPluginsDir {
+            pluginsDir = customPluginsDir
+        } else {
+            pluginsDir = try await self.getActiveWorkspace().location.pluginWorkingDirectory
+        }
         let cacheDir = pluginsDir.appending("cache")
+        let hostToolchain = try await self.getHostToolchain()
         let pluginScriptRunner = try DefaultPluginScriptRunner(
             fileSystem: self.fileSystem,
             cacheDir: cacheDir,
-            toolchain: self.getHostToolchain(),
+            toolchain: hostToolchain,
             extraPluginSwiftCFlags: self.options.build.pluginSwiftCFlags,
             enableSandbox: !self.shouldDisableSandbox,
             verboseOutput: self.logLevel <= .info
@@ -816,15 +822,99 @@ public final class SwiftCommandState {
 
     /// Returns the user toolchain to compile the actual product.
     public func getTargetToolchain() throws -> UserToolchain {
-        try self._targetToolchain.get()
+        fatalError("getTargetToolchain() is deprecated, use async version instead")
     }
 
-    public func getHostToolchain() throws -> UserToolchain {
-        try self._hostToolchain.get()
+    /// Returns the user toolchain to compile the actual product (async version).
+    public func getTargetToolchain() async throws -> UserToolchain {
+        let swiftSDK: SwiftSDK
+        let hostSwiftSDK: SwiftSDK
+
+        let hostToolchain = try await getHostToolchain()
+        hostSwiftSDK = hostToolchain.swiftSDK
+
+        if self.options.build.deprecatedSwiftSDKSelector != nil {
+            self.observabilityScope.emit(
+                warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
+            )
+        }
+
+        let store = SwiftSDKBundleStore(
+            swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+            fileSystem: self.fileSystem,
+            observabilityScope: self.observabilityScope,
+            outputHandler: { print($0.description) }
+        )
+
+        swiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            hostSwiftSDK: hostSwiftSDK,
+            hostTriple: hostToolchain.targetTriple,
+            customToolsets: self.options.locations.toolsetPaths,
+            customCompileDestination: self.options.locations.customCompileDestination,
+            customCompileTriple: self.options.build.customCompileTriple,
+            customCompileToolchain: self.options.build.customCompileToolchain,
+            customCompileSDK: self.options.build.customCompileSDK,
+            swiftSDKSelector: self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector,
+            architectures: self.options.build.architectures,
+            store: store,
+            observabilityScope: self.observabilityScope,
+            fileSystem: self.fileSystem
+        )
+
+        // Check if we ended up with the host toolchain.
+        if hostSwiftSDK == swiftSDK {
+            return hostToolchain
+        }
+
+        return try await UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
     }
 
-    func getManifestLoader() throws -> ManifestLoader {
-        try self._manifestLoader.get()
+    public func getHostToolchain() async throws -> UserToolchain {
+        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(
+            environment: self.environment,
+            observabilityScope: self.observabilityScope
+        )
+        hostSwiftSDK.targetTriple = self.hostTriple
+
+        return try await UserToolchain(
+            swiftSDK: hostSwiftSDK,
+            environment: self.environment,
+            customTargetInfo: targetInfo,
+            fileSystem: self.fileSystem
+        )
+    }
+
+    func getManifestLoader() async throws -> ManifestLoader {
+        let cachePath: AbsolutePath? = switch (
+            self.options.caching.shouldDisableManifestCaching,
+            self.options.caching.manifestCachingMode
+        ) {
+        case (true, _):
+            // backwards compatibility
+            .none
+        case (false, .none):
+            .none
+        case (false, .local):
+            self.scratchDirectory
+        case (false, .shared):
+            Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
+        }
+
+        var extraManifestFlags = self.options.build.manifestFlags
+        if self.logLevel <= .info {
+            extraManifestFlags.append("-v")
+        }
+
+        return try ManifestLoader(
+            // Always use the host toolchain's resources for parsing manifest.
+            toolchain: await self.getHostToolchain(),
+            isManifestSandboxEnabled: !self.shouldDisableSandbox,
+            cacheDir: cachePath,
+            extraManifestFlags: extraManifestFlags,
+            importRestrictions: .none,
+            pruneDependencies: self.options.resolver.pruneDependencies
+        )
     }
 
     public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
@@ -832,7 +922,7 @@ public final class SwiftCommandState {
             return false
         }
 
-        let buildParameters = try self.productsBuildParameters
+        let buildParameters = try await self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
             self.fileSystem.exists(buildParameters.buildDescriptionPath)
@@ -878,7 +968,12 @@ public final class SwiftCommandState {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
-        var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
+        var productsParameters: BuildParameters
+        if let productsBuildParameters {
+            productsParameters = productsBuildParameters
+        } else {
+            productsParameters = try await self.productsBuildParameters
+        }
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? self.options.build.buildSystem,
@@ -986,130 +1081,21 @@ public final class SwiftCommandState {
 
     /// Return the build parameters for the host toolchain.
     public var toolsBuildParameters: BuildParameters {
-        get throws {
-            try self._toolsBuildParameters.get()
+        get async throws {
+            // Tools need to do a full build
+            try self._buildParams(toolchain: await self.getHostToolchain(), destination: .host, prepareForIndexing: false)
         }
     }
-
-    private lazy var _toolsBuildParameters: Result<BuildParameters, Swift.Error> = Result(catching: {
-        // Tools need to do a full build
-        try self._buildParams(toolchain: self.getHostToolchain(), destination: .host, prepareForIndexing: false)
-    })
 
     public var productsBuildParameters: BuildParameters {
-        get throws {
-            try self._productsBuildParameters.get()
+        get async throws {
+            try self._buildParams(
+                toolchain: await self.getTargetToolchain(),
+                destination: .target,
+                prepareForIndexing: self.options.build.prepareForIndexing
+            )
         }
     }
-
-    private lazy var _productsBuildParameters: Result<BuildParameters, Swift.Error> = Result(catching: {
-        try self._buildParams(
-            toolchain: self.getTargetToolchain(),
-            destination: .target,
-            prepareForIndexing: self.options.build.prepareForIndexing
-        )
-    })
-
-    /// Lazily compute the target toolchain.
-    private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
-        let swiftSDK: SwiftSDK
-        let hostSwiftSDK: SwiftSDK
-        do {
-            let hostToolchain = try _hostToolchain.get()
-            hostSwiftSDK = hostToolchain.swiftSDK
-
-            if self.options.build.deprecatedSwiftSDKSelector != nil {
-                self.observabilityScope.emit(
-                    warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
-                )
-            }
-
-            let store = SwiftSDKBundleStore(
-                swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
-                fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope,
-                outputHandler: { print($0.description) }
-            )
-
-            swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
-                hostSwiftSDK: hostSwiftSDK,
-                hostTriple: hostToolchain.targetTriple,
-                customToolsets: self.options.locations.toolsetPaths,
-                customCompileDestination: self.options.locations.customCompileDestination,
-                customCompileTriple: self.options.build.customCompileTriple,
-                customCompileToolchain: self.options.build.customCompileToolchain,
-                customCompileSDK: self.options.build.customCompileSDK,
-                swiftSDKSelector: self.options.build.swiftSDKSelector ?? self.options.build.deprecatedSwiftSDKSelector,
-                architectures: self.options.build.architectures,
-                store: store,
-                observabilityScope: self.observabilityScope,
-                fileSystem: self.fileSystem
-            )
-        } catch {
-            return .failure(error)
-        }
-        // Check if we ended up with the host toolchain.
-        if hostSwiftSDK == swiftSDK {
-            return self._hostToolchain
-        }
-
-        return Result(catching: {
-            try UserToolchain(
-                swiftSDK: swiftSDK,
-                environment: self.environment,
-                customTargetInfo: targetInfo,
-                fileSystem: self.fileSystem)
-        })
-    }()
-
-    /// Lazily compute the host toolchain used to compile the package description.
-    private lazy var _hostToolchain: Result<UserToolchain, Swift.Error> = Result(catching: {
-        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(
-            environment: self.environment,
-            observabilityScope: self.observabilityScope
-        )
-        hostSwiftSDK.targetTriple = self.hostTriple
-
-        return try UserToolchain(
-            swiftSDK: hostSwiftSDK,
-            environment: self.environment,
-            customTargetInfo: targetInfo,
-            fileSystem: self.fileSystem
-        )
-    })
-
-    private lazy var _manifestLoader: Result<ManifestLoader, Swift.Error> = Result(catching: {
-        let cachePath: AbsolutePath? = switch (
-            self.options.caching.shouldDisableManifestCaching,
-            self.options.caching.manifestCachingMode
-        ) {
-        case (true, _):
-            // backwards compatibility
-            .none
-        case (false, .none):
-            .none
-        case (false, .local):
-            self.scratchDirectory
-        case (false, .shared):
-            Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
-        }
-
-        var extraManifestFlags = self.options.build.manifestFlags
-        if self.logLevel <= .info {
-            extraManifestFlags.append("-v")
-        }
-
-        return try ManifestLoader(
-            // Always use the host toolchain's resources for parsing manifest.
-            toolchain: self.getHostToolchain(),
-            isManifestSandboxEnabled: !self.shouldDisableSandbox,
-            cacheDir: cachePath,
-            extraManifestFlags: extraManifestFlags,
-            importRestrictions: .none,
-            pruneDependencies: self.options.resolver.pruneDependencies
-        )
-    })
 
     /// An enum indicating the execution status of run commands.
     public enum ExecutionStatus {

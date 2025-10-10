@@ -32,14 +32,18 @@ extension UserToolchain {
 
     package static func mockHostToolchain(
         _ fileSystem: InMemoryFileSystem,
-        hostTriple: Triple = hostTriple
-    ) throws -> UserToolchain {
-        var hostSwiftSDK = try SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
-        hostSwiftSDK.targetTriple = hostTriple
+        hostTriple: Triple? = nil
+    ) async throws -> UserToolchain {
+        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
+        if let hostTriple = hostTriple {
+            hostSwiftSDK.targetTriple = hostTriple
+        } else {
+            hostSwiftSDK.targetTriple = try await UserToolchain.default().targetTriple
+        }
 
         let env = Environment.mockEnvironment
 
-        return try UserToolchain(
+        return try await UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -124,7 +128,7 @@ public final class MockWorkspace {
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
             .SourceControlToRegistryDependencyTransformation = .disabled,
         defaultRegistry: Registry? = .none,
-        customHostTriple: Triple = hostTriple,
+        customHostTriple: Triple? = nil,
         traitConfiguration: TraitConfiguration = .default,
         pruneDependencies: Bool = false,
         enabledTraitsMap: EnabledTraitsMap = .init()
@@ -163,7 +167,7 @@ public final class MockWorkspace {
             archiver: MockArchiver()
         )
         self.customPrebuiltsManager = customPrebuiltsManager
-        self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
+        self.customHostToolchain = try await UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
         self.enabledTraitsMap = enabledTraitsMap
@@ -376,12 +380,12 @@ public final class MockWorkspace {
         self.manifestLoader = MockManifestLoader(manifests: manifests)
     }
 
-    public func getOrCreateWorkspace() throws -> Workspace {
+    public func getOrCreateWorkspace() async throws -> Workspace {
         if let workspace = self._workspace {
             return workspace
         }
 
-        let workspace = try Workspace._init(
+        let workspace = try await Workspace._init(
             fileSystem: self.fileSystem,
             environment: .mockEnvironment,
             location: .init(
@@ -460,7 +464,7 @@ public final class MockWorkspace {
     ) async {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
-            let ws = try self.getOrCreateWorkspace()
+            let ws = try await self.getOrCreateWorkspace()
             await ws.edit(
                 packageIdentity: packageIdentity,
                 path: path,
@@ -484,7 +488,7 @@ public final class MockWorkspace {
                 packages: rootPaths(for: roots),
                 traitConfiguration: traitConfiguration
             )
-            let ws = try self.getOrCreateWorkspace()
+            let ws = try await self.getOrCreateWorkspace()
             try await ws.unedit(
                 packageIdentity: packageIdentity,
                 forceRemove: forceRemove,
@@ -507,7 +511,7 @@ public final class MockWorkspace {
                 packages: rootPaths(for: roots),
                 traitConfiguration: traitConfiguration
             )
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try await workspace.resolve(
                 packageName: pkg,
                 root: rootInput,
@@ -520,10 +524,10 @@ public final class MockWorkspace {
         result(observability.diagnostics)
     }
 
-    public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) {
+    public func checkClean(_ result: ([Basics.Diagnostic]) -> Void) async {
         let observability = ObservabilitySystem.makeForTesting()
-        observability.topScope.trap {
-            let workspace = try self.getOrCreateWorkspace()
+        await observability.topScope.trap {
+            let workspace = try await self.getOrCreateWorkspace()
             workspace.clean(observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
@@ -532,7 +536,7 @@ public final class MockWorkspace {
     public func checkReset(_ result: ([Basics.Diagnostic]) -> Void) async {
         let observability = ObservabilitySystem.makeForTesting()
         await observability.topScope.trap {
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             await workspace.reset(observabilityScope: observability.topScope)
         }
         result(observability.diagnostics)
@@ -556,7 +560,7 @@ public final class MockWorkspace {
                 dependencies: dependencies,
                 traitConfiguration: traitConfiguration
             )
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try await workspace.updateDependencies(
                 root: rootInput,
                 packages: packages,
@@ -583,7 +587,7 @@ public final class MockWorkspace {
 
         let observability = ObservabilitySystem.makeForTesting()
         let changes = await observability.topScope.trap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             return try await workspace.updateDependencies(
                 root: rootInput,
                 dryRun: true,
@@ -616,7 +620,7 @@ public final class MockWorkspace {
         let rootInput = try PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies, traitConfiguration: traitConfiguration
         )
-        let workspace = try self.getOrCreateWorkspace()
+        let workspace = try await self.getOrCreateWorkspace()
         do {
             let graph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
@@ -659,7 +663,7 @@ public final class MockWorkspace {
                 dependencies: dependencies,
                 traitConfiguration: traitConfiguration
             )
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try await workspace.loadPackageGraph(
                 rootInput: rootInput,
                 forceResolvedVersions: forceResolvedVersions,
@@ -676,7 +680,7 @@ public final class MockWorkspace {
 
     public func checkPrecomputeResolution() async throws -> ResolutionPrecomputationResult {
         let observability = ObservabilitySystem.makeForTesting()
-        let workspace = try self.getOrCreateWorkspace()
+        let workspace = try await self.getOrCreateWorkspace()
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         let rootInput = try PackageGraphRootInput(
@@ -738,7 +742,7 @@ public final class MockWorkspace {
         managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
         managedArtifacts: [Workspace.ManagedArtifact] = []
     ) async throws {
-        let workspace = try self.getOrCreateWorkspace()
+        let workspace = try await self.getOrCreateWorkspace()
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         for (ref, state) in resolvedPackages {
@@ -767,7 +771,7 @@ public final class MockWorkspace {
     }
 
     public func resetState() async throws {
-        let workspace = try self.getOrCreateWorkspace()
+        let workspace = try await self.getOrCreateWorkspace()
         try await workspace.resetState()
     }
 
@@ -948,7 +952,7 @@ public final class MockWorkspace {
             baseURL: self.packagesDir,
             identityResolver: self.identityResolver
         ) }
-        let workspace = try self.getOrCreateWorkspace()
+        let workspace = try await self.getOrCreateWorkspace()
         let rootInput = try PackageGraphRootInput(
             packages: rootPaths(for: roots), dependencies: dependencies, traitConfiguration: traitConfiguration
         )
@@ -975,7 +979,7 @@ public final class MockWorkspace {
         _ result: (ManagedDependencyResult) throws -> Void
     ) async {
         do {
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try await result(ManagedDependencyResult(workspace.state.dependencies))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
@@ -988,7 +992,7 @@ public final class MockWorkspace {
         _ result: (ManagedArtifactResult) throws -> Void
     ) async {
         do {
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try await result(ManagedArtifactResult(workspace.state.artifacts))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
@@ -1052,9 +1056,9 @@ public final class MockWorkspace {
         file: StaticString = #file,
         line: UInt = #line,
         _ result: (ResolvedResult) throws -> Void
-    ) {
+    ) async {
         do {
-            let workspace = try self.getOrCreateWorkspace()
+            let workspace = try await self.getOrCreateWorkspace()
             try result(ResolvedResult(workspace.resolvedPackagesStore.load()))
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)

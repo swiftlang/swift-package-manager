@@ -48,7 +48,7 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
-                let workspace = try swiftCommandState.getActiveWorkspace()
+                let workspace = try await swiftCommandState.getActiveWorkspace()
                 try await workspace.resolve(
                     packageName: packageName,
                     root: swiftCommandState.getWorkspaceRoot(),

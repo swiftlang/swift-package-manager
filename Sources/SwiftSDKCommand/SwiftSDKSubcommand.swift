@@ -62,10 +62,9 @@ extension SwiftSDKSubcommand {
         let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
         let environment = Environment.current
-        let hostToolchain = try UserToolchain(
-            swiftSDK: SwiftSDK.hostSwiftSDK(
-                environment: environment
-            ),
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: environment)
+        let hostToolchain = try await UserToolchain(
+            swiftSDK: hostSwiftSDK,
             environment: environment
         )
         let triple = try Triple.getVersionedHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
