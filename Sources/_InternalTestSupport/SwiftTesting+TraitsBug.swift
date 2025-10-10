@@ -54,13 +54,6 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
-    public static var IssueWindowsPathTestsFailures: Self {
-        .issue(
-            "https://github.com/swiftlang/swift-package-manager/issues/8511",
-            relationship: .defect,
-        )
-    }
-
     public static var IssueWindowsCannotSaveAttachment: Self {
         // error: unable to write file 'C:\Users\ContainerAdministrator\AppData\Local\Temp\CFamilyTargets_CDynamicLookup.hNxGHC\CFamilyTargets_CDynamicLookup\.build\x86_64-unknown-windows-msvc\Intermediates.noindex\CDynamicLookup.build\Release-windows\CDynamicLookup.build\Objects-normal\x86_64\CDynamicLookup.LinkFileList': No such file or directory (2)
         .issue(

@@ -28,7 +28,7 @@ struct PluginsBuildPlanTests {
         .tags(
             .Feature.Command.Build,
         ),
-        .IssueWindowsPathTestsFailures,  // Fails to build the project to due to incorrect Path handling
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect), // Fails to build the project to due to incorrect Path handling
         arguments: BuildConfiguration.allCases,
     )
     func buildToolsDatabasePath(

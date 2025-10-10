@@ -28,8 +28,8 @@ import _InternalTestSupport
 )
 struct TraitTests {
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -69,8 +69,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -120,8 +120,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -168,8 +168,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -220,8 +220,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -257,8 +257,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -301,8 +301,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -356,8 +356,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Run,
@@ -439,8 +439,8 @@ struct TraitTests {
     }
 
     @Test(
-        .IssueWindowsPathTestsFailures,
-        .IssueWindowsRelativePathAssert,
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
         .tags(
             Tag.Feature.Command.Test,
         ),
@@ -650,7 +650,7 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             ),
             ("Package10",
@@ -661,7 +661,7 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             ),
             ("ExtraTrait,Package10",
@@ -673,7 +673,7 @@ struct TraitTests {
             DEFINE1 disabled
             DEFINE2 disabled
             DEFINE3 disabled
-            
+
             """
             )
         )
