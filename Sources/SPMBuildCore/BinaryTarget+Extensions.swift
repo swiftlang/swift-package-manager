@@ -45,7 +45,7 @@ extension BinaryModule {
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
         // Filter the libraries that are relevant to the triple.
         guard let library = metadata.libraries.first(where: {
-            $0.platform == triple.os?.asXCFrameworkPlatformString &&
+            $0.platform == triple.asXCFrameworkPlatformString &&
             $0.variant == triple.environment?.asXCFrameworkPlatformVariantString &&
             $0.architectures.contains(triple.archName)
         }) else {
@@ -117,12 +117,10 @@ extension Triple {
             return self
         }
     }
-}
 
-extension Triple.OS {
     /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
     fileprivate var asXCFrameworkPlatformString: String? {
-        switch self {
+        switch self.os {
         case .darwin, .wasi, .win32, .openbsd, .freebsd, .noneOS:
             return nil // XCFrameworks do not support any of these platforms today.
         case .macosx:
@@ -134,6 +132,9 @@ extension Triple.OS {
         case .watchos:
             return "watchos"
         case .linux:
+            if environment == .android {
+                return nil
+            }
             return ProcessInfo.processInfo.environment["_SWIFTPM_EXPERIMENTAL_LINUX_XCFRAMEWORK"] == "1" ? "linux" : nil
         default:
             return nil // XCFrameworks do not support any of these platforms today.
