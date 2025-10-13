@@ -129,10 +129,37 @@ struct PIFBuilderTests {
                 .buildConfig(named: "Release")
 
             // The platforms with conditional settings should have those propagated to the PIF.
-            #expect(releaseConfig.settings.platformSpecificSettings[.linux]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)", "BAR"])
-            #expect(releaseConfig.settings.platformSpecificSettings[.macOS]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)", "BAZ"])
-            // Platforms without conditional settings should get the default.
-            #expect(releaseConfig.settings.platformSpecificSettings[.windows]?[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] == ["$(inherited)"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .linux] == ["$(inherited)", "BAR"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .macOS] == ["$(inherited)", "BAZ"])
+            #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .windows] == nil)
+        }
+    }
+
+    @Test func pluginWithBinaryTargetDependency() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Plugins/BinaryTargetExePlugin") { pif, observabilitySystem in
+            // Verify that PIF generation succeeds for a package with a plugin that depends on a binary target
+            #expect(pif.workspace.projects.count > 0)
+
+            let project = try pif.workspace.project(named: "MyBinaryTargetExePlugin")
+
+            // Verify the plugin target exists
+            let pluginTarget = try project.target(named: "MyPlugin")
+            #expect(pluginTarget.common.name == "MyPlugin")
+
+            // Verify the executable target that uses the plugin exists
+            let executableTarget = try project.target(named: "MyPluginExe")
+            #expect(executableTarget.common.name == "MyPluginExe")
+
+            // Verify no errors were emitted during PIF generation
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            // Verify that the plugin target has a dependency (binary targets are handled differently in PIF)
+            // The key test is that PIF generation succeeds without errors when a plugin depends on a binary target
+            let binaryArtifactMessages = observabilitySystem.diagnostics.filter {
+                $0.message.contains("found binary artifact")
+            }
+            #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
         }
     }
 }

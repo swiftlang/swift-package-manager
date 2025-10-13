@@ -250,11 +250,7 @@ extension PackagePIFProjectBuilder {
             }
 
         case .staticLibrary, .executable:
-            #if os(Windows) // Temporary until we get a new productType in swift-build
-            productType = .staticArchive
-            #else
-            productType = .objectFile
-            #endif
+            productType = .commonObject
 
         case .macro:
             productType = .hostBuildTool
@@ -411,7 +407,6 @@ extension PackagePIFProjectBuilder {
             settings[.PRODUCT_MODULE_NAME] = sourceModule.c99name
             settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(sourceModule.name)"
                 .spm_mangledToBundleIdentifier()
-            settings[.CLANG_ENABLE_MODULES] = "YES"
             settings[.GENERATE_PRELINK_OBJECT_FILE] = "NO"
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
@@ -722,27 +717,11 @@ extension PackagePIFProjectBuilder {
         let allBuildSettings = sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in allBuildSettings.targetSettings {
-            for (platform, settingsByDeclaration) in declarationsByPlatform {
-                // Note: A `nil` platform means that the declaration applies to *all* platforms.
-                for (declaration, stringValues) in settingsByDeclaration {
-                    switch buildConfig {
-                    case .debug:
-                        debugSettings.append(values: stringValues, to: declaration, platform: platform)
-                    case .release:
-                        releaseSettings.append(values: stringValues, to: declaration, platform: platform)
-                    }
-                }
-            }
-        }
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
 
-        // Impart the linker flags.
-        for (platform, settingsByDeclaration) in sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).impartedSettings {
-            // Note: A `nil` platform means that the declaration applies to *all* platforms.
-            for (declaration, stringValues) in settingsByDeclaration {
-                impartedSettings.append(values: stringValues, to: declaration, platform: platform)
-            }
-        }
+        // Apply imparted settings
+        allBuildSettings.applyImparted(to: &impartedSettings)
 
         // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
         // For instance, given targets A, B, C with the following dependency graph:

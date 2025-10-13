@@ -24,13 +24,15 @@ import Testing
 import Foundation
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .Feature.Command.Package.Plugin,
+        .TestSize.large,
     )
 )
 final class PluginTests {
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )
@@ -63,11 +65,11 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8786"),
         .requiresSwiftConcurrencySupport,
     )
@@ -98,7 +100,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -137,7 +139,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -176,7 +178,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -247,7 +249,7 @@ final class PluginTests {
     }
     
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -284,7 +286,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
@@ -316,11 +318,11 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
     )
@@ -386,26 +388,28 @@ final class PluginTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9215", relationship: .verifies),
         .requiresSwiftConcurrencySupport,
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS"),
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
     func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("MyBinaryToolPlugin"),
-                configuration: .debug,
-                extraArgs: ["--product", "MyLocalTool"],
-                buildSystem: buildSystem,
-            )
-            if buildSystem == .native {
-                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
-            } else if buildSystem == .swiftbuild {
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            } else {
-                Issue.record("Test has no expectation for \(buildSystem)")
-            }
+            try await withKnownIssue (isIntermittent: true) {
+                let (stdout, _) = try await executeSwiftBuild(
+                    fixturePath.appending("MyBinaryToolPlugin"),
+                    configuration: .debug,
+                    extraArgs: ["--product", "MyLocalTool"],
+                    buildSystem: buildSystem,
+                )
+                if buildSystem == .native {
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
+                } else if buildSystem == .swiftbuild {
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                } else {
+                    Issue.record("Test has no expectation for \(buildSystem)")
+                }
+            } when: { ProcessInfo.hostOperatingSystem == .windows }
         }
     }
 
@@ -428,7 +432,7 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8794"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -866,7 +870,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
@@ -1361,7 +1365,7 @@ final class PluginTests {
     struct SnippetTests {
         @Test(
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-            .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+            .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -1445,7 +1449,6 @@ final class PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            .IssueSwiftBuildLinuxRunnable,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
         )
         func testBasicRunSnippets(
@@ -1465,7 +1468,7 @@ final class PluginTests {
                 #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
             }
             } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+                [.windows].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
             }
         }
     }
@@ -1498,9 +1501,30 @@ final class PluginTests {
     }
 
     @Test(
+        .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func testPrebuildDependencyOnExecutableTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+        // Build tool plugins aren't permitted to depend on executable targets and use them in the prebuild commands
+        // that they return. This is because these commands run immediately and the executable doesn't exist yet or
+        // it isn't up-to-date.
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let error = try await #require(throws: Error.self) {
+                try await executeSwiftBuild(
+                    path.appending("PrebuildDependsExecutableTarget"),
+                    extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            #expect("\(error)".contains("a prebuild command cannot use executables built from source"))
+        }
+    }
+
+    @Test(
         .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"),
         .requiresSwiftConcurrencySupport,
-        arguments: [BuildSystemProvider.Kind.native], // FIXME: enable swiftbuild testing once pre-build plugins are working
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testSandboxViolatingBuildToolPluginCommands(
         buildSystem: BuildSystemProvider.Kind,
@@ -1515,7 +1539,14 @@ final class PluginTests {
                 )
             }
 
-            #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            switch buildSystem {
+            case .native:
+                #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            case .swiftbuild:
+                #expect("\(error)".contains("Operation not permitted"))
+            case .xcode:
+                Issue.record("Test expected have not been considered")
+            }
         }
 
         // Check that the build succeeds if we disable the sandbox.
@@ -1526,7 +1557,7 @@ final class PluginTests {
                 extraArgs: ["--disable-sandbox"],
                 buildSystem: buildSystem,
             )
-            #expect(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
+            #expect(stdout.contains("Build complete!"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
         }
     }
 
@@ -1583,7 +1614,7 @@ final class PluginTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -1630,7 +1661,7 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )
@@ -1662,11 +1693,11 @@ final class PluginTests {
                 #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
     )
@@ -1694,7 +1725,7 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
+        } when: { ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(

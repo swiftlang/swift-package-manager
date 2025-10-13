@@ -173,7 +173,8 @@ public struct BuildParameters: Encodable {
         testingParameters: Testing = .init(),
         apiDigesterMode: APIDigesterMode? = nil
     ) throws {
-        let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target.
+        let triple = try triple ?? .getUnversionedHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
         self.debuggingParameters = debuggingParameters ?? .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: configuration == .debug,

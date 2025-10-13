@@ -91,8 +91,8 @@ struct RunCommandTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .SWBINTTODO("Test package fails to build on Windows"),
         arguments: SupportedBuildSystemOnPlatform,
     )
@@ -135,8 +135,8 @@ struct RunCommandTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
     )
     func productArgumentPassing(
@@ -170,7 +170,6 @@ struct RunCommandTests {
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
             || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
-            || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -231,15 +230,15 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            ([.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            ([.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
             || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
     )
     func unreachableExecutable(
@@ -253,7 +252,6 @@ struct RunCommandTests {
             }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && [.native, .swiftbuild].contains(buildSystem))
-            || (ProcessInfo.hostOperatingSystem ==  .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -425,12 +423,7 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            (
-                ProcessInfo.hostOperatingSystem == .linux &&
-                buildSystem == .swiftbuild &&
-                CiEnvironment.runningInSelfHostedPipeline
-            )
-            || (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
+           (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 

@@ -99,14 +99,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
+let shouldUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
 
 let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
 let swiftTSCTestSupportDeps: [Target.Dependency]
 
-if shoudUseSwiftBuildFramework {
+if shouldUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
@@ -184,20 +184,6 @@ let package = Package(
         ),
     ],
     targets: [
-        // The `PackageDescription` target provides the API that is available
-        // to `Package.swift` manifests. Here we build a debug version of the
-        // library; the bootstrap scripts build the deployable version.
-        .target(
-            name: "PackageDescription",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .define("USE_IMPL_ONLY_IMPORTS"),
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
-
         // The `AppleProductTypes` target provides additional product types
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -212,19 +198,6 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
                 .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
             ]),
-
-        // The `PackagePlugin` target provides the API that is available to
-        // plugin scripts. Here we build a debug version of the library; the
-        // bootstrap scripts build the deployable version.
-        .target(
-            name: "PackagePlugin",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
 
         .target(
             name: "SourceKitLSPAPI",
@@ -775,11 +748,41 @@ let package = Package(
             ]
         ),
 
+        // The `PackageDescription` target provides the API that is available
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "PackageDescription",
+            path: "Sources/Runtimes/PackageDescription",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .define("USE_IMPL_ONLY_IMPORTS"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
+        // The `PackagePlugin` target provides the API that is available to
+        // plugin scripts. Here we build a debug version of the library; the
+        // bootstrap scripts build the deployable version.
+        .target(
+            name: "PackagePlugin",
+            path: "Sources/Runtimes/PackagePlugin",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
         .target(
             name: "CompilerPluginSupport",
             dependencies: ["PackageDescription"],
+            path: "Sources/Runtimes/CompilerPluginSupport",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
@@ -789,19 +792,19 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
-            .target(
-                /** SwiftPM internal build test suite support library */
-                name: "_InternalBuildTestSupport",
-                dependencies: [
-                    "Build",
-                    "XCBuildSupport",
-                    "SwiftBuildSupport",
-                    "_InternalTestSupport"
-                ],
-                swiftSettings: [
-                    .unsafeFlags(["-static"]),
-                ]
-            ),
+        .target(
+            /** SwiftPM internal build test suite support library */
+            name: "_InternalBuildTestSupport",
+            dependencies: [
+                "Build",
+                "XCBuildSupport",
+                "SwiftBuildSupport",
+                "_InternalTestSupport"
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
 
         .target(
             /** SwiftPM internal test suite support library */
@@ -1146,7 +1149,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if !shoudUseSwiftBuildFramework {
+if !shouldUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [

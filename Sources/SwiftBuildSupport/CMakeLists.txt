@@ -17,6 +17,7 @@ add_library(SwiftBuildSupport STATIC
   PackagePIFProjectBuilder+Products.swift
   PIF.swift
   PIFBuilder.swift
+  PluginConfiguration.swift
   SwiftBuildSystem.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Build

@@ -127,12 +127,9 @@ struct ToolsVersionTests {
                 let binPath = try primaryPath.appending(components: buildSystem.binPath(for: configuration))
                 let exe: String = binPath.appending(components: "Primary").pathString
                 // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
-                try await withKnownIssue {
-                    let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
-                    #expect(executableActualOutput == "foo@1.0")
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && !CiEnvironment.runningInSmokeTestPipeline
-                }
+                let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
+                #expect(executableActualOutput == "foo@1.0")
+
 
                 // Set the tools version to something high.
                 _ = try await executeSwiftPackage(

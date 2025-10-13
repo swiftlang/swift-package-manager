@@ -513,25 +513,110 @@ extension PackageGraph.ResolvedModule {
 
     func productRepresentingDependencyOfBuildPlugin(in mainModuleProducts: [ResolvedProduct]) -> ResolvedProduct? {
         mainModuleProducts.only { (mainModuleProduct: ResolvedProduct) -> Bool in
+            // Handle binary-only executable products that don't have a main module, i.e. binaryTarget
+            guard let mainModule = mainModuleProduct.mainModule else {
+                return mainModuleProduct.type == .executable &&
+                    mainModuleProduct.modules.only?.type == .binary &&
+                    mainModuleProduct.modules.only?.name == self.name
+            }
             // NOTE: We can't use the 'id' here as we need to explicitly ignore the build triple because our build
             // triple will be '.tools' while the target we want to depend on will have a build triple of '.destination'.
             // See for more details:
             // https://github.com/swiftlang/swift-package-manager/commit/b22168ec41061ddfa3438f314a08ac7a776bef7a.
-            return mainModuleProduct.mainModule!.packageIdentity == self.packageIdentity &&
-                mainModuleProduct.mainModule!.name == self.name
+            return mainModule.packageIdentity == self.packageIdentity &&
+                mainModule.name == self.name
             // Intentionally ignore the build triple!
         }
     }
 
     struct AllBuildSettings {
-        typealias BuildSettingsByPlatform =
-            [ProjectModel.BuildSettings.Platform?: [BuildSettings.Declaration: [String]]]
+        typealias SingleValueSettingsByPlatform =
+            [ProjectModel.BuildSettings.Platform?: [ProjectModel.BuildSettings.SingleValueSetting: String]]
+        typealias MultipleValueSettingsByPlatform =
+            [ProjectModel.BuildSettings.Platform?: [ProjectModel.BuildSettings.MultipleValueSetting: [String]]]
 
-        /// Target-specific build settings declared in the manifest and that apply to the target itself.
-        var targetSettings: [BuildConfiguration: BuildSettingsByPlatform] = [:]
+        /// Target-specific single-value build settings declared in the manifest and that apply to the target itself.
+        var targetSingleValueSettings: [BuildConfiguration: SingleValueSettingsByPlatform] = [:]
+        
+        /// Target-specific multiple-value build settings declared in the manifest and that apply to the target itself.
+        var targetMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
-        /// Target-specific build settings that should be imparted to client targets (packages and projects).
-        var impartedSettings: BuildSettingsByPlatform = [:]
+        /// Target-specific single-value build settings that should be imparted to client targets (packages and projects).
+        var impartedSingleValueSettings: SingleValueSettingsByPlatform = [:]
+        
+        /// Target-specific multiple-value build settings that should be imparted to client targets (packages and projects).
+        var impartedMultipleValueSettings: MultipleValueSettingsByPlatform = [:]
+        
+        // MARK: - Convenience Methods
+        
+        /// Apply all settings to a ProjectModel.BuildSettings instance
+        func apply(to buildSettings: inout ProjectModel.BuildSettings, for configuration: BuildConfiguration) {
+            // Apply single value settings for all platforms
+            if let singleValuesByPlatform = targetSingleValueSettings[configuration] {
+                for (platform, singleValues) in singleValuesByPlatform {
+                    for (setting, value) in singleValues {
+                        if let platform = platform {
+                            buildSettings[setting, platform] = value
+                        } else {
+                            buildSettings[setting] = value
+                        }
+                    }
+                }
+            }
+            
+            // Apply multiple value settings for all platforms
+            if let multipleValuesByPlatform = targetMultipleValueSettings[configuration] {
+                // First, collect all multiple-value settings that are being used
+                var usedMultipleValueSettings = Set<ProjectModel.BuildSettings.MultipleValueSetting>()
+                for (_, multipleValues) in multipleValuesByPlatform {
+                    for (setting, _) in multipleValues {
+                        usedMultipleValueSettings.insert(setting)
+                    }
+                }
+                               
+                // Now apply the platform-specific values
+                for (platform, multipleValues) in multipleValuesByPlatform {
+                    for (setting, values) in multipleValues {
+                        if let platform = platform {
+                            // Get existing values (should now be initialized with inherited)
+                            let existingValues = buildSettings[setting, platform] ?? ["$(inherited)"]
+                            buildSettings[setting, platform] = existingValues + values
+                        } else {
+                            // Append to existing values instead of overwriting
+                            let existingValues = buildSettings[setting] ?? ["$(inherited)"]
+                            buildSettings[setting] = existingValues + values
+                        }
+                    }
+                }
+            }
+        }
+        
+        /// Apply imparted settings to a ProjectModel.BuildSettings instance
+        func applyImparted(to buildSettings: inout ProjectModel.BuildSettings) {
+            // Apply imparted single value settings for all platforms
+            for (platform, singleValues) in impartedSingleValueSettings {
+                for (setting, value) in singleValues {
+                    if let platform = platform {
+                        buildSettings[setting, platform] = value
+                    } else {
+                        buildSettings[setting] = value
+                    }
+                }
+            }
+            
+            // Apply imparted multiple value settings for all platforms
+            for (platform, multipleValues) in impartedMultipleValueSettings {
+                for (setting, values) in multipleValues {
+                    if let platform = platform {
+                        let existingValues = buildSettings[setting, platform] ?? ["$(inherited)"]
+                        buildSettings[setting, platform] = existingValues + values
+                    } else {
+                        let existingValues = buildSettings[setting] ?? ["$(inherited)"]
+                        buildSettings[setting] = existingValues + values
+                    }
+                }
+            }
+        }
     }
 
     /// Target-specific build settings declared in the manifest and that apply to the target itself.
@@ -546,20 +631,31 @@ extension PackageGraph.ResolvedModule {
             for settingAssignment in settingsAssigments {
                 // Create a build setting value; in some cases there
                 // isn't a direct mapping to Swift Build build settings.
-                let pifDeclaration: BuildSettings.Declaration
                 let values: [String]
+                let singleValueSetting: ProjectModel.BuildSettings.SingleValueSetting?
+                let multipleValueSetting: ProjectModel.BuildSettings.MultipleValueSetting?
+                
                 switch declaration {
                 case .LINK_FRAMEWORKS:
-                    pifDeclaration = .OTHER_LDFLAGS
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.flatMap { ["-framework", $0] }
                 case .LINK_LIBRARIES:
-                    pifDeclaration = .OTHER_LDFLAGS
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
                 case .HEADER_SEARCH_PATHS:
-                    pifDeclaration = .HEADER_SEARCH_PATHS
+                    singleValueSetting = nil
+                    multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
                 default:
-                    pifDeclaration = ProjectModel.BuildSettings.Declaration(from: declaration)
+                    if declaration.allowsMultipleValues {
+                        singleValueSetting = nil
+                        multipleValueSetting = ProjectModel.BuildSettings.MultipleValueSetting(from: declaration)
+                    } else {
+                        singleValueSetting = ProjectModel.BuildSettings.SingleValueSetting(from: declaration)
+                        multipleValueSetting = nil
+                    }
                     values = settingAssignment.values
                 }
 
@@ -578,26 +674,19 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    if pifDeclaration == .OTHER_LDFLAGS {
-                        var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
-
-                        settingsByDeclaration = allSettings.impartedSettings[pifPlatform] ?? [:]
-                        settingsByDeclaration[pifDeclaration, default: []].append(contentsOf: values)
-
-                        allSettings.impartedSettings[pifPlatform] = settingsByDeclaration
+                    // Handle imparted settings for OTHER_LDFLAGS (always multiple values)
+                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                        allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
                     for configuration in configurations {
-                        var settingsByDeclaration: [ProjectModel.BuildSettings.Declaration: [String]]
-                        settingsByDeclaration = allSettings.targetSettings[configuration]?[pifPlatform] ?? [:]
-
-                        if declaration.allowsMultipleValues {
-                            settingsByDeclaration[pifDeclaration, default: []].append(contentsOf: values)
-                        } else {
-                            settingsByDeclaration[pifDeclaration] = values.only.flatMap { [$0] } ?? []
+                        if let multipleValueSetting = multipleValueSetting {
+                            // Handle multiple value settings
+                            allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
+                            // Handle single value settings
+                            allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
                         }
-
-                        allSettings.targetSettings[configuration, default: [:]][pifPlatform] = settingsByDeclaration
                     }
                 }
             }
@@ -911,88 +1000,8 @@ extension ProjectModel.BuildSettings {
     /// Note that this restricts the settings that can be set by this function to those that can have platform-specific
     /// values, i.e. those in `ProjectModel.BuildSettings.Declaration`. If a platform is specified,
     /// it must be one of the known platforms in `ProjectModel.BuildSettings.Platform`.
-    mutating func append(values: [String], to setting: Declaration, platform: Platform? = nil) {
-        // This dichotomy is quite unfortunate but that's currently the underlying model in ProjectModel.BuildSettings.
-        if let platform {
-            switch setting {
-            case .FRAMEWORK_SEARCH_PATHS,
-                 .GCC_PREPROCESSOR_DEFINITIONS,
-                 .HEADER_SEARCH_PATHS,
-                 .OTHER_CFLAGS,
-                 .OTHER_CPLUSPLUSFLAGS,
-                 .OTHER_LDFLAGS,
-                 .OTHER_SWIFT_FLAGS,
-                 .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-                // Appending implies the setting is resilient to having ["$(inherited)"]
-                self.platformSpecificSettings[platform]![setting]!.append(contentsOf: values)
-
-            case .SWIFT_VERSION, .DYLIB_INSTALL_NAME_BASE:
-                self.platformSpecificSettings[platform]![setting] = values // We are not resilient to $(inherited).
-
-            case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
-                fatalError("Unexpected BuildSettings.Declaration: \(setting)")
-            // Allow staging in new cases
-            default:
-                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
-            }
-        } else {
-            switch setting {
-            case .FRAMEWORK_SEARCH_PATHS,
-                 .GCC_PREPROCESSOR_DEFINITIONS,
-                 .HEADER_SEARCH_PATHS,
-                 .OTHER_CFLAGS,
-                 .OTHER_CPLUSPLUSFLAGS,
-                 .OTHER_LDFLAGS,
-                 .OTHER_SWIFT_FLAGS,
-                 .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-                let multipleSetting = MultipleValueSetting(from: setting)!
-                self[multipleSetting, default: ["$(inherited)"]].append(contentsOf: values)
-
-            case .SWIFT_VERSION:
-                self[.SWIFT_VERSION] = values.only.unwrap(orAssert: "Invalid values for 'SWIFT_VERSION': \(values)")
-
-            case .DYLIB_INSTALL_NAME_BASE:
-                self[.DYLIB_INSTALL_NAME_BASE] = values.only.unwrap(orAssert: "Invalid values for 'DYLIB_INSTALL_NAME_BASE': \(values)")
-
-            case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SPECIALIZATION_SDK_OPTIONS:
-                fatalError("Unexpected BuildSettings.Declaration: \(setting)")
-            // Allow staging in new cases
-            default:
-                fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
-            }
-        }
-    }
 }
 
-extension ProjectModel.BuildSettings.MultipleValueSetting {
-    init?(from declaration: ProjectModel.BuildSettings.Declaration) {
-        switch declaration {
-        case .GCC_PREPROCESSOR_DEFINITIONS:
-            self = .GCC_PREPROCESSOR_DEFINITIONS
-        case .FRAMEWORK_SEARCH_PATHS:
-            self = .FRAMEWORK_SEARCH_PATHS
-        case .HEADER_SEARCH_PATHS:
-            self = .HEADER_SEARCH_PATHS
-        case .OTHER_CFLAGS:
-            self = .OTHER_CFLAGS
-        case .OTHER_CPLUSPLUSFLAGS:
-            self = .OTHER_CPLUSPLUSFLAGS
-        case .OTHER_LDFLAGS:
-            self = .OTHER_LDFLAGS
-        case .OTHER_SWIFT_FLAGS:
-            self = .OTHER_SWIFT_FLAGS
-        case .SPECIALIZATION_SDK_OPTIONS:
-            self = .SPECIALIZATION_SDK_OPTIONS
-        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-            self = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
-        case .ARCHS, .IPHONEOS_DEPLOYMENT_TARGET, .SWIFT_VERSION, .DYLIB_INSTALL_NAME_BASE:
-            return nil
-        // Allow staging in new cases
-        default:
-            fatalError("Unhandled enum case in BuildSettings.Declaration. Will generate a warning until we have SE-0487")
-        }
-    }
-}
 
 extension ProjectModel.BuildSettings.Platform {
     enum Error: Swift.Error {
@@ -1034,7 +1043,6 @@ extension ProjectModel.BuildSettings {
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
         self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
-        self[.CLANG_ENABLE_MODULES] = "YES"
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
         if !createDylibForDynamicProducts {
@@ -1061,32 +1069,36 @@ extension ProjectModel.BuildSettings {
     }
 }
 
-extension ProjectModel.BuildSettings.Declaration {
-    init(from declaration: PackageModel.BuildSettings.Declaration) {
-        self = switch declaration {
-        // Swift.
-        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
-            .SWIFT_ACTIVE_COMPILATION_CONDITIONS
-        case .OTHER_SWIFT_FLAGS:
-            .OTHER_SWIFT_FLAGS
+extension ProjectModel.BuildSettings.SingleValueSetting {
+    init?(from declaration: PackageModel.BuildSettings.Declaration) {
+        switch declaration {
         case .SWIFT_VERSION:
-            .SWIFT_VERSION
-        // C family.
-        case .GCC_PREPROCESSOR_DEFINITIONS:
-            .GCC_PREPROCESSOR_DEFINITIONS
-        case .HEADER_SEARCH_PATHS:
-            .HEADER_SEARCH_PATHS
-        case .OTHER_CFLAGS:
-            .OTHER_CFLAGS
-        case .OTHER_CPLUSPLUSFLAGS:
-            .OTHER_CPLUSPLUSFLAGS
-        // Linker.
-        case .OTHER_LDFLAGS:
-            .OTHER_LDFLAGS
-        case .LINK_LIBRARIES, .LINK_FRAMEWORKS:
-            preconditionFailure("Should not be reached")
+            self = .SWIFT_VERSION
         default:
-            preconditionFailure("Unexpected BuildSettings.Declaration: \(declaration.name)")
+            return nil
+        }
+    }
+}
+
+extension ProjectModel.BuildSettings.MultipleValueSetting {
+    init?(from declaration: PackageModel.BuildSettings.Declaration) {
+        switch declaration {
+        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS:
+            self = .SWIFT_ACTIVE_COMPILATION_CONDITIONS
+        case .OTHER_SWIFT_FLAGS:
+            self = .OTHER_SWIFT_FLAGS
+        case .GCC_PREPROCESSOR_DEFINITIONS:
+            self = .GCC_PREPROCESSOR_DEFINITIONS
+        case .HEADER_SEARCH_PATHS:
+            self = .HEADER_SEARCH_PATHS
+        case .OTHER_CFLAGS:
+            self = .OTHER_CFLAGS
+        case .OTHER_CPLUSPLUSFLAGS:
+            self = .OTHER_CPLUSPLUSFLAGS
+        case .OTHER_LDFLAGS:
+            self = .OTHER_LDFLAGS
+        default:
+            return nil
         }
     }
 }

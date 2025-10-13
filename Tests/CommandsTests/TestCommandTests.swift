@@ -242,9 +242,8 @@ struct TestCommandTests {
                 #expect(result.stderr.contains("-enable-testing"))
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
             // || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
-            || (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
+            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem )
         }
     }
 
@@ -301,7 +300,6 @@ struct TestCommandTests {
             }
         } when: {
             (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-            || (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -665,8 +663,7 @@ struct TestCommandTests {
                 }
             }
         } when: {
-            (buildSystem == .swiftbuild && .linux == ProcessInfo.hostOperatingSystem)
-                || ProcessInfo.hostOperatingSystem == .windows
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1013,7 +1010,7 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem != .macOS
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1067,7 +1064,7 @@ struct TestCommandTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect),
+        .IssueWindowsPathTestsFailures,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )

@@ -85,7 +85,16 @@ extension Triple {
     }
 
     /// Determine the versioned host triple using the Swift compiler.
-    public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
+    public static func getVersionedHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
+        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler, versioned: true)
+    }
+
+    /// Determine the unversioned host triple using the Swift compiler.
+    public static func getUnversionedHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
+        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler, versioned: false)
+    }
+
+    private static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath, versioned: Bool) throws -> Triple {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
         do {
@@ -106,7 +115,7 @@ extension Triple {
         // Get the triple string from the parsed JSON.
         let tripleString: String
         do {
-            tripleString = try parsedTargetInfo.get("target").get("triple")
+            tripleString = try parsedTargetInfo.get("target").get(versioned ? "triple" : "unversionedTriple")
         } catch {
             throw InternalError(
                 "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(parsedTargetInfo)"

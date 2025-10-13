@@ -679,11 +679,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     }
 
     /// Helper method for evaluating the manifest.
-    // TODO: Optimizations are disabled to work around a compiler bug. Remove this attribute when the bug is fixed.
-    // See https://github.com/swiftlang/llvm-project/issues/11377 for details.
-    #if os(Windows)
-    @_optimize(none)
-    #endif
     func evaluateManifest(
         at manifestPath: AbsolutePath,
         vfsOverlayPath: AbsolutePath? = nil,
