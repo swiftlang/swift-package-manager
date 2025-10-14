@@ -999,6 +999,8 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             return
         }
 
+        observabilityScope.emit(info: "Purging manifest cache at '\(manifestCacheDBPath)'")
+
         do {
             try localFileSystem.removeFileTree(manifestCacheDBPath)
         } catch {

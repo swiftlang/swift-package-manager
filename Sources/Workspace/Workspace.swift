@@ -907,16 +907,6 @@ extension Workspace {
         }
     }
 
-    /// Cleans the build artifacts from workspace data.
-    ///
-    /// - Parameters:
-    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func purgeCache(observabilityScope: ObservabilityScope) async {
-        self.repositoryManager.purgeCache(observabilityScope: observabilityScope)
-        self.registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
-        await self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
-    }
-
     /// Resets the entire workspace by removing the data directory.
     ///
     /// - Parameters:
