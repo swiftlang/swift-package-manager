@@ -75,4 +75,11 @@ extension Trait where Self == Testing.Bug {
             relationship: .defect,
         )
     }
+
+    public static var IssueLdFailsUnexpectedly : Self {
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/9249",
+            relationship: .defect,
+        )
+    }
 }

@@ -162,6 +162,7 @@ struct DependencyResolutionTests {
 
     @Test(
         .IssueWindowsLongPath,
+        .IssueLdFailsUnexpectedly,
         .tags(
             Tag.Feature.Command.Build,
         ),
@@ -188,7 +189,8 @@ struct DependencyResolutionTests {
                 #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows // due to long path isues
+            ProcessInfo.hostOperatingSystem == .windows // due to long path issues
+            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild) // Linker ld throws an unexpected error.
         }
     }
 
