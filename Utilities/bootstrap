@@ -900,6 +900,13 @@ def get_swiftpm_env_cmd(args):
 
     if libs:
         if platform.system() == 'Darwin':
+            # This DYLD_INSERT_LIBRARIES command is necessary to prevent problems
+            # with dyld failing to realise that the newly built libswiftCore is
+            # the replacement for the system version.
+            #
+            # (This is caused by the install name in the newly built version
+            # using an `@rpath`.)
+            env_cmd.append("DYLD_INSERT_LIBRARIES=/usr/lib/swift/libswiftCore.dylib")
             env_cmd.append("DYLD_LIBRARY_PATH=%s" % ":".join(libs))
         else:
             libs_joined = ":".join(libs + args.target_info["paths"]["runtimeLibraryPaths"])
