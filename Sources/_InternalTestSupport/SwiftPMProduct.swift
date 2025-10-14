@@ -18,7 +18,8 @@ import struct Basics.AsyncProcessResult
 
 import enum TSCBasic.ProcessEnv
 
-private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: 6)
+// Fan out from invocation of SPM 'swift-*' commands can be quite large.  Limit the number of concurrent tasks to a fraction of total CPUs.
+private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: Int(Double(ProcessInfo.processInfo.activeProcessorCount) * 0.5))
 
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
@@ -84,6 +85,12 @@ extension SwiftPM {
         env: Environment? = nil,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
+        // Swift Testing uses Swift concurrency for test execution and creates a task for each test to run in parallel.
+        // A single invocation of "swift build" can spawn a large number of subprocesses.
+        // When this pattern is repeated across many tests, thousands of processes compete for
+        // CPU/disk/network resources. Tests can take thousands of seconds to complete, with periods
+        // of no stdout/stderr output that can cause activity timeouts in CI pipelines.
+        // Run all SPM executions under a queue to limit the maximum number of concurrent SPM processes.
         try await swiftPMExecutionQueue.withOperation {
             let result = try await executeProcess(
                 args,
