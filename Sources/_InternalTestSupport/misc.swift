@@ -97,7 +97,15 @@ public func testWithTemporaryDirectory<Result>(
         .replacing(")", with: "")
         .replacing(".", with: "")
         .replacing(":", with: "_")
-    return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+
+    // Use shorter prefix on Windows to avoid MAX_PATH issues
+    #if os(Windows)
+    let prefix = "spm-\(abs(cleanedFunction.hashValue))"
+    #else
+    let prefix = "spm-tests-\(cleanedFunction)"
+    #endif
+
+    return try await withTemporaryDirectory(prefix: prefix) { tmpDirPath in
         defer {
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
