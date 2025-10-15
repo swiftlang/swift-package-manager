@@ -68,6 +68,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var Migrate: Tag
     @Tag public static var Plugin: Tag
     @Tag public static var Reset: Tag
+    @Tag public static var PurgeCache: Tag
     @Tag public static var Resolve: Tag
     @Tag public static var ShowDependencies: Tag
     @Tag public static var ShowExecutables: Tag
