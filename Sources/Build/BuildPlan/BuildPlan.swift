@@ -653,9 +653,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Extracts the library information from an XCFramework.
-    func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple) throws -> [LibraryInfo] {
+    func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple, enableXCFrameworksOnLinux: Bool) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: binaryTarget) {
-            try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
+            try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem, enableXCFrameworksOnLinux: enableXCFrameworksOnLinux)
         }
     }
 
