@@ -43,7 +43,6 @@ extension BinaryModule {
     public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
-
         // Filter the libraries that are relevant to the triple.
         guard let library = metadata.libraries.first(where: {
             $0.platform == triple.os?.asXCFrameworkPlatformString &&
