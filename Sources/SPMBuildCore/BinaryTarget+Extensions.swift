@@ -40,20 +40,13 @@ public struct ExecutableInfo: Equatable {
 }
 
 extension BinaryModule {
-    public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem, enableXCFrameworksOnLinux: Bool) throws -> [LibraryInfo] {
+    public func parseXCFrameworks(for triple: Triple, fileSystem: FileSystem) throws -> [LibraryInfo] {
         // At the moment we return at most a single library.
         let metadata = try XCFrameworkMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
 
-        var asXCFrameworkPlatformString = triple.os?.asXCFrameworkPlatformString
-
-        // Override triple.asXCFrameworkPlatformString if XCF on Linux is enabled
-        if enableXCFrameworksOnLinux && triple.os == .linux && triple.environment != .android {
-            asXCFrameworkPlatformString = "linux"
-        }
-
         // Filter the libraries that are relevant to the triple.
         guard let library = metadata.libraries.first(where: {
-            $0.platform == asXCFrameworkPlatformString &&
+            $0.platform == triple.os?.asXCFrameworkPlatformString &&
             $0.variant == triple.environment?.asXCFrameworkPlatformVariantString &&
             $0.architectures.contains(triple.archName)
         }) else {
@@ -131,9 +124,8 @@ extension Triple.OS {
     /// Returns a representation of the receiver that can be compared with platform strings declared in an XCFramework.
     fileprivate var asXCFrameworkPlatformString: String? {
         switch self {
-        case .darwin, .linux, .wasi, .win32, .openbsd, .freebsd, .noneOS:
-            // XCFrameworks do not support any of these platforms today. With exception of Linux via --experimental-xcframeworks-on-linux
-            return nil
+        case .darwin, .wasi, .win32, .openbsd, .freebsd, .noneOS:
+            return nil // XCFrameworks do not support any of these platforms today.
         case .macosx:
             return "macos"
         case .ios:
@@ -142,6 +134,8 @@ extension Triple.OS {
             return "tvos"
         case .watchos:
             return "watchos"
+        case .linux:
+            return "linux" // Only if --experimental-xcframeworks-on-linux has been passed
         default:
             return nil // XCFrameworks do not support any of these platforms today.
         }
