@@ -13,7 +13,7 @@
 import Basics
 
 /// An individual resource file and its corresponding rule.
-public struct Resource: Codable {
+public struct Resource: Codable, Equatable {
     public static let localizationDirectoryExtension = "lproj"
 
     /// The rule associated with this resource.
