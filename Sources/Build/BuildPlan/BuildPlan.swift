@@ -654,12 +654,11 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Extracts the library information from an XCFramework.
     func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple, enableXCFrameworksOnLinux: Bool) throws -> [LibraryInfo] {
-        if !enableXCFrameworksOnLinux && triple.os == .linux && triple.environment != .android {
-            return []
-        }
-
-        return try self.externalLibrariesCache.memoize(key: binaryTarget) {
-            try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
+        try self.externalLibrariesCache.memoize(key: binaryTarget) {
+            if !enableXCFrameworksOnLinux && triple.os == .linux {
+                return []
+            }
+            return try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
     }
 
