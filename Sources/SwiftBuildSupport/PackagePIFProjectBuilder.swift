@@ -388,10 +388,10 @@ struct PackagePIFProjectBuilder {
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
     ) -> GeneratedFiles {
-        var targetFiles = GeneratedFiles()
+        var generatedFiles = GeneratedFiles()
         guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             // We found no results for the target.
-            return targetFiles
+            return generatedFiles
         }
 
         for pluginResult in pluginResults {
@@ -404,21 +404,30 @@ struct PackagePIFProjectBuilder {
             }
 
             // Process all the paths of derived output paths using the same rules as for source.
-            var result = self.process(
-                pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
-                forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion
-            )
+            for command in pluginResult.buildCommands {
+                var result = self.process(
+                    pluginGeneratedFilePaths: command.absoluteOutputPaths,
+                    forModule: module,
+                    toolsVersion: self.package.manifest.toolsVersion
+                )
 
-            // if the results contain headers or module maps, add the plugin output dir to the header search path
-            if !result.headers.isEmpty, !result.moduleMaps.isEmpty {
-                result.headerSearchPaths.formUnion(pluginResult.buildCommands.compactMap(\.pluginOutputDir))
+                generatedFiles.merge(result)
+
+                // if the results contain headers or module maps, add the plugin output dir to the header search path
+                if !result.headers.isEmpty, !result.moduleMaps.isEmpty {
+                    if !generatedFiles.headerSearchPaths.contains(command.pluginOutputDir) {
+                        generatedFiles.headerSearchPaths.append(command.pluginOutputDir)
+                    }
+                }
             }
 
-            targetFiles.merge(result)
+            generatedFiles.merge(self.process(
+                pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
+                forModule: module,
+                toolsVersion: self.package.manifest.toolsVersion))
         }
 
-        return targetFiles
+        return generatedFiles
     }
 
     /// Helper function for adding build tool commands to the right PIF target depending on whether they generate

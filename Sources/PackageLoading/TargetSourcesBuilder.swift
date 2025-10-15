@@ -306,7 +306,7 @@ public struct TargetSourcesBuilder {
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
     private static func resource(for path: Basics.AbsolutePath, with rule: FileRuleDescription.Rule, defaultLocalization: String?, targetName: String, targetPath: Basics.AbsolutePath, observabilityScope: ObservabilityScope) -> Resource? {
         switch rule {
-         case .compile, .header, .none, .modulemap, .apinotes, .ignored:
+        case .compile, .header, .none, .modulemap, .apinotes, .ignored:
             return nil
         case .processResource:
             let implicitLocalization: String? = {
@@ -586,7 +586,8 @@ public struct TargetSourcesBuilder {
 
 public struct GeneratedFiles {
     public var sources: Set<Basics.AbsolutePath>
-    public var headerSearchPaths: Set<Basics.AbsolutePath>
+    // Order matters with the header search paths
+    public var headerSearchPaths: [Basics.AbsolutePath]
     public var headers: Set<Basics.AbsolutePath>
     public var moduleMaps: Set<Basics.AbsolutePath>
     public var apiNotes: Set<Basics.AbsolutePath>
@@ -594,7 +595,7 @@ public struct GeneratedFiles {
 
     public init(
         sources: Set<Basics.AbsolutePath> = [],
-        headerSearchPaths: Set<Basics.AbsolutePath> = [],
+        headerSearchPaths: [Basics.AbsolutePath] = [],
         headers: Set<Basics.AbsolutePath> = [],
         moduleMaps: Set<Basics.AbsolutePath> = [],
         apiNotes: Set<Basics.AbsolutePath> = [],
@@ -610,7 +611,7 @@ public struct GeneratedFiles {
 
     public mutating func merge(_ other: GeneratedFiles) {
         sources.formUnion(other.sources)
-        headerSearchPaths.formUnion(other.headerSearchPaths)
+        headerSearchPaths.append(contentsOf: other.headerSearchPaths)
         headers.formUnion(other.headers)
         moduleMaps.formUnion(other.moduleMaps)
         apiNotes.formUnion(other.apiNotes)

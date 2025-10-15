@@ -625,12 +625,14 @@ extension ModulesGraph {
                 targetPath: target.underlying.path,
                 observabilityScope: observabilityScope
             )
+            generatedFiles.merge(files)
             if !files.headers.isEmpty || !files.moduleMaps.isEmpty {
                 // Add plugin output directory as include path
-                // FIXME: plugins should be able to explicity add header search paths to the target
-                files.headerSearchPaths.insert(result.pluginOutputDirectory)
+                // TODO: plugins should be able to explicity add header search paths to the target
+                if !generatedFiles.headerSearchPaths.contains(result.pluginOutputDirectory) {
+                    generatedFiles.headerSearchPaths.append(result.pluginOutputDirectory)
+                }
             }
-            generatedFiles.merge(files)
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
@@ -775,21 +777,21 @@ public struct BuildToolPluginInvocationResult {
     public var prebuildCommands: [PrebuildCommand]
 
     /// A command to incorporate into the build graph so that it runs during the build whenever it needs to.
-    public struct BuildCommand: Equatable {
+    public struct BuildCommand {
         public var configuration: CommandConfiguration
         public var inputFiles: [AbsolutePath]
         public var outputFiles: [AbsolutePath]
     }
 
     /// A command to run before the start of every build.
-    public struct PrebuildCommand: Equatable {
+    public struct PrebuildCommand {
         // TODO: In the future these should be folded into regular build commands when the build system can handle not knowing the names of all the outputs before the command runs.
         public var configuration: CommandConfiguration
         public var outputFilesDirectory: AbsolutePath
     }
 
     /// Launch configuration of a command that can be run (including a display name to show in logs etc).
-    public struct CommandConfiguration: Equatable {
+    public struct CommandConfiguration {
         public var displayName: String?
         public var executable: AbsolutePath
         public var arguments: [String]

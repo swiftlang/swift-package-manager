@@ -475,13 +475,13 @@ extension PackagePIFProjectBuilder {
         settings[.SUPPORTS_TEXT_BASED_API] = "NO"
 
         // If the module includes C headers, we set up the HEADER_SEARCH_PATHS setting appropriately.
-        var headerSearchPaths: Set<String> = []
+        var headerSearchPaths: [String] = []
         if let includeDirAbsPath = sourceModule.includeDirAbsolutePath {
-            headerSearchPaths.insert(includeDirAbsPath.pathString)
+            headerSearchPaths.append(includeDirAbsPath.pathString)
         }
 
         // Add paths to plugin generated headers
-        headerSearchPaths.formUnion(generatedFiles.headerSearchPaths.map(\.pathString))
+        headerSearchPaths.append(contentsOf: generatedFiles.headerSearchPaths.map(\.pathString))
 
         if !headerSearchPaths.isEmpty {
             // Let the target itself find its own headers.

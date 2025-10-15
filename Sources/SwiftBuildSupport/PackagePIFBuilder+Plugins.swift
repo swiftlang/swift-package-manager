@@ -20,8 +20,6 @@ import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
 
-import SPMBuildCore
-
 extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
     /// a target is built.
@@ -62,7 +60,7 @@ extension PackagePIFBuilder {
         public var arguments: [String]
         public var environment: [String: String]
         public var workingDir: AbsolutePath?
-        public var pluginOutputDir: AbsolutePath?
+        public var pluginOutputDir: AbsolutePath
         public var inputPaths: [AbsolutePath] = []
 
         /// Output paths can contain references with un-resolved paths (e.g. "$(DERIVED_FILE_DIR)/myOutput.txt")
@@ -79,7 +77,7 @@ extension PackagePIFBuilder {
             arguments: [String],
             environment: [String: String],
             workingDir: AbsolutePath?,
-            pluginOutputDir: AbsolutePath?,
+            pluginOutputDir: AbsolutePath,
             inputPaths: [AbsolutePath],
             outputPaths: [String],
             sandboxProfile: SandboxProfile?
