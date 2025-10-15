@@ -30,6 +30,7 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.FileRuleDescription
 import struct PackageLoading.TargetSourcesBuilder
+import struct PackageLoading.GeneratedFiles
 
 import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
@@ -386,14 +387,12 @@ struct PackagePIFProjectBuilder {
         module: PackageGraph.ResolvedModule,
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [String]) {
+    ) -> GeneratedFiles {
+        var targetFiles = GeneratedFiles()
         guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[module.name] else {
             // We found no results for the target.
-            return (sourceFilePaths: [], resourceFilePaths: [])
+            return targetFiles
         }
-
-        var sourceFilePaths: [AbsolutePath] = []
-        var resourceFilePaths: [AbsolutePath] = []
 
         for pluginResult in pluginResults {
             // Process the results of applying any build tool plugins on the target.
@@ -405,19 +404,21 @@ struct PackagePIFProjectBuilder {
             }
 
             // Process all the paths of derived output paths using the same rules as for source.
-            let result = self.process(
+            var result = self.process(
                 pluginGeneratedFilePaths: pluginResult.allDerivedOutputPaths,
                 forModule: module,
                 toolsVersion: self.package.manifest.toolsVersion
             )
 
-            sourceFilePaths.append(contentsOf: result.sourceFilePaths)
-            resourceFilePaths.append(contentsOf: result.resourceFilePaths.map(\.path))
+            // if the results contain headers or module maps, add the plugin output dir to the header search path
+            if !result.headers.isEmpty, !result.moduleMaps.isEmpty {
+                result.headerSearchPaths.formUnion(pluginResult.buildCommands.compactMap(\.pluginOutputDir))
+            }
+
+            targetFiles.merge(result)
         }
-        return (
-            sourceFilePaths: sourceFilePaths,
-            resourceFilePaths: resourceFilePaths.map(\.pathString)
-        )
+
+        return targetFiles
     }
 
     /// Helper function for adding build tool commands to the right PIF target depending on whether they generate
@@ -498,19 +499,19 @@ struct PackagePIFProjectBuilder {
         pluginGeneratedFilePaths: [AbsolutePath],
         forModule module: PackageGraph.ResolvedModule,
         toolsVersion: PackageModel.ToolsVersion?
-    ) -> (sourceFilePaths: [AbsolutePath], resourceFilePaths: [Resource]) {
+    ) -> GeneratedFiles {
         precondition(module.isSourceModule)
 
         // If we have no tools version, all files are treated as *source* files.
         guard let toolsVersion else {
-            return (sourceFilePaths: pluginGeneratedFilePaths, resourceFilePaths: [])
+            return GeneratedFiles()
         }
 
         // FIXME: Will be fixed by <rdar://144802163> (SwiftPM PIFBuilder — adopt ObservabilityScope as the logging API).
         let observabilityScope = ObservabilitySystem.NOOP
 
         // Use the `TargetSourcesBuilder` from libSwiftPM to split the generated files into sources and resources.
-        let (generatedSourcePaths, generatedResourcePaths) = TargetSourcesBuilder.computeContents(
+        return TargetSourcesBuilder.computeContents(
             for: pluginGeneratedFilePaths,
             toolsVersion: toolsVersion,
             additionalFileRules: Self.additionalFileRules,
@@ -519,11 +520,6 @@ struct PackagePIFProjectBuilder {
             targetPath: module.path,
             observabilityScope: observabilityScope
         )
-
-        // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
-        // (Today, everything gets essentially treated as `.processResource` even if it may have been declared as
-        // `.copy` in the manifest.)
-        return (generatedSourcePaths, generatedResourcePaths)
     }
 
     private static let additionalFileRules: [FileRuleDescription] =

@@ -611,41 +611,42 @@ extension ModulesGraph {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
         prebuildCommandResults: [CommandPluginResult],
         observabilityScope: ObservabilityScope
-    ) -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
-        var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
-
+    ) -> GeneratedFiles {
         // Add any derived files that were declared for any commands from plugin invocations.
-        var pluginDerivedFiles = [AbsolutePath]()
-        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            for absPath in command.outputFiles {
-                pluginDerivedFiles.append(absPath)
+        var generatedFiles = GeneratedFiles()
+
+        for result in buildToolPluginInvocationResults {
+            var files = TargetSourcesBuilder.computeContents(
+                for: result.buildCommands.flatMap(\.outputFiles),
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                targetName: target.name,
+                targetPath: target.underlying.path,
+                observabilityScope: observabilityScope
+            )
+            if !files.headers.isEmpty || !files.moduleMaps.isEmpty {
+                // Add plugin output directory as include path
+                // FIXME: plugins should be able to explicity add header search paths to the target
+                files.headerSearchPaths.insert(result.pluginOutputDirectory)
             }
+            generatedFiles.merge(files)
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
         for result in prebuildCommandResults {
-            for path in result.derivedFiles {
-                pluginDerivedFiles.append(path)
-            }
+            generatedFiles.merge(TargetSourcesBuilder.computeContents(
+                for: result.derivedFiles,
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                targetName: target.name,
+                targetPath: target.underlying.path,
+                observabilityScope: observabilityScope
+            ))
         }
 
-        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
-        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
-            for: pluginDerivedFiles,
-            toolsVersion: toolsVersion,
-            additionalFileRules: additionalFileRules,
-            defaultLocalization: target.defaultLocalization,
-            targetName: target.name,
-            targetPath: target.underlying.path,
-            observabilityScope: observabilityScope
-        )
-        let pluginDerivedResources = derivedResources
-        derivedSources.forEach { absPath in
-            let relPath = absPath.relative(to: pluginDerivedSources.root)
-            pluginDerivedSources.relativePaths.append(relPath)
-        }
-
-        return (pluginDerivedSources, pluginDerivedResources)
+        return generatedFiles
     }
 }
 
@@ -774,21 +775,21 @@ public struct BuildToolPluginInvocationResult {
     public var prebuildCommands: [PrebuildCommand]
 
     /// A command to incorporate into the build graph so that it runs during the build whenever it needs to.
-    public struct BuildCommand {
+    public struct BuildCommand: Equatable {
         public var configuration: CommandConfiguration
         public var inputFiles: [AbsolutePath]
         public var outputFiles: [AbsolutePath]
     }
 
     /// A command to run before the start of every build.
-    public struct PrebuildCommand {
+    public struct PrebuildCommand: Equatable {
         // TODO: In the future these should be folded into regular build commands when the build system can handle not knowing the names of all the outputs before the command runs.
         public var configuration: CommandConfiguration
         public var outputFilesDirectory: AbsolutePath
     }
 
     /// Launch configuration of a command that can be run (including a display name to show in logs etc).
-    public struct CommandConfiguration {
+    public struct CommandConfiguration: Equatable {
         public var displayName: String?
         public var executable: AbsolutePath
         public var arguments: [String]
