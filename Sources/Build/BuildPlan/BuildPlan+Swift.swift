@@ -53,6 +53,9 @@ extension BuildPlan {
                         prebuiltPaths.insert(path)
                     }
                 }
+                swiftTarget.additionalFlags += target.pluginDerivedPublicHeaderPaths.flatMap {
+                    ["-Xcc", "-I", "-Xcc", $0.pathString]
+                }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags

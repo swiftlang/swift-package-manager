@@ -26,6 +26,8 @@ import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
 
+import PackageLoading
+
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 
@@ -304,7 +306,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Deal with any generated source files or resource files.
-        let (generatedSourceFiles, generatedResourceFiles) = computePluginGeneratedFiles(
+        let generatedFiles = computePluginGeneratedFiles(
             module: sourceModule,
             targetKeyPath: sourceModuleTargetKeyPath,
             addBuildToolPluginCommands: false
@@ -315,10 +317,13 @@ extension PackagePIFProjectBuilder {
         let shouldGenerateBundleAccessor: Bool
         let shouldGenerateEmbedInCodeAccessor: Bool
         if resourceBundleName == nil && desiredModuleType != .executable && desiredModuleType != .macro {
+            // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
+            // (Today, everything gets essentially treated as `.processResource` even if it may have been declared as
+            // `.copy` in the manifest.)
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedResourceFiles
+                generatedResourceFiles: generatedFiles.resources.keys.map(\.pathString)
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -355,8 +360,8 @@ extension PackagePIFProjectBuilder {
                 module: sourceModule,
                 sourceModuleTargetKeyPath: sourceModuleTargetKeyPath,
                 resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
-                sourceFilePaths: generatedSourceFiles,
-                resourceFilePaths: generatedResourceFiles
+                sourceFilePaths: generatedFiles.sources.map(\.self),
+                resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
             )
         }
 
@@ -396,37 +401,43 @@ extension PackagePIFProjectBuilder {
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            switch sourceModule.moduleMapType {
-            case nil, .some(.none):
-                // No modulemap, no action required.
-                break
-            case .custom(let customModuleMapPath):
-                // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
-                // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
-            case .umbrellaHeader(let path):
-                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
-                moduleMapFileContents = """
+            if let generatedModuleMapPath = generatedFiles.moduleMaps.first {
+                // The modulemap was already generated, we should explicitly impart it on dependents,
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+            } else {
+                switch sourceModule.moduleMapType {
+                case nil, .some(.none):
+                    // No modulemap, no action required.
+                    break
+                case .custom(let customModuleMapPath):
+                    // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
+                    // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                case .umbrellaHeader(let path):
+                    log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
+                    moduleMapFileContents = """
                 module \(sourceModule.c99name) {
                 umbrella header "\(path.escapedPathString)"
                 export *
                 }
                 """
-                // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-            case .umbrellaDirectory(let path):
-                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
-                moduleMapFileContents = """
+                    // Pass the path of the module map up to all direct and indirect clients.
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                case .umbrellaDirectory(let path):
+                    log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
+                    moduleMapFileContents = """
                 module \(sourceModule.c99name) {
                 umbrella "\(path.escapedPathString)"
                 export *
                 }
                 """
-                // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    // Pass the path of the module map up to all direct and indirect clients.
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                }
             }
         }
 
@@ -508,14 +519,26 @@ extension PackagePIFProjectBuilder {
         settings[.SUPPORTS_TEXT_BASED_API] = "NO"
 
         // If the module includes C headers, we set up the HEADER_SEARCH_PATHS setting appropriately.
+        var headerSearchPaths: [String] = []
         if let includeDirAbsPath = sourceModule.includeDirAbsolutePath {
+            headerSearchPaths.append(includeDirAbsPath.pathString)
+        }
+
+        if !headerSearchPaths.isEmpty {
             // Let the target itself find its own headers.
-            settings[.HEADER_SEARCH_PATHS] = [includeDirAbsPath.pathString, "$(inherited)"]
-            log(.debug, indent: 1, "Added '\(includeDirAbsPath)' to HEADER_SEARCH_PATHS")
+            let targetHeaderSearchPaths = headerSearchPaths
+            settings[.HEADER_SEARCH_PATHS] = targetHeaderSearchPaths + ["$(inherited)"]
+            for path in targetHeaderSearchPaths {
+                log(.debug, indent: 1, "Added '\(path)' to HEADER_SEARCH_PATHS")
+            }
 
             // Also propagate this search path to all direct and indirect clients.
-            impartedSettings[.HEADER_SEARCH_PATHS] = [includeDirAbsPath.pathString, "$(inherited)"]
-            log(.debug, indent: 1, "Added '\(includeDirAbsPath)' to imparted HEADER_SEARCH_PATHS")
+            // Include generated public header paths.
+            let publicHeaderSearchPaths = headerSearchPaths + generatedFiles.publicHeaderPaths.map(\.pathString)
+            impartedSettings[.HEADER_SEARCH_PATHS] = publicHeaderSearchPaths + ["$(inherited)"]
+            for path in publicHeaderSearchPaths {
+                log(.debug, indent: 1, "Added '\(path)' to imparted HEADER_SEARCH_PATHS")
+            }
         }
 
         // Additional settings for the linker.
@@ -599,7 +622,7 @@ extension PackagePIFProjectBuilder {
         let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
         // Add any additional source files emitted by custom build commands.
-        for path in generatedSourceFiles {
+        for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
                 FileReference(id: id, path: path.pathString, pathBase: .absolute)
             }

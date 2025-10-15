@@ -941,13 +941,7 @@ public final class PackageBuilder {
             toolsSwiftVersion: self.toolsSwiftVersion()
         )
 
-        // Compute the path to public headers directory.
-        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangModule.defaultPublicHeadersComponent
-        let publicHeadersPath = try potentialModule.path.appending(RelativePath(validating: publicHeaderComponent))
-        guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
-            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
-        }
-
+        // Classify the sources
         let sourcesBuilder = TargetSourcesBuilder(
             packageIdentity: self.identity,
             packageKind: self.manifest.packageKind,
@@ -961,6 +955,13 @@ public final class PackageBuilder {
             observabilityScope: self.observabilityScope
         )
         let (sources, resources, headers, ignored, others) = try sourcesBuilder.run()
+
+        // Compute the path to public headers directory.
+        let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangModule.defaultPublicHeadersComponent
+        let publicHeadersPath = try potentialModule.path.appending(RelativePath(validating: publicHeaderComponent))
+        guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
+            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+        }
 
         // Make sure defaultLocalization is set if the target has localized resources.
         let hasLocalizedResources = resources.contains(where: { $0.localization != nil })
