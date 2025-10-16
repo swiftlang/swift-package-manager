@@ -196,6 +196,27 @@ public final class UserToolchain: Toolchain {
         return try self.getTool(name, binDirectories: envSearchPaths, fileSystem: fileSystem)
     }
 
+    private static func getTargetInfo(swiftCompiler: AbsolutePath) throws -> JSON {
+        // Call the compiler to get the target info JSON.
+        let compilerOutput: String
+        do {
+            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            compilerOutput = try result.utf8Output().spm_chomp()
+        } catch {
+            throw InternalError(
+                "Failed to load target info (\(error.interpolationDescription))"
+            )
+        }
+        // Parse the compiler's JSON output.
+        do {
+            return try JSON(string: compilerOutput)
+        } catch {
+            throw InternalError(
+                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+            )
+        }
+    }
+
     private static func getTargetInfo(swiftCompiler: AbsolutePath) async throws -> JSON {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
@@ -723,6 +744,218 @@ public final class UserToolchain: Toolchain {
     public enum SearchStrategy {
         case `default`
         case custom(searchPaths: [AbsolutePath], useXcrun: Bool = true)
+    }
+
+    @available(*, deprecated, message: "Use the async alternative")
+    public init(
+        swiftSDK: SwiftSDK,
+        environment: Environment = .current,
+        searchStrategy: SearchStrategy = .default,
+        customTargetInfo: JSON? = nil,
+        customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
+        customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
+        fileSystem: any FileSystem = localFileSystem
+    ) throws {
+        self.swiftSDK = swiftSDK
+        self.environment = environment
+
+        switch searchStrategy {
+        case .default:
+            // Get the search paths from PATH.
+            self.envSearchPaths = getEnvSearchPaths(
+                pathString: environment[.path],
+                currentWorkingDirectory: fileSystem.currentWorkingDirectory
+            )
+            self.useXcrun = !(fileSystem is InMemoryFileSystem)
+        case .custom(let searchPaths, let useXcrun):
+            self.envSearchPaths = searchPaths
+            self.useXcrun = useXcrun
+        }
+
+        let swiftCompilers = try UserToolchain.determineSwiftCompilers(
+            binDirectories: swiftSDK.toolset.rootPaths,
+            useXcrun: self.useXcrun,
+            environment: environment,
+            searchPaths: self.envSearchPaths,
+            fileSystem: fileSystem
+        )
+        self.swiftCompilerPath = swiftCompilers.compile
+        self.architectures = swiftSDK.architectures
+
+        if let customInstalledSwiftPMConfiguration {
+            self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
+        } else {
+            let path = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: [
+                "share", "pm", "config.json",
+            ])
+            self.installedSwiftPMConfiguration = try Self.loadJSONResource(
+                config: path,
+                type: InstalledSwiftPMConfiguration.self,
+                default: InstalledSwiftPMConfiguration.default)
+        }
+
+        var triple: Basics.Triple
+        if let targetTriple = swiftSDK.targetTriple {
+            self.targetInfo = nil
+            triple = targetTriple
+        } else {
+            // targetInfo from the compiler
+            let targetInfo: JSON
+            if let customTargetInfo {
+                targetInfo = customTargetInfo
+            } else {
+                targetInfo = try Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+            }
+            self.targetInfo = targetInfo
+            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+        }
+
+        // Change the triple to the specified arch if there's exactly one of them.
+        // The Triple property is only looked at by the native build system currently.
+        if let architectures = self.architectures, architectures.count == 1 {
+            let components = triple.tripleString.drop(while: { $0 != "-" })
+            triple = try Triple(architectures[0] + components)
+        }
+
+        self.targetTriple = triple
+
+        var swiftCompilerFlags: [String] = []
+        var extraLinkerFlags: [String] = []
+
+        let swiftTestingPath: AbsolutePath? = try Self.deriveSwiftTestingPath(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            swiftSDK: self.swiftSDK,
+            triple: triple,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+
+        if triple.isMacOSX, let swiftTestingPath {
+            // Swift Testing is a framework (e.g. from CommandLineTools) so use -F.
+            if swiftTestingPath.extension == "framework" {
+                swiftCompilerFlags += ["-F", swiftTestingPath.pathString]
+
+            // Otherwise Swift Testing is assumed to be a swiftmodule + library, so use -I and -L.
+            } else {
+                swiftCompilerFlags += [
+                    "-I", swiftTestingPath.pathString,
+                    "-L", swiftTestingPath.pathString,
+                ]
+            }
+        }
+
+        // Specify the plugin path for Swift Testing's macro plugin if such a
+        // path exists in this toolchain.
+        if let swiftTestingPluginPath = Self.deriveSwiftTestingPluginPath(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            fileSystem: fileSystem
+        ) {
+            swiftCompilerFlags += ["-plugin-path", swiftTestingPluginPath.pathString]
+        }
+
+        swiftCompilerFlags += try Self.deriveSwiftCFlags(
+            triple: triple,
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+
+        extraLinkerFlags += swiftSDK.toolset.knownTools[.linker]?.extraCLIOptions ?? []
+
+        self.extraFlags = BuildFlags(
+            cCompilerFlags: swiftSDK.toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
+            cxxCompilerFlags: swiftSDK.toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
+            swiftCompilerFlags: swiftCompilerFlags,
+            linkerFlags: extraLinkerFlags,
+            xcbuildFlags: swiftSDK.toolset.knownTools[.xcbuild]?.extraCLIOptions ?? [])
+
+        self.includeSearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
+        self.librarySearchPaths = swiftSDK.pathsConfiguration.includeSearchPaths ?? []
+
+        self.librarianPath = try swiftSDK.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
+            triple: triple,
+            binDirectories: swiftSDK.toolset.rootPaths,
+            useXcrun: useXcrun,
+            environment: environment,
+            searchPaths: envSearchPaths,
+            extraSwiftFlags: self.extraFlags.swiftCompilerFlags,
+            fileSystem: fileSystem
+        )
+
+        if let sdkDir = swiftSDK.pathsConfiguration.sdkRootPath {
+            let sysrootFlags = [triple.isDarwin() ? "-isysroot" : "--sysroot", sdkDir.pathString]
+            self.extraFlags.cCompilerFlags.insert(contentsOf: sysrootFlags, at: 0)
+        }
+
+        if triple.isWindows() {
+            if let root = environment.windowsSDKRoot {
+                if let settings = WindowsSDKSettings(
+                    reading: root.appending("SDKSettings.plist"),
+                    observabilityScope: nil,
+                    filesystem: fileSystem
+                ) {
+                    switch settings.defaults.runtime {
+                    case .multithreadedDebugDLL:
+                        // Defines _DEBUG, _MT, and _DLL
+                        // Linker uses MSVCRTD.lib
+                        self.extraFlags.cCompilerFlags += [
+                            "-D_DEBUG",
+                            "-D_MT",
+                            "-D_DLL",
+                            "-Xclang",
+                            "--dependent-lib=msvcrtd",
+                        ]
+
+                    case .multithreadedDLL:
+                        // Defines _MT, and _DLL
+                        // Linker uses MSVCRT.lib
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-D_DLL", "-Xclang", "--dependent-lib=msvcrt"]
+
+                    case .multithreadedDebug:
+                        // Defines _DEBUG, and _MT
+                        // Linker uses LIBCMTD.lib
+                        self.extraFlags.cCompilerFlags += ["-D_DEBUG", "-D_MT", "-Xclang", "--dependent-lib=libcmtd"]
+
+                    case .multithreaded:
+                        // Defines _MT
+                        // Linker uses LIBCMT.lib
+                        self.extraFlags.cCompilerFlags += ["-D_MT", "-Xclang", "--dependent-lib=libcmt"]
+                    }
+                }
+            }
+        }
+
+        let swiftPMLibrariesLocation = try customLibrariesLocation ?? Self.deriveSwiftPMLibrariesLocation(
+            swiftCompilerPath: swiftCompilerPath,
+            swiftSDK: swiftSDK,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+
+        let xctestPath: AbsolutePath?
+        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            xctestPath = nil
+        } else {
+            xctestPath = try Self.deriveXCTestPath(
+                swiftSDK: self.swiftSDK,
+                triple: triple,
+                environment: environment,
+                fileSystem: fileSystem
+            )
+        }
+
+        self.configuration = .init(
+            librarianPath: librarianPath,
+            swiftCompilerPath: swiftCompilers.manifest,
+            swiftCompilerFlags: self.extraFlags.swiftCompilerFlags,
+            swiftCompilerEnvironment: environment,
+            swiftPMLibrariesLocation: swiftPMLibrariesLocation,
+            sdkRootPath: self.swiftSDK.pathsConfiguration.sdkRootPath,
+            xctestPath: xctestPath,
+            swiftTestingPath: swiftTestingPath
+        )
+
+        self.fileSystem = fileSystem
     }
 
     public init(
