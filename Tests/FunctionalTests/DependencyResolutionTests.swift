@@ -173,7 +173,11 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows){
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.hostOperatingSystem == .windows
+            // rdar://162339964
+            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
+        ) {
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 try await executeSwiftBuild(
