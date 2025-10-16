@@ -530,6 +530,22 @@ public struct SwiftSDK: Equatable {
     }
 
     /// The Swift SDK for the host platform.
+    @available(*, deprecated, message: "Use the async alternative")
+    public static func hostSwiftSDK(
+        _ binDir: Basics.AbsolutePath? = nil,
+        environment: Environment = .current,
+        observabilityScope: ObservabilityScope? = nil,
+        fileSystem: any FileSystem = Basics.localFileSystem
+    ) throws -> SwiftSDK {
+        try self.systemSwiftSDK(
+            binDir,
+            environment: environment,
+            observabilityScope: observabilityScope,
+            fileSystem: fileSystem
+        )
+    }
+
+    /// The Swift SDK for the host platform.
     public static func hostSwiftSDK(
         _ binDir: Basics.AbsolutePath? = nil,
         environment: Environment = .current,
@@ -544,6 +560,37 @@ public struct SwiftSDK: Equatable {
         )
     }
 
+    /// A default Swift SDK on the host.
+    ///
+    /// Equivalent to `hostSwiftSDK`, except on macOS, where passing a non-nil `darwinPlatformOverride`
+    /// will result in the SDK for the corresponding Darwin platform.
+    private static func systemSwiftSDK(
+        _ binDir: Basics.AbsolutePath? = nil,
+        environment: Environment = .current,
+        observabilityScope: ObservabilityScope? = nil,
+        fileSystem: any FileSystem = Basics.localFileSystem,
+        darwinPlatformOverride: DarwinPlatform? = nil
+    ) throws -> SwiftSDK {
+        #if os(macOS)
+        let darwinPlatform = darwinPlatformOverride ?? .macOS
+        let sdkPath = try Self.getSDKPath(
+            for: darwinPlatform,
+            environment: environment
+        )
+        let sdkPaths = try? SwiftSDK.sdkPlatformPaths(for: darwinPlatform, environment: environment)
+        #else
+        let sdkPath: Basics.AbsolutePath? = nil
+        let sdkPaths: PlatformPaths? = nil
+        #endif
+
+        return try Self.buildSwiftSDK(
+            binDir: binDir,
+            sdkPath: sdkPath,
+            sdkPaths: sdkPaths,
+            environment: environment,
+            fileSystem: fileSystem
+        )
+    }
 
     /// A default Swift SDK on the host.
     ///
@@ -575,6 +622,27 @@ public struct SwiftSDK: Equatable {
             environment: environment,
             fileSystem: fileSystem
         )
+    }
+
+    /// Helper to get the SDK path for a Darwin platform (async version).
+    private static func getSDKPath(
+        for darwinPlatform: DarwinPlatform,
+        environment: Environment
+    ) throws -> Basics.AbsolutePath {
+        if let value = environment["SDKROOT"] {
+            return try AbsolutePath(validating: value)
+        } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
+            return try AbsolutePath(validating: value)
+        } else {
+            let sdkPathStr = try AsyncProcess.checkNonZeroExit(
+                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-path"],
+                environment: environment
+            ).spm_chomp()
+            guard !sdkPathStr.isEmpty else {
+                throw SwiftSDKError.invalidInstallation("default SDK not found")
+            }
+            return try AbsolutePath(validating: sdkPathStr)
+        }
     }
 
     /// Helper to get the SDK path for a Darwin platform (async version).
@@ -672,6 +740,46 @@ public struct SwiftSDK: Equatable {
             throw StringError("could not determine SDK platform library path")
         }
         return (fwk: frameworkPath, lib: libraryPath)
+    }
+
+    /// Returns ``SwiftSDK/PlatformPaths`` for the provided Darwin platform.
+    public static func sdkPlatformPaths(
+        for darwinPlatform: DarwinPlatform,
+        environment: Environment = .current
+    ) throws -> PlatformPaths {
+        if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
+            return path
+        }
+        let platformPath: String
+        if let envValue = environment[EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")] {
+            platformPath = envValue
+        } else {
+            platformPath = try AsyncProcess.checkNonZeroExit(
+                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
+                environment: environment
+            ).spm_chomp()
+        }
+
+        guard !platformPath.isEmpty else {
+            throw StringError("could not determine SDK platform path")
+        }
+
+        // For testing frameworks.
+        let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "Library", "Frameworks"
+        )
+        let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "Library", "PrivateFrameworks"
+        )
+
+        // For testing libraries.
+        let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
+            components: "Developer", "usr", "lib"
+        )
+
+        let sdkPlatformFrameworkPath = PlatformPaths(frameworks: [frameworksPath, privateFrameworksPath], libraries: [librariesPath])
+        _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
+        return sdkPlatformFrameworkPath
     }
 
     /// Returns ``SwiftSDK/PlatformPaths`` for the provided Darwin platform.
