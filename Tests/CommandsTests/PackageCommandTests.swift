@@ -7208,7 +7208,7 @@ struct PackageCommandTests {
                                 "iteration \(num) failed.  stderr: \(stderr)",
                             )
                         } when: {
-                            data.config == .release && data.buildSystem == .native
+                            data.buildSystem == .native
                         }
                         #expect(
                             !stdout.contains("Building for \(data.config.buildFor)..."),
