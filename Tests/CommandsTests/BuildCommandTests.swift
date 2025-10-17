@@ -1504,6 +1504,38 @@ struct BuildCommandTestCases {
             buildSystem != .swiftbuild
         }
     }
+
+
+    @Test(
+         .requireHostOS(.macOS),
+        arguments: getBuildData(for: [.swiftbuild]),
+    )
+    func dynamicLibrariesAsFrameworks(
+        data: BuildData,
+    ) async throws {
+        let buildSystem = data.buildSystem
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/DynamicProduct") { fixturePath in
+                let aPath = fixturePath.appending("exec")
+                let result = try await build(
+                    ["--experimental-build-dylibs-as-frameworks"],
+                    packagePath: aPath,
+                    configuration: data.config,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+                #expect(result.binContents.contains("PackageFrameworks"))
+                #expect(result.binContents.contains("exec"))
+
+                let frameworks = try localFileSystem.getDirectoryContents(result.binPath.appending("PackageFrameworks"))
+                #expect(frameworks.contains("firstDyna.framework"))
+                #expect(frameworks.contains("secondDyna.framework"))
+
+            }
+        } when: {
+            data.config == .release
+        }
+    }
 }
 
 extension Triple {
