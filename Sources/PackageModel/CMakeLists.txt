@@ -33,6 +33,7 @@ add_library(PackageModel
   Module/BinaryModule.swift
   Module/ClangModule.swift
   Module/PluginModule.swift
+  Module/PrebuiltLibrary.swift
   Module/SwiftModule.swift
   Module/SystemLibraryModule.swift
   Module/Module.swift

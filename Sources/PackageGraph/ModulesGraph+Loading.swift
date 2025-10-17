@@ -19,7 +19,6 @@ import Foundation
 import func TSCBasic.bestMatch
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
-import func TSCBasic.topologicalSort
 
 extension ModulesGraph {
     /// Load the package graph for the given package path.
