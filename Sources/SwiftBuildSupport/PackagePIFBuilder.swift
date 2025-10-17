@@ -552,6 +552,9 @@ public final class PackagePIFBuilder {
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
         settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
+        
+        // rdar://47937899 (Don't try to link frameworks to object files) 
+        //  - looks like this defaults to OTHER_LDFLAGS (via xcspec) which can result in linking frameworks to mh_objects which is unwanted.
         settings[.OTHER_LDRFLAGS] = []
 
         // Packages use the SwiftPM workspace's cache directory as a compiler working directory to maximize module
