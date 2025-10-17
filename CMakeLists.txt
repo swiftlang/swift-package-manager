@@ -47,6 +47,7 @@ if(FIND_PM_DEPS)
   find_package(SwiftCertificates CONFIG REQUIRED)
   find_package(SwiftCrypto CONFIG REQUIRED)
   find_package(SwiftBuild CONFIG REQUIRED)
+  find_package(Subprocess CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)

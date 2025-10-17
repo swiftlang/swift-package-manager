@@ -288,7 +288,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
                         let startTime = DispatchTime.now()
-                        let result = testRunner.test(outputHandler: { _ in }) // this drops the tests output
+                        let result = await testRunner.test(outputHandler: { _ in }) // this drops the tests output
                         let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
                         numFailedTests += (result != .failure) ? 0 : 1
                         testResults.append(
