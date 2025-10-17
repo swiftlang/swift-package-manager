@@ -73,6 +73,7 @@ add_library(Basics
   Serialization/SerializedJSON.swift
   SwiftVersion.swift
   SQLiteBackedCache.swift
+  Subprocess+Extensions.swift
   TestingLibrary.swift
   Triple+Basics.swift
   URL.swift
@@ -83,6 +84,7 @@ add_library(Basics
 target_link_libraries(Basics PUBLIC
   _AsyncFileSystem
   SwiftCollections::OrderedCollections
+  SwiftSubprocess::Subprocess
   TSCBasic
   TSCUtility)
 target_link_libraries(Basics PRIVATE

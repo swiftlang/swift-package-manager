@@ -239,6 +239,7 @@ let package = Package(
             dependencies: [
                 "_AsyncFileSystem",
                 .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
+                .product(name: "Subprocess", package: "swift-subprocess"),
                 .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
@@ -575,6 +576,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
                 "Basics",
                 "BinarySymbols",
                 "Build",
@@ -1113,6 +1115,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", .upToNextMinor(from: "0.2.0")),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.7"),
         // Not in toolchain, used for use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
@@ -1131,6 +1134,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
+        .package(path: "../swift-subprocess"),
         .package(path: "../swift-toolchain-sqlite"),
     ]
     if !swiftDriverDeps.isEmpty {
