@@ -706,21 +706,22 @@ final class SwiftSDKTests: XCTestCase {
         )
     }
 
-    func testDefaultSDKs() throws {
-        let hostSDK = try SwiftSDK.hostSwiftSDK("/prefix/bin")
+    func testDefaultSDKs() async throws {
+        let hostSDK = try await SwiftSDK.hostSwiftSDK("/prefix/bin")
 
         #if os(macOS)
         let iOSPlatform = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform")
         let iOSRoot = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk")
         let iOSTriple = try Triple("arm64-apple-ios")
-        let iOS = try XCTUnwrap(SwiftSDK.defaultSwiftSDK(
+        let iOSSDK = await SwiftSDK.defaultSwiftSDK(
             for: iOSTriple,
             hostSDK: hostSDK,
             environment: [
                 "SWIFTPM_PLATFORM_PATH_iphoneos": iOSPlatform.pathString,
                 "SWIFTPM_SDKROOT_iphoneos": iOSRoot.pathString,
             ]
-        ))
+        )
+        let iOS = try XCTUnwrap(iOSSDK)
         XCTAssertEqual(iOS.toolset.rootPaths, hostSDK.toolset.rootPaths)
 
         XCTAssertEqual(iOS.pathsConfiguration.sdkRootPath, iOSRoot)

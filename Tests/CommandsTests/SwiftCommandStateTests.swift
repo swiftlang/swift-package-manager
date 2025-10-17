@@ -330,8 +330,13 @@ final class SwiftCommandStateTests: XCTestCase {
         let unsupportedCodeViewOptions = try GlobalOptions.parse(["--triple", "x86_64-unknown-linux-gnu", "-debug-info-format", "codeview"])
         let unsupportedCodeView = try SwiftCommandState.makeMockState(options: unsupportedCodeViewOptions)
 
-        XCTAssertThrowsError(try unsupportedCodeView.productsBuildParameters) {
-            XCTAssertEqual($0 as? StringError, StringError("CodeView debug information is currently not supported on linux"))
+        do {
+            _ = try await unsupportedCodeView.productsBuildParameters
+            XCTFail("Expected error to be thrown")
+        } catch let error as StringError {
+            XCTAssertEqual(error, StringError("CodeView debug information is currently not supported on linux"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
         }
 
         /* <<null>> */
@@ -405,12 +410,13 @@ final class SwiftCommandStateTests: XCTestCase {
         )
 
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
+        let targetToolchain = try await swiftCommandState.getTargetToolchain()
         XCTAssertEqual(
-            try swiftCommandState.getTargetToolchain().swiftCompilerPath,
+            targetToolchain.swiftCompilerPath,
             targetSwiftcPath
         )
         XCTAssertEqual(
-            try swiftCommandState.getTargetToolchain().swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
+            targetToolchain.swiftSDK.toolset.knownTools[.swiftCompiler]?.path,
             nil
         )
 
@@ -427,7 +433,7 @@ final class SwiftCommandStateTests: XCTestCase {
         XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
     }
 
-    func testToolsetOption() throws {
+    func testToolsetOption() async throws {
         try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660. threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath = "/path/to/toolchain"
         let customTargetToolchain = AbsolutePath(targetToolchainPath)
@@ -461,8 +467,8 @@ final class SwiftCommandStateTests: XCTestCase {
             environment: ["PATH": "/usr/bin"]
         )
 
-        let hostToolchain = try swiftCommandState.getHostToolchain()
-        let targetToolchain = try swiftCommandState.getTargetToolchain()
+        let hostToolchain = try await swiftCommandState.getHostToolchain()
+        let targetToolchain = try await swiftCommandState.getTargetToolchain()
 
         XCTAssertEqual(
             targetToolchain.swiftSDK.toolset.rootPaths,
@@ -472,7 +478,7 @@ final class SwiftCommandStateTests: XCTestCase {
         XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
 
-    func testMultipleToolsets() throws {
+    func testMultipleToolsets() async throws {
         try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath1 = "/path/to/toolchain1"
         let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
@@ -519,8 +525,8 @@ final class SwiftCommandStateTests: XCTestCase {
             environment: ["PATH": "/usr/bin"]
         )
 
-        let hostToolchain = try swiftCommandState.getHostToolchain()
-        let targetToolchain = try swiftCommandState.getTargetToolchain()
+        let hostToolchain = try await swiftCommandState.getHostToolchain()
+        let targetToolchain = try await swiftCommandState.getTargetToolchain()
 
         XCTAssertEqual(
             targetToolchain.swiftSDK.toolset.rootPaths,

@@ -64,7 +64,7 @@ struct CFamilyTargetTestCase {
                     buildSystem: data.buildSystem,
                 )
                 if data.buildSystem == .native {
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                    let binPath = try await fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Bar.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
                 }
@@ -96,7 +96,7 @@ struct CFamilyTargetTestCase {
                     buildSystem: data.buildSystem,
                 )
                 if data.buildSystem == .native {
-                    let binPath = try packageRoot.appending(components: data.buildSystem.binPath(for: data.config))
+                    let binPath = try await packageRoot.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Sea.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
                 }
@@ -130,7 +130,7 @@ struct CFamilyTargetTestCase {
                     buildSystem: data.buildSystem,
                 )
                 if data.buildSystem == .native {
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                    let binPath = try await fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Jaz.c.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "main.swift.o")
                     expectDirectoryContainsFile(dir: binPath, filename: "FlatInclude.c.o")
@@ -188,7 +188,7 @@ struct CFamilyTargetTestCase {
                     buildSystem: data.buildSystem,
                 )
                 if data.buildSystem == .native {
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                    let binPath = try await fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "Foo.c.o")
                 }
             }
@@ -218,7 +218,7 @@ struct CFamilyTargetTestCase {
                 buildSystem: data.buildSystem,
             )
             if data.buildSystem == .native {
-                let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                let binPath = try await fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                 expectDirectoryContainsFile(dir: binPath, filename: "HelloWorldExample.m.o")
                 expectDirectoryContainsFile(dir: binPath, filename: "HelloWorldExample.m.o")
             }
@@ -254,7 +254,7 @@ struct CFamilyTargetTestCase {
                     buildSystem: data.buildSystem,
                 )
                 if data.buildSystem == .native {
-                    let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
+                    let binPath = try await fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "HeaderInclude.swiftmodule")
                 }
             }

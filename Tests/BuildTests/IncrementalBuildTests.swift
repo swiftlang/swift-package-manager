@@ -39,7 +39,8 @@ import typealias TSCBasic.ProcessEnvironmentBlock
 final class IncrementalBuildTests: XCTestCase {
 
     func testIncrementalSingleModuleCLibraryInSources() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
+        let supportsSDKTests = try (try await UserToolchain.default()).supportsSDKDependentTests()
+        try XCTSkipIf(!supportsSDKTests, "skipping because test environment doesn't support this test")
         try await fixtureXCTest(name: "CFamilyTargets/CLibrarySources") { fixturePath in
             // Build it once and capture the log (this will be a full build).
             let (fullLog, _) = try await executeSwiftBuild(fixturePath, buildSystem: .native)
@@ -97,7 +98,8 @@ final class IncrementalBuildTests: XCTestCase {
     }
 
     func testBuildManifestCaching() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
+        let supportsSDKTests = try (try await UserToolchain.default()).supportsSDKDependentTests()
+        try XCTSkipIf(!supportsSDKTests, "skipping because test environment doesn't support this test")
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
@@ -131,7 +133,8 @@ final class IncrementalBuildTests: XCTestCase {
     }
 
     func testDisableBuildManifestCaching() async throws {
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
+        let supportsSDKTests = try (try await UserToolchain.default()).supportsSDKDependentTests()
+        try XCTSkipIf(!supportsSDKTests, "skipping because test environment doesn't support this test")
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             @discardableResult
             func build() async throws -> String {
@@ -154,11 +157,12 @@ final class IncrementalBuildTests: XCTestCase {
     // testing the fix for tracking SDK dependencies to avoid triggering rebuilds when the SDK changes (rdar://115777026)
     func testSDKTracking() async throws {
 #if os(macOS)
-        try XCTSkipIf(!UserToolchain.default.supportsSDKDependentTests(), "skipping because test environment doesn't support this test")
+        let supportsSDKTests = try (try await UserToolchain.default()).supportsSDKDependentTests()
+        try XCTSkipIf(!supportsSDKTests, "skipping because test environment doesn't support this test")
 
         try await fixtureXCTest(name: "ValidLayouts/SingleModule/Library") { fixturePath in
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
-            let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
+            let swiftCompilerPath = try (try await UserToolchain.default()).swiftCompilerPath
             let environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
                 "SWIFT_ORIGINAL_PATH": swiftCompilerPath.pathString
