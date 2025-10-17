@@ -194,8 +194,44 @@ public class Module {
         return false
     }
 
+    public func use(prebuiltLibrary: PrebuiltLibrary) {
+        dependencies = dependencies.filter({
+            switch $0 {
+            case .product(let product, conditions: _):
+                if let packageName = product.package,
+                   prebuiltLibrary.identity == .plain(packageName) && prebuiltLibrary.products.contains(product.name) {
+                    return false
+                } else {
+                    return true
+                }
+            case .module:
+                return true
+            }
+        })
+
+        // Add build settings to use the prebuilts
+        let lib = prebuiltLibrary.path.appending(components: ["lib", "lib\(prebuiltLibrary.libraryName).a"]).pathString
+        var ldFlagsAssignment = BuildSettings.Assignment()
+        ldFlagsAssignment.values = [lib]
+        buildSettings.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+
+        var includeDirs: [AbsolutePath] = [prebuiltLibrary.path.appending(component: "Modules")]
+        if let checkoutPath = prebuiltLibrary.checkoutPath, let includePath = prebuiltLibrary.includePath {
+            for includeDir in includePath {
+                includeDirs.append(checkoutPath.appending(includeDir))
+            }
+        } else {
+            for cModule in prebuiltLibrary.cModules {
+                includeDirs.append(prebuiltLibrary.path.appending(components: "include", cModule))
+            }
+        }
+        var includeAssignment = BuildSettings.Assignment()
+        includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
+        buildSettings.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
+    }
+
     /// The dependencies of this module.
-    public let dependencies: [Dependency]
+    public private(set) var dependencies: [Dependency]
 
     /// The language-level module name.
     public private(set) var c99name: String

@@ -30,7 +30,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
+        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Package -> Product name -> library
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
@@ -167,7 +167,6 @@ extension ModulesGraph {
                     path: packagePath,
                     additionalFileRules: additionalFileRules,
                     binaryArtifacts: binaryArtifacts[node.identity] ?? [:],
-                    prebuilts: prebuilts,
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
@@ -214,7 +213,7 @@ extension ModulesGraph {
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
         checkAllDependenciesAreUsed(
             packages: resolvedPackages,
-            rootPackages,
+            rootPackages: rootPackages,
             prebuilts: prebuilts,
             observabilityScope: observabilityScope
         )
@@ -231,7 +230,7 @@ extension ModulesGraph {
 
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
-    _ rootPackages: [ResolvedPackage],
+    rootPackages: [ResolvedPackage],
     prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
     observabilityScope: ObservabilityScope
 ) {
@@ -311,7 +310,7 @@ private func checkAllDependenciesAreUsed(
                 // We check if any of the products of this dependency is guarded by a trait.
                 let traitGuarded = traitGuardedProductDependencies.contains(product.name)
                 // Consider prebuilts as used
-                let prebuilt = prebuilts[dependency.identity]?.keys.contains(product.name) ?? false
+                let prebuilt = prebuilts[dependency.identity]?[product.name] != nil
 
                 return usedByPackage || traitGuarded || prebuilt
             }
@@ -729,24 +728,6 @@ private func createResolvedPackages(
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
-                if let package = productRef.package, prebuilts[.plain(package)]?[productRef.name] != nil {
-                    // See if we're using a prebuilt instead
-                    if moduleBuilder.module.type == .macro {
-                        continue
-                    } else if moduleBuilder.module.type == .test {
-                        // use prebuilt if this is a test that depends a macro target
-                        // these are guaranteed built for host
-                        if moduleBuilder.module.dependencies.contains(where: { dep in
-                            guard let module = dep.module else {
-                                return false
-                            }
-                            return module.type == .macro
-                        }) {
-                            continue
-                        }
-                    }
-                }
-
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
@@ -796,6 +777,91 @@ private func createResolvedPackages(
                 }
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
+            }
+        }
+    }
+
+    // Prebuilts
+    for packageBuilder in packageBuilders {
+        for moduleBuilder in packageBuilder.modules {
+            // Currently we only support prebuilts for macros and their tests
+            switch moduleBuilder.module.type {
+            case .macro:
+                // Skip if the module has a dependency that depends on a prebuilt
+                // This is causing a mix of release and debug modes which is causing
+                // macros to crash.
+                // TODO: Find a way to build those dependencies with the prebuilts on host
+                if moduleBuilder.dependencies.contains(where: {
+                    switch $0 {
+                    case .module(let moduleBuilder, conditions: _):
+                        return moduleBuilder.recursiveDependenciesContains(where: {
+                            switch $0 {
+                            case .product(let productBuilder, conditions: _):
+                                return prebuilts[productBuilder.packageBuilder.package.identity]?[productBuilder.product.name] != nil
+                            case .module:
+                                return false
+                            }
+                        })
+                    case .product(let productBuilder, conditions: _):
+                        return productBuilder.moduleBuilders.contains(where: {
+                            $0.recursiveDependenciesContains(where: {
+                                switch $0 {
+                                case .product(let productBuilder, conditions: _):
+                                    return prebuilts[productBuilder.packageBuilder.package.identity]?[productBuilder.product.name] != nil
+                                case .module:
+                                    return false
+                                }
+                            })
+                        })
+                    }
+                }) {
+                    // Skip
+                    continue
+                }
+            case .test:
+                // Check for macro tests
+                if !moduleBuilder.dependencies.contains(where: {
+                    switch $0 {
+                    case .module(let depModuleBuilder, conditions: _):
+                        return depModuleBuilder.module.type == .macro
+                    case .product:
+                        return false
+                    }
+                }) {
+                    // Skip
+                    continue
+                }
+            default:
+                // Skip
+                continue
+            }
+
+            var prebuiltLibraries: [PrebuiltLibrary] = []
+            for dep in moduleBuilder.dependencies {
+                switch dep {
+                case .product(let productBuilder, conditions: _):
+                    if let prebuilt = prebuilts[productBuilder.packageBuilder.package.identity]?[productBuilder.product.name] {
+                        // Use the prebuilt
+                        if !prebuiltLibraries.contains(where: { $0.libraryName == prebuilt.libraryName }) {
+                            prebuiltLibraries.append(prebuilt)
+                        }
+                    }
+                case .module:
+                    break
+                }
+            }
+
+            for prebuiltLibrary in prebuiltLibraries {
+                moduleBuilder.module.use(prebuiltLibrary: prebuiltLibrary)
+
+                moduleBuilder.dependencies = moduleBuilder.dependencies.filter({
+                    switch $0 {
+                    case .product(let productBuilder, conditions: _):
+                        return prebuilts[productBuilder.packageBuilder.package.identity]?[productBuilder.product.name] == nil
+                    case .module:
+                        return true
+                    }
+                })
             }
         }
     }
@@ -1336,6 +1402,23 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
 
     /// The module dependencies of this module.
     var dependencies: [Dependency] = []
+
+    func recursiveDependenciesContains(where check: (Dependency) -> Bool) -> Bool {
+        dependencies.contains(where: {
+            if check($0) {
+                return true
+            } else {
+                switch $0 {
+                case .module(let moduleBuilder, conditions: _):
+                    return moduleBuilder.recursiveDependenciesContains(where: check)
+                case .product(let productBuilder, conditions: _):
+                    return productBuilder.moduleBuilders.contains(where: {
+                        $0.recursiveDependenciesContains(where: check)
+                    })
+                }
+            }
+        })
+    }
 
     /// The defaultLocalization for this package
     var defaultLocalization: String? = nil
