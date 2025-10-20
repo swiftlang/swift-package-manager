@@ -402,7 +402,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             ]
         )
         let system = ObservabilitySystem.makeForTesting()
-        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: [:])
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(environment: [:])
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
         let hostToolchainBinDir = AbsolutePath("/tmp")
         let archiver = MockArchiver()
@@ -419,7 +419,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 store: store,
@@ -431,7 +431,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 customCompileTriple: .arm64Linux,
@@ -448,7 +448,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 swiftSDKSelector: "\(testArtifactID)1",
@@ -463,7 +463,7 @@ final class SwiftSDKBundleTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 swiftSDKSelector: "\(testArtifactID)2",
@@ -482,7 +482,7 @@ final class SwiftSDKBundleTests: XCTestCase {
             let customCompileToolchain = AbsolutePath("/path/to/toolchain")
             try fileSystem.createDirectory(customCompileToolchain, recursive: true)
 
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 customCompileToolchain: customCompileToolchain,

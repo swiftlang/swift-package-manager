@@ -708,7 +708,7 @@ struct PluginTests {
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let defaultToolchain = try await UserToolchain.default()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
@@ -914,7 +914,7 @@ struct PluginTests {
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let defaultToolchain = try await UserToolchain.default()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
@@ -1014,7 +1014,7 @@ struct PluginTests {
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let defaultToolchain = try await UserToolchain.default()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: defaultToolchain),
@@ -1335,7 +1335,7 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),

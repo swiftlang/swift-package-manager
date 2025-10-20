@@ -707,7 +707,7 @@ final class SwiftSDKTests: XCTestCase {
     }
 
     func testDefaultSDKs() async throws {
-        let hostSDK = try await SwiftSDK.hostSwiftSDK("/prefix/bin")
+        let hostSDK = try await SwiftSDK.hostSwiftSDKAsync("/prefix/bin")
 
         #if os(macOS)
         let iOSPlatform = try AbsolutePath(validating: "/usr/share/iPhoneOS.platform")

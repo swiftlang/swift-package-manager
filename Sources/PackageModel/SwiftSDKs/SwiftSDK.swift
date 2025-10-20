@@ -16,6 +16,7 @@ import TSCBasic
 
 import class Basics.AsyncProcess
 
+
 import struct TSCUtility.Version
 
 /// Errors related to Swift SDKs.
@@ -520,17 +521,16 @@ public struct SwiftSDK: Equatable {
     }
 
     /// The Swift SDK describing the host platform.
-    @available(*, deprecated, renamed: "hostSwiftSDK")
+    @available(*, deprecated, renamed: "hostSwiftSDKAsync")
     public static func hostDestination(
         _ binDir: Basics.AbsolutePath? = nil,
         originalWorkingDirectory: Basics.AbsolutePath? = nil,
         environment: Environment
     ) async throws -> SwiftSDK {
-        try await self.hostSwiftSDK(binDir, environment: environment)
+        try await self.hostSwiftSDKAsync(binDir, environment: environment)
     }
 
-    /// The Swift SDK for the host platform.
-    @available(*, deprecated, message: "Use the async alternative")
+    /// The Swift SDK for the host platform (synchronous version).
     public static func hostSwiftSDK(
         _ binDir: Basics.AbsolutePath? = nil,
         environment: Environment = .current,
@@ -545,8 +545,8 @@ public struct SwiftSDK: Equatable {
         )
     }
 
-    /// The Swift SDK for the host platform.
-    public static func hostSwiftSDK(
+    /// The Swift SDK for the host platform (asynchronous version).
+    public static func hostSwiftSDKAsync(
         _ binDir: Basics.AbsolutePath? = nil,
         environment: Environment = .current,
         observabilityScope: ObservabilityScope? = nil,
@@ -624,7 +624,7 @@ public struct SwiftSDK: Equatable {
         )
     }
 
-    /// Helper to get the SDK path for a Darwin platform (async version).
+    /// Helper to get the SDK path for a Darwin platform (sync version).
     private static func getSDKPath(
         for darwinPlatform: DarwinPlatform,
         environment: Environment
@@ -847,8 +847,53 @@ public struct SwiftSDK: Equatable {
         return nil
     }
 
-    /// Computes the target Swift SDK for the given options.
+    /// Computes the target Swift SDK for the given options (synchronous version).
     public static func deriveTargetSwiftSDK(
+      hostSwiftSDK: SwiftSDK,
+      hostTriple: Triple,
+      customToolsets: [Basics.AbsolutePath] = [],
+      customCompileDestination: Basics.AbsolutePath? = nil,
+      customCompileTriple: Triple? = nil,
+      customCompileToolchain: Basics.AbsolutePath? = nil,
+      customCompileSDK: Basics.AbsolutePath? = nil,
+      swiftSDKSelector: String? = nil,
+      architectures: [String] = [],
+      store: SwiftSDKBundleStore,
+      observabilityScope: ObservabilityScope,
+      fileSystem: FileSystem
+    ) throws -> SwiftSDK {
+        let semaphore = DispatchSemaphore(value: 0)
+        var result: Result<SwiftSDK, Error>!
+
+        Task {
+            do {
+                let sdk = try await deriveTargetSwiftSDKAsync(
+                    hostSwiftSDK: hostSwiftSDK,
+                    hostTriple: hostTriple,
+                    customToolsets: customToolsets,
+                    customCompileDestination: customCompileDestination,
+                    customCompileTriple: customCompileTriple,
+                    customCompileToolchain: customCompileToolchain,
+                    customCompileSDK: customCompileSDK,
+                    swiftSDKSelector: swiftSDKSelector,
+                    architectures: architectures,
+                    store: store,
+                    observabilityScope: observabilityScope,
+                    fileSystem: fileSystem
+                )
+                result = .success(sdk)
+            } catch {
+                result = .failure(error)
+            }
+            semaphore.signal()
+        }
+
+        semaphore.wait()
+        return try result.get()
+    }
+
+    /// Computes the target Swift SDK for the given options (async version).
+    public static func deriveTargetSwiftSDKAsync(
       hostSwiftSDK: SwiftSDK,
       hostTriple: Triple,
       customToolsets: [Basics.AbsolutePath] = [],

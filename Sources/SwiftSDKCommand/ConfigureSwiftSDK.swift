@@ -116,8 +116,8 @@ struct ConfigureSwiftSDK: AsyncParsableCommand {
         let observabilityScope = observabilitySystem.topScope
         let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
-        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK()
-        let hostToolchain = try await UserToolchain(swiftSDK: hostSwiftSDK)
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync()
+        let hostToolchain = try await UserToolchain.create(swiftSDK: hostSwiftSDK)
         let triple = try Triple.getVersionedHostTriple(usingSwiftCompiler: hostToolchain.swiftCompilerPath)
 
         var commandError: Error? = nil

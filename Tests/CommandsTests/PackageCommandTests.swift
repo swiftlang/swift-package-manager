@@ -4698,8 +4698,8 @@ struct PackageCommandTests {
                         """
                 )
                 let environment = Environment.current
-                let hostTriple = try await UserToolchain(
-                    swiftSDK: await .hostSwiftSDK(environment: environment),
+                let hostTriple = try await UserToolchain.create(
+                    swiftSDK: try await .hostSwiftSDKAsync(environment: environment),
                     environment: environment
                 ).targetTriple
                 let hostTripleString =
@@ -4934,8 +4934,8 @@ struct PackageCommandTests {
                         """
                 )
                 let environment = Environment.current
-                let hostTriple = try await UserToolchain(
-                    swiftSDK: await .hostSwiftSDK(environment: environment),
+                let hostTriple = try await UserToolchain.create(
+                    swiftSDK: try await .hostSwiftSDKAsync(environment: environment),
                     environment: environment
                 ).targetTriple
                 let hostTripleString =
@@ -7319,7 +7319,7 @@ struct PackageCommandTests {
 
                 // Load a workspace from the package.
                 let observability = ObservabilitySystem.makeForTesting()
-                let workspace = try await Workspace(
+                let workspace = try await Workspace.create(
                     fileSystem: localFileSystem,
                     forRootPackage: packageDir,
                     customManifestLoader: ManifestLoader(toolchain: await UserToolchain.default()),
