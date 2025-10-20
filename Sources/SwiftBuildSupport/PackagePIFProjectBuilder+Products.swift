@@ -588,11 +588,12 @@ extension PackagePIFProjectBuilder {
         // FIXME: Cleanup this mess with <rdar://56889224>
 
         let productType: ProjectModel.Target.ProductType
-
+        var productName = "$(EXECUTABLE_NAME)"
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
                 productType = .dynamicLibrary
             } else {
+                productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
         } else {
@@ -608,7 +609,7 @@ extension PackagePIFProjectBuilder {
                 id: product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: product.targetName(suffix: targetSuffix),
-                productName: "$(EXECUTABLE_NAME)"
+                productName: productName
             )
         }
         do {
