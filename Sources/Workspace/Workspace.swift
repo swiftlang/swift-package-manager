@@ -1248,7 +1248,6 @@ extension Workspace {
                     path: path,
                     additionalFileRules: [],
                     binaryArtifacts: binaryArtifacts,
-                    prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
                     enabledTraits: try manifest.enabledTraits(using: .default)
@@ -1313,7 +1312,6 @@ extension Workspace {
             path: previousPackage.path,
             additionalFileRules: self.configuration.additionalFileRules,
             binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
-            prebuilts: [:],
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
             fileSystem: self.fileSystem,
