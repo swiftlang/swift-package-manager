@@ -507,7 +507,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let workspace = try await Workspace(
+        let workspace = try await Workspace.create(
             fileSystem: self.fileSystem,
             location: .init(
                 scratchDirectory: self.scratchDirectory,
@@ -847,7 +847,7 @@ public final class SwiftCommandState {
             outputHandler: { print($0.description) }
         )
 
-        swiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+        swiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
             hostSwiftSDK: hostSwiftSDK,
             hostTriple: hostToolchain.targetTriple,
             customToolsets: self.options.locations.toolsetPaths,
@@ -867,17 +867,17 @@ public final class SwiftCommandState {
             return hostToolchain
         }
 
-        return try await UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+        return try await UserToolchain.create(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
     }
 
     public func getHostToolchain() async throws -> UserToolchain {
-        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(
+        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(
             environment: self.environment,
             observabilityScope: self.observabilityScope
         )
         hostSwiftSDK.targetTriple = self.hostTriple
 
-        return try await UserToolchain(
+        return try await UserToolchain.create(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
             customTargetInfo: targetInfo,

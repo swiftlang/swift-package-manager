@@ -181,7 +181,7 @@ final class WorkspaceTests: XCTestCase {
                 let manifestLoader = try ManifestLoader(toolchain: try await UserToolchain.default())
 
                 let sandbox = path.appending("ws")
-                return try await Workspace(
+                return try await Workspace.create(
                     fileSystem: fs,
                     forRootPackage: sandbox,
                     customManifestLoader: manifestLoader,
@@ -358,7 +358,7 @@ final class WorkspaceTests: XCTestCase {
                 )
                 """
             )
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
                 customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
@@ -5533,7 +5533,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 forRootPackage: packagePath,
                 customHostToolchain: try await UserToolchain.default()
             )
@@ -12710,7 +12710,7 @@ final class WorkspaceTests: XCTestCase {
 
             let manifestLoader = try ManifestLoader(toolchain: try await UserToolchain.default())
             let sandbox = path.appending("ws")
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 forRootPackage: sandbox,
                 customManifestLoader: manifestLoader,
@@ -12784,7 +12784,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             // no error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
@@ -12802,7 +12802,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             // actual error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try await Workspace(
+            let workspace = try await Workspace.create(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,

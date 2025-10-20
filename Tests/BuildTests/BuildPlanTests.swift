@@ -5263,7 +5263,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try await UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5390,7 +5390,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try await UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5509,7 +5509,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try await UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5643,7 +5643,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
             )
         )
-        let toolchain = try await UserToolchain(
+        let toolchain = try await UserToolchain.create(
             swiftSDK: swiftSDK,
             environment: .mockEnvironment,
             customTargetInfo: UserToolchain.mockTargetInfo,
@@ -5804,7 +5804,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let toolchain = try await UserToolchain(
+        let toolchain = try await UserToolchain.create(
             swiftSDK: swiftSDK,
             environment: env,
             searchStrategy: .custom(

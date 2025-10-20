@@ -228,8 +228,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             self.identityResolver = DefaultIdentityResolver()
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
             let environment = Environment.current
-            self.hostToolchain = try await UserToolchain(
-                swiftSDK: SwiftSDK.hostSwiftSDK(
+            self.hostToolchain = try await UserToolchain.create(
+                swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(
                     environment: environment,
                     fileSystem: fileSystem
                 ),

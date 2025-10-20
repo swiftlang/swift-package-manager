@@ -62,8 +62,8 @@ extension SwiftSDKSubcommand {
         let swiftSDKsDirectory = try self.getOrCreateSwiftSDKsDirectory()
 
         let environment = Environment.current
-        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: environment)
-        let hostToolchain = try await UserToolchain(
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(environment: environment)
+        let hostToolchain = try await UserToolchain.create(
             swiftSDK: hostSwiftSDK,
             environment: environment
         )

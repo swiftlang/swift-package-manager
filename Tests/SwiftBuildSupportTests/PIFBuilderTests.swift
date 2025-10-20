@@ -46,7 +46,7 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(fromFixture fixtureName: String, addLocalRpaths: Bool = true, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem = ObservabilitySystem.makeForTesting()
-        let workspace = try await Workspace(
+        let workspace = try await Workspace.create(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
             customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
@@ -59,11 +59,7 @@ fileprivate func withGeneratedPIF(fromFixture fixtureName: String, addLocalRpath
         )
         let builder = PIFBuilder(
             graph: graph,
-<<<<<<< HEAD
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
-=======
-            parameters: try await PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath),
->>>>>>> e09f25101 (Add async versions of `UserToolchain.init` and `SwiftSDK.hostSwiftSDK`)
+            parameters: try await PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )

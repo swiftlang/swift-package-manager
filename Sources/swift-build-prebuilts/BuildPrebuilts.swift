@@ -80,11 +80,11 @@ struct BuildPrebuilts: AsyncParsableCommand {
     func computeSwiftVersion() async throws -> String? {
         let fileSystem = localFileSystem
         let environment = Environment.current
-        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(
             environment: environment,
             fileSystem: fileSystem
         )
-        let hostToolchain = try await UserToolchain(
+        let hostToolchain = try await UserToolchain.create(
             swiftSDK: hostSwiftSDK,
             environment: environment
         )
@@ -151,7 +151,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Update package with the libraries
             let packageFile = repoDir.appending(component: "Package.swift")
-            let workspace = try await Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
+            let workspace = try await Workspace.create(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
             let package = try await workspace.loadRootPackage(
                 at: repoDir,
                 observabilityScope: ObservabilitySystem { _, diag in print(diag) }.topScope

@@ -216,7 +216,7 @@ final class ToolsetTests: XCTestCase {
             try fileSystem.writeFileContents(testFile.path, string: testFile.json.underlying)
         }
 
-        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: [:])
+        let hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(environment: [:])
         let hostTriple = try! Triple("arm64-apple-macosx14.0")
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -229,7 +229,7 @@ final class ToolsetTests: XCTestCase {
         )
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 customToolsets: [compilersNoRoot.path],
@@ -250,7 +250,7 @@ final class ToolsetTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 customToolsets: [someToolsWithRoot.path],
@@ -271,7 +271,7 @@ final class ToolsetTests: XCTestCase {
         }
 
         do {
-            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDK(
+            let targetSwiftSDK = try await SwiftSDK.deriveTargetSwiftSDKAsync(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostTriple,
                 customToolsets: [compilersNoRoot.path, someToolsWithRoot.path],

@@ -44,7 +44,7 @@ package func resolveBinDir() throws -> AbsolutePath {
 extension SwiftSDK {
     public static func `default`() async throws -> Self {
         let binDir = try resolveBinDir()
-        return try await SwiftSDK.hostSwiftSDK(binDir, environment: .current)
+        return try await SwiftSDK.hostSwiftSDKAsync(binDir, environment: .current)
     }
 }
 
