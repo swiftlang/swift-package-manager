@@ -62,8 +62,8 @@ struct PluginsBuildPlanTests {
     func commandPluginDependenciesWhenNotCrossCompiling(
         buildData: BuildData,
     ) async throws {
-        let hostToolchain = try await UserToolchain(
-            swiftSDK: try await SwiftSDK.hostSwiftSDK(environment: [:]),
+        let hostToolchain = try await UserToolchain.create(
+            swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(environment: [:]),
             environment: [:]
         )
         let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
@@ -116,8 +116,8 @@ struct PluginsBuildPlanTests {
     func commandPluginDependenciesWhenCrossCompiling(
         buildData: BuildData,
     ) async throws {
-        let hostToolchain = try await UserToolchain(
-            swiftSDK: try await SwiftSDK.hostSwiftSDK(environment: [:]),
+        let hostToolchain = try await UserToolchain.create(
+            swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(environment: [:]),
             environment: [:]
         )
         // let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString

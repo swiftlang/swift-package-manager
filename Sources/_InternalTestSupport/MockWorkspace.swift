@@ -34,7 +34,7 @@ extension UserToolchain {
         _ fileSystem: InMemoryFileSystem,
         hostTriple: Triple? = nil
     ) async throws -> UserToolchain {
-        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDK(environment: .mockEnvironment, fileSystem: fileSystem)
+        var hostSwiftSDK = try await SwiftSDK.hostSwiftSDKAsync(environment: .mockEnvironment, fileSystem: fileSystem)
         if let hostTriple = hostTriple {
             hostSwiftSDK.targetTriple = hostTriple
         } else {
@@ -43,7 +43,7 @@ extension UserToolchain {
 
         let env = Environment.mockEnvironment
 
-        return try await UserToolchain(
+        return try await UserToolchain.create(
             swiftSDK: hostSwiftSDK,
             environment: env,
             searchStrategy: .custom(

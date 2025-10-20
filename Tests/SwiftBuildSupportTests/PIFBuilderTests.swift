@@ -45,7 +45,7 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(fromFixture fixtureName: String, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem = ObservabilitySystem.makeForTesting()
-        let workspace = try await Workspace(
+        let workspace = try await Workspace.create(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
             customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),

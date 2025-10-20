@@ -114,7 +114,7 @@ struct APIDigesterBaselineDumper {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try await Workspace(
+        let workspace = try await Workspace.create(
             forRootPackage: baselinePackageRoot,
             cancellator: swiftCommandState.cancellator
         )
