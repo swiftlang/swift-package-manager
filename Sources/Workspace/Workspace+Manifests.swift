@@ -624,17 +624,27 @@ extension Workspace {
         >] = { node in
             // optimization: preload manifest we know about in parallel
             // avoid loading dependencies that are trait-guarded here since this is redundant.
+            // load conditional traits, if any
             let dependenciesRequired = try node.item.manifest.dependenciesRequired(
                 for: node.item.productFilter,
                 node.item.enabledTraits
             )
+            if node.item.identity.description.contains("apple-configuration") {
+                print("enabled traits for apple config: \(node.item.enabledTraits)")
+            }
             let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
                 .filter { !loadedManifests.keys.contains($0.identity) }
+            if node.item.identity.description.contains("apple-configuration") {
+                print("dependencies to load: \(dependenciesToLoad.map(\.identity.description))")
+            }
             try await prepopulateManagedDependencies(dependenciesToLoad)
             let dependenciesManifests = await self.loadManagedManifests(
                 for: dependenciesToLoad,
                 observabilityScope: observabilityScope
             )
+            if node.item.identity.description.contains("apple-configuration") {
+                print("dependencies manifests loaded: \(dependenciesManifests.map(\.key.description))")
+            }
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return try dependenciesRequired.compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
@@ -730,6 +740,7 @@ extension Workspace {
             dependencies.append((node.manifest, dependency, node.productFilter, fileSystem ?? self.fileSystem))
         }
 
+        // dependency manifests returned here
         return DependencyManifests(
             root: root,
             dependencies: dependencies,
@@ -962,6 +973,10 @@ extension Workspace {
             diagnostics: manifestLoadingDiagnostics,
             duration: duration
         )
+        // update enabled traits map here
+        // Look for conditionally enabled traits in the manifest.
+//        let enabledTraits = manifest.enabledTraits(using: self.enabledTraitsMap[manifest.packageIdentity])
+
         return manifest
     }
 

@@ -356,8 +356,9 @@ public struct PubGrubDependencyResolver {
                     )
                 }
 
+                    // TODO bp must update how we fetch dependencies wrt traits?
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, constraint.enabledTraits)
+                    .getUnversionedDependencies(productFilter: node.productFilter, node.enabledTraits) // TODO bp replace constraint.enabledTraits with node.enabledTraits
                 {
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
@@ -431,7 +432,7 @@ public struct PubGrubDependencyResolver {
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products,
-                    constraint.enabledTraits
+                    node.enabledTraits // TODO bp replace constraint.enabledTraits with node.enabledTraits
                 )
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)
