@@ -91,7 +91,7 @@ extension PackageRegistryCommand {
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // Require both local and user-level registries config
-            let configuration = try getRegistriesConfig(swiftCommandState, global: false).configuration
+            let configuration = try await getRegistriesConfig(swiftCommandState, global: false).configuration
 
             // validate package location
             let packageDirectory = try self.globalOptions.locations.packageDirectory ?? swiftCommandState.getPackageRoot()

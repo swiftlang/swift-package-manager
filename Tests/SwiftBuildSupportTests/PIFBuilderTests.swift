@@ -22,7 +22,7 @@ import _InternalTestSupport
 import Workspace
 
 extension PIFBuilderParameters {
-    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath) throws -> Self {
+    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath) async throws -> Self {
         self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
@@ -33,7 +33,7 @@ extension PIFBuilderParameters {
             pluginScriptRunner: DefaultPluginScriptRunner(
                 fileSystem: localFileSystem,
                 cacheDir: temporaryDirectory.appending(component: "plugin-cache-dir"),
-                toolchain: try UserToolchain.default
+                toolchain: try await UserToolchain.default()
             ),
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
@@ -45,10 +45,10 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(fromFixture fixtureName: String, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem = ObservabilitySystem.makeForTesting()
-        let workspace = try Workspace(
+        let workspace = try await Workspace.create(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
-            customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+            customManifestLoader: ManifestLoader(toolchain: try await UserToolchain.default()),
             delegate: MockWorkspaceDelegate()
         )
         let rootInput = PackageGraphRootInput(packages: [fixturePath], dependencies: [])
@@ -58,12 +58,12 @@ fileprivate func withGeneratedPIF(fromFixture fixtureName: String, do doIt: (Swi
         )
         let builder = PIFBuilder(
             graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath),
+            parameters: try await PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
         let pif = try await builder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: try await mockBuildParameters(destination: .host)
         )
         try await doIt(pif, observabilitySystem)
     }

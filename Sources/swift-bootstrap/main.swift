@@ -192,7 +192,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 self.scratchDirectory ??
                 packagePath.appending(".build")
 
-            let builder = try Builder(
+            let builder = try await Builder(
                 fileSystem: localFileSystem,
                 observabilityScope: observabilityScope,
                 logLevel: self.logLevel
@@ -224,12 +224,12 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         let observabilityScope: ObservabilityScope
         let logLevel: Basics.Diagnostic.Severity
 
-        init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) throws {
+        init(fileSystem: FileSystem, observabilityScope: ObservabilityScope, logLevel: Basics.Diagnostic.Severity) async throws {
             self.identityResolver = DefaultIdentityResolver()
             self.dependencyMapper = DefaultDependencyMapper(identityResolver: self.identityResolver)
             let environment = Environment.current
-            self.hostToolchain = try UserToolchain(
-                swiftSDK: SwiftSDK.hostSwiftSDK(
+            self.hostToolchain = try await UserToolchain.create(
+                swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(
                     environment: environment,
                     fileSystem: fileSystem
                 ),

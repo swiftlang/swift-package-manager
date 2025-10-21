@@ -20,7 +20,7 @@ struct Example {
 
         let observability = ObservabilitySystem({ print("\($0): \($1)") })
 
-        let workspace = try Workspace(forRootPackage: packagePath)
+        let workspace = try await Workspace.create(forRootPackage: packagePath)
 
         let manifest = try await workspace.loadRootManifest(at: packagePath, observabilityScope: observability.topScope)
 

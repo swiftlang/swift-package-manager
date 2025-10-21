@@ -46,9 +46,21 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         } else {
             false
         }
+        let finalProductsBuildParameters: BuildParameters
+        if let productsBuildParameters {
+            finalProductsBuildParameters = productsBuildParameters
+        } else {
+            finalProductsBuildParameters = try await self.swiftCommandState.productsBuildParameters
+        }
+        let finalToolsBuildParameters: BuildParameters
+        if let toolsBuildParameters {
+            finalToolsBuildParameters = toolsBuildParameters
+        } else {
+            finalToolsBuildParameters = try await self.swiftCommandState.toolsBuildParameters
+        }
         return try BuildOperation(
-            productsBuildParameters: try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
-            toolsBuildParameters: try toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
+            productsBuildParameters: finalProductsBuildParameters,
+            toolsBuildParameters: finalToolsBuildParameters,
             cacheBuildManifest: cacheBuildManifest,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
@@ -58,8 +70,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
                 )
             },
             pluginConfiguration: .init(
-                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
-                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                scriptRunner: try await self.swiftCommandState.getPluginScriptRunner(),
+                workDirectory: try await self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
             scratchDirectory: self.swiftCommandState.scratchDirectory,
@@ -88,9 +100,15 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
         delegate: BuildSystemDelegate?
-    ) throws -> any BuildSystem {
+    ) async throws -> any BuildSystem {
+        let finalProductsBuildParameters: BuildParameters
+        if let productsBuildParameters {
+            finalProductsBuildParameters = productsBuildParameters
+        } else {
+            finalProductsBuildParameters = try await self.swiftCommandState.productsBuildParameters
+        }
         return try XcodeBuildSystem(
-            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            buildParameters: finalProductsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
@@ -120,9 +138,15 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
         delegate: BuildSystemDelegate?
-    ) throws -> any BuildSystem {
+    ) async throws -> any BuildSystem {
+        let finalProductsBuildParameters: BuildParameters
+        if let productsBuildParameters {
+            finalProductsBuildParameters = productsBuildParameters
+        } else {
+            finalProductsBuildParameters = try await self.swiftCommandState.productsBuildParameters
+        }
         return try SwiftBuildSystem(
-            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            buildParameters: finalProductsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
                     explicitProduct: explicitProduct,
@@ -136,8 +160,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             fileSystem: self.swiftCommandState.fileSystem,
             observabilityScope: observabilityScope ?? self.swiftCommandState.observabilityScope,
             pluginConfiguration: .init(
-                scriptRunner: self.swiftCommandState.getPluginScriptRunner(),
-                workDirectory: try self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
+                scriptRunner: try await self.swiftCommandState.getPluginScriptRunner(),
+                workDirectory: try await self.swiftCommandState.getActiveWorkspace().location.pluginWorkingDirectory,
                 disableSandbox: self.swiftCommandState.shouldDisableSandbox
             ),
             delegate: delegate
