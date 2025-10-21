@@ -85,6 +85,19 @@ extension SwiftBuildSupport.PIF.Workspace {
 }
 
 extension SwiftBuildSupport.PIF.Project {
+    fileprivate func target(id: String) throws -> ProjectModel.BaseTarget {
+        let matchingTargets: [ProjectModel.BaseTarget] = underlying.targets.filter {
+            return $0.common.id.value == String(id)
+        }
+        if matchingTargets.isEmpty {
+            throw StringError("No target named \(id) in PIF project")
+        } else if matchingTargets.count > 1 {
+            throw StringError("Multiple target named \(id) in PIF project")
+        } else {
+            return matchingTargets[0]
+        }
+    }
+
     fileprivate func target(named name: String) throws -> ProjectModel.BaseTarget {
         let matchingTargets = underlying.targets.filter {
             $0.common.name == name
@@ -132,6 +145,28 @@ struct PIFBuilderTests {
             #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .linux] == ["$(inherited)", "BAR"])
             #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .macOS] == ["$(inherited)", "BAZ"])
             #expect(releaseConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, .windows] == nil)
+        }
+    }
+
+    @Test func platformCCLibrary() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem in
+            let releaseConfig = try pif.workspace
+                .project(named: "CCPackage")
+                .target(id: "PACKAGE-TARGET:CCTarget")
+                .buildConfig(named: "Release")
+
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                let ld_flags = releaseConfig.settings[.OTHER_LDFLAGS, platform]
+                if [.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd].contains(platform) {
+                     #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
+                } else if [.android, .linux, .wasi, .openbsd].contains(platform) {
+                    #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
+                } else if [.windows, ._iOSDevice].contains(platform) {
+                    #expect(ld_flags == nil, "for platform \(platform)")
+                } else {
+                    Issue.record("Unexpected platform \(platform)")
+                }
+            }
         }
     }
 

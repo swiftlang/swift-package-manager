@@ -9,7 +9,7 @@ let package = Package(
             name: "UnknownPlatforms",
             swiftSettings: [
                 .define("FOO", .when(platforms: [.custom("DoesNotExist")])),
-		.define("BAR", .when(platforms: [.linux])),
+		        .define("BAR", .when(platforms: [.linux])),
                 .define("BAZ", .when(platforms: [.macOS])),
             ],
         ),
