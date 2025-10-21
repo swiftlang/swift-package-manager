@@ -26,6 +26,9 @@ add_library(Workspace
   PackageContainer/SourceControlPackageContainer.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
+  TemplateWorkspaceUtilities/InitTemplatePackage.swift
+  TemplateWorkspaceUtilities/InitPackage.swift
+  TemplateWorkspaceUtilities/TemplateDirectoryManager.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
