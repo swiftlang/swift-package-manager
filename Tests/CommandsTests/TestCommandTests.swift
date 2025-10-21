@@ -21,6 +21,35 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
+// to delete later
+import Basics
+
+import ArgumentParserToolInfo
+@testable import Commands
+@_spi(SwiftPMInternal)
+@testable import CoreCommands
+import Foundation
+@testable import Workspace
+
+import _InternalTestSupport
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
+
+import PackageGraph
+import PackageLoading
+import SourceControl
+import SPMBuildCore
+import Testing
+import TSCUtility
+import Workspace
+
+@_spi(PackageRefactor) import SwiftRefactor
+
+import class Basics.AsyncProcess
+import class TSCBasic.BufferedOutputByteStream
+import struct TSCBasic.ByteString
+import enum TSCBasic.JSON
+
+
 @Suite(
     .serialized,  // to limit the number of swift executable running.
     .tags(
@@ -1169,4 +1198,124 @@ struct TestCommandTests {
         }
     }
 
+    @Suite(
+        .tags(
+            Tag.TestSize.large,
+            Tag.Feature.Command.Test,
+        ),
+    )
+    struct TestTemplateCommandTests {
+        @Suite(
+            .tags(
+                Tag.TestSize.small,
+                Tag.Feature.Command.Test,
+            ),
+        )
+        struct TemplateTestingDirectoryManagerTests {
+            // create directory if does not exist
+            @Test
+            func createOutputDirectory() throws {
+                try withTemporaryDirectory { tempDirectoryPath in
+                    
+                    let options = try GlobalOptions.parse(["--package-path", tempDirectoryPath.pathString])
+                    
+                    let tool = try SwiftCommandState.makeMockState(options: options)
+                    
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
+                    
+                    let outputDirectory = tempDirectoryPath.appending(component: "foo")
+                    
+                    try templateTestingDirectoryManager.createOutputDirectory(
+                        outputDirectoryPath: outputDirectory,
+                        swiftCommandState: tool
+                    )
+                    
+                    #expect(try tool.fileSystem.isDirectory(outputDirectory))
+                }
+            }
+            
+            @Test
+            func omitOutputDirectoryCreation() throws {
+                try withTemporaryDirectory { tempDirectoryPath in
+                    
+                    let options = try GlobalOptions.parse(["--package-path", tempDirectoryPath.pathString])
+                    
+                    let tool = try SwiftCommandState.makeMockState(options: options)
+                    
+                    let outputDirectory = tempDirectoryPath.appending(component: "foo")
+                    
+                    try tool.fileSystem.createDirectory(outputDirectory)
+                    
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
+                    
+                    try templateTestingDirectoryManager.createOutputDirectory(
+                        outputDirectoryPath: outputDirectory,
+                        swiftCommandState: tool
+                    )
+                    
+                    // should not throw error if the directory exists
+                    #expect(try tool.fileSystem.isDirectory(outputDirectory))
+                }
+            }
+            
+            @Test
+            func ManifestFileExistsInOutputDirectory() throws {
+                try withTemporaryDirectory { tempDirectoryPath in
+                    
+                    let options = try GlobalOptions.parse(["--package-path", tempDirectoryPath.pathString])
+                    
+                    let tool = try SwiftCommandState.makeMockState(options: options)
+                    
+                    let outputDirectory = tempDirectoryPath.appending(component: "foo")
+                    
+                    try tool.fileSystem.createDirectory(outputDirectory)
+                    
+                    tool.fileSystem.createEmptyFiles(at: outputDirectory, files: "/Package.swift")
+
+                    let templateTestingDirectoryManager = TemplateTestingDirectoryManager(
+                        fileSystem: tool.fileSystem, observabilityScope: tool.observabilityScope
+                    )
+                    
+                    #expect(throws: DirectoryManagerError.foundManifestFile(path: outputDirectory)) {
+                        try templateTestingDirectoryManager.createOutputDirectory(
+                            outputDirectoryPath: outputDirectory,
+                            swiftCommandState: tool
+                        )
+                    }
+                }
+            }
+        }
+
+        @Suite(
+            .tags(
+                Tag.TestSize.small,
+                Tag.Feature.Command.Test,
+            ),
+        )
+        struct ResolveTestTemplateName {
+            
+        }
+
+
+
+        // to be tested
+
+        /*
+
+        resolveTemplateNameInPackage
+
+        test commandFragments prompting
+
+        test dry Run
+
+
+        redirectStDoutandStDerr and deferral
+
+        End2End for this, 1 where generation errror, 1 build errorr, one thats clean
+         */
+    }
 }

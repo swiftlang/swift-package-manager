@@ -65,7 +65,7 @@ public struct TemplateInitializationDirectoryManager {
             }
 
         } catch {
-            throw DirectoryManagerError.cleanupFailed(path: temporaryDirectory, underlying: error)
+            throw DirectoryManagerError.cleanupFailed(path: temporaryDirectory)
         }
     }
 }

@@ -9,7 +9,6 @@
 add_library(Workspace
   CheckoutState.swift
   Diagnostics.swift
-  InitPackage.swift
   LoadableResult.swift
   ManagedArtifact.swift
   ManagedDependency.swift

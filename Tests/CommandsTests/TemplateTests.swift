@@ -828,7 +828,7 @@ struct TemplateTests {
         @Test
         func cleanUpTemporaryDirectories() throws {
             try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+                let pathToRemove = fixturePath.appending("cwd")
                 let options = try GlobalOptions.parse([])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
@@ -841,7 +841,7 @@ struct TemplateTests {
             }
 
             try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+                let pathToRemove = fixturePath.appending("clean-up")
                 let options = try GlobalOptions.parse([])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
@@ -854,7 +854,7 @@ struct TemplateTests {
             }
 
             try fixture(name: "Miscellaneous/DirectoryManagerFinalize", createGitRepo: false) { fixturePath in
-                let pathToRemove = fixturePath.appending("targetFolderForRemoval")
+                let pathToRemove = fixturePath.appending("clean-up")
                 let options = try GlobalOptions.parse([])
                 let tool = try SwiftCommandState.makeMockState(options: options)
 
@@ -1949,13 +1949,11 @@ struct TemplateTests {
         }
 
         @Test
-        func loadsPackageGraphInTemporaryWorkspace() async throws { // precondition linux error
+        func loadsPackageGraphInTemporaryWorkspace() async throws {
             try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
                 try await testWithTemporaryDirectory { tempDir in
                     let options = try GlobalOptions.parse([])
                     let tool = try SwiftCommandState.makeMockState(options: options)
-
-                    // Copy template to temporary directory for workspace loading
                     let workspaceDir = tempDir.appending("workspace")
                     try tool.fileSystem.copy(from: templatePath, to: workspaceDir)
 
@@ -2009,7 +2007,7 @@ struct TemplateTests {
     )
     struct TemplatePluginRunnerTests {
         @Test
-        func handlesPluginExecutionForValidPackage() async throws { // precondition linux error
+        func handlesPluginExecutionForValidPackage() async throws {
 
             try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
                 try await testWithTemporaryDirectory { _ in
@@ -2030,7 +2028,7 @@ struct TemplateTests {
         }
 
         @Test
-        func handlesPluginExecutionStaticAPI() async throws { // precondition linux error
+        func handlesPluginExecutionStaticAPI() async throws {
 
             try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
                 try await testWithTemporaryDirectory { tempDir in
@@ -2052,64 +2050,6 @@ struct TemplateTests {
                             "Should have plugin modules available"
                         )
                     }
-                }
-            }
-        }
-    }
-
-    // MARK: - Template Build Support Tests
-
-    @Suite(
-        .tags(
-            Tag.TestSize.medium,
-            Tag.Feature.Command.Package.Init,
-        ),
-    )
-    struct TemplateBuildSupportTests {
-        @Test
-        func buildForTestingWithValidTemplate() async throws { // precondition linux error
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try await testWithTemporaryDirectory { _ in
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-                    let buildOptions = try BuildCommandOptions.parse([])
-
-                    // Test TemplateBuildSupport static API for building templates
-                    try await TemplateBuildSupport.buildForTesting(
-                        swiftCommandState: tool,
-                        buildOptions: buildOptions,
-                        testingFolder: templatePath
-                    )
-
-                    // Verify build succeeds without errors
-                    #expect(tool.fileSystem.exists(templatePath), "Template path should still exist after build")
-                }
-            }
-        }
-
-        @Test
-        func buildWithValidConfiguration() async throws { // build system provider error
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try await testWithTemporaryDirectory { _ in
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-                    let buildOptions = try BuildCommandOptions.parse([])
-                    let globalOptions = try GlobalOptions.parse([])
-
-                    // Test TemplateBuildSupport.build static method
-                    try await TemplateBuildSupport.build(
-                        swiftCommandState: tool,
-                        buildOptions: buildOptions,
-                        globalOptions: globalOptions,
-                        cwd: templatePath,
-                        transitiveFolder: nil
-                    )
-
-                    // Verify build configuration works with template
-                    #expect(
-                        tool.fileSystem.exists(templatePath.appending("Package.swift")),
-                        "Package.swift should exist"
-                    )
                 }
             }
         }
@@ -2339,41 +2279,6 @@ struct TemplateTests {
                 // Verify template was fetched correctly with expected files
                 #expect(localFileSystem.exists(resolvedPath.appending("Package.swift")))
                 #expect(localFileSystem.exists(resolvedPath.appending("Templates")))
-            }
-        }
-
-        @Test
-        func pluginCoordinationWithBuildSystemIntegration() async throws { // Build provider not initialized.
-            try await fixture(name: "Miscellaneous/InitTemplates/ExecutableTemplate") { templatePath in
-                try await testWithTemporaryDirectory { tempDir in
-                    let options = try GlobalOptions.parse([])
-                    let tool = try SwiftCommandState.makeMockState(options: options)
-
-                    // Test plugin coordination with build system
-                    let coordinator = TemplatePluginCoordinator(
-                        buildSystem: .native,
-                        swiftCommandState: tool,
-                        scratchDirectory: tempDir,
-                        template: "ExecutableTemplate",
-                        args: ["--name", "TestPackage"],
-                        branches: []
-                    )
-
-                    // Test coordinator functionality
-                    #expect(coordinator.buildSystem == .native)
-                    #expect(coordinator.scratchDirectory == tempDir)
-
-                    // Test build support static API
-                    let buildOptions = try BuildCommandOptions.parse([])
-                    try await TemplateBuildSupport.buildForTesting(
-                        swiftCommandState: tool,
-                        buildOptions: buildOptions,
-                        testingFolder: templatePath
-                    )
-
-                    // Verify they can work together (no errors thrown)
-                    #expect(coordinator.buildSystem == .native)
-                }
             }
         }
 

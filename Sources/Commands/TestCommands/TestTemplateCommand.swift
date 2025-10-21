@@ -115,7 +115,7 @@ extension SwiftTestCommand {
                     swiftCommandState.options.build.buildSystem
 
                 let resolvedTemplateName: String = if self.templateName == nil {
-                    try await self.findTemplateName(from: cwd, swiftCommandState: swiftCommandState)
+                    try await self.resolveTemplateNameInPackage(from: cwd, swiftCommandState: swiftCommandState)
                 } else {
                     self.templateName!
                 }
@@ -300,7 +300,7 @@ extension SwiftTestCommand {
             }
         }
 
-        func findTemplateName(
+        func resolveTemplateNameInPackage(
             from templatePath: Basics.AbsolutePath,
             swiftCommandState: SwiftCommandState
         ) async throws -> String {

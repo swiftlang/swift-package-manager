@@ -50,20 +50,17 @@ public struct TemporaryDirectoryHelper {
 }
 
 /// Errors that can occur during directory management operations.
-public enum DirectoryManagerError: Error, CustomStringConvertible {
-    case failedToRemoveDirectory(path: Basics.AbsolutePath, underlying: Error)
+public enum DirectoryManagerError: Error, CustomStringConvertible, Equatable {
     case foundManifestFile(path: Basics.AbsolutePath)
-    case cleanupFailed(path: Basics.AbsolutePath?, underlying: Error)
+    case cleanupFailed(path: Basics.AbsolutePath?)
 
     public var description: String {
         switch self {
-        case .failedToRemoveDirectory(let path, let error):
-            return "Failed to remove directory at \(path): \(error.localizedDescription)"
         case .foundManifestFile(let path):
             return "Package.swift was found in \(path)."
-        case .cleanupFailed(let path, let error):
+        case .cleanupFailed(let path):
             let dir = path?.pathString ?? "<unknown>"
-            return "Failed to clean up directory at \(dir): \(error.localizedDescription)"
+            return "Failed to clean up directory at \(dir)"
         }
     }
 }
