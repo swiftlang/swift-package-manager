@@ -10,12 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol Basics.FileSystem
-import class Basics.ObservabilityScope
-import struct Basics.IdentifiableSet
 import OrderedCollections
 import PackageLoading
 import PackageModel
+import TSCBasic
+
+import protocol Basics.FileSystem
+import class Basics.ObservabilityScope
+import struct Basics.IdentifiableSet
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
@@ -268,7 +270,7 @@ public struct ModulesGraph {
 
         for module in rootModules where module.type == .executable {
             // Find all dependencies of this module within its package. Note that we do not traverse plugin usages.
-            let dependencies = try topologicalSort(module.dependencies, successors: {
+            let dependencies = try topologicalSortIdentifiable(module.dependencies, successors: {
                 $0.dependencies.compactMap{ $0.module }.filter{ $0.type != .plugin }.map{ .module($0, conditions: []) }
             }).compactMap({ $0.module })
 
@@ -282,6 +284,14 @@ public struct ModulesGraph {
         }
 
         return result
+    }
+
+    public func getReplProductName() throws -> String {
+        if self.rootPackages.isEmpty {
+            throw StringError("Root package does not exist.")
+        }
+        return self.rootPackages[self.rootPackages.startIndex].identity.description +
+            Product.replProductSuffix
     }
 }
 
@@ -399,12 +409,12 @@ enum GraphError: Error {
 ///
 /// - Complexity: O(v + e) where (v, e) are the number of vertices and edges
 /// reachable from the input nodes via the relation.
-func topologicalSort<T: Identifiable>(
+func topologicalSortIdentifiable<T: Identifiable>(
     _ nodes: [T], successors: (T) throws -> [T]
 ) throws -> [T] {
     // Implements a topological sort via recursion and reverse postorder DFS.
     func visit(_ node: T,
-               _ stack: inout OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
+               _ stack: inout OrderedCollections.OrderedSet<T.ID>, _ visited: inout Set<T.ID>, _ result: inout [T],
                _ successors: (T) throws -> [T]) throws {
         // Mark this node as visited -- we are done if it already was.
         if !visited.insert(node.id).inserted {
@@ -431,7 +441,7 @@ func topologicalSort<T: Identifiable>(
     // FIXME: This should use a stack not recursion.
     var visited = Set<T.ID>()
     var result = [T]()
-    var stack = OrderedSet<T.ID>()
+    var stack = OrderedCollections.OrderedSet<T.ID>()
     for node in nodes {
         precondition(stack.isEmpty)
         stack.append(node.id)
@@ -456,7 +466,7 @@ public func loadModulesGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration? = nil
+    traitConfiguration: TraitConfiguration = .default
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
@@ -468,12 +478,78 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
+
+    let manifestMap = manifests.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
+        manifestMap[manifest.packageIdentity] = manifest
+    }
+
+    // Note: The following is a copy of the existing `Workspace.precomputeTraits` method
+    func precomputeTraits(
+        _ enabledTraitsMap: EnabledTraitsMap,
+        _ topLevelManifests: [Manifest],
+        _ manifestMap: [PackageIdentity: Manifest]
+    ) throws -> [PackageIdentity: Set<String>] {
+        var visited: Set<PackageIdentity> = []
+        var enabledTraitsMap = enabledTraitsMap
+
+        func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
+            let parentTraits = enabledTraitsMap[parent.packageIdentity]
+            let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
+            let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
+
+            _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
+                return try manifestMap[dependency.identity].flatMap({ manifest in
+
+                    let explicitlyEnabledTraits = dependency.traits?.filter {
+                        guard let condition = $0.condition else { return true }
+                        return condition.isSatisfied(by: parentTraits)
+                    }.map(\.name)
+
+                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+                        let calculatedTraits = try manifest.enabledTraits(
+                            using: enabledTraitsSet,
+                            .init(parent)
+                        )
+                        enabledTraitsMap[dependency.identity] = calculatedTraits
+                    }
+
+                    let result = visited.insert(dependency.identity)
+                    if result.inserted {
+                        try dependencies(of: manifest, dependency.productFilter)
+                    }
+
+                    return manifest
+                })
+            })
+        }
+
+        for manifest in topLevelManifests {
+            // Track already-visited manifests to avoid cycles
+            let result = visited.insert(manifest.packageIdentity)
+            if result.inserted {
+                try dependencies(of: manifest)
+            }
+        }
+
+        return enabledTraitsMap.dictionaryLiteral
+    }
+
+
+    // Precompute enabled traits for roots.
+    var enabledTraitsMap: EnabledTraitsMap = [:]
+    for root in rootManifests.values {
+        let enabledTraits = try root.enabledTraits(using: traitConfiguration)
+        enabledTraitsMap[root.packageIdentity] = enabledTraits
+    }
+    enabledTraitsMap = .init(try precomputeTraits(enabledTraitsMap, manifests, manifestMap))
+
     let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
-    let graphRoot = PackageGraphRoot(
+    let graphRoot = try PackageGraphRoot(
         input: input,
         manifests: rootManifests,
         explicitProduct: explicitProduct,
-        observabilityScope: observabilityScope
+        observabilityScope: observabilityScope,
+        enabledTraitsMap: enabledTraitsMap
     )
 
     return try ModulesGraph.load(
@@ -490,6 +566,7 @@ public func loadModulesGraph(
         fileSystem: fileSystem,
         observabilityScope: observabilityScope,
         productsFilter: nil,
-        modulesFilter: nil
+        modulesFilter: nil,
+        enabledTraitsMap: enabledTraitsMap
     )
 }

@@ -15,15 +15,17 @@ import Basics
 import _Concurrency
 import CoreCommands
 import Dispatch
-
+import SPMBuildCore
 import PackageGraph
-
 import PackageModel
+import TSCBasic
+import TSCUtility
+import Workspace
 
 struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
-        abstract: "Invoke a command plugin or perform other actions on command plugins"
+        abstract: "Invoke a command plugin or perform other actions on command plugins."
     )
 
     @OptionGroup(visibility: .hidden)
@@ -31,20 +33,20 @@ struct PluginCommand: AsyncSwiftCommand {
 
     @Flag(
         name: .customLong("list"),
-        help: "List the available command plugins"
+        help: "List the available command plugins."
     )
     var listCommands: Bool = false
 
     struct PluginOptions: ParsableArguments {
         @Flag(
             name: .customLong("allow-writing-to-package-directory"),
-            help: "Allow the plugin to write to the package directory"
+            help: "Allow the plugin to write to the package directory."
         )
         var allowWritingToPackageDirectory: Bool = false
 
         @Option(
             name: .customLong("allow-writing-to-directory"),
-            help: "Allow the plugin to write to an additional directory"
+            help: "Allow the plugin to write to an additional directory."
         )
         var additionalAllowedWritableDirectories: [String] = []
 
@@ -121,7 +123,7 @@ struct PluginCommand: AsyncSwiftCommand {
 
         @Option(
             name: .customLong("package"),
-            help: "Limit available plugins to a single package with the given identity"
+            help: "Limit available plugins to a single package with the given identity."
         )
         var packageIdentity: String? = nil
     }
@@ -129,12 +131,12 @@ struct PluginCommand: AsyncSwiftCommand {
     @OptionGroup()
     var pluginOptions: PluginOptions
 
-    @Argument(help: "Verb of the command plugin to invoke")
+    @Argument(help: "Verb of the command plugin to invoke.")
     var command: String = ""
 
     @Argument(
         parsing: .captureForPassthrough,
-        help: "Arguments to pass to the command plugin"
+        help: "Arguments to pass to the command plugin."
     )
     var arguments: [String] = []
 
@@ -203,11 +205,17 @@ struct PluginCommand: AsyncSwiftCommand {
         swiftCommandState.shouldDisableSandbox = swiftCommandState.shouldDisableSandbox || pluginArguments.globalOptions.security
             .shouldDisableSandbox
 
+        let buildSystemKind =
+            pluginArguments.globalOptions.build.buildSystem != .native ?
+                pluginArguments.globalOptions.build.buildSystem :
+                swiftCommandState.options.build.buildSystem
+
         // At this point we know we found exactly one command plugin, so we run it. In SwiftPM CLI, we have only one root package.
         try await PluginCommand.run(
             plugin: matchingPlugins[0],
             package: packageGraph.rootPackages[packageGraph.rootPackages.startIndex],
             packageGraph: packageGraph,
+            buildSystem: buildSystemKind,
             options: pluginOptions,
             arguments: unparsedArguments,
             swiftCommandState: swiftCommandState
@@ -218,6 +226,7 @@ struct PluginCommand: AsyncSwiftCommand {
         plugin: ResolvedModule,
         package: ResolvedPackage,
         packageGraph: ModulesGraph,
+        buildSystem buildSystemKind: BuildSystemProvider.Kind,
         options: PluginOptions,
         arguments: [String],
         swiftCommandState: SwiftCommandState
@@ -323,11 +332,12 @@ struct PluginCommand: AsyncSwiftCommand {
         let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
             + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
-        let buildParameters = try swiftCommandState.toolsBuildParameters
+        var buildParameters = try swiftCommandState.toolsBuildParameters
+        buildParameters.buildSystemKind = buildSystemKind
+
         // Build or bring up-to-date any executable host-side tools on which this plugin depends. Add them and any binary dependencies to the tool-names-to-path map.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
-            traitConfiguration: .init(),
+            explicitBuildSystem: buildSystemKind,
             cacheBuildManifest: false,
             productsBuildParameters: swiftCommandState.productsBuildParameters,
             toolsBuildParameters: buildParameters,
@@ -338,20 +348,25 @@ struct PluginCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             environment: buildParameters.buildEnvironment,
             for: try pluginScriptRunner.hostTriple
-        ) { name, _ in
+        ) { name, path in
             // Build the product referenced by the tool, and add the executable to the tool map. Product dependencies are not supported within a package, so if the tool happens to be from the same package, we instead find the executable that corresponds to the product. There is always one, because of autogeneration of implicit executables with the same name as the target if there isn't an explicit one.
-            try await buildSystem.build(subset: .product(name, for: .host))
-            if let builtTool = try buildSystem.buildPlan.buildProducts.first(where: {
-                $0.product.name == name && $0.buildParameters.destination == .host
-            }) {
-                return try builtTool.binaryPath
+            let buildResult = try await buildSystem.build(subset: .product(name, for: .host), buildOutputs: [.buildPlan])
+
+            if let buildPlan = buildResult.buildPlan {
+                if let builtTool = buildPlan.buildProducts.first(where: {
+                    $0.product.name == name && $0.buildParameters.destination == .host
+                }) {
+                    return try builtTool.binaryPath
+                } else {
+                    return nil
+                }
             } else {
-                return nil
+                return buildParameters.buildPath.appending(path)
             }
         }
 
         // Set up a delegate to handle callbacks from the command plugin.
-        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, plugin: pluginTarget)
+        let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget)
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.

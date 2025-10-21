@@ -14,14 +14,17 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageModel
+import struct TSCBasic.StringError
 
 /// Information about a library from a binary dependency.
 public struct LibraryInfo: Equatable {
     /// The path to the binary.
-    public let libraryPath: AbsolutePath
+    public let libraryPath: Basics.AbsolutePath
 
     /// The paths to the headers directories.
-    public let headersPaths: [AbsolutePath]
+    public let headersPaths: [Basics.AbsolutePath]
+    /// The path to the module map of this library.
+    public let moduleMapPath: AbsolutePath?
 }
 
 /// Information about an executable from a binary dependency.
@@ -30,7 +33,7 @@ public struct ExecutableInfo: Equatable {
     public let name: String
 
     /// The path to the executable.
-    public let executablePath: AbsolutePath
+    public let executablePath: Basics.AbsolutePath
 
     /// Supported triples, e.g. `x86_64-apple-macosx`
     public let supportedTriples: [Triple]
@@ -53,16 +56,15 @@ extension BinaryModule {
         let libraryFile = try AbsolutePath(validating: library.libraryPath, relativeTo: libraryDir)
         let headersDirs = try library.headersPath
             .map { [try AbsolutePath(validating: $0, relativeTo: libraryDir)] } ?? [] + [libraryDir]
-        return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs)]
+        return [LibraryInfo(libraryPath: libraryFile, headersPaths: headersDirs, moduleMapPath: nil)]
     }
 
-    public func parseArtifactArchives(for triple: Triple, fileSystem: FileSystem) throws -> [ExecutableInfo] {
+    public func parseExecutableArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [ExecutableInfo] {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()
         // We return at most a single variant of each artifact.
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
-        // Currently we filter out everything except executables.
-        // TODO: Add support for libraries
+        // Filter out everything except executables.
         let executables = metadata.artifacts.filter { $0.value.type == .executable }
         // Construct an ExecutableInfo for each matching variant.
         return try executables.flatMap { entry in
@@ -81,6 +83,28 @@ extension BinaryModule {
                 )
             }
         }
+    }
+
+    public func parseLibraryArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [LibraryInfo] {
+        // The host triple might contain a version which we don't want to take into account here.
+        let versionLessTriple = try triple.withoutVersion()
+
+       return try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath).artifacts
+            .lazy
+            .filter { $0.value.type == .staticLibrary }
+            .flatMap { entry in
+                // Construct a `LibraryInfo` for each matching variant.
+                try entry.value.variants
+                    .lazy
+                    .filter { try ($0.supportedTriples ?? []).contains { try $0.withoutVersion() == versionLessTriple } }
+                    .map {
+                    return LibraryInfo(
+                        libraryPath: self.artifactPath.appending($0.path),
+                        headersPaths: $0.staticLibraryMetadata?.headerPaths.map { self.artifactPath.appending($0) } ?? [],
+                        moduleMapPath: $0.staticLibraryMetadata?.moduleMapPath.map { self.artifactPath.appending($0) }
+                    )
+                }
+            }
     }
 }
 

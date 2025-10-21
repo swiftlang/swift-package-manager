@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import SPMBuildCore
+import TSCUtility
 
 import protocol TSCBasic.OutputByteStream
 
@@ -239,7 +240,8 @@ public final class InitPackage {
                         // Products define the executables and libraries a package produces, making them visible to other packages.
                         .library(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .buildToolPlugin || packageType == .commandPlugin {
@@ -248,7 +250,8 @@ public final class InitPackage {
                         // Products can be used to vend plugins, making them visible to other packages.
                         .plugin(
                             name: "\(pkgname)",
-                            targets: ["\(pkgname)"]),
+                            targets: ["\(pkgname)"]
+                        ),
                     ]
                 """)
             } else if packageType == .macro {
@@ -297,12 +300,36 @@ public final class InitPackage {
 
                 """
                 if packageType == .executable {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .tool {
+                    let testTarget: String
+                    if !options.supportedTestingLibraries.isEmpty {
+                        testTarget = """
+                                .testTarget(
+                                    name: "\(pkgname)Tests",
+                                    dependencies: ["\(pkgname)"]
+                                ),
+                        """
+                    } else {
+                        testTarget = ""
+                    }
                     param += """
                             .executableTarget(
                                 name: "\(pkgname)",
@@ -310,6 +337,7 @@ public final class InitPackage {
                                     .product(name: "ArgumentParser", package: "swift-argument-parser"),
                                 ]
                             ),
+                    \(testTarget)
                         ]
                     """
                 } else if packageType == .buildToolPlugin {
@@ -394,7 +422,8 @@ public final class InitPackage {
 
                     param += """
                             .target(
-                                name: "\(pkgname)"),
+                                name: "\(pkgname)"
+                            ),
                     \(testTarget)
                         ]
                     """
@@ -463,6 +492,7 @@ public final class InitPackage {
 
             var content = """
                 import PackagePlugin
+                import struct Foundation.URL
 
                 @main
 
@@ -479,8 +509,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return sourceFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return sourceFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -495,8 +525,8 @@ public final class InitPackage {
                         let generatorTool = try context.tool(named: "my-code-generator")
 
                         // Construct a build command for each source file with a particular suffix.
-                        return target.inputFiles.map(\\.path).compactMap {
-                            createBuildCommand(for: $0, in: context.pluginWorkDirectory, with: generatorTool.path)
+                        return target.inputFiles.map(\\.url).compactMap {
+                            createBuildCommand(for: $0, in: context.pluginWorkDirectoryURL, with: generatorTool.url)
                         }
                     }
                 }
@@ -505,14 +535,14 @@ public final class InitPackage {
 
                 extension \(typeName) {
                     /// Shared function that returns a configured build command if the input files is one that should be processed.
-                    func createBuildCommand(for inputPath: Path, in outputDirectoryPath: Path, with generatorToolPath: Path) -> Command? {
+                    func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
                         // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
-                        guard inputPath.extension == "my-input-suffix" else { return .none }
+                        guard inputPath.pathExtension == "my-input-suffix" else { return .none }
                         
                         // Return a command that will run during the build to generate the output file.
-                        let inputName = inputPath.lastComponent
-                        let outputName = inputPath.stem + ".swift"
-                        let outputPath = outputDirectoryPath.appending(outputName)
+                        let inputName = inputPath.lastPathComponent
+                        let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
+                        let outputPath = outputDirectoryPath.appendingPathComponent(outputName)
                         return .buildCommand(
                             displayName: "Generating \\(outputName) from \\(inputName)",
                             executable: generatorToolPath,
@@ -570,21 +600,12 @@ public final class InitPackage {
         progressReporter?("Creating \(sources.relative(to: destinationPath))")
         try makeDirectories(sources)
 
-        let moduleDir: AbsolutePath
-        switch packageType {
-        case .executable, .tool:
-            moduleDir = sources
-        default:
-            moduleDir = sources.appending("\(pkgname)")
-        }
+        let moduleDir = sources.appending("\(pkgname)")
         try makeDirectories(moduleDir)
 
-        let sourceFileName: String
-        if packageType == .executable {
-            sourceFileName = "main.swift"
-        } else {
-            sourceFileName = "\(typeName).swift"
-        }
+        // If we're creating an executable we can't have both a @main declaration and a main.swift file.
+        // Handle the edge case of a user creating a project called "main" by give the generated file a different name.
+        let sourceFileName = ((packageType == .executable || packageType == .tool) && typeName == "main") ? "MainEntrypoint.swift" : "\(typeName).swift"
         let sourceFile = try AbsolutePath(validating: sourceFileName, relativeTo: moduleDir)
 
         let content: String
@@ -600,7 +621,12 @@ public final class InitPackage {
                 // The Swift Programming Language
                 // https://docs.swift.org/swift-book
 
-                print("Hello, world!")
+                @main
+                struct \(typeName) {
+                    static func main() {
+                        print("Hello, world!")
+                    }
+                }
 
                 """
         case .tool:
@@ -659,9 +685,12 @@ public final class InitPackage {
         }
 
         switch packageType {
-        case .empty, .executable, .tool, .buildToolPlugin, .commandPlugin: return
-            default: break
+        case .empty, .buildToolPlugin, .commandPlugin:
+            return
+        case .library, .executable, .tool, .macro:
+            break
         }
+
         let tests = destinationPath.appending("Tests")
         guard self.fileSystem.exists(tests) == false else {
             return
@@ -685,7 +714,6 @@ public final class InitPackage {
             content += "import XCTest\n"
         }
         content += "@testable import \(moduleName)\n"
-
 
         if options.supportedTestingLibraries.contains(.swiftTesting) {
             content += """
@@ -749,7 +777,6 @@ public final class InitPackage {
 
 
             """##
-
 
         // XCTest is only added if it was explicitly asked for, so add tests
         // for it *and* Testing if it is enabled.
@@ -873,9 +900,11 @@ public final class InitPackage {
         try makeDirectories(testModule)
 
         let testClassFile = try AbsolutePath(validating: "\(moduleName)Tests.swift", relativeTo: testModule)
+
         switch packageType {
-        case .empty, .buildToolPlugin, .commandPlugin, .executable, .tool: break
-        case .library:
+        case .empty, .buildToolPlugin, .commandPlugin:
+            break
+        case .library, .executable, .tool:
             try writeLibraryTestsFile(testClassFile)
         case .macro:
             try writeMacroTestsFile(testClassFile)

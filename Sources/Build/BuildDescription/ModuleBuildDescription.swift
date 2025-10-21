@@ -140,6 +140,14 @@ public enum ModuleBuildDescription: SPMBuildCore.ModuleBuildDescription {
         }
     }
 
+    public var diagnosticFiles: [AbsolutePath] {
+        switch self {
+        case .swift(let buildDescription):
+            buildDescription.diagnosticFiles
+        case .clang(_):
+            []
+        }
+    }
     /// Determines the arguments needed to run `swift-symbolgraph-extract` for
     /// this module.
     public func symbolGraphExtractArguments() throws -> [String] {
@@ -186,6 +194,16 @@ extension ModuleBuildDescription {
     package func recursiveDependencies(using plan: BuildPlan) -> [Dependency] {
         var dependencies: [Dependency] = []
         plan.traverseDependencies(of: self) { product, _, description in
+            dependencies.append(.product(product, description))
+        } onModule: { module, _, description in
+            dependencies.append(.module(module, description))
+        }
+        return dependencies
+    }
+
+    package func recursiveLinkDependencies(using plan: BuildPlan) -> [Dependency] {
+        var dependencies: [Dependency] = []
+        plan.traverseLinkDependencies(of: self) { product, _, description in
             dependencies.append(.product(product, description))
         } onModule: { module, _, description in
             dependencies.append(.module(module, description))

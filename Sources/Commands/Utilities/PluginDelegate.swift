@@ -25,11 +25,13 @@ import struct Basics.AsyncProcessResult
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
+    let buildSystem: BuildSystemProvider.Kind
     let plugin: PluginModule
     var lineBufferedOutput: Data
 
-    init(swiftCommandState: SwiftCommandState, plugin: PluginModule) {
+    init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
+        self.buildSystem = buildSystem
         self.plugin = plugin
         self.lineBufferedOutput = Data()
     }
@@ -167,9 +169,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
 
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
+            explicitBuildSystem: buildSystem,
             explicitProduct: explicitProduct,
-            traitConfiguration: .init(),
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
             outputStream: outputStream,
@@ -177,32 +178,22 @@ final class PluginDelegate: PluginInvocationDelegate {
         )
 
         // Run the build. This doesn't return until the build is complete.
-        let success = await buildSystem.buildIgnoringError(subset: buildSubset)
+        let result = await buildSystem.buildIgnoringError(subset: buildSubset, buildOutputs: [.builtArtifacts])
+        let success = result != nil
 
-        // Create and return the build result record based on what the delegate collected and what's in the build plan.
-        let builtProducts = try buildSystem.buildPlan.buildProducts.filter {
+        let packageGraph = try await buildSystem.getPackageGraph()
+
+        var builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
             switch subset {
             case .all(let includingTests):
-                return includingTests ? true : $0.product.type != .test
-            case .product(let name):
-                return $0.product.name == name
-            case .target(let name):
-                return $0.product.name == name
+                return true
+            case .product(let productName):
+                return name == productName
+            case .target(let targetName):
+                return name == targetName
             }
-        }
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = try builtProducts.compactMap {
-            switch $0.product.type {
-            case .library(let kind):
-                return try .init(
-                    path: $0.binaryPath.pathString,
-                    kind: (kind == .dynamic) ? .dynamicLibrary : .staticLibrary
-                )
-            case .executable:
-                return try .init(path: $0.binaryPath.pathString, kind: .executable)
-            default:
-                return nil
-            }
-        }
+        }.map(\.1)
+
         return PluginInvocationBuildResult(
             succeeded: success,
             logText: bufferedOutputStream.bytes.cString,
@@ -235,10 +226,9 @@ final class PluginDelegate: PluginInvocationDelegate {
         toolsBuildParameters.testingParameters.explicitlyEnabledTestability = true
         toolsBuildParameters.testingParameters.enableCodeCoverage = parameters.enableCodeCoverage
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            traitConfiguration: .init(),
             toolsBuildParameters: toolsBuildParameters
         )
-        try await buildSystem.build(subset: .allIncludingTests)
+        try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
@@ -398,93 +388,130 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            explicitBuildSystem: .native,
-            traitConfiguration: TraitConfiguration(enableAllTraits: true),
+            explicitBuildSystem: buildSystem,
+            enableAllTraits: true,
             cacheBuildManifest: false
         )
 
-        func lookupDescription(
-            for moduleName: String,
-            destination: BuildParameters.Destination
-        ) throws -> ModuleBuildDescription? {
-            try buildSystem.buildPlan.buildModules.first {
-                $0.module.name == moduleName && $0.buildParameters.destination == destination
+        // Build the target, if needed. We are interested in symbol graph (ideally) or a build plan.
+        let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
+
+        if let symbolGraph = buildResult.symbolGraph {
+            let path = (try swiftCommandState.productsBuildParameters.buildPath)
+            return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
+        } else if let buildPlan = buildResult.buildPlan {
+            func lookupDescription(
+                for moduleName: String,
+                destination: BuildParameters.Destination
+            ) -> ModuleBuildDescription? {
+                buildPlan.buildModules.first {
+                    $0.module.name == moduleName && $0.buildParameters.destination == destination
+                }
             }
-        }
 
-        // Build the target, if needed. This would also create a build plan.
-        try await buildSystem.build(subset: .target(targetName))
+            // FIXME: The name alone doesn't give us enough information to figure out what
+            // the destination is, this logic prefers "target" over "host" because that's
+            // historically how this was setup. Ideally we should be building for both "host"
+            // and "target" if module is configured for them but that would require changing
+            // `PluginInvocationSymbolGraphResult` to carry multiple directories.
+            let description = if let targetDescription = lookupDescription(for: targetName, destination: .target) {
+                targetDescription
+            } else if let hostDescription = lookupDescription(for: targetName, destination: .host) {
+                hostDescription
+            } else {
+                throw InternalError("could not find a target named: \(targetName)")
+            }
 
-        // FIXME: The name alone doesn't give us enough information to figure out what
-        // the destination is, this logic prefers "target" over "host" because that's
-        // historically how this was setup. Ideally we should be building for both "host"
-        // and "target" if module is configured for them but that would require changing
-        // `PluginInvocationSymbolGraphResult` to carry multiple directories.
-        let description = if let targetDescription = try lookupDescription(for: targetName, destination: .target) {
-            targetDescription
-        } else if let hostDescription = try lookupDescription(for: targetName, destination: .host) {
-            hostDescription
+            // Configure the symbol graph extractor.
+            var symbolGraphExtractor = try SymbolGraphExtract(
+                fileSystem: swiftCommandState.fileSystem,
+                tool: swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+            symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
+            switch options.minimumAccessLevel {
+            case .private:
+                symbolGraphExtractor.minimumAccessLevel = .private
+            case .fileprivate:
+                symbolGraphExtractor.minimumAccessLevel = .fileprivate
+            case .internal:
+                symbolGraphExtractor.minimumAccessLevel = .internal
+            case .package:
+                symbolGraphExtractor.minimumAccessLevel = .package
+            case .public:
+                symbolGraphExtractor.minimumAccessLevel = .public
+            case .open:
+                symbolGraphExtractor.minimumAccessLevel = .open
+            }
+            symbolGraphExtractor.skipInheritedDocs = !options.includeInheritedDocs
+            symbolGraphExtractor.includeSPISymbols = options.includeSPI
+            symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
+
+            // Determine the output directory, and remove any old version if it already exists.
+            let outputDir = description.buildParameters.dataPath.appending(
+                components: "extracted-symbols",
+                description.package.identity.description,
+                targetName
+            )
+            try swiftCommandState.fileSystem.removeFileTree(outputDir)
+
+            // Run the symbol graph extractor on the target.
+            let result = try symbolGraphExtractor.extractSymbolGraph(
+                for: description,
+                outputRedirection: .collect,
+                outputDirectory: outputDir,
+                verboseOutput: self.swiftCommandState.logLevel <= .info
+            )
+
+            guard result.exitStatus == .terminated(code: 0) else {
+                throw AsyncProcessResult.Error.nonZeroExit(result)
+            }
+
+            // Return the results to the plugin.
+            return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
         } else {
-            throw InternalError("could not find a target named: \(targetName)")
+            throw InternalError("Build system \(buildSystem) doesn't have plugin support.")
         }
-
-        // Configure the symbol graph extractor.
-        var symbolGraphExtractor = try SymbolGraphExtract(
-            fileSystem: swiftCommandState.fileSystem,
-            tool: swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
-            observabilityScope: swiftCommandState.observabilityScope
-        )
-        symbolGraphExtractor.skipSynthesizedMembers = !options.includeSynthesized
-        switch options.minimumAccessLevel {
-        case .private:
-            symbolGraphExtractor.minimumAccessLevel = .private
-        case .fileprivate:
-            symbolGraphExtractor.minimumAccessLevel = .fileprivate
-        case .internal:
-            symbolGraphExtractor.minimumAccessLevel = .internal
-        case .package:
-            symbolGraphExtractor.minimumAccessLevel = .package
-        case .public:
-            symbolGraphExtractor.minimumAccessLevel = .public
-        case .open:
-            symbolGraphExtractor.minimumAccessLevel = .open
-        }
-        symbolGraphExtractor.skipInheritedDocs = true
-        symbolGraphExtractor.includeSPISymbols = options.includeSPI
-        symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
-
-        // Determine the output directory, and remove any old version if it already exists.
-        let outputDir = description.buildParameters.dataPath.appending(
-            components: "extracted-symbols",
-            description.package.identity.description,
-            targetName
-        )
-        try swiftCommandState.fileSystem.removeFileTree(outputDir)
-
-        // Run the symbol graph extractor on the target.
-        let result = try symbolGraphExtractor.extractSymbolGraph(
-            for: description,
-            outputRedirection: .collect,
-            outputDirectory: outputDir,
-            verboseOutput: self.swiftCommandState.logLevel <= .info
-        )
-
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw AsyncProcessResult.Error.nonZeroExit(result)
-        }
-
-        // Return the results to the plugin.
-        return PluginInvocationSymbolGraphResult(directoryPath: outputDir.pathString)
     }
 }
 
 extension BuildSystem {
-    fileprivate func buildIgnoringError(subset: BuildSubset) async -> Bool {
+    fileprivate func buildIgnoringError(subset: BuildSubset, buildOutputs: [BuildOutput]) async -> BuildResult? {
         do {
-            try await self.build(subset: subset)
-            return true
+            return try await self.build(subset: subset, buildOutputs: buildOutputs)
         } catch {
-            return false
+            return nil
+        }
+    }
+}
+
+extension BuildOutput {
+    static func symbolGraph(_ options: PluginInvocationSymbolGraphOptions) -> BuildOutput {
+        return .symbolGraph(SymbolGraphOptions(
+                minimumAccessLevel: .accessLevel(options.minimumAccessLevel),
+                includeInheritedDocs: options.includeInheritedDocs,
+                includeSynthesized: options.includeSynthesized,
+                includeSPI: options.includeSPI,
+                emitExtensionBlocks: options.emitExtensionBlocks
+        ))
+    }
+}
+
+fileprivate extension BuildOutput.SymbolGraphAccessLevel {
+    static func accessLevel(_ accessLevel: PluginInvocationSymbolGraphOptions.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+        return switch accessLevel {
+        case .private:
+            .private
+        case .fileprivate:
+            .fileprivate
+        case .internal:
+            .internal
+        case .package:
+            .package
+        case .public:
+            .public
+        case .open:
+            .open
         }
     }
 }

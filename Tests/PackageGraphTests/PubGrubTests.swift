@@ -316,7 +316,7 @@ final class PubGrubTests: XCTestCase {
         let deps = try builder.create(dependencies: [
             "foo": (.versionSet(v1Range), .specific(["foo"]))
         ])
-        let result = await resolver.solve(constraints: deps, traitConfiguration: nil)
+        let result = await resolver.solve(constraints: deps)
 
         switch result {
         case .failure(let error):
@@ -1615,7 +1615,7 @@ final class PubGrubTests: XCTestCase {
             "foo": (.versionSet(v1Range), .specific(["foo"])),
             "bar": (.versionSet(v2Range), .specific(["bar"])),
         ])
-        let result = await resolver.solve(constraints: dependencies, traitConfiguration: nil)
+        let result = await resolver.solve(constraints: dependencies)
 
         AssertResult(result, [
             ("foo", .version("1.1.0")),
@@ -1660,8 +1660,7 @@ final class PubGrubTests: XCTestCase {
                 package: other
             ),
             overriddenPackages: [:],
-            root: .root(package: root),
-            traitConfiguration: nil
+            root: .root(package: root)
         )
         XCTAssertEqual(
             result,
@@ -3166,11 +3165,11 @@ public class MockContainer: PackageContainer {
         return version
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         return try getDependencies(at: version.description, productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         guard let revisionDependencies = dependencies[revision] else {
             throw _MockLoadingError.unknownRevision
         }
@@ -3184,7 +3183,7 @@ public class MockContainer: PackageContainer {
         })
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         // FIXME: This is messy, remove unversionedDeps property.
         if !unversionedDeps.isEmpty {
             return unversionedDeps
@@ -3197,11 +3196,6 @@ public class MockContainer: PackageContainer {
             self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package
-    }
-
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?) async throws -> Set<String> {
-        // FIXME: This mock does not currently support traits.
-        return []
     }
 
     func appendVersion(_ version: BoundVersion) {
@@ -3276,14 +3270,12 @@ public struct MockProvider: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
-        observabilityScope: ObservabilityScope,
-        on queue: DispatchQueue,
-        completion: @escaping (Result<PackageContainer, Error>
-    ) -> Void) {
-        queue.async {
-            completion(self.containersByIdentifier[package].map{ .success($0) } ??
-                .failure(_MockLoadingError.unknownModule))
+        observabilityScope: ObservabilityScope
+    ) async throws -> PackageContainer {
+        guard let container = self.containersByIdentifier[package] else {
+            throw _MockLoadingError.unknownModule
         }
+        return container
     }
 }
 

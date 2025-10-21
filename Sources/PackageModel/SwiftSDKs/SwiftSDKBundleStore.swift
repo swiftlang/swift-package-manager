@@ -63,11 +63,14 @@ public final class SwiftSDKBundleStore {
     /// Directory in which Swift SDKs bundles are stored.
     let swiftSDKsDirectory: AbsolutePath
 
+    /// `usr/bin` directory of the "root" toolchain that includes this currently running SwiftPM instance.
+    let hostToolchainBinDir: AbsolutePath
+
     /// File system instance used for reading from and writing to SDK bundles stored on it.
     let fileSystem: any FileSystem
 
     /// Observability scope used for logging.
-    private let observabilityScope: ObservabilityScope
+    let observabilityScope: ObservabilityScope
 
     /// Closure invoked for output produced by this store during its operation.
     private let outputHandler: (Output) -> Void
@@ -77,12 +80,14 @@ public final class SwiftSDKBundleStore {
 
     public init(
         swiftSDKsDirectory: AbsolutePath,
+        hostToolchainBinDir: AbsolutePath,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (Output) -> Void,
         downloadProgressAnimation: ProgressAnimationProtocol? = nil
     ) {
         self.swiftSDKsDirectory = swiftSDKsDirectory
+        self.hostToolchainBinDir = hostToolchainBinDir
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.outputHandler = outputHandler
@@ -94,7 +99,7 @@ public final class SwiftSDKBundleStore {
         get throws {
             // Get absolute paths to available Swift SDK bundles.
             try self.fileSystem.getDirectoryContents(swiftSDKsDirectory).filter {
-                $0.hasSuffix(BinaryModule.Kind.artifactsArchive.fileExtension)
+                $0.hasSuffix(BinaryModule.Kind.artifactsArchive(types: []).fileExtension)
             }.map {
                 self.swiftSDKsDirectory.appending(components: [$0])
             }.compactMap {
@@ -370,9 +375,13 @@ public final class SwiftSDKBundleStore {
             var variants = [SwiftSDKBundle.Variant]()
 
             for variantMetadata in artifactMetadata.variants {
-                let variantConfigurationPath = bundlePath
+                var variantConfigurationPath = bundlePath
                     .appending(variantMetadata.path)
-                    .appending("swift-sdk.json")
+
+                if variantConfigurationPath.extension != ".json" &&
+                        self.fileSystem.isDirectory(variantConfigurationPath) {
+                    variantConfigurationPath = variantConfigurationPath.appending("swift-sdk.json")
+                }
 
                 guard self.fileSystem.exists(variantConfigurationPath) else {
                     self.observabilityScope.emit(
@@ -390,7 +399,9 @@ public final class SwiftSDKBundleStore {
 
                 do {
                     let swiftSDKs = try SwiftSDK.decode(
-                        fromFile: variantConfigurationPath, fileSystem: fileSystem,
+                        fromFile: variantConfigurationPath,
+                        hostToolchainBinDir: self.hostToolchainBinDir,
+                        fileSystem: fileSystem,
                         observabilityScope: observabilityScope
                     )
 

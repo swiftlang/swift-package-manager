@@ -10,6 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+import PackageGraph
+import PackageLoading
+import SPMBuildCore
+
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import class PackageModel.SwiftModule
@@ -25,7 +30,8 @@ extension BuildPlan {
             case is SwiftModule:
                 if case let .swift(dependencyTargetDescription)? = description {
                     if let moduleMap = dependencyTargetDescription.moduleMap {
-                        clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMap.pathString)"]
+                        // C languages clients should either import the module or include the compatibility header next to it.
+                        clangTarget.additionalFlags += ["-I", moduleMap.dirname]
                     }
                 }
 
@@ -43,7 +49,22 @@ extension BuildPlan {
                 clangTarget.additionalFlags += ["-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 clangTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryModule:
-                if case .xcframework = target.kind {
+                switch target.kind {
+                case .unknown:
+                    break
+                case .artifactsArchive:
+                    let libraries = try self.parseLibraryArtifactsArchive(for: target, triple: clangTarget.buildParameters.triple)
+                    for library in libraries {
+                        library.headersPaths.forEach {
+                            clangTarget.additionalFlags += ["-I", $0.pathString]
+                        }
+                        if let moduleMapPath = library.moduleMapPath {
+                            clangTarget.additionalFlags += ["-fmodule-map-file=\(moduleMapPath)"]
+                        }
+
+                        clangTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+                case .xcframework:
                     let libraries = try self.parseXCFramework(for: target, triple: clangTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
@@ -52,9 +73,9 @@ extension BuildPlan {
                         clangTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }
+
             default: continue
             }
         }
     }
-
 }

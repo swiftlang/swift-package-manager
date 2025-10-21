@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 @available(*, deprecated, renamed: "PluginModule")
 public typealias PluginTarget = PluginModule
 
@@ -43,7 +45,8 @@ public final class PluginModule: Module {
             buildSettings: .init(),
             buildSettingsDescription: [],
             pluginUsages: [],
-            usesUnsafeFlags: false
+            usesUnsafeFlags: false,
+            implicit: false
         )
     }
 }

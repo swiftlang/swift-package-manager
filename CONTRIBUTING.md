@@ -88,7 +88,47 @@ $> swift --version
 Apple Swift version 5.3
 ```
 
-Note: Alternatively use tools like [swiftenv](https://github.com/kylef/swiftenv) that help manage toolchains versions.
+Alternatively, there are tools like [swiftly](https://github.com/swiftlang/swiftly) that can install and manage toolchains automatically. This repository has a file called `.swift-version` that will keep swiftly at the current recommended version of the toolchain for best results. The `swiftly install` command ensures that SwiftPM's in-use toolchain is installed on your system and ready for you to do your development work with the usual swift commands.
+
+```bash
+swiftly install
+swift build
+swift test
+```
+
+## Developing in the Linux devcontainer
+
+SwiftPM includes a devcontainer configuration that allows you to develop in a containerized environment with VS Code. This approach provides a consistent development environment with all necessary dependencies pre-installed, regardless of your host operating system.
+
+### Prerequisites
+
+1. Install [Visual Studio Code](https://code.visualstudio.com/)
+2. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) for VS Code
+3. Install [Docker](https://www.docker.com/products/docker-desktop/) on your system
+
+### Opening the Project in a Container
+
+1. Clone the SwiftPM repository (if you haven't already)
+2. Open the SwiftPM folder in VS Code
+3. VS Code will detect the devcontainer configuration and prompt you to "Reopen in Container". Click this button to start building and opening the container
+   - Alternatively, you can press `F1`, type "Dev Containers: Reopen in Container", and press Enter
+4. Wait for the container to build and initialize (this may take a few minutes the first time)
+
+### What's Included in the Dev Container
+
+The SwiftPM devcontainer is based on the `swiftlang/swift:nightly-main` Docker image and includes:
+
+- Swift nightly build from the main branch
+- Git
+- Common development utilities
+- VS Code Swift extension for syntax highlighting and language support
+- Debugging support with LLDB
+
+### Building and Testing in the Container
+
+Once you've opened the project in VS Code, choose `> Dev Containers: Build and Reopen in Container` from the command pallete. Once the container finishes building it will open and you can develop as if you are on Linux using VS Code.
+
+All the commands described in the "Local Development" section below will work in the container environment.
 
 ## Local Development
 
@@ -322,19 +362,22 @@ Note there are several Linux and Swift versions options to choose from, e.g.:
 2. Clone a working copy of your fork
 3. Create a new branch
 4. Make your code changes
-5. Try to keep your changes (when possible) below 200 lines of code.
-6. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
-7. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
-8. Push the commit / branch to your fork
-9. Make a PR from your fork / branch to `apple: main`
-10. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
-11. Reviewers are going to be automatically added to your PR
-12. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
+5. If a particular version of the Swift toolchain is needed then update the `.swift-version` file to that version (or use `swiftly use` to update it).
+6. Try to keep your changes (when possible) below 200 lines of code.
+7. We use [SwiftFormat](https://www.github.com/nicklockwood/SwiftFormat) to enforce code style. Please install and run SwiftFormat before submitting your PR, ideally isolating formatting changes only to code changed for the original goal of the PR. This will keep the PR diff smaller.
+8. Commit (include the Radar link or GitHub issue id in the commit message if possible and a description your changes). Try to have only 1 commit in your PR (but, of course, if you add changes that can be helpful to be kept aside from the previous commit, make a new commit for them).
+9. Push the commit / branch to your fork
+10. Make a PR from your fork / branch to `apple: main`
+11. While creating your PR, make sure to follow the PR Template providing information about the motivation and highlighting the changes.
+12. Reviewers are going to be automatically added to your PR
+13. Pull requests will be merged by the maintainers after it passes CI testing and receives approval from one or more reviewers. Merge timing may be impacted by release schedule considerations.
 
 By submitting a pull request, you represent that you have the right to license
 your contribution to Apple and the community, and agree by submitting the patch
 that your contributions are licensed under the [Swift
 license](https://swift.org/LICENSE.txt).
+
+After a change is known not to cause regressions in the `main` branch, it may be considered for cherry-picking to the latest release branch depending on the release schedule. Cherry-picks require [a specific template to be followed](https://github.com/swiftlang/.github/blob/main/PULL_REQUEST_TEMPLATE/release.md) in PR description that consolidates information about the change necessary for inclusion in the release branch and provides risk evaluation for nominating the change.
 
 ## Continuous Integration
 

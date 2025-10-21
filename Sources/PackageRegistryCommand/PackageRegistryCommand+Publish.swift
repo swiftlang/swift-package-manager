@@ -16,6 +16,7 @@ import Commands
 import CoreCommands
 import Foundation
 import PackageModel
+import PackageFingerprint
 import PackageRegistry
 import PackageSigning
 import Workspace
@@ -37,7 +38,7 @@ extension PackageRegistryCommand {
         static let metadataFilename = "package-metadata.json"
 
         static let configuration = CommandConfiguration(
-            abstract: "Publish to a registry"
+            abstract: "Publish to a registry."
         )
 
         @OptionGroup(visibility: .hidden)
@@ -82,7 +83,7 @@ extension PackageRegistryCommand {
         )
         var certificateChainPaths: [AbsolutePath] = []
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL.")
         var allowInsecureHTTP: Bool = false
 
         @Flag(help: "Dry run only; prepare the archive and sign it but do not publish to the registry.")

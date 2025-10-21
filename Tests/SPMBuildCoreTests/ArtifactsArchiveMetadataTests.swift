@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,10 +12,11 @@
 
 import Basics
 import PackageModel
-import XCTest
+import Testing
 
-final class ArtifactsArchiveMetadataTests: XCTestCase {
-    func testParseMetadata() throws {
+struct ArtifactsArchiveMetadataTests {
+    @Test
+    func parseMetadata() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
             "/info.json",
@@ -43,7 +44,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-        XCTAssertEqual(metadata, try ArtifactsArchiveMetadata(
+        let expected = try ArtifactsArchiveMetadata(
             schemaVersion: "1.0",
             artifacts: [
                 "protocol-buffer-compiler": ArtifactsArchiveMetadata.Artifact(
@@ -61,9 +62,12 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
                     ]
                 ),
             ]
-        ))
+        )
+        #expect(metadata == expected, "Actual is not as expected")
     }
-    func testParseMetadataWithoutSupportedTriple() throws {
+
+    @Test
+    func parseMetadataWithoutSupportedTriple() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
             "/info.json",
@@ -90,7 +94,7 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
         )
 
         let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-        XCTAssertEqual(metadata, ArtifactsArchiveMetadata(
+        let expected = ArtifactsArchiveMetadata(
             schemaVersion: "1.0",
             artifacts: [
                 "protocol-buffer-compiler": ArtifactsArchiveMetadata.Artifact(
@@ -108,16 +112,17 @@ final class ArtifactsArchiveMetadataTests: XCTestCase {
                     ]
                 ),
             ]
-        ))
+        )
+        #expect(metadata == expected, "Actual is not as expected")
 
         let binaryTarget = BinaryModule(
-            name: "protoc", kind: .artifactsArchive, path: .root, origin: .local
+            name: "protoc", kind: .artifactsArchive(types: [.executable]), path: .root, origin: .local
         )
         // No supportedTriples with binaryTarget should be rejected
-        XCTAssertThrowsError(
-            try binaryTarget.parseArtifactArchives(
+        #expect(throws: (any Error).self) {
+            try binaryTarget.parseExecutableArtifactArchives(
                 for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
             )
-        )
+        }
     }
 }

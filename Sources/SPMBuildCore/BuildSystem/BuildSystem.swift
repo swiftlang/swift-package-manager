@@ -13,6 +13,8 @@
 import Basics
 import PackageGraph
 
+import enum PackageModel.TraitConfiguration
+
 import protocol TSCBasic.OutputByteStream
 
 /// An enum representing what subset of the package to build.
@@ -32,6 +34,45 @@ public enum BuildSubset {
     case target(String, for: BuildParameters.Destination? = .none)
 }
 
+/// Represents possible extra build outputs for a build. Some build systems
+/// can produce certain extra outputs in the process of building. Not all
+/// build systems can produce all possible build outputs. Check the build
+/// result for indication that the output was produced.
+public enum BuildOutput: Equatable {
+    public enum SymbolGraphAccessLevel: String {
+        case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
+    }
+    public struct SymbolGraphOptions: Equatable {
+        public var prettyPrint: Bool
+        public var minimumAccessLevel: SymbolGraphAccessLevel
+        public var includeInheritedDocs: Bool
+        public var includeSynthesized: Bool
+        public var includeSPI: Bool
+        public var emitExtensionBlocks: Bool
+
+        public init(
+            prettyPrint: Bool = false,
+            minimumAccessLevel: SymbolGraphAccessLevel,
+            includeInheritedDocs: Bool,
+            includeSynthesized: Bool,
+            includeSPI: Bool,
+            emitExtensionBlocks: Bool
+        ) {
+            self.prettyPrint = prettyPrint
+            self.minimumAccessLevel = minimumAccessLevel
+            self.includeInheritedDocs = includeInheritedDocs
+            self.includeSynthesized = includeSynthesized
+            self.includeSPI = includeSPI
+            self.emitExtensionBlocks = emitExtensionBlocks
+        }
+    }
+
+    case symbolGraph(SymbolGraphOptions)
+    case buildPlan
+    case replArguments
+    case builtArtifacts
+}
+
 /// A protocol that represents a build system used by SwiftPM for all build operations. This allows factoring out the
 /// implementation details between SwiftPM's `BuildOperation` and the Swift Build backed `SwiftBuildSystem`.
 public protocol BuildSystem: Cancellable {
@@ -47,17 +88,58 @@ public protocol BuildSystem: Cancellable {
 
     /// Builds a subset of the package graph.
     /// - Parameters:
-    ///   - subset: The subset of the package graph to build.
-    func build(subset: BuildSubset) async throws
+    ///   - buildOutputs: Additional build outputs requested from the build system.
+    /// - Returns: A build result with details about requested build and outputs.
+    @discardableResult
+    func build(subset: BuildSubset, buildOutputs: [BuildOutput]) async throws -> BuildResult
 
-    var buildPlan: BuildPlan { get throws }
+    var hasIntegratedAPIDigesterSupport: Bool { get }
+
+    func generatePIF(preserveStructure: Bool) async throws -> String
 }
 
 extension BuildSystem {
-    /// Builds the default subset: all targets excluding tests.
-    public func build() async throws {
-        try await build(subset: .allExcludingTests)
+    /// Builds the default subset: all targets excluding tests with no extra build outputs.
+    @discardableResult
+    public func build() async throws -> BuildResult {
+        try await build(subset: .allExcludingTests, buildOutputs: [])
     }
+}
+
+public struct SymbolGraphResult {
+    public init(outputLocationForTarget: @escaping (String, BuildParameters) -> [String]) {
+        self.outputLocationForTarget = outputLocationForTarget
+    }
+
+    /// Find the build path relative location of the symbol graph output directory
+    /// for a provided target and build parameters. Note that the directory may not
+    /// exist when the target doesn't have any symbol graph output, as one example.
+    public let outputLocationForTarget: (String, BuildParameters) -> [String]
+}
+
+public typealias CLIArguments = [String]
+
+public struct BuildResult {
+    package init(
+        serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>,
+        symbolGraph: SymbolGraphResult? = nil,
+        buildPlan: BuildPlan? = nil,
+        replArguments: CLIArguments?,
+        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil
+    ) {
+        self.serializedDiagnosticPathsByTargetName = serializedDiagnosticPathsByTargetName
+        self.symbolGraph = symbolGraph
+        self.buildPlan = buildPlan
+        self.replArguments = replArguments
+        self.builtArtifacts = builtArtifacts
+    }
+    
+    public let replArguments: CLIArguments?
+    public let symbolGraph: SymbolGraphResult?
+    public let buildPlan: BuildPlan?
+
+    public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
+    public var builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
 }
 
 public protocol ProductBuildDescription {
@@ -90,6 +172,10 @@ public protocol ModuleBuildDescription {
     /// The build parameters.
     var buildParameters: BuildParameters { get }
 
+    /// The diagnostic file locations for all the source files
+    /// associated with this module.
+    var diagnosticFiles: [AbsolutePath] { get }
+
     /// FIXME: This shouldn't be necessary and ideally
     /// there should be a way to ask build system to
     /// introduce these arguments while building for symbol
@@ -115,14 +201,15 @@ public protocol BuildPlan {
 public protocol BuildSystemFactory {
     func makeBuildSystem(
         explicitProduct: String?,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool,
         cacheBuildManifest: Bool,
         productsBuildParameters: BuildParameters?,
         toolsBuildParameters: BuildParameters?,
         packageGraphLoader: (() async throws -> ModulesGraph)?,
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
-        observabilityScope: ObservabilityScope?
+        observabilityScope: ObservabilityScope?,
+        delegate: BuildSystemDelegate?
     ) async throws -> any BuildSystem
 }
 
@@ -143,28 +230,30 @@ public struct BuildSystemProvider {
     public func createBuildSystem(
         kind: Kind,
         explicitProduct: String? = .none,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool = false,
         cacheBuildManifest: Bool = true,
         productsBuildParameters: BuildParameters? = .none,
         toolsBuildParameters: BuildParameters? = .none,
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
         }
         return try await buildSystemFactory.makeBuildSystem(
             explicitProduct: explicitProduct,
-            traitConfiguration: traitConfiguration,
+            enableAllTraits: enableAllTraits,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
     }
 }

@@ -2,91 +2,100 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2021 Apple Inc. and the Swift project authors
+// Copyright (c) 2021-2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
-import XCTest
+import Testing
 
-final class EnvironmentKeyTests: XCTestCase {
-    func test_comparable() {
+struct EnvironmentKeyTests {
+    @Test
+    func comparable() {
         let key0 = EnvironmentKey("Test")
         let key1 = EnvironmentKey("Test1")
-        XCTAssertLessThan(key0, key1)
+        #expect(key0 < key1)
 
         let key2 = EnvironmentKey("test")
-        XCTAssertLessThan(key0, key2)
+        #expect(key0 < key2)
     }
 
-    func test_customStringConvertible() {
+    @Test
+    func customStringConvertible() {
         let key = EnvironmentKey("Test")
-        XCTAssertEqual(key.description, "Test")
+        #expect(key.description == "Test")
     }
 
-    func test_encodable() throws {
+    @Test
+    func encodable() throws {
         let key = EnvironmentKey("Test")
         let data = try JSONEncoder().encode(key)
         let string = String(data: data, encoding: .utf8)
-        XCTAssertEqual(string, #""Test""#)
+        #expect(string == #""Test""#)
     }
 
-    func test_equatable() {
+    @Test
+    func equatable() {
         let key0 = EnvironmentKey("Test")
         let key1 = EnvironmentKey("Test")
-        XCTAssertEqual(key0, key1)
+        #expect(key0 == key1)
 
         let key2 = EnvironmentKey("Test2")
-        XCTAssertNotEqual(key0, key2)
+        #expect(key0 != key2)
 
         #if os(Windows)
         // Test case insensitivity on windows
         let key3 = EnvironmentKey("teSt")
-        XCTAssertEqual(key0, key3)
+            #expect(key0 == key3)
         #endif
     }
 
-    func test_expressibleByStringLiteral() {
+    @Test
+    func expressibleByStringLiteral() {
         let key0 = EnvironmentKey("Test")
-        XCTAssertEqual(key0, "Test")
+        #expect(key0 == "Test")
     }
 
-    func test_decodable() throws {
+    @Test
+    func decodable() throws {
         let jsonString = #""Test""#
         let data = jsonString.data(using: .utf8)!
         let key = try JSONDecoder().decode(EnvironmentKey.self, from: data)
-        XCTAssertEqual(key.rawValue, "Test")
+        #expect(key.rawValue == "Test")
     }
 
-    func test_hashable() {
+    @Test
+    func hashable() {
         var set = Set<EnvironmentKey>()
         let key0 = EnvironmentKey("Test")
-        XCTAssertTrue(set.insert(key0).inserted)
+        #expect(set.insert(key0).inserted)
 
         let key1 = EnvironmentKey("Test")
-        XCTAssertTrue(set.contains(key1))
-        XCTAssertFalse(set.insert(key1).inserted)
+        #expect(set.contains(key1))
+        #expect(!set.insert(key1).inserted)
 
         let key2 = EnvironmentKey("Test2")
-        XCTAssertFalse(set.contains(key2))
-        XCTAssertTrue(set.insert(key2).inserted)
+        #expect(!set.contains(key2))
+        #expect(set.insert(key2).inserted)
 
         #if os(Windows)
         // Test case insensitivity on windows
         let key3 = EnvironmentKey("teSt")
-        XCTAssertTrue(set.contains(key3))
-        XCTAssertFalse(set.insert(key3).inserted)
+            #expect(set.contains(key3))
+            #expect(!set.insert(key3).inserted)
         #endif
 
-        XCTAssertEqual(set, ["Test", "Test2"])
+        #expect(set == ["Test", "Test2"])
     }
 
-    func test_rawRepresentable() {
+    @Test
+    func rawRepresentable() {
         let key = EnvironmentKey(rawValue: "Test")
-        XCTAssertEqual(key?.rawValue, "Test")
+        #expect(key?.rawValue == "Test")
     }
 }

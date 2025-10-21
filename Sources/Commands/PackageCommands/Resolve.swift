@@ -11,33 +11,31 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
 import TSCUtility
+import Workspace
 
-import struct PackageGraph.TraitConfiguration
+import enum PackageModel.TraitConfiguration
 
 extension SwiftPackageCommand {
     struct ResolveOptions: ParsableArguments {
-        @Option(help: "The version to resolve at", transform: { Version($0) })
+        @Option(help: "The version to resolve at.", transform: { Version($0) })
         var version: Version?
 
-        @Option(help: "The branch to resolve at")
+        @Option(help: "The branch to resolve at.")
         var branch: String?
 
-        @Option(help: "The revision to resolve at")
+        @Option(help: "The revision to resolve at.")
         var revision: String?
 
-        @Argument(help: "The name of the package to resolve")
+        @Argument(help: "The name of the package to resolve.")
         var packageName: String?
-
-        /// Specifies the traits to build.
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
     }
 
     struct Resolve: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Resolve package dependencies")
+            abstract: "Resolve package dependencies.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -48,10 +46,10 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // If a package is provided, use that to resolve the dependencies.
             if let packageName = resolveOptions.packageName {
-                let workspace = try swiftCommandState.getActiveWorkspace(traitConfiguration: .init(traitOptions: resolveOptions.traits))
+                let workspace = try swiftCommandState.getActiveWorkspace()
                 try await workspace.resolve(
                     packageName: packageName,
-                    root: swiftCommandState.getWorkspaceRoot(traitConfiguration: .init(traitOptions: resolveOptions.traits)),
+                    root: swiftCommandState.getWorkspaceRoot(),
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,
@@ -62,7 +60,7 @@ extension SwiftPackageCommand {
                 }
             } else {
                 // Otherwise, run a normal resolve.
-                try await swiftCommandState.resolve(.init(traitOptions: resolveOptions.traits))
+                try await swiftCommandState.resolve()
             }
         }
     }
@@ -70,7 +68,7 @@ extension SwiftPackageCommand {
     struct Fetch: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(shouldDisplay: false)
 
-        @OptionGroup(visibility: .hidden)
+        @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
 
         @OptionGroup()

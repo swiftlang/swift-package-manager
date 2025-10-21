@@ -31,11 +31,11 @@ Please use [this guide](https://www.swift.org/documentation/package-manager/) fo
 
 For Quick Help use the `swift package --help` command.
 
-For documentation on using Swift Package Manager, creating packages, and more, see the [documentation directory](Documentation/README.md).
+For documentation on using Swift Package Manager, creating packages, and more, see the [Package Manager Docs](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs).
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](CONTRIBUTING.md).
 
-For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/package-manager/PackageDescription/index.html).
+For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/swiftpm/documentation/packagedescription).
 
 For release notes with information about changes between versions, see the [release notes](Documentation/ReleaseNotes).
 
@@ -83,7 +83,7 @@ If you’re not comfortable sharing your question with the list, contact details
 
 ## License
 
-Copyright 2015 - 2024 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
+Copyright 2015 - 2025 Apple Inc. and the Swift project authors. Licensed under Apache License v2.0 with Runtime Library Exception.
 
 See [https://swift.org/LICENSE.txt](https://swift.org/LICENSE.txt) for license information.
 

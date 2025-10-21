@@ -18,6 +18,7 @@ project(SwiftPM LANGUAGES C Swift)
 
 option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
 option(FIND_PM_DEPS "Search for all external Package Manager dependencies" YES)
+option(SwiftPM_ENABLE_RUNTIME "Build the runtime" YES)
 
 set(CMAKE_Swift_LANGUAGE_VERSION 5)
 set(CMAKE_Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/swift)
@@ -45,6 +46,7 @@ if(FIND_PM_DEPS)
   find_package(SwiftASN1 CONFIG REQUIRED)
   find_package(SwiftCertificates CONFIG REQUIRED)
   find_package(SwiftCrypto CONFIG REQUIRED)
+  find_package(SwiftBuild CONFIG REQUIRED)
 endif()
 
 find_package(dispatch QUIET)
@@ -52,10 +54,9 @@ find_package(Foundation QUIET)
 find_package(SQLite3 REQUIRED)
 
 # Enable `package` modifier for the whole package.
+add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:SHELL:-package-name swift_package_manager>")
 if(CMAKE_SYSTEM_NAME STREQUAL FreeBSD)
-  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>" -L/usr/local/lib)
-else()
-  add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-package-name;SwiftPM>")
+  link_directories(/usr/local/lib)
 endif()
 
 add_subdirectory(BuildSupport/SwiftSyntax)

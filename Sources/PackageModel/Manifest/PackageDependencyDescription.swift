@@ -20,7 +20,7 @@ import struct TSCUtility.Version
 /// Represents a package dependency.
 public enum PackageDependency: Equatable, Hashable, Sendable {
     /// A struct representing an enabled trait of a dependency.
-    package struct Trait: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
+    public struct Trait: Hashable, Sendable, Codable, ExpressibleByStringLiteral {
         /// A condition that limits the application of a dependencies trait.
         package struct Condition: Hashable, Sendable, Codable {
             /// The set of traits of this package that enable the dependency's trait.
@@ -28,6 +28,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
 
             public init(traits: Set<String>?) {
                 self.traits = traits
+            }
+
+            public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
+                guard let traits else { return true }
+                return !traits.intersection(enabledTraits).isEmpty
             }
         }
 
@@ -67,6 +72,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 name: name,
                 condition: condition
             )
+        }
+
+        // represents `.defaults`
+        public var isDefaultsCase: Bool {
+            name == "default" && condition == nil
         }
     }
 

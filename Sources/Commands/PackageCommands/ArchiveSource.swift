@@ -13,13 +13,15 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import PackageGraph
+import PackageModel
 import SourceControl
 
 extension SwiftPackageCommand {
     struct ArchiveSource: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "archive-source",
-            abstract: "Create a source archive for the package"
+            abstract: "Create a source archive for the package."
         )
 
         @OptionGroup(visibility: .hidden)
@@ -27,7 +29,7 @@ extension SwiftPackageCommand {
 
         @Option(
             name: [.short, .long],
-            help: "The absolute or relative path for the generated source archive"
+            help: "The absolute or relative path for the generated source archive."
         )
         var output: AbsolutePath?
 

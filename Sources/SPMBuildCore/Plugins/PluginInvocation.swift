@@ -686,8 +686,14 @@ fileprivate func collectAccessibleTools(
         // For a binary target we create a `vendedTool`.
         if let module = executableOrBinaryModule as? BinaryModule {
             // TODO: Memoize this result for the host triple
-            let execInfos = try module.parseArtifactArchives(for: hostTriple, fileSystem: fileSystem)
-            return try execInfos.map{ .vendedTool(name: $0.name, path: $0.executablePath, supportedTriples: try $0.supportedTriples.map{ try $0.withoutVersion().tripleString }) }
+            let execInfos = try module.parseExecutableArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+            return try execInfos.map {
+                .vendedTool(
+                    name: $0.name,
+                    path: $0.executablePath,
+                    supportedTriples: try $0.supportedTriples.map { try $0.withoutVersion().tripleString }
+                )
+            }
         }
         // For an executable target we create a `builtTool`.
         else if executableOrBinaryModule.type == .executable {
@@ -948,6 +954,7 @@ public struct PluginInvocationSymbolGraphOptions {
     public enum AccessLevel: String {
         case `private`, `fileprivate`, `internal`, `package`, `public`, `open`
     }
+    public var includeInheritedDocs: Bool
     public var includeSynthesized: Bool
     public var includeSPI: Bool
     public var emitExtensionBlocks: Bool
@@ -1213,6 +1220,7 @@ fileprivate extension HostToPluginMessage.TestResult.TestTarget.TestCase.Test.Re
 fileprivate extension PluginInvocationSymbolGraphOptions {
     init(_ options: PluginToHostMessage.SymbolGraphOptions) {
         self.minimumAccessLevel = .init(options.minimumAccessLevel)
+        self.includeInheritedDocs = options.includeInheritedDocs ?? true
         self.includeSynthesized = options.includeSynthesized
         self.includeSPI = options.includeSPI
         self.emitExtensionBlocks = options.emitExtensionBlocks

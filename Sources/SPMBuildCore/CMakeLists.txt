@@ -9,6 +9,7 @@
 add_library(SPMBuildCore
   BinaryTarget+Extensions.swift
   BuildParameters/BuildParameters.swift
+  BuildParameters/BuildParameters+APIDigester.swift
   BuildParameters/BuildParameters+Debugging.swift
   BuildParameters/BuildParameters+Driver.swift
   BuildParameters/BuildParameters+Linking.swift
@@ -17,6 +18,7 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystem.swift
   BuildSystem/BuildSystemCommand.swift
   BuildSystem/BuildSystemDelegate.swift
+  BuildSystem/DiagnosticsCapturingBuildSystemDelegate.swift
   BuiltTestProduct.swift
   Plugins/DefaultPluginScriptRunner.swift
   Plugins/PluginContextSerializer.swift
@@ -24,6 +26,7 @@ add_library(SPMBuildCore
   Plugins/PluginMessages.swift
   Plugins/PluginScriptRunner.swift
   CommandPluginResult.swift
+  MainAttrDetection.swift
   ResolvedPackage+Extensions.swift
   Triple+Extensions.swift
   XCFrameworkMetadata.swift

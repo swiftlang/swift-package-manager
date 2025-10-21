@@ -98,6 +98,30 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
         XCTAssertEqual(manifest.targets[0].pluginCapability, .buildTool)
     }
 
+    func testPluginTargetRequiresPluginCapability() async throws {
+        let content = """
+        import PackageDescription
+        var fwPluginTarget = Target.plugin(
+            name: "quarter",
+            capability: .buildTool
+        )
+        fwPluginTarget.pluginCapability = nil
+        let package = Package(name: "foo", targets: [fwPluginTarget])
+        """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        await XCTAssertAsyncThrowsError(
+            try await loadAndValidateManifest(
+                content, observabilityScope: observability.topScope
+            ), "expected error"
+        ) { error in
+            XCTAssertEqual(
+                error.localizedDescription,
+                "plugin target 'quarter' must define a plugin capability"
+            )
+        }
+    }
+
     func testPluginTargetCustomization() async throws {
         let content = """
             import PackageDescription
@@ -216,9 +240,7 @@ final class PackageDescription5_6LoadingTests: PackageDescriptionLoadingTests {
 
     /// Tests access to the package's directory contents.
     func testPackageContextDirectory() async throws {
-        #if os(Windows)
-        throw XCTSkip("Skipping since this tests does not fully work without the VFS overlay which is currently disabled on Windows")
-        #endif
+        try XCTSkipOnWindows(because: "Skipping since this tests does not fully work without the VFS overlay which is currently disabled on Windows")
 
         let content = """
             import PackageDescription

@@ -19,7 +19,7 @@ import Basics
 import Build
 import PackageGraph
 internal import PackageLoading
-internal import PackageModel
+import PackageModel
 import SPMBuildCore
 
 public enum BuildDestination {
@@ -244,7 +244,8 @@ public struct BuildDescription {
             outputStream: threadSafeOutput,
             logLevel: .error,
             fileSystem: fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: nil
         )
 
         let plan = try await operation.generatePlan()

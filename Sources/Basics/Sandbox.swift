@@ -133,6 +133,9 @@ fileprivate func macOSSandboxProfile(
     // This is needed to use the UniformTypeIdentifiers API.
     contents += "(allow mach-lookup (global-name \"com.apple.lsd.mapdb\"))\n"
 
+    // For downloadable Metal toolchain lookups.
+    contents += "(allow mach-lookup (global-name \"com.apple.mobileassetd.v2\"))\n"
+
     if allowNetworkConnections.filter({ $0 != .none }).isEmpty == false {
         // this is used by the system for caching purposes and will lead to log spew if not allowed
         contents += "(allow file-write* (regex \"/Users/*/Library/Caches/*/Cache.db*\"))"
@@ -188,11 +191,16 @@ fileprivate func macOSSandboxProfile(
     }
     // Optionally allow writing to temporary directories (a lot of use of Foundation requires this).
     else if strictness == .writableTemporaryDirectory {
-        // Add `subpath` expressions for the regular and the Foundation temporary directories.
-        for tmpDir in ["/tmp", NSTemporaryDirectory()] {
-            writableDirectoriesExpression += try [
-                "(subpath \(resolveSymlinks(AbsolutePath(validating: tmpDir)).quotedAsSubpathForSandboxProfile))",
-            ]
+        var stableCacheDirectories: [AbsolutePath] = []
+        // Add `subpath` expressions for the regular, Foundation and clang module cache temporary directories.
+        for tmpDir in (["/tmp"] + threadSafeDarwinCacheDirectories.map(\.pathString)) {
+            let resolved = try resolveSymlinks(AbsolutePath(validating: tmpDir))
+            if !stableCacheDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                stableCacheDirectories.append(resolved)
+                writableDirectoriesExpression += [
+                    "(subpath \(resolved.quotedAsSubpathForSandboxProfile))",
+                ]
+            }
         }
     }
 
@@ -217,16 +225,17 @@ fileprivate func macOSSandboxProfile(
     // Emit rules for paths under which writing is allowed, even if they are descendants directories that are otherwise read-only.
     if writableDirectories.count > 0 {
         contents += "(allow file-write*\n"
+        var stableItemReplacementDirectories: [AbsolutePath] = []
         for path in writableDirectories {
             contents += "    (subpath \(try resolveSymlinks(path).quotedAsSubpathForSandboxProfile))\n"
             
             // `itemReplacementDirectories` may return a combination of stable directory paths, and subdirectories which are unique on every call. Avoid including unnecessary subdirectories in the Sandbox profile which may lead to nondeterminism in its construction.
             if let itemReplacementDirectories = try? fileSystem.itemReplacementDirectories(for: path).sorted(by: { $0.pathString.count < $1.pathString.count }) {
-                var stableItemReplacementDirectories: [AbsolutePath] = []
                 for directory in itemReplacementDirectories {
-                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: directory) }) {
-                        stableItemReplacementDirectories.append(directory)
-                        contents += "    (subpath \(try resolveSymlinks(directory).quotedAsSubpathForSandboxProfile))\n"
+                    let resolved = try resolveSymlinks(directory)
+                    if !stableItemReplacementDirectories.contains(where: { $0.isAncestorOfOrEqual(to: resolved) }) {
+                        stableItemReplacementDirectories.append(resolved)
+                        contents += "    (subpath \(resolved.quotedAsSubpathForSandboxProfile))\n"
                     }
                 }
             }

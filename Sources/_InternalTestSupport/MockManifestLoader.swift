@@ -61,22 +61,18 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
         dependencyMapper: DependencyMapper,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        delegateQueue: DispatchQueue,
-        callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Manifest, Error>) -> Void
-    ) {
-        callbackQueue.async {
-            let key = Key(url: packageLocation, version: packageVersion?.version)
-            if let result = self.manifests[key] {
-                return completion(.success(result))
-            } else {
-                return completion(.failure(MockManifestLoaderError.unknownRequest("\(key)")))
-            }
+        delegateQueue: DispatchQueue
+    ) async throws -> Manifest {
+        let key = Key(url: packageLocation, version: packageVersion?.version)
+        if let result = self.manifests[key] {
+            return result
+        } else {
+            throw MockManifestLoaderError.unknownRequest("\(key)")
         }
     }
 
-    public func resetCache(observabilityScope: ObservabilityScope) {}
-    public func purgeCache(observabilityScope: ObservabilityScope) {}
+    public func resetCache(observabilityScope: ObservabilityScope) async {}
+    public func purgeCache(observabilityScope: ObservabilityScope) async {}
 }
 
 extension ManifestLoader {
@@ -120,8 +116,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }
@@ -167,8 +162,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent,
-            callbackQueue: .sharedConcurrent
+            delegateQueue: .sharedConcurrent
         )
     }
 }

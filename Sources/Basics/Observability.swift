@@ -443,6 +443,14 @@ public struct Diagnostic: Sendable, CustomStringConvertible {
         public var isBold: Bool {
             return true
         }
+
+        public var isVerbose: Bool {
+            self <= .info
+        }
+
+        public var isQuiet: Bool {
+            self >= .error
+        }
     }
 }
 

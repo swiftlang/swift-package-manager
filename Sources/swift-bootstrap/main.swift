@@ -43,17 +43,17 @@ await { () async in
 struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "swift-bootstrap",
-        abstract: "Bootstrapping build tool, only use in the context of bootstrapping SwiftPM itself",
+        abstract: "Bootstrapping build tool, only use in the context of bootstrapping SwiftPM itself.",
         shouldDisplay: false
     )
 
     @Option(name: .customLong("package-path"),
-            help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation",
+            help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation.",
             completion: .directory)
     public var packageDirectory: AbsolutePath?
 
     /// The custom .build directory, if provided.
-    @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build)", completion: .directory)
+    @Option(name: .customLong("scratch-path"), help: "Specify a custom scratch directory path (default .build).", completion: .directory)
     var _scratchDirectory: AbsolutePath?
 
     @Option(name: .customLong("build-path"), help: .hidden)
@@ -63,53 +63,53 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
         self._scratchDirectory ?? self._deprecated_buildPath
     }
 
-    @Option(name: .shortAndLong, help: "Build with configuration")
+    @Option(name: .shortAndLong, help: "Build with configuration.")
     public var configuration: BuildConfiguration = .debug
 
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C compiler invocations")
+            help: "Pass flag through to all C compiler invocations.")
     var cCompilerFlags: [String] = []
 
     @Option(name: .customLong("Xswiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all Swift compiler invocations")
+            help: "Pass flag through to all Swift compiler invocations.")
     var swiftCompilerFlags: [String] = []
 
     @Option(name: .customLong("Xlinker", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all linker invocations")
+            help: "Pass flag through to all linker invocations.")
     var linkerFlags: [String] = []
 
     @Option(name: .customLong("Xcxx", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: "Pass flag through to all C++ compiler invocations")
+            help: "Pass flag through to all C++ compiler invocations.")
     var cxxCompilerFlags: [String] = []
 
     @Option(name: .customLong("Xxcbuild", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: ArgumentHelp(
-                "Pass flag through to the Xcode build system invocations",
+                "Pass flag through to the Xcode build system invocations.",
                 visibility: .hidden))
     public var xcbuildFlags: [String] = []
 
     @Option(name: .customLong("Xbuild-tools-swiftc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
-            help: ArgumentHelp("Pass flag to the manifest build invocation",
+            help: ArgumentHelp("Pass flag to the manifest build invocation.",
                                visibility: .hidden))
     public var manifestFlags: [String] = []
 
     @Option(
       name: .customLong("arch"),
-      help: ArgumentHelp("Build the package for the these architectures", visibility: .hidden))
+      help: ArgumentHelp("Build the package for the these architectures.", visibility: .hidden))
     public var architectures: [String] = []
 
     /// The verbosity of informational output.
-    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output")
+    @Flag(name: .shortAndLong, help: "Increase verbosity to include informational output.")
     public var verbose: Bool = false
 
     /// The verbosity of informational output.
-    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output")
+    @Flag(name: [.long, .customLong("vv")], help: "Increase verbosity to include debug output.")
     public var veryVerbose: Bool = false
 
     /// Whether to use the integrated Swift driver rather than shelling out
@@ -119,7 +119,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
     /// An option that indicates this build should check whether targets only import
     /// their explicitly-declared dependencies
-    @Option(help: "Check that targets only import their explicitly-declared dependencies")
+    @Option(help: "Check that targets only import their explicitly-declared dependencies.")
     public var explicitTargetDependencyImportCheck: TargetDependencyImportCheckingMode = .none
 
     enum TargetDependencyImportCheckingMode: String, Codable, ExpressibleByArgument, CaseIterable {
@@ -128,7 +128,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     }
 
     /// Disables adding $ORIGIN/@loader_path to the rpath, useful when deploying
-    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default")
+    @Flag(name: .customLong("disable-local-rpath"), help: "Disable adding $ORIGIN/@loader_path to the rpath by default.")
     public var shouldDisableLocalRpath: Bool = false
 
     /// The build system to use.
@@ -266,7 +266,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
-            try await buildSystem.build(subset: .allExcludingTests)
+            try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [])
         }
 
         func createBuildSystem(
@@ -346,7 +346,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .xcode:
                 return try XcodeBuildSystem(
@@ -355,17 +356,34 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    delegate: nil
                 )
             case .swiftbuild:
+                let pluginScriptRunner = DefaultPluginScriptRunner(
+                    fileSystem: self.fileSystem,
+                    cacheDir: scratchDirectory.appending("plugin-cache"),
+                    toolchain: self.hostToolchain,
+                    extraPluginSwiftCFlags: [],
+                    enableSandbox: true,
+                    verboseOutput: self.logLevel <= .info
+                )
+
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     packageManagerResourcesDirectory: nil,
+                    additionalFileRules: [],
                     outputStream: TSCBasic.stdoutStream,
                     logLevel: logLevel,
                     fileSystem: self.fileSystem,
-                    observabilityScope: self.observabilityScope
+                    observabilityScope: self.observabilityScope,
+                    pluginConfiguration: .init(
+                        scriptRunner: pluginScriptRunner,
+                        workDirectory: scratchDirectory.appending(component: "plugin-working-directory"),
+                        disableSandbox: false
+                    ),
+                    delegate: nil,
                 )
             }
         }
@@ -394,7 +412,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             let input = loadedManifests.map { identity, manifest in KeyedPair(manifest, key: identity) }
             _ = try await topologicalSort(input) { pair in
                 // When bootstrapping no special trait build configuration is used
-                let dependenciesRequired = try pair.item.dependenciesRequired(for: .everything, nil)
+                let dependenciesRequired = try pair.item.dependenciesRequired(for: .everything)
                 let dependenciesToLoad = dependenciesRequired.map{ $0.packageRef }.filter { !loadedManifests.keys.contains($0.identity) }
                 let dependenciesManifests = try await self.loadManifests(manifestLoader: manifestLoader, packages: dependenciesToLoad)
                 dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
@@ -405,10 +423,11 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 }
             }
 
-            let packageGraphRoot = PackageGraphRoot(
+            let packageGraphRoot = try PackageGraphRoot(
                 input: .init(packages: [packagePath]),
                 manifests: [packagePath: rootPackageManifest],
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                enabledTraitsMap: .init()
             )
 
             return try ModulesGraph.load(
@@ -420,7 +439,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 binaryArtifacts: [:],
                 prebuilts: [:],
                 fileSystem: fileSystem,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                enabledTraitsMap: [:] // When bootstrapping no special trait build configuration is used
             )
         }
 
@@ -458,8 +478,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 dependencyMapper: dependencyMapper,
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
         }
     }

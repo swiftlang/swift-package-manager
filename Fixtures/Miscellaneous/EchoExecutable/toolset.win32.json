@@ -1,0 +1,6 @@
+{
+  "debugger": { "path": "echo.bat" },
+  "testRunner": { "path": "echo.bat" },
+  "schemaVersion" : "1.0",
+  "rootPath" : "."
+}

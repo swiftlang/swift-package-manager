@@ -24,13 +24,13 @@ public struct PackageGraphRootInput {
     public let dependencies: [PackageDependency]
 
     /// The trait configuration for the root packages.
-    public let traitConfiguration: TraitConfiguration?
+    public let traitConfiguration: TraitConfiguration
 
     /// Create a package graph root.
     public init(
         packages: [AbsolutePath],
         dependencies: [PackageDependency] = [],
-        traitConfiguration: TraitConfiguration? = nil
+        traitConfiguration: TraitConfiguration = .default
     ) {
         self.packages = packages
         self.dependencies = dependencies
@@ -48,8 +48,6 @@ public struct PackageGraphRoot {
     public var manifests: [PackageIdentity: Manifest] {
         return self.packages.compactMapValues { $0.manifest }
     }
-
-    public var enabledTraits: [PackageIdentity: Set<String>]
 
     /// The root package references.
     public var packageReferences: [PackageReference] {
@@ -93,8 +91,9 @@ public struct PackageGraphRoot {
         manifests: [AbsolutePath: Manifest],
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
-        observabilityScope: ObservabilityScope
-    ) {
+        observabilityScope: ObservabilityScope,
+        enabledTraitsMap: EnabledTraitsMap = .init()
+    ) throws {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
@@ -102,20 +101,6 @@ public struct PackageGraphRoot {
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
-
-        do {
-            // Calculate the enabled traits for root.
-            self.enabledTraits = try packages.reduce(into: [PackageIdentity: Set<String>]()) { traitsMap, package in
-                let manifest = package.value.manifest
-                let traitConfiguration = input.traitConfiguration
-
-                let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
-
-                traitsMap[package.key] = enabledTraits
-            }
-        } catch {
-            self.enabledTraits = [:]
-        }
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
@@ -129,18 +114,25 @@ public struct PackageGraphRoot {
             // Check that the dependency is used in at least one of the manifests.
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
-            return manifests.values.reduce(false) {
-                guard $1.pruneDependencies else { return $0 || true }
-                if let isUsed = try? $1.isPackageDependencyUsed(dep, enabledTraits: input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) {
-                    return $0 || isUsed
+            return manifests.values.reduce(false) { result, manifest in
+                let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
+                if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
+                    return result || isUsed
                 }
+
                 return true
             }
         })
 
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
-            let deps = try? manifests.values.lazy.map({ try $0.dependenciesRequired(for: .everything, input.traitConfiguration?.enabledTraits, enableAllTraits: input.traitConfiguration?.enableAllTraits ?? false) }).flatMap({ $0 })
+            let deps = try? manifests.values.lazy
+                .map({ manifest -> [PackageDependency] in
+                    let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
+                    return try manifest.dependenciesRequired(for: .everything, enabledTraits)
+                })
+                .flatMap({ $0 })
+
             for dependency in deps ?? [] {
                 adjustedDependencies.append(dependency.filtered(by: .specific([explicitProduct])))
             }
@@ -152,10 +144,11 @@ public struct PackageGraphRoot {
     }
 
     /// Returns the constraints imposed by root manifests + dependencies.
-    public func constraints() throws -> [PackageContainerConstraint] {
+    public func constraints(_ enabledTraitsMap: EnabledTraitsMap) throws -> [PackageContainerConstraint] {
+        var rootEnabledTraits: Set<String> = []
         let constraints = self.packages.map { (identity, package) in
-            // Since these are root packages, can apply trait configuration as this is a root package concept.
-            let enabledTraits = self.enabledTraits[identity]
+            let enabledTraits = enabledTraitsMap[identity]
+            rootEnabledTraits.formUnion(enabledTraits)
             return PackageContainerConstraint(
                 package: package.reference,
                 requirement: .unversioned,
@@ -166,16 +159,19 @@ public struct PackageGraphRoot {
         
         let depend = try dependencies
             .map { dep in
-                var enabledTraits: Set<String>?
-                if let traits = dep.traits {
-                    enabledTraits = Set(traits.map(\.name))
-                }
+                let enabledTraits = dep.traits?.filter {
+                    guard let condition = $0.condition else { return true }
+                    return condition.isSatisfied(by: rootEnabledTraits)
+                }.map(\.name)
+
+                var enabledTraitsSet = enabledTraitsMap[dep.identity]
+                enabledTraitsSet.formUnion(enabledTraits.flatMap({ Set($0) }) ?? [])
 
                 return PackageContainerConstraint(
                     package: dep.packageRef,
                     requirement: try dep.toConstraintRequirement(),
                     products: dep.productFilter,
-                    enabledTraits: enabledTraits
+                    enabledTraits: enabledTraitsSet
                 )
         }
 
@@ -224,3 +220,4 @@ extension PackageDependency.Registry.Requirement {
         }
     }
 }
+

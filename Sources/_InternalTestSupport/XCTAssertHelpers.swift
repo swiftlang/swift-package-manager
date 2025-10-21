@@ -10,13 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+import class Foundation.ProcessInfo
 import Basics
 #if os(macOS)
 import class Foundation.Bundle
 #endif
 import SPMBuildCore
+import enum PackageModel.BuildConfiguration
 import TSCTestSupport
 import XCTest
+import Testing
 
 import struct Basics.AsyncProcessResult
 
@@ -27,27 +30,113 @@ import struct TSCUtility.Version
 @_exported import func TSCTestSupport.XCTAssertResultSuccess
 @_exported import func TSCTestSupport.XCTAssertThrows
 
+fileprivate func swiftTestingTestCalledAnXCTestAPI() {
+    if Test.current != nil {
+        Issue.record("Swift Testing Test called a XCTest API.")
+    }
+}
+
 public func XCTAssertFileExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertFileExists(TSCAbsolutePath(path), file: file, line: line)
+    swiftTestingTestCalledAnXCTestAPI()
 }
 
 public func XCTAssertDirectoryExists(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertDirectoryExists(TSCAbsolutePath(path), file: file, line: line)
+    swiftTestingTestCalledAnXCTestAPI()
 }
 
 public func XCTAssertNoSuchPath(_ path: AbsolutePath, file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertNoSuchPath(TSCAbsolutePath(path), file: file, line: line)
+    swiftTestingTestCalledAnXCTestAPI()
 }
 
 
 public func XCTAssertEqual<T:Equatable, U:Equatable> (_ lhs:(T,U), _ rhs:(T,U), file: StaticString = #file, line: UInt = #line) {
     TSCTestSupport.XCTAssertEqual(lhs, rhs, file: file, line: line)
+    swiftTestingTestCalledAnXCTestAPI()
 }
 
-public func XCTSkipIfCI(file: StaticString = #filePath, line: UInt = #line) throws {
-    if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil {
-        throw XCTSkip("Skipping because the test is being run on CI", file: file, line: line)
+public func XCTSkipIfPlatformCI(because reason: String? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
+    // TODO: is this actually the right variable now?
+    if CiEnvironment.runningInSmokeTestPipeline {
+        let failureCause = reason ?? "Skipping because the test is being run on CI"
+        throw XCTSkip(failureCause, file: file, line: line)
     }
+    swiftTestingTestCalledAnXCTestAPI()
+}
+
+public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    // TODO: is this actually the right variable now?
+    if CiEnvironment.runningInSelfHostedPipeline {
+        throw XCTSkip(reason, file: file, line: line)
+    }
+    swiftTestingTestCalledAnXCTestAPI()
+}
+
+public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    #if os(Windows)
+    let failureCause: String
+    if let reason {
+        failureCause = " because \(reason.description)"
+    } else {
+        failureCause = ""
+    }
+    if (skipPlatformCi) {
+        try XCTSkipIfPlatformCI(because: "Test is run in Platform CI.  Skipping\(failureCause)", file: file, line: line)
+    }
+
+    if (skipSelfHostedCI) {
+        try XCTSkipIfselfHostedCI(because: "Test is run in Self hosted CI.  Skipping\(failureCause)", file: file, line: line)
+    }
+
+    if (!skipPlatformCi && !skipSelfHostedCI) {
+        throw XCTSkip("Skipping test\(failureCause)", file: file, line: line)
+    }
+    #endif
+}
+
+public func _requiresTools(_ executable: String) throws {
+    func getAsyncProcessArgs(_ executable: String) -> [String] {
+        #if os(Windows)
+            let args = ["cmd.exe", "/c", "where.exe", executable]
+        #else
+            let args = ["which", executable]
+        #endif
+        return args
+    }
+    try AsyncProcess.checkNonZeroExit(arguments: getAsyncProcessArgs(executable))
+}
+public func XCTRequires(
+    executable: String,
+    file: StaticString = #filePath,
+    line: UInt = #line
+) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+
+    do {
+        try _requiresTools(executable)
+    } catch (let AsyncProcessResult.Error.nonZeroExit(result)) {
+        throw XCTSkip(
+            "Skipping as tool \(executable) is not found in the path. (\(result.description))")
+    }
+}
+
+public func XCTSkipIfCompilerLessThan6_1() throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    #if compiler(>=6.1)
+    #else
+        throw XCTSkip("Skipping as compiler version is less than 6.1")
+    #endif
+}
+
+public func XCTSkipIfCompilerLessThan6_2() throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    #if compiler(>=6.2)
+    #else
+        throw XCTSkip("Skipping as compiler version is less than 6.2")
+    #endif
 }
 
 /// An `async`-friendly replacement for `XCTAssertThrowsError`.
@@ -58,6 +147,7 @@ public func XCTAssertAsyncThrowsError<T>(
     line: UInt = #line,
     _ errorHandler: (_ error: any Error) -> Void = { _ in }
 ) async {
+    swiftTestingTestCalledAnXCTestAPI()
     do {
         _ = try await expression()
         XCTFail(message(), file: file, line: line)
@@ -72,6 +162,7 @@ package func XCTAssertAsyncNoThrow<T>(
     file: StaticString = #filePath,
     line: UInt = #line
 ) async {
+    swiftTestingTestCalledAnXCTestAPI()
     do {
         _ = try await expression()
     } catch {
@@ -81,7 +172,7 @@ package func XCTAssertAsyncNoThrow<T>(
 
 public func XCTAssertBuilds(
     _ path: AbsolutePath,
-    configurations: Set<Configuration> = [.Debug, .Release],
+    configurations: Set<BuildConfiguration> = [.debug, .release],
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -89,8 +180,9 @@ public func XCTAssertBuilds(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
+    swiftTestingTestCalledAnXCTestAPI()
     for conf in configurations {
         await XCTAssertAsyncNoThrow(
             try await executeSwiftBuild(
@@ -111,7 +203,7 @@ public func XCTAssertBuilds(
 
 public func XCTAssertSwiftTest(
     _ path: AbsolutePath,
-    configuration: Configuration = .Debug,
+    configuration: BuildConfiguration = .debug,
     extraArgs: [String] = [],
     Xcc: [String] = [],
     Xld: [String] = [],
@@ -119,8 +211,9 @@ public func XCTAssertSwiftTest(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async {
+    swiftTestingTestCalledAnXCTestAPI()
     await XCTAssertAsyncNoThrow(
         try await executeSwiftTest(
             path,
@@ -146,8 +239,9 @@ public func XCTAssertBuildFails(
     env: Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
-    buildSystem: BuildSystemProvider.Kind = .native
+    buildSystem: BuildSystemProvider.Kind,
 ) async -> CommandExecutionError? {
+    swiftTestingTestCalledAnXCTestAPI()
     var failure: CommandExecutionError? = nil
     await XCTAssertThrowsCommandExecutionError(
         try await executeSwiftBuild(
@@ -171,6 +265,7 @@ public func XCTAssertEqual<T: CustomStringConvertible>(
     file: StaticString = #file,
     line: UInt = #line
 ) where T: Hashable {
+    swiftTestingTestCalledAnXCTestAPI()
     var actual = [T: Version]()
     for (identifier, binding) in assignment {
         actual[identifier] = binding
@@ -184,6 +279,7 @@ public func XCTAssertAsyncTrue(
     file: StaticString = #filePath,
     line: UInt = #line
 ) async rethrows {
+    swiftTestingTestCalledAnXCTestAPI()
     let result = try await expression()
     XCTAssertTrue(result, message(), file: file, line: line)
 }
@@ -194,6 +290,7 @@ public func XCTAssertAsyncFalse(
     file: StaticString = #filePath,
     line: UInt = #line
 ) async rethrows {
+    swiftTestingTestCalledAnXCTestAPI()
     let result = try await expression()
     XCTAssertFalse(result, message(), file: file, line: line)
 }
@@ -204,6 +301,7 @@ package func XCTAssertAsyncNil(
     file: StaticString = #filePath,
     line: UInt = #line
 ) async rethrows {
+    swiftTestingTestCalledAnXCTestAPI()
     let result = try await expression()
     XCTAssertNil(result, message(), file: file, line: line)
 }
@@ -215,6 +313,7 @@ public func XCTAssertThrowsCommandExecutionError<T>(
     line: UInt = #line,
     _ errorHandler: (_ error: CommandExecutionError) -> Void = { _ in }
 ) async {
+    swiftTestingTestCalledAnXCTestAPI()
     await XCTAssertAsyncThrowsError(try await expression(), message(), file: file, line: line) { error in
         guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
               case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
@@ -232,6 +331,7 @@ public func XCTAssertAsyncEqual<T: Equatable>(
     file: StaticString = #file,
     line: UInt = #line
 ) async rethrows {
+    swiftTestingTestCalledAnXCTestAPI()
     let value1 = try await expression1()
     let value2 = try await expression2()
 
@@ -246,6 +346,7 @@ public func XCTAsyncUnwrap<T>(
     file: StaticString = #filePath,
     line: UInt = #line
 ) async throws -> T {
+    swiftTestingTestCalledAnXCTestAPI()
     guard let result = try await expression() else {
         throw XCAsyncTestErrorWhileUnwrappingOptional()
     }
@@ -258,4 +359,12 @@ public struct CommandExecutionError: Error {
     package let result: AsyncProcessResult
     public let stdout: String
     public let stderr: String
+    public let consoleOutput: String
+
+    package init(result: AsyncProcessResult, stdout: String, stderr: String) {
+        self.result = result
+        self.stdout = stdout
+        self.stderr = stderr
+        self.consoleOutput = stdout + stderr
+    }
 }

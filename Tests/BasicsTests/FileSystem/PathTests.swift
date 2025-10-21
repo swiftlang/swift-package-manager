@@ -6,13 +6,11 @@
 
  See http://swift.org/LICENSE.txt for license information
  See http://swift.org/CONTRIBUTORS.txt for Swift project authors
-*/
+ */
 
 import Basics
 import Foundation
-import XCTest
-
-import _InternalTestSupport // for skipOnWindowsAsTestCurrentlyFails()
+import Testing
 
 #if os(Windows)
 private var windows: Bool { true }
@@ -20,362 +18,701 @@ private var windows: Bool { true }
 private var windows: Bool { false }
 #endif
 
-class PathTests: XCTestCase {
-    func testBasics() {
-        XCTAssertEqual(AbsolutePath("/").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/a").pathString, windows ? #"\a"# : "/a")
-        XCTAssertEqual(AbsolutePath("/a/b/c").pathString, windows ? #"\a\b\c"# : "/a/b/c")
-        XCTAssertEqual(RelativePath(".").pathString, ".")
-        XCTAssertEqual(RelativePath("a").pathString, "a")
-        XCTAssertEqual(RelativePath("a/b/c").pathString, windows ? #"a\b\c"# : "a/b/c")
-        XCTAssertEqual(RelativePath("~").pathString, "~")  // `~` is not special
+
+struct PathTests {
+    struct AbsolutePathTests {
+        private func pathStringIsSetCorrectlyTestImplementation(path: String, expected: String, label: String) {
+            let actual = AbsolutePath(path).pathString
+
+            #expect(actual == expected, "\(label): Actual is not as expected. Path is: \(path)")
+        }
+
+        @Test(
+            arguments: [
+                (path: "/", expected: (windows ? #"\"# : "/"), label: "Basics"),
+                (path: "/a", expected: (windows ? #"\a"# : "/a"), label: "Basics"),
+                (path: "/a/b/c", expected: (windows ? #"\a\b\c"# : "/a/b/c"), label: "Basics"),
+            ]
+        )
+        func pathStringIsSetCorrectly(path: String, expected: String, label: String) {
+            pathStringIsSetCorrectlyTestImplementation(
+                path: path,
+                expected: expected,
+                label: label
+            )
+        }
+
+        @Test(
+            .IssueWindowsPathTestsFailures,
+            arguments: [
+                (path: "/ab/cd/ef/", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab/cd/ef//", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab/cd/ef///", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "/ab//cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
+                (path: "/ab///cd//ef", expected: (windows ? #"\ab\cd\ef"# : "/ab/cd/ef"), label: "repeated path seperators"),
+                (path: "/ab/././cd//ef", expected: "/ab/cd/ef", label: "dot path component"),
+                (path: "/ab/./cd//ef/.", expected:  "/ab/cd/ef", label: "dot path component"),
+                (path: "/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
+                (path: "/../../../../..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
+                (path: "/abc/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
+                (path: "/abc/../..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
+                (path: "/../abc", expected: (windows ? #"\abc"# : "/abc"), label: "dot dot path component"),
+                (path: "/../abc/..", expected: (windows ? #"\"# : "/"), label: "dot dot path component"),
+                (path: "/../abc/../def", expected: (windows ? #"\def"# : "/def"), label: "dot dot path component"),
+                (path: "///", expected: (windows ? #"\"# : "/"), label: "combinations and edge cases"),
+                (path: "/./", expected: (windows ? #"\"# : "/"), label: "combinations and edge cases"),
+            ]
+        )
+        func pathStringIsSetCorrectlySkipOnWindows(path: String, expected: String, label: String) {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                pathStringIsSetCorrectlyTestImplementation(
+                    path: path,
+                    expected: expected,
+                    label: label
+                )
+            } when :{
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test
+        func stringInitialization() throws {
+            let abs1 = AbsolutePath("/")
+            let abs2 = AbsolutePath(abs1, ".")
+            #expect(abs1 == abs2)
+            let rel3 = "."
+            let abs3 = try AbsolutePath(abs2, validating: rel3)
+            #expect(abs2 == abs3)
+            let base = AbsolutePath("/base/path")
+            let abs4 = AbsolutePath("/a/b/c", relativeTo: base)
+            #expect(abs4 == AbsolutePath("/a/b/c"))
+            let abs5 = AbsolutePath("./a/b/c", relativeTo: base)
+            #expect(abs5 == AbsolutePath("/base/path/a/b/c"))
+            let abs6 = AbsolutePath("~/bla", relativeTo: base)  // `~` isn't special
+            #expect(abs6 == AbsolutePath("/base/path/~/bla"))
+        }
+
+        struct AbsolutePathDirectoryNameAtributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).dirname
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                    (path: "/a", expected: (windows ? #"\"# : "/")),
+                    (path: "/ab/c//d/", expected: (windows ? #"\ab\c"# : "/ab/c")),
+                ]
+            )
+            func absolutePathDirectoryNameAttributeAllPlatforms(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/./a", expected: (windows ? #"\"# : "/")),
+                    (path: "/../..", expected: (windows ? #"\"# : "/")),
+                ]
+            )
+            func absolutePathDirectoryNameAttributeFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathBaseNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).basename
+
+                #expect(actual == expected, "Actual is not as expected: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/", expected: (windows ? #"\"# : "/")),
+                    (path: "/a", expected: "a"),
+                    (path: "/./a", expected: "a"),
+                ]
+            )
+            func absolutePathBaseNameExtractionAllPlatforms(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/../..", expected: "/"),
+                ]
+            )
+            func absolutePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathBasenameWithoutExtAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = AbsolutePath(path).basenameWithoutExt
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+                
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/", expected:  (windows ? #"\"# : "/")),
+                    (path: "/a", expected:  "a"),
+                    (path: "/./a", expected:  "a"),
+                    (path: "/a.txt", expected:  "a"),
+                    (path: "/./a.txt", expected:  "a"),
+                ]
+            )
+            func absolutePathBaseNameWithoutExt(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/../..", expected:  "/"),
+                ]
+            )
+            func absolutePathBaseNameWithoutExtFailedOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+
+        struct AbsolutePathParentDirectoryAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                let pathUnderTest = AbsolutePath(path)
+                let expectedPath = AbsolutePath(expected)
+                try #require(numParentDirectoryCalls >= 1, "Test configuration Error.")
+
+                var actual = pathUnderTest
+                for _ in 0 ..< numParentDirectoryCalls {
+                    actual = actual.parentDirectory
+                }
+                #expect(actual == expectedPath)
+            }
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/", numParentDirectoryCalls: 1, expected: "/"),
+                    (path: "/", numParentDirectoryCalls: 2, expected: "/"),
+                    (path: "/bar", numParentDirectoryCalls: 1, expected: "/"),
+                ]
+            )
+            func absolutePathParentDirectoryAttributeReturnsAsExpected(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                try testImplementation(path: path, numParentDirectoryCalls: numParentDirectoryCalls, expected: expected)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "/bar/../foo/..//", numParentDirectoryCalls: 2, expected: "/"),
+                    (path: "/bar/../foo/..//yabba/a/b", numParentDirectoryCalls: 2, expected: "/yabba")
+                ]
+            )
+            func absolutePathParentDirectoryAttributeReturnsAsExpectedFailsOnWindows(path: String, numParentDirectoryCalls: Int, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, numParentDirectoryCalls: numParentDirectoryCalls, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+        @Test(
+            .IssueWindowsPathTestsFailures,
+            arguments: [
+                (path: "/", expected: ["/"]),
+                (path: "/.", expected: ["/"]),
+                (path: "/..", expected: ["/"]),
+                (path: "/bar", expected: ["/", "bar"]),
+                (path: "/foo/bar/..", expected: ["/", "foo"]),
+                (path: "/bar/../foo", expected: ["/", "foo"]),
+                (path: "/bar/../foo/..//", expected: ["/"]),
+                (path: "/bar/../foo/..//yabba/a/b/", expected: ["/", "yabba", "a", "b"]),
+            ]
+        )
+        func componentsAttributeReturnsExpectedValue(path: String, expected: [String]) throws {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                let actual = AbsolutePath(path).components
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        struct AncestryTest {
+            @Test(
+                arguments: [
+                    (path: "/a/b/c/d/e/f", descendentOfOrEqualTo: "/a/b/c/d", expected: true),
+                    (path: "/a/b/c/d/e/f.swift", descendentOfOrEqualTo: "/a/b/c", expected: true),
+                    (path: "/", descendentOfOrEqualTo: "/", expected: true),
+                    (path: "/foo/bar", descendentOfOrEqualTo: "/", expected: true),
+                    (path: "/foo/bar", descendentOfOrEqualTo: "/foo/bar/baz", expected: false),
+                    (path: "/foo/bar", descendentOfOrEqualTo: "/bar", expected: false)
+                ]
+            )
+            func isDescendantOfOrEqual(path: String, descendentOfOrEqualTo: String, expected: Bool) {
+                let actual = AbsolutePath(path).isDescendantOfOrEqual(to: AbsolutePath(descendentOfOrEqualTo))
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/foo/bar", descendentOf: "/foo/bar", expected: false),
+                    (path: "/foo/bar", descendentOf: "/foo", expected: true)
+                ]
+            )
+            func isDescendant(path: String, ancesterOf: String, expected: Bool) {
+                let actual = AbsolutePath(path).isDescendant(of: AbsolutePath(ancesterOf))
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/a/b/c/d", ancestorOfOrEqualTo: "/a/b/c/d/e/f", expected: true),
+                    (path: "/a/b/c", ancestorOfOrEqualTo: "/a/b/c/d/e/f.swift", expected: true),
+                    (path: "/", ancestorOfOrEqualTo: "/", expected: true),
+                    (path: "/", ancestorOfOrEqualTo: "/foo/bar", expected: true),
+                    (path: "/foo/bar/baz", ancestorOfOrEqualTo: "/foo/bar", expected: false),
+                    (path: "/bar", ancestorOfOrEqualTo: "/foo/bar", expected: false),
+                ]
+            )
+            func isAncestorOfOrEqual(path: String, ancestorOfOrEqualTo: String, expected: Bool) {
+                let actual = AbsolutePath(path).isAncestorOfOrEqual(to: AbsolutePath(ancestorOfOrEqualTo))
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "/foo/bar", ancesterOf: "/foo/bar", expected: false),
+                    (path: "/foo", ancesterOf: "/foo/bar", expected: true),
+                ]
+            )
+            func isAncestor(path: String, ancesterOf: String, expected: Bool) {
+                let actual = AbsolutePath(path).isAncestor(of: AbsolutePath(ancesterOf))
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+        }
+
+        @Test
+        func absolutePathValidation() throws {
+            #expect(throws: Never.self) { 
+                try AbsolutePath(validating: "/a/b/c/d")
+            }
+
+            withKnownIssue {
+                #expect {try AbsolutePath(validating: "~/a/b/d")} throws: { error in
+                    ("\(error)" == "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+
+            #expect {try AbsolutePath(validating: "a/b/d") } throws: { error in
+                ("\(error)" == "invalid absolute path 'a/b/d'")
+            }
+        }
+
+        @Test
+        func comparison() {
+            #expect(AbsolutePath("/") <= AbsolutePath("/"));
+            #expect(AbsolutePath("/abc") < AbsolutePath("/def"));
+            #expect(AbsolutePath("/2") <= AbsolutePath("/2.1"));
+            #expect(AbsolutePath("/3.1") > AbsolutePath("/2"));
+            #expect(AbsolutePath("/2") >= AbsolutePath("/2"));
+            #expect(AbsolutePath("/2.1") >= AbsolutePath("/2"));
+        }
+
+    }
+    struct RelativePathTests {
+        private func pathStringIsSetCorrectlyTestImplementation(path: String, expected: String, label: String) {
+            let actual = RelativePath(path).pathString
+
+            #expect(actual == expected, "\(label): Actual is not as expected. Path is: \(path)")
+        }
+
+        @Test(
+            arguments: [
+                (path: ".", expected: ".", label: "Basics"),
+                (path: "a", expected: "a", label: "Basics"),
+                (path: "a/b/c", expected: (windows ? #"a\b\c"# : "a/b/c"), label: "Basics"),
+                (path: "~", expected: "~", label: "Basics"),
+                (path: "..", expected: "..", label: "dot dot path component"),
+                (path: "", expected:  ".", label: "combinations and edge cases"),
+                (path: ".", expected:  ".", label: "combinations and edge cases"),
+                (path: "../a", expected:  (windows ? #"..\a"# : "../a"), label: "combinations and edge cases"),
+            ]
+        )
+        func pathStringIsSetCorrectly(path: String, expected: String, label: String) {
+            pathStringIsSetCorrectlyTestImplementation(
+                path: path,
+                expected: expected,
+                label: label
+            )
+        }
+
+        @Test(
+            .IssueWindowsPathTestsFailures,
+            arguments: [
+                (path: "ab//cd//ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
+                (path: "ab//cd///ef", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "repeated path seperators"),
+
+                (path: "ab/cd/ef/", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "ab/cd/ef//", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "Trailing path seperator"),
+                (path: "ab/cd/ef///", expected: (windows ? #"ab\cd\ef"# : "ab/cd/ef"), label: "Trailing path seperator"),
+
+                (path: "ab/./cd/././ef", expected: "ab/cd/ef", label: "dot path component"),
+                (path: "ab/./cd/ef/.", expected: "ab/cd/ef", label: "dot path component"),
+
+                (path: "../..", expected: "../..", label: "dot dot path component"),
+                (path: ".././..", expected: "../..", label: "dot dot path component"),
+                (path: "../abc/..", expected: "..", label: "dot dot path component"),
+                (path: "../abc/.././", expected: "..", label: "dot dot path component"),
+                (path: "abc/..", expected: ".", label: "dot dot path component"),
+
+                (path: "../", expected:  "..", label: "combinations and edge cases"),
+                (path: "./abc", expected:  "abc", label: "combinations and edge cases"),
+                (path: "./abc/", expected:  "abc", label: "combinations and edge cases"),
+                (path: "./abc/../bar", expected:  "bar", label: "combinations and edge cases"),
+                (path: "foo/../bar", expected:  "bar", label: "combinations and edge cases"),
+                (path: "foo///..///bar///baz", expected:  "bar/baz", label: "combinations and edge cases"),
+                (path: "foo/../bar/./", expected:  "bar", label: "combinations and edge cases"),
+                (path: "../abc/def/", expected:  "../abc/def", label: "combinations and edge cases"),
+                (path: "././././.", expected:  ".", label: "combinations and edge cases"),
+                (path: "./././../.", expected:  "..", label: "combinations and edge cases"),
+                (path: "./", expected:  ".", label: "combinations and edge cases"),
+                (path: ".//", expected:  ".", label: "combinations and edge cases"),
+                (path: "./.", expected:  ".", label: "combinations and edge cases"),
+                (path: "././", expected:  ".", label: "combinations and edge cases"),
+                (path: "../.", expected:  "..", label: "combinations and edge cases"),
+                (path: "./..", expected:  "..", label: "combinations and edge cases"),
+                (path: "./../.", expected:  "..", label: "combinations and edge cases"),
+                (path: "./////../////./////", expected:  "..", label: "combinations and edge cases"),
+                (path: "../a/..", expected:  "..", label: "combinations and edge cases"),
+                (path: "a/..", expected:  ".", label: "combinations and edge cases"),
+                (path: "a/../////../////./////", expected:  "..", label: "combinations and edge cases"),
+
+            ]
+        )
+        func pathStringIsSetCorrectlyFailsOnWindows(path: String, expected: String, label: String) {
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) does not resolve properly") {
+                    pathStringIsSetCorrectlyTestImplementation(
+                    path: path,
+                    expected: expected,
+                    label: label
+                )
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        struct relateivePathDirectoryNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = RelativePath(path).dirname
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "ab/c//d/", expected: (windows ? #"ab\c"# : "ab/c")),
+                    (path: "../a", expected: ".."),
+                    (path: "./..", expected: "."),
+                ]
+            )
+            func relativePathDirectoryNameExtraction(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+             .IssueWindowsPathTestsFailures,
+               arguments: [
+                    (path: "../a/..", expected: "."),
+                    (path: "a/..", expected: "."),
+                    (path: "a/../////../////./////", expected: "."),
+                    (path: "abc", expected: "."),
+                    (path: "", expected: "."),
+                    (path: ".", expected: "."),
+                ]
+            )
+            func relativePathDirectoryNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+        struct relativePathBaseNameAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual = RelativePath(path).basename
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+            @Test(
+                arguments: [
+                    (path: "../..", expected:  ".."),
+                    (path: "../a", expected:  "a"),
+                    (path: "../a/..", expected:  ".."),
+                    (path: "./..", expected:  ".."),
+                    (path: "abc", expected:  "abc"),
+                    (path: "", expected:  "."),
+                    (path: ".", expected:  "."),
+                ]
+            )
+            func relativePathBaseNameExtraction(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+                .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "a/..", expected:  "."),
+                    (path: "a/../////../////./////", expected:  ".."),
+                ]
+            )
+            func relativePathBaseNameExtractionFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+        struct RelativePathBasenameWithoutExtAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: String) throws {
+                let actual: String = RelativePath(path).basenameWithoutExt
+
+                #expect(actual == expected, "Actual is not as expected. Path is: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "../a", expected:  "a"),
+                    (path: "a/..", expected:  "."),
+                    (path: "abc", expected:  "abc"),
+                    (path: "../a.bc", expected:  "a"),
+                    (path: "abc.swift", expected:  "abc"),
+                    (path: "../a.b.c", expected:  "a.b"),
+                    (path: "abc.xyz.123", expected:  "abc.xyz"),
+                ]
+            )
+            func relativePathBaseNameWithoutExt(path: String, expected: String) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+            .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "../..", expected:  ".."),
+                    (path: "../a/..", expected:  ".."),
+                    (path: "./..", expected:  ".."),
+                    (path: "a/../////../////./////", expected:  ".."),
+                    (path: "", expected:  "."),
+                    (path: ".", expected:  "."),
+                ]
+            )
+            func relativePathBaseNameWithoutExtFailsOnWindows(path: String, expected: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+        struct relativePathSuffixAndExtensionAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expectedSuffix: String?, expectedExtension: String?) throws {
+                let pathUnderTest = RelativePath(path)
+
+                #expect(pathUnderTest.suffix == expectedSuffix, "Actual suffix is not as expected.  Path is: \(path)")
+                #expect(pathUnderTest.extension == expectedExtension, "Actual extension is not as expected.  Path is: \(path)")
+            }
+            @Test(
+                arguments: [
+                    (path: "a", expectedSuffix: nil, expectedExtension: nil),
+                    (path: "a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
+                    (path: ".a.foo", expectedSuffix: ".foo", expectedExtension: "foo"),
+                    (path: "a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
+                    (path: ".a.foo.bar", expectedSuffix: ".bar", expectedExtension: "bar"),
+                    (path: ".a.foo.bar.baz", expectedSuffix: ".baz", expectedExtension: "baz"),
+                ]
+            )
+            func suffixExtraction(path: String, expectedSuffix: String?, expectedExtension: String?) throws {
+                try testImplementation(path: path, expectedSuffix: expectedSuffix, expectedExtension: expectedExtension)
+            }
+
+            @Test(
+             .IssueWindowsPathTestsFailures,
+               arguments:[
+                    "a.",
+                    ".a",
+                    "",
+                    ".",
+                    "..",
+                ]
+            )
+            func suffixExtractionFailsOnWindows(path: String) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not handled properly") {
+                    try testImplementation(path: path, expectedSuffix: nil, expectedExtension: nil)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+
+        }
+
+        struct componentsAttributeReturnsExpectedValue {
+            private func testImplementation(path: String, expected: [String]) throws {
+                let actual = RelativePath(path).components
+
+                #expect(actual == expected, "Actual is not as expected: \(path)")
+            }
+
+            @Test(
+                arguments: [
+                    (path: "", expected: ["."]),
+                    (path: ".", expected: ["."]),
+                    (path: "..", expected: [".."]),
+                    (path: "bar", expected: ["bar"]),
+                    (path: "../..", expected: ["..", ".."]),
+                    (path: "../a", expected: ["..", "a"]),
+                    (path: "abc", expected: ["abc"]),
+                ] as [(String, [String])]
+            )
+            func relativePathComponentsAttributeAllPlatform(path: String, expected: [String]) throws {
+                try testImplementation(path: path, expected: expected)
+            }
+
+            @Test(
+            .IssueWindowsPathTestsFailures,
+                arguments: [
+                    (path: "foo/bar/..", expected: ["foo"]),
+                    (path: "bar/../foo", expected: ["foo"]),
+                    (path: "bar/../foo/..//", expected: ["."]),
+                    (path: "bar/../foo/..//yabba/a/b/", expected: ["yabba", "a", "b"]),
+                    (path: ".././/..", expected: ["..", ".."]),
+                    (path: "../a/..", expected: [".."]),
+                    (path: "a/..", expected: ["."]),
+                    (path: "./..", expected: [".."]),
+                    (path: "a/../////../////./////", expected: [".."]),
+                ] as [(String, [String])]
+            )
+            func relativePathComponentsAttributeFailsOnWindows(path: String, expected: [String]) throws {
+                try withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: Path \(path) is not properly") {
+                    try testImplementation(path: path, expected: expected)
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .windows
+                }
+            }
+        }
+        
+        @Test(
+            .IssueWindowsPathTestsFailures,
+        )
+        func relativePathValidation() throws {
+            #expect(throws: Never.self) { 
+                try RelativePath(validating: "a/b/c/d")
+            }
+
+            withKnownIssue("https://github.com/swiftlang/swift-package-manager/issues/8511: \\") {
+                #expect {try RelativePath(validating: "/a/b/d")} throws: { error in
+                    ("\(error)" == "invalid relative path '/a/b/d'; relative path should not begin with '/'")
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
     }
 
-    func testStringInitialization() throws {
-        let abs1 = AbsolutePath("/")
-        let abs2 = AbsolutePath(abs1, ".")
-        XCTAssertEqual(abs1, abs2)
-        let rel3 = "."
-        let abs3 = try AbsolutePath(abs2, validating: rel3)
-        XCTAssertEqual(abs2, abs3)
-        let base = AbsolutePath("/base/path")
-        let abs4 = AbsolutePath("/a/b/c", relativeTo: base)
-        XCTAssertEqual(abs4, AbsolutePath("/a/b/c"))
-        let abs5 = AbsolutePath("./a/b/c", relativeTo: base)
-        XCTAssertEqual(abs5, AbsolutePath("/base/path/a/b/c"))
-        let abs6 = AbsolutePath("~/bla", relativeTo: base)  // `~` isn't special
-        XCTAssertEqual(abs6, AbsolutePath("/base/path/~/bla"))
-    }
-
-    func testStringLiteralInitialization() {
-        let abs = AbsolutePath("/")
-        XCTAssertEqual(abs.pathString, windows ? #"\"# : "/")
-        let rel1 = RelativePath(".")
-        XCTAssertEqual(rel1.pathString, ".")
-        let rel2 = RelativePath("~")
-        XCTAssertEqual(rel2.pathString, "~")  // `~` is not special
-    }
-
-    func testRepeatedPathSeparators() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "all assertions fail")
-
-        XCTAssertEqual(AbsolutePath("/ab//cd//ef").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
-        XCTAssertEqual(AbsolutePath("/ab///cd//ef").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab//cd//ef").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab//cd///ef").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
-    }
-
-    func testTrailingPathSeparators() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "trailing path seperator is not removed from pathString")
-
-        XCTAssertEqual(AbsolutePath("/ab/cd/ef/").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
-        XCTAssertEqual(AbsolutePath("/ab/cd/ef//").pathString, windows ? #"\ab\cd\ef"# : "/ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab/cd/ef/").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab/cd/ef//").pathString, windows ? #"ab\cd\ef"# : "ab/cd/ef")
-    }
-
-    func testDotPathComponents() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/ab/././cd//ef").pathString, "/ab/cd/ef")
-        XCTAssertEqual(AbsolutePath("/ab/./cd//ef/.").pathString, "/ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab/./cd/././ef").pathString, "ab/cd/ef")
-        XCTAssertEqual(RelativePath("ab/./cd/ef/.").pathString, "ab/cd/ef")
-    }
-
-    func testDotDotPathComponents() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/../../../../..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/abc/..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/abc/../..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/../abc").pathString, windows ? #"\abc"# : "/abc")
-        XCTAssertEqual(AbsolutePath("/../abc/..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/../abc/../def").pathString, windows ? #"\def"# : "/def")
-        XCTAssertEqual(RelativePath("..").pathString, "..")
-        XCTAssertEqual(RelativePath("../..").pathString, "../..")
-        XCTAssertEqual(RelativePath(".././..").pathString, "../..")
-        XCTAssertEqual(RelativePath("../abc/..").pathString, "..")
-        XCTAssertEqual(RelativePath("../abc/.././").pathString, "..")
-        XCTAssertEqual(RelativePath("abc/..").pathString, ".")
-    }
-
-    func testCombinationsAndEdgeCases() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("///").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/./").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(RelativePath("").pathString, ".")
-        XCTAssertEqual(RelativePath(".").pathString, ".")
-        XCTAssertEqual(RelativePath("./abc").pathString, "abc")
-        XCTAssertEqual(RelativePath("./abc/").pathString, "abc")
-        XCTAssertEqual(RelativePath("./abc/../bar").pathString, "bar")
-        XCTAssertEqual(RelativePath("foo/../bar").pathString, "bar")
-        XCTAssertEqual(RelativePath("foo///..///bar///baz").pathString, "bar/baz")
-        XCTAssertEqual(RelativePath("foo/../bar/./").pathString, "bar")
-        XCTAssertEqual(RelativePath("../abc/def/").pathString, "../abc/def")
-        XCTAssertEqual(RelativePath("././././.").pathString, ".")
-        XCTAssertEqual(RelativePath("./././../.").pathString, "..")
-        XCTAssertEqual(RelativePath("./").pathString, ".")
-        XCTAssertEqual(RelativePath(".//").pathString, ".")
-        XCTAssertEqual(RelativePath("./.").pathString, ".")
-        XCTAssertEqual(RelativePath("././").pathString, ".")
-        XCTAssertEqual(RelativePath("../").pathString, "..")
-        XCTAssertEqual(RelativePath("../.").pathString, "..")
-        XCTAssertEqual(RelativePath("./..").pathString, "..")
-        XCTAssertEqual(RelativePath("./../.").pathString, "..")
-        XCTAssertEqual(RelativePath("./////../////./////").pathString, "..")
-        XCTAssertEqual(RelativePath("../a").pathString, windows ? #"..\a"# : "../a")
-        XCTAssertEqual(RelativePath("../a/..").pathString, "..")
-        XCTAssertEqual(RelativePath("a/..").pathString, ".")
-        XCTAssertEqual(RelativePath("a/../////../////./////").pathString, "..")
-    }
-
-    func testDirectoryNameExtraction() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").dirname, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/a").dirname, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/./a").dirname, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/../..").dirname, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/ab/c//d/").dirname, windows ? #"\ab\c"# : "/ab/c")
-        XCTAssertEqual(RelativePath("ab/c//d/").dirname, windows ? #"ab\c"# : "ab/c")
-        XCTAssertEqual(RelativePath("../a").dirname, "..")
-        XCTAssertEqual(RelativePath("../a/..").dirname, ".")
-        XCTAssertEqual(RelativePath("a/..").dirname, ".")
-        XCTAssertEqual(RelativePath("./..").dirname, ".")
-        XCTAssertEqual(RelativePath("a/../////../////./////").dirname, ".")
-        XCTAssertEqual(RelativePath("abc").dirname, ".")
-        XCTAssertEqual(RelativePath("").dirname, ".")
-        XCTAssertEqual(RelativePath(".").dirname, ".")
-    }
-
-    func testBaseNameExtraction() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").basename, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/a").basename, "a")
-        XCTAssertEqual(AbsolutePath("/./a").basename, "a")
-        XCTAssertEqual(AbsolutePath("/../..").basename, "/")
-        XCTAssertEqual(RelativePath("../..").basename, "..")
-        XCTAssertEqual(RelativePath("../a").basename, "a")
-        XCTAssertEqual(RelativePath("../a/..").basename, "..")
-        XCTAssertEqual(RelativePath("a/..").basename, ".")
-        XCTAssertEqual(RelativePath("./..").basename, "..")
-        XCTAssertEqual(RelativePath("a/../////../////./////").basename, "..")
-        XCTAssertEqual(RelativePath("abc").basename, "abc")
-        XCTAssertEqual(RelativePath("").basename, ".")
-        XCTAssertEqual(RelativePath(".").basename, ".")
-    }
-
-    func testBaseNameWithoutExt() throws{
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").basenameWithoutExt, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/a").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/./a").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/../..").basenameWithoutExt, "/")
-        XCTAssertEqual(RelativePath("../..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("../a").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("../a/..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("a/..").basenameWithoutExt, ".")
-        XCTAssertEqual(RelativePath("./..").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("a/../////../////./////").basenameWithoutExt, "..")
-        XCTAssertEqual(RelativePath("abc").basenameWithoutExt, "abc")
-        XCTAssertEqual(RelativePath("").basenameWithoutExt, ".")
-        XCTAssertEqual(RelativePath(".").basenameWithoutExt, ".")
-
-        XCTAssertEqual(AbsolutePath("/a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(AbsolutePath("/./a.txt").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("../a.bc").basenameWithoutExt, "a")
-        XCTAssertEqual(RelativePath("abc.swift").basenameWithoutExt, "abc")
-        XCTAssertEqual(RelativePath("../a.b.c").basenameWithoutExt, "a.b")
-        XCTAssertEqual(RelativePath("abc.xyz.123").basenameWithoutExt, "abc.xyz")
-    }
-
-    func testSuffixExtraction() throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: "expected nil is not the actual")
-
-        XCTAssertEqual(RelativePath("a").suffix, nil)
-        XCTAssertEqual(RelativePath("a").extension, nil)
-        XCTAssertEqual(RelativePath("a.").suffix, nil)
-        XCTAssertEqual(RelativePath("a.").extension, nil)
-        XCTAssertEqual(RelativePath(".a").suffix, nil)
-        XCTAssertEqual(RelativePath(".a").extension, nil)
-        XCTAssertEqual(RelativePath("").suffix, nil)
-        XCTAssertEqual(RelativePath("").extension, nil)
-        XCTAssertEqual(RelativePath(".").suffix, nil)
-        XCTAssertEqual(RelativePath(".").extension, nil)
-        XCTAssertEqual(RelativePath("..").suffix, nil)
-        XCTAssertEqual(RelativePath("..").extension, nil)
-        XCTAssertEqual(RelativePath("a.foo").suffix, ".foo")
-        XCTAssertEqual(RelativePath("a.foo").extension, "foo")
-        XCTAssertEqual(RelativePath(".a.foo").suffix, ".foo")
-        XCTAssertEqual(RelativePath(".a.foo").extension, "foo")
-        XCTAssertEqual(RelativePath(".a.foo.bar").suffix, ".bar")
-        XCTAssertEqual(RelativePath(".a.foo.bar").extension, "bar")
-        XCTAssertEqual(RelativePath("a.foo.bar").suffix, ".bar")
-        XCTAssertEqual(RelativePath("a.foo.bar").extension, "bar")
-        XCTAssertEqual(RelativePath(".a.foo.bar.baz").suffix, ".baz")
-        XCTAssertEqual(RelativePath(".a.foo.bar.baz").extension, "baz")
-    }
-
-    func testParentDirectory() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").parentDirectory, AbsolutePath("/"))
-        XCTAssertEqual(AbsolutePath("/").parentDirectory.parentDirectory, AbsolutePath("/"))
-        XCTAssertEqual(AbsolutePath("/bar").parentDirectory, AbsolutePath("/"))
-        XCTAssertEqual(AbsolutePath("/bar/../foo/..//").parentDirectory.parentDirectory, AbsolutePath("/"))
-        XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/a/b").parentDirectory.parentDirectory, AbsolutePath("/yabba"))
-    }
-
+    @Test
     @available(*, deprecated)
-    func testConcatenation() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath(".")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("..")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/"), RelativePath("bar")).pathString, windows ? #"\bar"# : "/bar")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/foo/bar"), RelativePath("..")).pathString, windows ? #"\foo"# : "/foo")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).pathString, windows ? #"\foo"# : "/foo")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).pathString, windows ? #"\yabba\a\b"# : "/yabba/a/b")
-
-        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/").appending(RelativePath(".")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("..")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/").appending(RelativePath("bar")).pathString, windows ? #"\bar"# : "/bar")
-        XCTAssertEqual(AbsolutePath("/foo/bar").appending(RelativePath("..")).pathString, windows ? #"\foo"# : "/foo")
-        XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo")).pathString, windows ? #"\foo"# : "/foo")
-        XCTAssertEqual(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).pathString, windows ? #"\yabba\a\b"# : "/yabba/a/b")
-
-        XCTAssertEqual(AbsolutePath("/").appending(component: "a").pathString, windows ? #"\a"# : "/a")
-        XCTAssertEqual(AbsolutePath("/a").appending(component: "b").pathString, windows ? #"\a\b"# : "/a/b")
-        XCTAssertEqual(AbsolutePath("/").appending(components: "a", "b").pathString, windows ? #"\a\b"# : "/a/b")
-        XCTAssertEqual(AbsolutePath("/a").appending(components: "b", "c").pathString, windows ? #"\a\b\c"# : "/a/b/c")
-
-        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "", "c").pathString, windows ? #"\a\b\c\c"# : "/a/b/c/c")
-        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "").pathString, windows ? #"\a\b\c"# : "/a/b/c")
-        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: ".").pathString, windows ? #"\a\b\c"# : "/a/b/c")
-        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "..").pathString, windows ? #"\a\b"# : "/a/b")
-        XCTAssertEqual(AbsolutePath("/a/b/c").appending(components: "..", "d").pathString, windows ? #"\a\b\d"# : "/a/b/d")
-        XCTAssertEqual(AbsolutePath("/").appending(components: "..").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/").appending(components: ".").pathString, windows ? #"\"# : "/")
-        XCTAssertEqual(AbsolutePath("/").appending(components: "..", "a").pathString, windows ? #"\a"# : "/a")
-
-        XCTAssertEqual(RelativePath("hello").appending(components: "a", "b", "c", "..").pathString, windows ? #"hello\a\b"# : "hello/a/b")
-        XCTAssertEqual(RelativePath("hello").appending(RelativePath("a/b/../c/d")).pathString, windows ? #"hello\a\c\d"# : "hello/a/c/d")
-    }
-
-    func testPathComponents() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").components, ["/"])
-        XCTAssertEqual(AbsolutePath("/.").components, ["/"])
-        XCTAssertEqual(AbsolutePath("/..").components, ["/"])
-        XCTAssertEqual(AbsolutePath("/bar").components, ["/", "bar"])
-        XCTAssertEqual(AbsolutePath("/foo/bar/..").components, ["/", "foo"])
-        XCTAssertEqual(AbsolutePath("/bar/../foo").components, ["/", "foo"])
-        XCTAssertEqual(AbsolutePath("/bar/../foo/..//").components, ["/"])
-        XCTAssertEqual(AbsolutePath("/bar/../foo/..//yabba/a/b/").components, ["/", "yabba", "a", "b"])
-
-        XCTAssertEqual(RelativePath("").components, ["."])
-        XCTAssertEqual(RelativePath(".").components, ["."])
-        XCTAssertEqual(RelativePath("..").components, [".."])
-        XCTAssertEqual(RelativePath("bar").components, ["bar"])
-        XCTAssertEqual(RelativePath("foo/bar/..").components, ["foo"])
-        XCTAssertEqual(RelativePath("bar/../foo").components, ["foo"])
-        XCTAssertEqual(RelativePath("bar/../foo/..//").components, ["."])
-        XCTAssertEqual(RelativePath("bar/../foo/..//yabba/a/b/").components, ["yabba", "a", "b"])
-        XCTAssertEqual(RelativePath("../..").components, ["..", ".."])
-        XCTAssertEqual(RelativePath(".././/..").components, ["..", ".."])
-        XCTAssertEqual(RelativePath("../a").components, ["..", "a"])
-        XCTAssertEqual(RelativePath("../a/..").components, [".."])
-        XCTAssertEqual(RelativePath("a/..").components, ["."])
-        XCTAssertEqual(RelativePath("./..").components, [".."])
-        XCTAssertEqual(RelativePath("a/../////../////./////").components, [".."])
-        XCTAssertEqual(RelativePath("abc").components, ["abc"])
-    }
-
-    func testRelativePathFromAbsolutePaths() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertEqual(AbsolutePath("/").relative(to: AbsolutePath("/")), RelativePath("."));
-        XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/")), RelativePath("a/b/c/d"));
-        XCTAssertEqual(AbsolutePath("/").relative(to: AbsolutePath("/a/b/c")), RelativePath("../../.."));
-        XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b")), RelativePath("c/d"));
-        XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b/c")), RelativePath("d"));
-        XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/c/d")), RelativePath("../../b/c/d"));
-        XCTAssertEqual(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")), RelativePath("../../../a/b/c/d"));
-    }
-
-    func testComparison() {
-        XCTAssertTrue(AbsolutePath("/") <= AbsolutePath("/"));
-        XCTAssertTrue(AbsolutePath("/abc") < AbsolutePath("/def"));
-        XCTAssertTrue(AbsolutePath("/2") <= AbsolutePath("/2.1"));
-        XCTAssertTrue(AbsolutePath("/3.1") > AbsolutePath("/2"));
-        XCTAssertTrue(AbsolutePath("/2") >= AbsolutePath("/2"));
-        XCTAssertTrue(AbsolutePath("/2.1") >= AbsolutePath("/2"));
-    }
-
-    func testAncestry() {
-        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f").isDescendantOfOrEqual(to: AbsolutePath("/a/b/c/d")))
-        XCTAssertTrue(AbsolutePath("/a/b/c/d/e/f.swift").isDescendantOfOrEqual(to: AbsolutePath("/a/b/c")))
-        XCTAssertTrue(AbsolutePath("/").isDescendantOfOrEqual(to: AbsolutePath("/")))
-        XCTAssertTrue(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/")))
-        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/foo/bar/baz")))
-        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendantOfOrEqual(to: AbsolutePath("/bar")))
-
-        XCTAssertFalse(AbsolutePath("/foo/bar").isDescendant(of: AbsolutePath("/foo/bar")))
-        XCTAssertTrue(AbsolutePath("/foo/bar").isDescendant(of: AbsolutePath("/foo")))
-
-        XCTAssertTrue(AbsolutePath("/a/b/c/d").isAncestorOfOrEqual(to: AbsolutePath("/a/b/c/d/e/f")))
-        XCTAssertTrue(AbsolutePath("/a/b/c").isAncestorOfOrEqual(to: AbsolutePath("/a/b/c/d/e/f.swift")))
-        XCTAssertTrue(AbsolutePath("/").isAncestorOfOrEqual(to: AbsolutePath("/")))
-        XCTAssertTrue(AbsolutePath("/").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
-        XCTAssertFalse(AbsolutePath("/foo/bar/baz").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
-        XCTAssertFalse(AbsolutePath("/bar").isAncestorOfOrEqual(to: AbsolutePath("/foo/bar")))
-
-        XCTAssertFalse(AbsolutePath("/foo/bar").isAncestor(of: AbsolutePath("/foo/bar")))
-        XCTAssertTrue(AbsolutePath("/foo").isAncestor(of: AbsolutePath("/foo/bar")))
-    }
-
-    func testAbsolutePathValidation() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertNoThrow(try AbsolutePath(validating: "/a/b/c/d"))
-
-        XCTAssertThrowsError(try AbsolutePath(validating: "~/a/b/d")) { error in
-            XCTAssertEqual("\(error)", "invalid absolute path '~/a/b/d'; absolute path must begin with '/'")
+    func concatenation() throws {
+        #expect(AbsolutePath(AbsolutePath("/"), RelativePath("")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath(AbsolutePath("/"), RelativePath(".")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath(AbsolutePath("/"), RelativePath("..")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath(AbsolutePath("/"), RelativePath("bar")).pathString == (windows ? #"\bar"# : "/bar"))
+        #expect(AbsolutePath(AbsolutePath("/foo/bar"), RelativePath("..")).pathString == (windows ? #"\foo"# : "/foo"))
+        #expect(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo")).pathString == (windows ? #"\foo"# : "/foo"))
+        withKnownIssue {
+            #expect(AbsolutePath(AbsolutePath("/bar"), RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
+            #expect(AbsolutePath(AbsolutePath("/bar/../foo/..//yabba/"), RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
 
-        XCTAssertThrowsError(try AbsolutePath(validating: "a/b/d")) { error in
-            XCTAssertEqual("\(error)", "invalid absolute path 'a/b/d'")
-        }
-    }
-
-    func testRelativePathValidation() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        XCTAssertNoThrow(try RelativePath(validating: "a/b/c/d"))
-
-        XCTAssertThrowsError(try RelativePath(validating: "/a/b/d")) { error in
-            XCTAssertEqual("\(error)", "invalid relative path '/a/b/d'; relative path should not begin with '/'")
-            //XCTAssertEqual("\(error)", "invalid relative path '/a/b/d'; relative path should not begin with '/' or '~'")
+        #expect(AbsolutePath("/").appending(RelativePath("")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath("/").appending(RelativePath(".")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath("/").appending(RelativePath("..")).pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath("/").appending(RelativePath("bar")).pathString == (windows ? #"\bar"# : "/bar"))
+        #expect(AbsolutePath("/foo/bar").appending(RelativePath("..")).pathString == (windows ? #"\foo"# : "/foo"))
+        #expect(AbsolutePath("/bar").appending(RelativePath("../foo")).pathString == (windows ? #"\foo"# : "/foo"))
+        withKnownIssue {
+            #expect(AbsolutePath("/bar").appending(RelativePath("../foo/..//")).pathString == (windows ? #"\"# : "/"))
+            #expect(AbsolutePath("/bar/../foo/..//yabba/").appending(RelativePath("a/b")).pathString == (windows ? #"\yabba\a\b"# : "/yabba/a/b"))
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
 
-        /*XCTAssertThrowsError(try RelativePath(validating: "~/a/b/d")) { error in
-            XCTAssertEqual("\(error)", "invalid relative path '~/a/b/d'; relative path should not begin with '/' or '~'")
-        }*/
+        #expect(AbsolutePath("/").appending(component: "a").pathString == (windows ? #"\a"# : "/a"))
+        #expect(AbsolutePath("/a").appending(component: "b").pathString == (windows ? #"\a\b"# : "/a/b"))
+        #expect(AbsolutePath("/").appending(components: "a", "b").pathString == (windows ? #"\a\b"# : "/a/b"))
+        #expect(AbsolutePath("/a").appending(components: "b", "c").pathString == (windows ? #"\a\b\c"# : "/a/b/c"))
+
+        #expect(AbsolutePath("/a/b/c").appending(components: "", "c").pathString == (windows ? #"\a\b\c\c"# : "/a/b/c/c"))
+        #expect(AbsolutePath("/a/b/c").appending(components: "").pathString == (windows ? #"\a\b\c"# : "/a/b/c"))
+        #expect(AbsolutePath("/a/b/c").appending(components: ".").pathString == (windows ? #"\a\b\c"# : "/a/b/c"))
+        #expect(AbsolutePath("/a/b/c").appending(components: "..").pathString == (windows ? #"\a\b"# : "/a/b"))
+        #expect(AbsolutePath("/a/b/c").appending(components: "..", "d").pathString == (windows ? #"\a\b\d"# : "/a/b/d"))
+        #expect(AbsolutePath("/").appending(components: "..").pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath("/").appending(components: ".").pathString == (windows ? #"\"# : "/"))
+        #expect(AbsolutePath("/").appending(components: "..", "a").pathString == (windows ? #"\a"# : "/a"))
+
+        #expect(RelativePath("hello").appending(components: "a", "b", "c", "..").pathString == (windows ? #"hello\a\b"# : "hello/a/b"))
+        #expect(RelativePath("hello").appending(RelativePath("a/b/../c/d")).pathString == (windows ? #"hello\a\c\d"# : "hello/a/c/d"))
     }
 
-    func testCodable() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+    @Test
+    func relativePathFromAbsolutePaths() throws {
+        #expect(AbsolutePath("/").relative(to: AbsolutePath("/")) == RelativePath("."));
+        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/")) == RelativePath("a/b/c/d"));
+        #expect(AbsolutePath("/").relative(to: AbsolutePath("/a/b/c")) == RelativePath("../../.."));
+        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b")) == RelativePath("c/d"));
+        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/b/c")) == RelativePath("d"));
+        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/a/c/d")) == RelativePath("../../b/c/d"));
+        #expect(AbsolutePath("/a/b/c/d").relative(to: AbsolutePath("/b/c/d")) == RelativePath("../../../a/b/c/d"));
+    }
 
+    @Test
+    func codable() throws {
         struct Foo: Codable, Equatable {
             var path: AbsolutePath
         }
@@ -392,48 +729,64 @@ class PathTests: XCTestCase {
             let foo = Foo(path: "/path/to/foo")
             let data = try JSONEncoder().encode(foo)
             let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
-            XCTAssertEqual(foo, decodedFoo)
+            #expect(foo == decodedFoo)
         }
 
         do {
             let foo = Foo(path: "/path/to/../to/foo")
             let data = try JSONEncoder().encode(foo)
             let decodedFoo = try JSONDecoder().decode(Foo.self, from: data)
-            XCTAssertEqual(foo, decodedFoo)
-            XCTAssertEqual(foo.path.pathString, windows ? #"\path\to\foo"# : "/path/to/foo")
-            XCTAssertEqual(decodedFoo.path.pathString, windows ? #"\path\to\foo"# : "/path/to/foo")
+            #expect(foo == decodedFoo)
+            withKnownIssue {
+                #expect(foo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
+                #expect(decodedFoo.path.pathString == (windows ? #"\path\to\foo"# : "/path/to/foo"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         do {
             let bar = Bar(path: "path/to/bar")
             let data = try JSONEncoder().encode(bar)
             let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
-            XCTAssertEqual(bar, decodedBar)
+            #expect(bar == decodedBar)
         }
 
         do {
             let bar = Bar(path: "path/to/../to/bar")
             let data = try JSONEncoder().encode(bar)
             let decodedBar = try JSONDecoder().decode(Bar.self, from: data)
-            XCTAssertEqual(bar, decodedBar)
-            XCTAssertEqual(bar.path.pathString, "path/to/bar")
-            XCTAssertEqual(decodedBar.path.pathString, "path/to/bar")
+            #expect(bar == decodedBar)
+            withKnownIssue {
+                #expect(bar.path.pathString == "path/to/bar")
+                #expect(decodedBar.path.pathString == "path/to/bar")
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
 
         do {
             let data = try JSONEncoder().encode(Baz(path: ""))
-            XCTAssertThrowsError(try JSONDecoder().decode(Foo.self, from: data))
-            XCTAssertNoThrow(try JSONDecoder().decode(Bar.self, from: data)) // empty string is a valid relative path
+            #expect(throws: (any Error).self) { 
+                try JSONDecoder().decode(Foo.self, from: data)
+            }
+            #expect(throws: Never.self) { 
+                try JSONDecoder().decode(Bar.self, from: data)
+            } // empty string is a valid relative path
         }
 
         do {
             let data = try JSONEncoder().encode(Baz(path: "foo"))
-            XCTAssertThrowsError(try JSONDecoder().decode(Foo.self, from: data))
+            #expect(throws: (any Error).self) { 
+                try JSONDecoder().decode(Foo.self, from: data)
+            }
         }
 
         do {
             let data = try JSONEncoder().encode(Baz(path: "/foo"))
-            XCTAssertThrowsError(try JSONDecoder().decode(Bar.self, from: data))
+            #expect(throws: (any Error).self) { 
+                try JSONDecoder().decode(Bar.self, from: data)
+            }
         }
     }
 

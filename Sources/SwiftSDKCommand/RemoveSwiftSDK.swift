@@ -14,6 +14,7 @@ import ArgumentParser
 import Basics
 import CoreCommands
 import PackageModel
+import TSCBasic
 
 package struct RemoveSwiftSDK: SwiftSDKSubcommand {
     package static let configuration = CommandConfiguration(
@@ -33,12 +34,13 @@ package struct RemoveSwiftSDK: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
-        _ swiftSDKsDirectory: AbsolutePath,
+        hostToolchain: UserToolchain,
+        _ swiftSDKsDirectory: Basics.AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) async throws {
         let artifactBundleDirectory = swiftSDKsDirectory.appending(component: self.sdkIDOrBundleName)
 
-        let removedBundleDirectory: AbsolutePath
+        let removedBundleDirectory: Basics.AbsolutePath
         if fileSystem.exists(artifactBundleDirectory) {
             try fileSystem.removeFileTree(artifactBundleDirectory)
 
@@ -46,6 +48,7 @@ package struct RemoveSwiftSDK: SwiftSDKSubcommand {
         } else {
             let bundleStore = SwiftSDKBundleStore(
                 swiftSDKsDirectory: swiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
                 fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 outputHandler: { print($0) }

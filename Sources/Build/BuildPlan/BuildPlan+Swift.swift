@@ -16,11 +16,15 @@ import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import class PackageModel.SystemLibraryModule
 
+import PackageGraph
+import PackageLoading
+import SPMBuildCore
+
 extension BuildPlan {
     func plan(swiftTarget: SwiftModuleBuildDescription) throws {
         // We need to iterate recursive dependencies because Swift compiler needs to see all the targets a target
-        // depends on.
-        for case .module(let dependency, let description) in swiftTarget.recursiveDependencies(using: self) {
+        // builds against
+        for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
             case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
                 guard case let .clang(target)? = description else {
@@ -39,7 +43,24 @@ extension BuildPlan {
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryModule:
-                if case .xcframework = target.kind {
+                switch target.kind {
+                case .unknown:
+                    break
+                case .artifactsArchive:
+                    let libraries = try self.parseLibraryArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
+                    for library in libraries {
+                        library.headersPaths.forEach {
+                            swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
+                        }
+                        if let moduleMapPath = library.moduleMapPath {
+                            // We need to pass the module map if there is one. If there is none Swift cannot import it but
+                            // this might still be valid
+                            swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"]
+                        }
+
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+                case .xcframework:
                     let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
@@ -53,5 +74,4 @@ extension BuildPlan {
             }
         }
     }
-
 }

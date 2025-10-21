@@ -18,6 +18,9 @@ import struct Basics.AsyncProcessResult
 
 import enum TSCBasic.ProcessEnv
 
+// Fan out from invocation of SPM 'swift-*' commands can be quite large.  Limit the number of concurrent tasks to a fraction of total CPUs.
+private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: Int(Double(ProcessInfo.processInfo.activeProcessorCount) * 0.5))
+
 /// Defines the executables used by SwiftPM.
 /// Contains path to the currently built executable and
 /// helper method to execute them.
@@ -57,15 +60,11 @@ extension SwiftPM {
     }
 
     public static func xctestBinaryPath(for executableName: RelativePath) -> AbsolutePath {
-        #if canImport(Darwin)
-        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-            return try! AbsolutePath(AbsolutePath(validating: bundle.bundlePath).parentDirectory, executableName)
+        do {
+            return try resolveBinDir().appending(executableName)
+        } catch {
+            fatalError("Unable to determine xctestBinaryPath")
         }
-        fatalError()
-        #else
-        return try! AbsolutePath(validating: CommandLine.arguments.first!, relativeTo: localFileSystem.currentWorkingDirectory!)
-            .parentDirectory.appending(executableName)
-        #endif
     }
 }
 
@@ -86,28 +85,36 @@ extension SwiftPM {
         env: Environment? = nil,
         throwIfCommandFails: Bool = true
     ) async throws -> (stdout: String, stderr: String) {
-        let result = try await executeProcess(
-            args,
-            packagePath: packagePath,
-            env: env
-        )
-        
-        let stdout = try result.utf8Output()
-        let stderr = try result.utf8stderrOutput()
-        
-        let returnValue = (stdout: stdout, stderr: stderr)
-        if (!throwIfCommandFails) { return returnValue }
+        // Swift Testing uses Swift concurrency for test execution and creates a task for each test to run in parallel.
+        // A single invocation of "swift build" can spawn a large number of subprocesses.
+        // When this pattern is repeated across many tests, thousands of processes compete for
+        // CPU/disk/network resources. Tests can take thousands of seconds to complete, with periods
+        // of no stdout/stderr output that can cause activity timeouts in CI pipelines.
+        // Run all SPM executions under a queue to limit the maximum number of concurrent SPM processes.
+        try await swiftPMExecutionQueue.withOperation {
+            let result = try await executeProcess(
+                args,
+                packagePath: packagePath,
+                env: env
+            )
+            // Remove /r from stdout/stderr so that tests do not have to deal with them
+            let stdout = try String(decoding: result.output.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stderr = try String(decoding: result.stderrOutput.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
 
-        if result.exitStatus == .terminated(code: 0) {
-            return returnValue
+            let returnValue = (stdout: stdout, stderr: stderr)
+            if !throwIfCommandFails { return returnValue }
+
+            if result.exitStatus == .terminated(code: 0) {
+                return returnValue
+            }
+            throw SwiftPMError.executionFailure(
+                underlying: AsyncProcessResult.Error.nonZeroExit(result),
+                stdout: stdout,
+                stderr: stderr
+            )
         }
-        throw SwiftPMError.executionFailure(
-            underlying: AsyncProcessResult.Error.nonZeroExit(result),
-            stdout: stdout,
-            stderr: stderr
-        )
     }
-    
+
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
@@ -131,13 +138,12 @@ extension SwiftPM {
 
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
-        environment["SWIFTPM_EXEC_NAME"] = self.executableName
 
         for (key, value) in env ?? [:] {
             environment[key] = value
         }
 
-        var completeArgs = [xctestBinaryPath.pathString]
+        var completeArgs = [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }

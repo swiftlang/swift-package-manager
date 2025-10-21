@@ -14,7 +14,7 @@ import LLBuildManifest
 
 import protocol TSCBasic.OutputByteStream
 
-/// Serializes an LLBuildManifest graph to a .dot file
+/// Serializes an LLBuildManifest graph to a .dot file.
 struct DOTManifestSerializer {
     var kindCounter = [String: Int]()
     var hasEmittedStyling = Set<String>()
@@ -25,7 +25,7 @@ struct DOTManifestSerializer {
         self.manifest = manifest
     }
 
-    /// Gets a unique label for a job name
+    /// Gets a unique label for a job name.
     mutating func label(for command: Command) -> String {
         let toolName = "\(type(of: command.tool).name)"
         var label = toolName
@@ -36,7 +36,7 @@ struct DOTManifestSerializer {
         return label
     }
 
-    /// Quote the name and escape the quotes and backslashes
+    /// Quote the name and escape the quotes and backslashes.
     func quoteName(_ name: String) -> String {
         "\"" + name.replacing("\"", with: "\\\"")
                    .replacing("\\", with: "\\\\") + "\""

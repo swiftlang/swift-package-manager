@@ -1774,7 +1774,7 @@ final class SignatureValidationTests: XCTestCase {
     }
 
     private func ecSelfSignedTestKeyAndCertChain() throws -> KeyAndCertChain {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
             let privateKey = try localFileSystem.readFileContents(
                 fixturePath.appending(components: "Certificates", "Test_ec_self_signed_key.p8")
             ).contents

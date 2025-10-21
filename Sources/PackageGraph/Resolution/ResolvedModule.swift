@@ -12,6 +12,7 @@
 
 import PackageModel
 
+import func TSCBasic.topologicalSort
 import struct Basics.IdentifiableSet
 
 @available(*, deprecated, renamed: "ResolvedModule")
@@ -177,6 +178,12 @@ public struct ResolvedModule {
                 moduleDependency.type == .macro
             }
         })
+    }
+
+    /// Whether this module comes from a declaration in the manifest file
+    /// or was synthesized (i.e. some test modules are synthesized).
+    public var implicit: Bool {
+        self.underlying.implicit
     }
 
     /// Create a resolved module instance.

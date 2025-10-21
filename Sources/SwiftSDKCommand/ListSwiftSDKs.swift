@@ -32,11 +32,13 @@ package struct ListSwiftSDKs: SwiftSDKSubcommand {
 
     func run(
         hostTriple: Triple,
+        hostToolchain: UserToolchain,
         _ swiftSDKsDirectory: AbsolutePath,
         _ observabilityScope: ObservabilityScope
     ) throws {
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
+            hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) }

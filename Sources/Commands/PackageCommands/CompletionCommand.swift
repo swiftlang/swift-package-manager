@@ -11,7 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Basics
 import CoreCommands
+import PackageModel
+import PackageGraph
 
 import var TSCBasic.stdoutStream
 
@@ -19,7 +22,7 @@ extension SwiftPackageCommand {
     struct CompletionCommand: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "completion-tool",
-            abstract: "Completion command (for shell completions)"
+            abstract: "Command to generate shell completions."
         )
 
         enum Mode: String, CaseIterable, ExpressibleByArgument {
@@ -49,7 +52,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "Type of completions to list")
+        @Argument(help: "Type of completions to list.")
         var mode: Mode
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -76,14 +79,14 @@ extension SwiftPackageCommand {
             case .listExecutables:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.products.filter { $0.type == .executable }
+                let executables = package.products.filter { $0.type == .executable }.sorted()
                 for executable in executables {
                     print(executable.name)
                 }
             case .listSnippets:
                 let graph = try await swiftCommandState.loadPackageGraph()
                 let package = graph.rootPackages[graph.rootPackages.startIndex].underlying
-                let executables = package.modules.filter { $0.type == .snippet }
+                let executables = package.modules.filter { $0.type == .snippet }.sorted()
                 for executable in executables {
                     print(executable.name)
                 }

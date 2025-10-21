@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+import Commands
 import CoreCommands
 import Foundation
 import PackageModel
@@ -22,7 +23,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-registry",
         _superCommandName: "swift",
-        abstract: "Interact with package registry and manage related configuration",
+        abstract: "Interact with package registry and manage related configuration.",
         discussion: "SEE ALSO: swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
@@ -42,22 +43,22 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
 
     struct Set: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Set a custom registry"
+            abstract: "Set a custom registry."
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Flag(help: "Apply settings to all projects for this user")
+        @Flag(help: "Apply settings to all projects for this user.")
         var global: Bool = false
 
-        @Option(help: "Associate the registry with a given scope")
+        @Option(help: "Associate the registry with a given scope.")
         var scope: String?
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL.")
         var allowInsecureHTTP: Bool = false
 
-        @Argument(help: "The registry URL")
+        @Argument(help: "The registry URL.")
         var url: URL
 
         var registryURL: URL {
@@ -89,16 +90,16 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
 
     struct Unset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Remove a configured registry"
+            abstract: "Remove a configured registry."
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Flag(help: "Apply settings to all projects for this user")
+        @Flag(help: "Apply settings to all projects for this user.")
         var global: Bool = false
 
-        @Option(help: "Associate the registry with a given scope")
+        @Option(help: "Associate the registry with a given scope.")
         var scope: String?
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {

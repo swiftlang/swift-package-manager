@@ -15,6 +15,7 @@ import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
+import TSCUtility
 
 @_spi(SwiftPMInternal)
 import PackageModel
@@ -197,6 +198,10 @@ public final class SwiftModuleBuildDescription {
     /// True if this module needs to be parsed as a library based on the target type and the configuration
     /// of the source code
     var needsToBeParsedAsLibrary: Bool {
+        if buildParameters.sanitizers.sanitizers.contains(.fuzzer) {
+            return true
+        }
+
         switch self.target.type {
         case .library, .test:
             return true
@@ -211,38 +216,10 @@ public final class SwiftModuleBuildDescription {
                 return false
             }
             // looking into the file content to see if it is using the @main annotation which requires parse-as-library
-            return (try? self.containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
+            return (try? containsAtMain(fileSystem: self.fileSystem, path: self.sources[0])) ?? false
         default:
             return false
         }
-    }
-
-    // looking into the file content to see if it is using the @main annotation
-    // this is not bullet-proof since theoretically the file can contain the @main string for other reasons
-    // but it is the closest to accurate we can do at this point
-    func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -> Bool {
-        let content: String = try self.fileSystem.readFileContents(path)
-        let lines = content.split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces) }
-
-        var multilineComment = false
-        for line in lines {
-            if line.hasPrefix("//") {
-                continue
-            }
-            if line.hasPrefix("/*") {
-                multilineComment = true
-            }
-            if line.hasSuffix("*/") {
-                multilineComment = false
-            }
-            if multilineComment {
-                continue
-            }
-            if line.hasPrefix("@main") {
-                return true
-            }
-        }
-        return false
     }
 
     /// The filesystem to operate on.
@@ -489,10 +466,16 @@ public final class SwiftModuleBuildDescription {
             args += ["-v"]
         }
 
-        // Enable batch mode whenever WMO is off.
-        if !self.useWholeModuleOptimization {
-            args += ["-enable-batch-mode"]
+        if self.useWholeModuleOptimization {
+            args.append("-whole-module-optimization")
+            args.append("-num-threads")
+            args.append(String(ProcessInfo.processInfo.activeProcessorCount))
+        } else {
+            args.append("-incremental")
+            args.append("-enable-batch-mode")
         }
+
+        args += ["-serialize-diagnostics"]
 
         args += self.buildParameters.indexStoreArguments(for: self.target)
         args += self.optimizationArguments
@@ -621,11 +604,27 @@ public final class SwiftModuleBuildDescription {
 
         // suppress warnings if the package is remote
         if self.package.isRemote {
-            args += ["-suppress-warnings"]
-            // suppress-warnings and warnings-as-errors are mutually exclusive
-            if let index = args.firstIndex(of: "-warnings-as-errors") {
-                args.remove(at: index)
+            // suppress-warnings and the other warning control flags are mutually exclusive
+            var removeNextArg = false
+            args = args.filter { arg in
+                if removeNextArg {
+                    removeNextArg = false
+                    return false
+                }
+                switch arg {
+                case "-warnings-as-errors", "-no-warnings-as-errors":
+                    return false
+                case "-Wwarning", "-Werror":
+                    removeNextArg = true
+                    return false
+                default:
+                    return true
+                }
             }
+            guard !removeNextArg else {
+                throw InternalError("Unexpected '-Wwarning' or '-Werror' at the end of args")
+            }
+            args += ["-suppress-warnings"]
         }
 
         // Pass `-user-module-version` for versioned packages that aren't pre-releases.
@@ -776,14 +775,6 @@ public final class SwiftModuleBuildDescription {
             result.append(outputFileMapPath.pathString)
         }
 
-        if self.useWholeModuleOptimization {
-            result.append("-whole-module-optimization")
-            result.append("-num-threads")
-            result.append(String(ProcessInfo.processInfo.activeProcessorCount))
-        } else {
-            result.append("-incremental")
-        }
-
         result.append("-c")
         result.append(contentsOf: self.sources.map(\.pathString))
 
@@ -796,7 +787,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns true if ObjC compatibility header should be emitted.
     private var shouldEmitObjCCompatibilityHeader: Bool {
-        self.buildParameters.triple.isDarwin() && self.target.type == .library
+        self.target.type == .library
     }
 
     func writeOutputFileMap(to path: AbsolutePath) throws {
@@ -850,6 +841,7 @@ public final class SwiftModuleBuildDescription {
             let sourceFileName = source.basenameWithoutExt
             let partialModulePath = self.tempsPath.appending(component: sourceFileName + "~partial.swiftmodule")
             let swiftDepsPath = self.tempsPath.appending(component: sourceFileName + ".swiftdeps")
+            let diagnosticsPath = self.diagnosticFile(sourceFile: source)
 
             content +=
                 #"""
@@ -871,7 +863,8 @@ public final class SwiftModuleBuildDescription {
                 #"""
                     "\#(objectKey)": "\#(object._nativePathString(escaped: true))",
                     "swiftmodule": "\#(partialModulePath._nativePathString(escaped: true))",
-                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))"
+                    "swift-dependencies": "\#(swiftDepsPath._nativePathString(escaped: true))",
+                    "diagnostics": "\#(diagnosticsPath._nativePathString(escaped: true))"
                   }\#((idx + 1) < sources.count ? "," : "")
 
                 """#
@@ -883,15 +876,20 @@ public final class SwiftModuleBuildDescription {
         try self.fileSystem.writeFileContents(path, bytes: .init(encodingAsUTF8: content), atomically: true)
     }
 
+    /// Directory for the the compatibility header and module map generated for this target.
+    /// The whole directory should be usable as a header search path.
+    private var compatibilityHeaderDirectory: AbsolutePath {
+        tempsPath.appending("include")
+    }
+
     /// Generates the module map for the Swift target and returns its path.
     private func generateModuleMap() throws -> AbsolutePath {
-        let path = self.tempsPath.appending(component: moduleMapFilename)
+        let path = self.compatibilityHeaderDirectory.appending(component: moduleMapFilename)
 
         let bytes = ByteString(
             #"""
             module \#(self.target.c99name) {
                 header "\#(self.objCompatibilityHeaderPath.pathString)"
-                requires objc
             }
 
             """#.utf8
@@ -910,7 +908,7 @@ public final class SwiftModuleBuildDescription {
 
     /// Returns the path to the ObjC compatibility header for this Swift target.
     var objCompatibilityHeaderPath: AbsolutePath {
-        self.tempsPath.appending("\(self.target.name)-Swift.h")
+        self.compatibilityHeaderDirectory.appending("\(self.target.name)-Swift.h")
     }
 
     /// Returns the build flags from the declared build settings.
@@ -962,6 +960,12 @@ public final class SwiftModuleBuildDescription {
             compilationConditions += ["-DDEBUG"]
         case .release:
             break
+        }
+
+        if bundlePath != nil {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+        } else {
+            compilationConditions += ["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
         }
 
         return compilationConditions
@@ -1021,10 +1025,35 @@ public final class SwiftModuleBuildDescription {
         return arguments
     }
 
+    package var isEmbeddedSwift: Bool {
+        // If the target explicitly declares that it should build with Embedded
+        // Swift, then true.
+        let buildSettings = self.target.underlying.buildSettingsDescription
+        let swiftSettings = buildSettings.swiftSettings.map(\.kind)
+        for case .enableExperimentalFeature("Embedded") in swiftSettings {
+            return true
+        }
+
+        // Otherwise dig through flags looking for -enable-experimental-feature
+        // Embedded. This is needed to handle Embedded being set via:
+        // - unsafeFlags
+        // - swift build cli flags
+        // - toolset flags
+        let queryFlags = ["-enable-experimental-feature", "Embedded"]
+
+        let toolchainFlags = self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        if toolchainFlags.contains(queryFlags) { return true }
+        
+        let generalFlags = self.buildParameters.flags.swiftCompilerFlags
+        if generalFlags.contains(queryFlags) { return true }
+
+        return false
+    }
+
     /// Whether to build Swift code with whole module optimization (WMO)
     /// enabled.
     package var useWholeModuleOptimization: Bool {
-        if self.target.underlying.isEmbeddedSwiftTarget { return true }
+        if self.isEmbeddedSwift { return true }
 
         switch self.buildParameters.configuration {
         case .debug:
@@ -1042,9 +1071,37 @@ extension SwiftModuleBuildDescription {
         ModuleBuildDescription.swift(self).dependencies(using: plan)
     }
 
+    package func recursiveLinkDependencies(
+        using plan: BuildPlan
+    ) -> [ModuleBuildDescription.Dependency] {
+        ModuleBuildDescription.swift(self).recursiveLinkDependencies(using: plan)
+    }
+
     package func recursiveDependencies(
         using plan: BuildPlan
     ) -> [ModuleBuildDescription.Dependency] {
         ModuleBuildDescription.swift(self).recursiveDependencies(using: plan)
+    }
+}
+
+extension SwiftModuleBuildDescription {
+    package var diagnosticFiles: [AbsolutePath] {
+        // WMO builds have a single frontend invocation and produce a single
+        // diagnostic file named after the module.
+        if self.useWholeModuleOptimization {
+            return [
+                self.diagnosticFile(name: self.target.name)
+            ]
+        }
+
+        return self.sources.map(self.diagnosticFile(sourceFile:))
+    }
+
+    private func diagnosticFile(name: String) -> AbsolutePath {
+        self.tempsPath.appending(component: "\(name).dia")
+    }
+
+    private func diagnosticFile(sourceFile: AbsolutePath) -> AbsolutePath {
+        self.diagnosticFile(name: sourceFile.basenameWithoutExt)
     }
 }

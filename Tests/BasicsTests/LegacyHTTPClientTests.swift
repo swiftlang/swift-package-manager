@@ -350,7 +350,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testExponentialBackoff() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8501")
 
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date>()

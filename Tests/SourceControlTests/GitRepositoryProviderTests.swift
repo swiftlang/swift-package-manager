@@ -9,14 +9,19 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import _InternalTestSupport
 @testable import SourceControl
-import XCTest
+import Testing
 
-class GitRepositoryProviderTests: XCTestCase {
-    func testIsValidDirectory() throws {
+struct GitRepositoryProviderTests {
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
+    )
+    func isValidDirectory() throws {
         try testWithTemporaryDirectory { sandbox in
             let provider = GitRepositoryProvider()
 
@@ -24,38 +29,50 @@ class GitRepositoryProviderTests: XCTestCase {
             let repositoryPath = sandbox.appending("test")
             try localFileSystem.createDirectory(repositoryPath)
             initGitRepo(repositoryPath)
-            XCTAssertTrue(try provider.isValidDirectory(repositoryPath))
+            #expect(try provider.isValidDirectory(repositoryPath))
 
             // no-checkout bare repository
             let noCheckoutRepositoryPath = sandbox.appending("test-no-checkout")
             try localFileSystem.copy(from: repositoryPath.appending(".git"), to: noCheckoutRepositoryPath)
-            XCTAssertTrue(try provider.isValidDirectory(noCheckoutRepositoryPath))
+            #expect(try provider.isValidDirectory(noCheckoutRepositoryPath))
 
             // non-git directory
             let notGitPath = sandbox.appending("test-not-git")
-            XCTAssertThrowsError(try provider.isValidDirectory(notGitPath))
+            #expect(throws: (any Error).self) {
+                try provider.isValidDirectory(notGitPath)
+            }
 
             // non-git child directory of a git directory
             let notGitChildPath = repositoryPath.appending("test-not-git")
-            XCTAssertThrowsError(try provider.isValidDirectory(notGitChildPath))
-        }
-    }
-
-    func testIsValidDirectoryThrowsPrintableError() throws {
-        try testWithTemporaryDirectory { temp in
-            let provider = GitRepositoryProvider()
-            let expectedErrorMessage = "not a git repository"
-            XCTAssertThrowsError(try provider.isValidDirectory(temp)) { error in
-                let errorString = String(describing: error)
-                XCTAssertTrue(
-                    errorString.contains(expectedErrorMessage),
-                    "Error string '\(errorString)' should contain '\(expectedErrorMessage)'"
-                )
+            #expect(throws: (any Error).self) {
+                try provider.isValidDirectory(notGitChildPath)
             }
         }
     }
 
-    func testGitShellErrorIsPrintable() throws {
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
+    )
+    func isValidDirectoryThrowsPrintableError() throws {
+        try testWithTemporaryDirectory { temp in
+            let provider = GitRepositoryProvider()
+            let expectedErrorMessage = "not a git repository"
+            #expect {
+                try provider.isValidDirectory(temp)
+            } throws: { error in
+                let errorString = String(describing: error)
+                let matched = errorString.contains(expectedErrorMessage)
+                return matched
+            }
+        }
+    }
+
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
+    )
+    func gitShellErrorIsPrintable() throws {
         let stdOut = "An error from Git - stdout"
         let stdErr = "An error from Git - stderr"
         let arguments = ["git", "error"]
@@ -69,21 +86,22 @@ class GitRepositoryProviderTests: XCTestCase {
         )
         let error = GitShellError(result: result)
         let errorString = "\(error)"
-        XCTAssertTrue(
+        #expect(
             errorString.contains(stdOut),
-            "Error string '\(errorString)' should contain '\(stdOut)'"
-        )
-        XCTAssertTrue(
+            "Error string '\(errorString)' should contain '\(stdOut)'")
+        #expect(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'"
-        )
-        XCTAssertTrue(
+            "Error string '\(errorString)' should contain '\(stdErr)'")
+        #expect(
             errorString.contains(command),
-            "Error string '\(errorString)' should contain '\(command)'"
-        )
+            "Error string '\(errorString)' should contain '\(command)'")
     }
 
-    func testGitShellErrorEmptyStdOut() throws {
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
+    )
+    func gitShellErrorEmptyStdOut() throws {
         let stdErr = "An error from Git - stderr"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],
@@ -94,13 +112,16 @@ class GitRepositoryProviderTests: XCTestCase {
         )
         let error = GitShellError(result: result)
         let errorString = "\(error)"
-        XCTAssertTrue(
+        #expect(
             errorString.contains(stdErr),
-            "Error string '\(errorString)' should contain '\(stdErr)'"
-        )
+            "Error string '\(errorString)' should contain '\(stdErr)'")
     }
 
-    func testGitShellErrorEmptyStdErr() throws {
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/8564"),
+        .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
+    )
+    func gitShellErrorEmptyStdErr() throws {
         let stdOut = "An error from Git - stdout"
         let result = AsyncProcessResult(
             arguments: ["git", "error"],
@@ -111,7 +132,7 @@ class GitRepositoryProviderTests: XCTestCase {
         )
         let error = GitShellError(result: result)
         let errorString = "\(error)"
-        XCTAssertTrue(
+        #expect(
             errorString.contains(stdOut),
             "Error string '\(errorString)' should contain '\(stdOut)'"
         )

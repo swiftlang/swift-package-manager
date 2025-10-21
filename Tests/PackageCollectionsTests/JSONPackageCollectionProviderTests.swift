@@ -22,7 +22,7 @@ import _InternalTestSupport
 
 class JSONPackageCollectionProviderTests: XCTestCase {
     func testGood() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -88,7 +88,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testLocalFile() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
 
             let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
@@ -374,7 +374,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedGood() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -447,7 +447,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testSigned_skipSignatureCheck() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -518,7 +518,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSigned_noTrustedRootCertsConfigured() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -560,7 +560,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedBad() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -603,7 +603,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     func testSignedLocalFile() async throws {
         try skipIfSignatureCheckNotSupported()
 
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
 
             let httpClient = LegacyHTTPClient(handler: { (_, _, _) -> Void in fatalError("should not be called") })
@@ -655,7 +655,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testRequiredSigningGood() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -729,7 +729,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testRequiredSigningMultiplePoliciesGood() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good_signed.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)
@@ -808,7 +808,7 @@ class JSONPackageCollectionProviderTests: XCTestCase {
     }
 
     func testMissingRequiredSignature() async throws {
-        try await fixture(name: "Collections", createGitRepo: false) { fixturePath in
+        try await fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
             let path = fixturePath.appending(components: "JSON", "good.json")
             let url = URL("https://www.test.com/collection.json")
             let data: Data = try localFileSystem.readFileContents(path)

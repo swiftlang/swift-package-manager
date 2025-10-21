@@ -26,6 +26,7 @@ import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.ExecutableInfo
+import struct SPMBuildCore.LibraryInfo
 import func TSCBasic.topologicalSort
 
 extension BuildPlan {
@@ -33,6 +34,12 @@ extension BuildPlan {
     func plan(buildProduct: ProductBuildDescription) throws {
         // Compute the product's dependency.
         let dependencies = try computeDependencies(of: buildProduct)
+
+        var isEmbeddedSwift = false
+        for module in dependencies.staticTargets {
+            guard case .swift(let module) = module else { continue }
+            isEmbeddedSwift = isEmbeddedSwift || module.isEmbeddedSwift
+        }
 
         // Add flags for system targets.
         for systemModule in dependencies.systemModules {
@@ -50,14 +57,14 @@ extension BuildPlan {
             } else if binaryPath.basename.starts(with: "lib") {
                 buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
             } else {
-                self.observabilityScope.emit(error: "unexpected binary framework")
+                self.observabilityScope.emit(error: "unexpected binary name at \(binaryPath). Static libraries should be prefixed with lib")
             }
         }
 
         // Don't link libc++ or libstd++ when building for Embedded Swift.
         // Users can still link it manually for embedded platforms when needed,
         // by providing `-Xlinker -lc++` options via CLI or `Package.swift`.
-        if !buildProduct.product.modules.contains(where: \.underlying.isEmbeddedSwiftTarget) {
+        if !isEmbeddedSwift {
             // Link C++ if needed.
             // Note: This will come from build settings in future.
             for description in dependencies.staticTargets {
@@ -297,10 +304,20 @@ extension BuildPlan {
                             libraryBinaryPaths.insert(library.libraryPath)
                         }
                     case .artifactsArchive:
-                        let tools = try self.parseArtifactsArchive(
+                        let tools = try self.parseExecutableArtifactsArchive(
                             for: binaryTarget, triple: productDescription.buildParameters.triple
                         )
-                        tools.forEach { availableTools[$0.name] = $0.executablePath }
+                        for tool in tools {
+                            availableTools[tool.name] = tool.executablePath
+                        }
+                        
+                        let libraries = try self.parseLibraryArtifactsArchive(
+                            for: binaryTarget,
+                            triple: productDescription.buildParameters.triple
+                        )
+                        for library in libraries {
+                            libraryBinaryPaths.insert(library.libraryPath)
+                        }
                     case .unknown:
                         throw InternalError("unknown binary target '\(module.name)' type")
                     }
@@ -330,10 +347,16 @@ extension BuildPlan {
     }
 
     /// Extracts the artifacts  from an artifactsArchive
-    private func parseArtifactsArchive(for binaryTarget: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
-        try self.externalExecutablesCache.memoize(key: binaryTarget) {
-            let execInfos = try binaryTarget.parseArtifactArchives(for: triple, fileSystem: self.fileSystem)
+    private func parseExecutableArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
+        try self.externalExecutablesCache.memoize(key: module) {
+            let execInfos = try module.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter { !$0.supportedTriples.isEmpty }
+        }
+    }
+
+    func parseLibraryArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [LibraryInfo] {
+        try self.externalLibrariesCache.memoize(key: module) {
+            try module.parseLibraryArtifactArchives(for: triple, fileSystem: self.fileSystem)
         }
     }
 }

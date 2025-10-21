@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageModel
+
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import struct LLBuildManifest.Node

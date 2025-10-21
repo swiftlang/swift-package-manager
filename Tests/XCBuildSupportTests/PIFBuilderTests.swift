@@ -23,6 +23,7 @@ import _InternalTestSupport
 import _InternalBuildTestSupport
 @testable import XCBuildSupport
 import XCTest
+import Testing
 
 final class PIFBuilderTests: XCTestCase {
     let inputsDir = AbsolutePath(#file).parentDirectory.appending(components: "Inputs")
@@ -133,6 +134,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Foo",
                     path: "/Foo",
                     packageKind: .root("/Foo"),
+                    packageIdentity: .plain("Foo"),
                     defaultLocalization: "fr",
                     toolsVersion: .v5_2,
                     dependencies: [
@@ -542,6 +544,10 @@ final class PIFBuilderTests: XCTestCase {
                                 settings[.LIBRARY_SEARCH_PATHS],
                                 ["$(inherited)", "/toolchain/lib/swift/macosx"]
                             )
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                         }
                     }
 
@@ -566,6 +572,10 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
                                 ["$(inherited)", "/toolchain/lib/swift/macosx"]
+                            )
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
                             )
                         }
                     }
@@ -671,6 +681,10 @@ final class PIFBuilderTests: XCTestCase {
                                 settings[.LIBRARY_SEARCH_PATHS],
                                 ["$(inherited)", "/toolchain/lib/swift/macosx"]
                             )
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                         }
                     }
 
@@ -689,6 +703,10 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(
                                 settings[.LIBRARY_SEARCH_PATHS],
                                 ["$(inherited)", "/toolchain/lib/swift/macosx"]
+                            )
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
                             )
                         }
                     }
@@ -877,6 +895,10 @@ final class PIFBuilderTests: XCTestCase {
                                 "$(inherited)",
                                 "/toolchain/lib/swift/macosx",
                             ])
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
@@ -924,6 +946,10 @@ final class PIFBuilderTests: XCTestCase {
                                 "$(inherited)",
                                 "/toolchain/lib/swift/macosx",
                             ])
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_TARGET_KIND], "regular")
                             XCTAssertEqual(settings[.PRODUCT_BUNDLE_IDENTIFIER], "FooTests")
                             XCTAssertEqual(settings[.PRODUCT_MODULE_NAME], "FooTests")
@@ -1395,6 +1421,10 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib1_Module")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                         }
                     }
 
@@ -1428,6 +1458,10 @@ final class PIFBuilderTests: XCTestCase {
                             XCTAssertEqual(settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME], "FooLib1-Swift.h")
                             XCTAssertEqual(settings[.SWIFT_VERSION], "5")
                             XCTAssertEqual(settings[.TARGET_NAME], "FooLib1_Module")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]
+                            )
                         }
                     }
 
@@ -1926,6 +1960,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Bar",
                     path: "/Bar",
                     packageKind: .root("/Bar"),
+                    packageIdentity: .plain("Bar"),
                     toolsVersion: .v4_2,
                     cLanguageStandard: "c11",
                     swiftLanguageVersions: [.v4_2],
@@ -2167,12 +2202,18 @@ final class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/foo/main.swift",
             "/Foo/Sources/foo/Resources/Data.plist",
             "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+            "/Foo/Sources/foo/Resources/Assets.xcassets",
+            "/Foo/Sources/foo/Resources/Localizable.xcstrings",
             "/Foo/Sources/FooLib/lib.swift",
             "/Foo/Sources/FooLib/Resources/Data.plist",
             "/Foo/Sources/FooLib/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooLib/Resources/Assets.xcassets",
+            "/Foo/Sources/FooLib/Resources/Localizable.xcstrings",
             "/Foo/Sources/FooTests/FooTests.swift",
             "/Foo/Sources/FooTests/Resources/Data.plist",
-            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel"
+            "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+            "/Foo/Sources/FooTests/Resources/Assets.xcassets",
+            "/Foo/Sources/FooTests/Resources/Localizable.xcstrings",
         )
 
         let observability = ObservabilitySystem.makeForTesting()
@@ -2182,7 +2223,7 @@ final class PIFBuilderTests: XCTestCase {
                 Manifest.createRootManifest(
                     displayName: "Foo",
                     path: "/Foo",
-                    toolsVersion: .v5_3,
+                    toolsVersion: .v5_9,
                     products: [
                         .init(name: "FooLib", type: .library(.automatic), targets: ["FooLib"]),
                     ],
@@ -2190,7 +2231,7 @@ final class PIFBuilderTests: XCTestCase {
                         .init(name: "foo", resources: [
                             // This is intentionally specific to test that we pick up `.xcdatamodel` implicitly.
                             .init(rule: .process(localization: .none), path: "Resources/Data.plist"),
-                        ]),
+                        ], type: .executable),
                         .init(name: "FooLib", resources: [
                             .init(rule: .process(localization: .none), path: "Resources"),
                         ]),
@@ -2219,17 +2260,28 @@ final class PIFBuilderTests: XCTestCase {
             try workspace.checkProject("PACKAGE:/Foo") { project in
                 project.checkTarget("PACKAGE-PRODUCT:foo") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:foo"])
+                    // All of these file types can generate code.
                     XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/foo/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_foo")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
-                    target.checkBuildConfiguration("Debug") { configuration in
+                    target.checkBuildConfiguration("Release") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_foo")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
@@ -2248,6 +2300,8 @@ final class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/foo/Resources/Data.plist",
                         "/Foo/Sources/foo/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/foo/Resources/Assets.xcassets",
+                        "/Foo/Sources/foo/Resources/Localizable.xcstrings",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -2280,6 +2334,8 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-PRODUCT:FooLib") { target in
                     XCTAssert(!target.dependencies.contains("PACKAGE-RESOURCE:FooLib"))
                     XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Database.xcdatamodel"))
+                    XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Assets.xcassets"))
+                    XCTAssert(!target.sources.contains("/Foo/Sources/FooLib/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
@@ -2287,7 +2343,7 @@ final class PIFBuilderTests: XCTestCase {
                         }
                     }
 
-                    target.checkBuildConfiguration("Debug") { configuration in
+                    target.checkBuildConfiguration("Release") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], nil)
                         }
@@ -2301,16 +2357,26 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-TARGET:FooLib") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:FooLib"])
                     XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooLib/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_FooLib")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
-                    target.checkBuildConfiguration("Debug") { configuration in
+                    target.checkBuildConfiguration("Release") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_FooLib")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
@@ -2322,16 +2388,26 @@ final class PIFBuilderTests: XCTestCase {
                 project.checkTarget("PACKAGE-PRODUCT:FooTests") { target in
                     XCTAssertEqual(target.dependencies, ["PACKAGE-RESOURCE:FooTests"])
                     XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Database.xcdatamodel"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Assets.xcassets"))
+                    XCTAssert(target.sources.contains("/Foo/Sources/FooTests/Resources/Localizable.xcstrings"))
 
                     target.checkBuildConfiguration("Debug") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_FooTests")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
-                    target.checkBuildConfiguration("Debug") { configuration in
+                    target.checkBuildConfiguration("Release") { configuration in
                         configuration.checkBuildSettings { settings in
                             XCTAssertEqual(settings[.PACKAGE_RESOURCE_BUNDLE_NAME], "Foo_FooTests")
+                            XCTAssertEqual(
+                                settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS],
+                                ["$(inherited)", "SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]
+                            )
                         }
                     }
 
@@ -2350,6 +2426,8 @@ final class PIFBuilderTests: XCTestCase {
                     XCTAssertEqual(target.resources, [
                         "/Foo/Sources/FooTests/Resources/Data.plist",
                         "/Foo/Sources/FooTests/Resources/Database.xcdatamodel",
+                        "/Foo/Sources/FooTests/Resources/Assets.xcassets",
+                        "/Foo/Sources/FooTests/Resources/Localizable.xcstrings",
                     ])
 
                     target.checkBuildConfiguration("Debug") { configuration in
@@ -2688,6 +2766,7 @@ final class PIFBuilderTests: XCTestCase {
                     displayName: "Foo",
                     path: "/Foo",
                     packageKind: .root("/Foo"),
+                    packageIdentity: .plain("Foo"),
                     toolsVersion: .v5_3,
                     targets: [
                         .init(name: "foo", dependencies: [
@@ -2952,7 +3031,7 @@ final class PIFBuilderTests: XCTestCase {
             "/Foo/Sources/qux/main.swift"
         )
 
-        let observability = ObservabilitySystem.makeForTesting()
+        let observability = ObservabilitySystem.makeForTesting(verbose: false) // Don't print expected [error]s.
         let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [

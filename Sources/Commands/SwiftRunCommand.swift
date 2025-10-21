@@ -16,6 +16,7 @@ import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
+import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
 import func TSCBasic.exec
@@ -61,11 +62,11 @@ struct RunCommandOptions: ParsableArguments {
         static func help(for value: RunCommandOptions.RunMode) -> ArgumentHelp? {
             switch value {
             case .repl:
-                return "Launch Swift REPL for the package"
+                return "Launch Swift REPL for the package."
             case .debugger:
-                return "Launch the executable in a debugger session"
+                return "Launch the executable in a debugger session."
             case .run:
-                return "Launch the executable with the provided arguments"
+                return "Launch the executable with the provided arguments."
             }
         }
     }
@@ -74,26 +75,22 @@ struct RunCommandOptions: ParsableArguments {
     @Flag var mode: RunMode = .run
 
     /// If the executable product should be built before running.
-    @Flag(name: .customLong("skip-build"), help: "Skip building the executable product")
+    @Flag(name: .customLong("skip-build"), help: "Skip building the executable product.")
     var shouldSkipBuild: Bool = false
 
     var shouldBuild: Bool { !shouldSkipBuild }
 
     /// If the test should be built.
-    @Flag(name: .customLong("build-tests"), help: "Build both source and test targets")
+    @Flag(name: .customLong("build-tests"), help: "Build both source and test targets.")
     var shouldBuildTests: Bool = false
 
     /// The executable product to run.
-    @Argument(help: "The executable to run", completion: .shellCommand("swift package completion-tool list-executables"))
+    @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
-
-    /// Specifies the traits to build the product with.
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
 
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
-              help: "The arguments to pass to the executable")
+              help: "The arguments to pass to the executable.")
     var arguments: [String] = []
 }
 
@@ -102,7 +99,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "run",
         _superCommandName: "swift",
-        abstract: "Build and run an executable product",
+        abstract: "Build and run an executable product.",
         discussion: "SEE ALSO: swift build, swift package, swift test",
         version: SwiftVersion.current.completeDisplayString,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
@@ -137,21 +134,24 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             // Construct the build operation.
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try await swiftCommandState.createBuildSystem(
-                explicitBuildSystem: .native,
-                traitConfiguration: .init(traitOptions: self.options.traits),
                 cacheBuildManifest: false,
                 packageGraphLoader: asyncUnsafeGraphLoader
             )
 
             // Perform build.
-            try await buildSystem.build()
+            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.replArguments])
+            guard let arguments = buildResult.replArguments else {
+                swiftCommandState.observabilityScope.emit(error: "\(globalOptions.build.buildSystem) build system does not support this command")
+                throw ExitCode.failure
+            }
 
             // Execute the REPL.
-            let arguments = try buildSystem.buildPlan.createREPLArguments()
-            print("Launching Swift REPL with arguments: \(arguments.joined(separator: " "))")
+            let interpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
+            swiftCommandState.outputStream.send("Launching Swift (interpreter at \(interpreterPath)) REPL with arguments: \(arguments.joined(separator: " "))\n")
+            swiftCommandState.outputStream.flush()
             try self.run(
                 fileSystem: swiftCommandState.fileSystem,
-                executablePath: swiftCommandState.getTargetToolchain().swiftInterpreterPath,
+                executablePath: interpreterPath,
                 originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
                 arguments: arguments
             )
@@ -160,13 +160,12 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    traitConfiguration: .init(traitOptions: self.options.traits)
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests)
+                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
                 } else if options.shouldBuild {
-                    try await buildSystem.build(subset: .product(productName))
+                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
                 let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
@@ -199,7 +198,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         case .run:
             // Detect deprecated uses of swift run to interpret scripts.
             if let executable = options.executable, try isValidSwiftFilePath(fileSystem: swiftCommandState.fileSystem, path: executable) {
-                swiftCommandState.observabilityScope.emit(.runFileDeprecation)
+                swiftCommandState.observabilityScope.emit(.runFileDeprecation(filePath: executable))
                 // Redirect execution to the toolchain's swift executable.
                 let swiftInterpreterPath = try swiftCommandState.getTargetToolchain().swiftInterpreterPath
                 // Prepend the script to interpret to the arguments.
@@ -216,13 +215,13 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    traitConfiguration: .init(traitOptions: self.options.traits)
                 )
-                let productName = try await findProductName(in: buildSystem.getPackageGraph())
+                let modulesGraph = try await buildSystem.getPackageGraph()
+                let productName = try findProductName(in: modulesGraph)
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests)
+                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
                 } else if options.shouldBuild {
-                    try await buildSystem.build(subset: .product(productName))
+                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
 
                 let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: productName)
@@ -273,7 +272,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         // If the executable is implicit, search through root products.
         let rootExecutables = graph.rootPackages
             .flatMap { $0.products }
-            .filter { $0.type == .executable || $0.type == .snippet }
+            // The type checker slows down significantly when ProductTypes arent explicitly typed.
+            .filter { $0.type == ProductType.executable || $0.type == ProductType.snippet }
             .map { $0.name }
 
         // Error out if the package contains no executables.
@@ -365,8 +365,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 }
 
 private extension Basics.Diagnostic {
-    static var runFileDeprecation: Self {
-        .warning("'swift run file.swift' command to interpret swift files is deprecated; use 'swift file.swift' instead")
+    static func runFileDeprecation(filePath: String) -> Self {
+        .warning("'swift run \(filePath)' command to interpret swift files is deprecated; use 'swift \(filePath)' instead")
     }
 }
 

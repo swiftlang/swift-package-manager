@@ -241,7 +241,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func commandStatusChanged(_ command: SPMLLBuild.Command, kind: CommandStatusKind) {
-        guard !self.logLevel.isVerbose else { return }
+        guard !self.logLevel.isVerbose,
+              !self.logLevel.isQuiet
+        else { return }
         guard command.shouldShowStatus else { return }
         guard !self.swiftParsers.keys.contains(command.name) else { return }
 
@@ -277,6 +279,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         guard command.shouldShowStatus else { return }
         guard !self.swiftParsers.keys.contains(command.name) else { return }
 
+        let commandName = command.name
+        let commandDescription = command.description
+
         self.queue.async {
             if result == .cancelled {
                 self.cancelled = true
@@ -285,9 +290,9 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
             self.delegate?.buildSystem(self.buildSystem, didFinishCommand: BuildSystemCommand(command))
 
-            if !self.logLevel.isVerbose {
-                let targetName = self.swiftParsers[command.name]?.targetName
-                self.taskTracker.commandFinished(command, result: result, targetName: targetName)
+            if !self.logLevel.isVerbose && !self.logLevel.isQuiet {
+                let targetName = self.swiftParsers[commandName]?.targetName
+                self.taskTracker.commandFinished(commandDescription, result: result, targetName: targetName)
                 self.updateProgress()
             }
         }
@@ -343,12 +348,15 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         // FIXME: This should really happen at the command-level and is just a stopgap measure.
         let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
             .result != .failed
+
+        let commandName = command.name
+
         self.queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[command.name], !shouldFilterOutput {
+            if let buffer = self.nonSwiftMessageBuffers[commandName], !shouldFilterOutput {
                 self.progressAnimation.clear()
                 self.outputStream.send(buffer)
                 self.outputStream.flush()
-                self.nonSwiftMessageBuffers[command.name] = nil
+                self.nonSwiftMessageBuffers[commandName] = nil
             }
         }
 
@@ -360,13 +368,13 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             // The command failed, so we queue up an asynchronous task to see if we have any error messages from the
             // target to provide advice about.
             self.queue.async {
-                guard let target = self.swiftParsers[command.name]?.targetName else { return }
+                guard let target = self.swiftParsers[commandName]?.targetName else { return }
                 guard let errorMessages = self.errorMessagesByTarget[target] else { return }
                 for errorMessage in errorMessages {
                     // Emit any advice that's provided for each error message.
                     if let adviceMessage = self.buildExecutionContext.buildErrorAdviceProvider?.provideBuildErrorAdvice(
                         for: target,
-                        command: command.name,
+                        command: commandName,
                         message: errorMessage
                     ) {
                         self.outputStream.send("note: \(adviceMessage)\n")
@@ -395,6 +403,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
 
     /// Invoked right before running an action taken before building.
     func preparationStepStarted(_ name: String) {
+        guard !self.logLevel.isQuiet else { return }
         self.queue.async {
             self.taskTracker.buildPreparationStepStarted(name)
             self.updateProgress()
@@ -404,6 +413,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked when an action taken before building emits output.
     /// when verboseOnly is set to true, the output will only be printed in verbose logging mode
     func preparationStepHadOutput(_ name: String, output: String, verboseOnly: Bool) {
+        guard !logLevel.isQuiet else { return }
         self.queue.async {
             self.progressAnimation.clear()
             if !verboseOnly || self.logLevel.isVerbose {
@@ -416,6 +426,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     /// Invoked right after running an action taken before building. The result
     /// indicates whether the action succeeded, failed, or was cancelled.
     func preparationStepFinished(_ name: String, result: CommandResult) {
+        guard !self.logLevel.isQuiet else { return }
         self.queue.async {
             self.taskTracker.buildPreparationStepFinished(name)
             self.updateProgress()
@@ -431,7 +442,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
                     self.outputStream.send("\(text)\n")
                     self.outputStream.flush()
                 }
-            } else {
+            } else if !self.logLevel.isQuiet {
                 self.taskTracker.swiftCompilerDidOutputMessage(message, targetName: parser.targetName)
                 self.updateProgress()
             }
@@ -466,6 +477,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
     }
 
     func buildStart(configuration: BuildConfiguration) {
+        guard !logLevel.isQuiet else { return }
         self.queue.sync {
             self.progressAnimation.clear()
             self.outputStream.send("Building for \(configuration == .debug ? "debugging" : "production")...\n")
@@ -484,7 +496,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
             self.progressAnimation.complete(success: success)
             self.delegate?.buildSystem(self.buildSystem, didFinishWithResult: success)
 
-            if success {
+            if !self.logLevel.isQuiet, success {
                 let message = self.cancelled ? "Build \(subsetString)cancelled!" : "Build \(subsetString)complete!"
                 self.progressAnimation.clear()
                 self.outputStream.send("\(message) (\(duration.descriptionInSeconds))\n")
@@ -530,8 +542,8 @@ private struct CommandTaskTracker {
         }
     }
 
-    mutating func commandFinished(_ command: SPMLLBuild.Command, result: CommandResult, targetName: String?) {
-        let progressTextValue = self.progressText(of: command, targetName: targetName)
+    mutating func commandFinished(_ commandDescription: String, result: CommandResult, targetName: String?) {
+        let progressTextValue = self.progressText(of: commandDescription, targetName: targetName)
         self.onTaskProgressUpdateText?(progressTextValue, targetName)
 
         self.latestFinishedText = progressTextValue
@@ -558,14 +570,19 @@ private struct CommandTaskTracker {
         }
     }
 
-    private func progressText(of command: SPMLLBuild.Command, targetName: String?) -> String {
+    private func progressText(of commandDescription: String, targetName: String?) -> String {
+#if os(Windows)
+    let pathSep: Character = "\\"
+#else
+    let pathSep: Character = "/"
+#endif
         // Transforms descriptions like "Linking ./.build/x86_64-apple-macosx/debug/foo" into "Linking foo".
-        if let firstSpaceIndex = command.description.firstIndex(of: " "),
-           let lastDirectorySeparatorIndex = command.description.lastIndex(of: "/")
+        if let firstSpaceIndex = commandDescription.firstIndex(of: " "),
+           let lastDirectorySeparatorIndex = commandDescription.lastIndex(of: pathSep)
         {
-            let action = command.description[..<firstSpaceIndex]
-            let fileNameStartIndex = command.description.index(after: lastDirectorySeparatorIndex)
-            let fileName = command.description[fileNameStartIndex...]
+            let action = commandDescription[..<firstSpaceIndex]
+            let fileNameStartIndex = commandDescription.index(after: lastDirectorySeparatorIndex)
+            let fileName = commandDescription[fileNameStartIndex...]
 
             if let targetName {
                 return "\(action) \(targetName) \(fileName)"
@@ -573,7 +590,7 @@ private struct CommandTaskTracker {
                 return "\(action) \(fileName)"
             }
         } else {
-            return command.description
+            return commandDescription
         }
     }
 

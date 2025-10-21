@@ -58,7 +58,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     public static var configuration = CommandConfiguration(
         commandName: "package-collection",
         _superCommandName: "swift",
-        abstract: "Interact with package collections",
+        abstract: "Interact with package collections.",
         discussion: "SEE ALSO: swift build, swift package, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
@@ -77,7 +77,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     // MARK: Collections
 
     struct List: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(abstract: "List configured collections")
+        static let configuration = CommandConfiguration(abstract: "List configured collections.")
 
         @OptionGroup
         var jsonOptions: JSONOptions
@@ -101,7 +101,7 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     }
 
     struct Refresh: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(abstract: "Refresh configured collections")
+        static let configuration = CommandConfiguration(abstract: "Refresh configured collections.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -115,18 +115,18 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     }
 
     struct Add: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(abstract: "Add a new collection")
+        static let configuration = CommandConfiguration(abstract: "Add a new collection.")
 
-        @Argument(help: "URL of the collection to add")
+        @Argument(help: "URL of the collection to add.")
         var collectionURL: String
 
-        @Option(name: .long, help: "Sort order for the added collection")
+        @Option(name: .long, help: "Sort order for the added collection.")
         var order: Int?
 
-        @Flag(name: .long, help: "Trust the collection even if it is unsigned")
+        @Flag(name: .long, help: "Trust the collection even if it is unsigned.")
         var trustUnsigned: Bool = false
 
-        @Flag(name: .long, help: "Skip signature check if the collection is signed")
+        @Flag(name: .long, help: "Skip signature check if the collection is signed.")
         var skipSignatureCheck: Bool = false
 
         @OptionGroup(visibility: .hidden)
@@ -158,9 +158,9 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     }
 
     struct Remove: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(abstract: "Remove a configured collection")
+        static let configuration = CommandConfiguration(abstract: "Remove a configured collection.")
 
-        @Argument(help: "URL of the collection to remove")
+        @Argument(help: "URL of the collection to remove.")
         var collectionURL: String
 
         @OptionGroup(visibility: .hidden)
@@ -186,15 +186,15 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     }
 
     struct Search: AsyncSwiftCommand {
-        static var configuration = CommandConfiguration(abstract: "Search for packages by keywords or module names")
+        static var configuration = CommandConfiguration(abstract: "Search for packages by keywords or module names.")
 
         @OptionGroup
         var jsonOptions: JSONOptions
 
-        @Flag(help: "Pick the method for searching")
+        @Flag(help: "Pick the method for searching.")
         var searchMethod: SearchMethod
 
-        @Argument(help: "Search query")
+        @Argument(help: "The search query.")
         var searchQuery: String
 
         @OptionGroup(visibility: .hidden)
@@ -233,18 +233,18 @@ public struct PackageCollectionsCommand: AsyncParsableCommand {
     // MARK: Packages
 
     struct Describe: AsyncSwiftCommand {
-        static var configuration = CommandConfiguration(abstract: "Get metadata for a collection or a package included in an imported collection")
+        static var configuration = CommandConfiguration(abstract: "Get metadata for a collection or a package included in an imported collection.")
 
         @OptionGroup
         var jsonOptions: JSONOptions
 
-        @Argument(help: "URL of the package or collection to get information for")
+        @Argument(help: "URL of the package or collection to get information for.")
         var packageURL: String
 
-        @Option(name: .long, help: "Version of the package to get information for")
+        @Option(name: .long, help: "Version of the package to get information for.")
         var version: String?
 
-        @Flag(name: .long, help: "Skip signature check if the collection is signed")
+        @Flag(name: .long, help: "Skip signature check if the collection is signed.")
         var skipSignatureCheck: Bool = false
 
         @OptionGroup(visibility: .hidden)

@@ -26,7 +26,7 @@ import struct TSCUtility.Version
 final class RegistryPackageContainerTests: XCTestCase {
 
     override func setUpWithError() throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows()
     }
 
     func testToolsVersionCompatibleVersions() async throws {
@@ -262,29 +262,28 @@ final class RegistryPackageContainerTests: XCTestCase {
             )
 
             struct MockManifestLoader: ManifestLoaderProtocol {
-                func load(manifestPath: AbsolutePath,
-                          manifestToolsVersion: ToolsVersion,
-                          packageIdentity: PackageIdentity,
-                          packageKind: PackageReference.Kind,
-                          packageLocation: String,
-                          packageVersion: (version: Version?, revision: String?)?,
-                          identityResolver: IdentityResolver,
-                          dependencyMapper: DependencyMapper,
-                          fileSystem: FileSystem,
-                          observabilityScope: ObservabilityScope,
-                          delegateQueue: DispatchQueue,
-                          callbackQueue: DispatchQueue,
-                          completion: @escaping (Result<Manifest, Error>) -> Void) {
-                    completion(.success(
-                        Manifest.createManifest(
-                            displayName: packageIdentity.description,
-                            path: manifestPath,
-                            packageKind: packageKind,
-                            packageLocation: packageLocation,
-                            platforms: [],
-                            toolsVersion: manifestToolsVersion
-                        )
-                    ))
+                func load(
+                    manifestPath: AbsolutePath,
+                    manifestToolsVersion: ToolsVersion,
+                    packageIdentity: PackageIdentity,
+                    packageKind: PackageReference.Kind,
+                    packageLocation: String,
+                    packageVersion: (version: Version?, revision: String?)?,
+                    identityResolver: IdentityResolver,
+                    dependencyMapper: DependencyMapper,
+                    fileSystem: FileSystem,
+                    observabilityScope: ObservabilityScope,
+                    delegateQueue: DispatchQueue
+                ) async throws -> Manifest {
+                    Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
 
                 func resetCache(observabilityScope: ObservabilityScope) {}
@@ -331,7 +330,7 @@ final class RegistryPackageContainerTests: XCTestCase {
             let manifest = try await container.loadManifest(version: packageVersion)
             XCTAssertEqual(manifest.toolsVersion, .v5_5)
         }
-        
+
         do {
             let provider = try createProvider(.v5) // the version of the alternate
             let ref = PackageReference.registry(identity: packageIdentity)
@@ -505,8 +504,7 @@ extension PackageContainerProvider {
         try await self.getContainer(
             for: package,
             updateStrategy: updateStrategy,
-            observabilityScope: ObservabilitySystem.NOOP,
-            on: .global()
+            observabilityScope: ObservabilitySystem.NOOP
         )
     }
 }

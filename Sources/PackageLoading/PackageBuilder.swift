@@ -14,6 +14,8 @@ import Basics
 import Dispatch
 import OrderedCollections
 import PackageModel
+import Foundation
+import TSCUtility
 
 import func TSCBasic.findCycle
 import struct TSCBasic.KeyedPair
@@ -279,8 +281,8 @@ public struct BinaryArtifact {
 
 /// A structure representing a prebuilt library to be used instead of a source dependency
 public struct PrebuiltLibrary {
-    /// The package reference.
-    public let packageRef: PackageReference
+    /// The package identity.
+    public let identity: PackageIdentity
 
     /// The name of the binary target the artifact corresponds to.
     public let libraryName: String
@@ -288,17 +290,33 @@ public struct PrebuiltLibrary {
     /// The path to the extracted prebuilt artifacts
     public let path: AbsolutePath
 
+    /// The path to the checked out source
+    public let checkoutPath: AbsolutePath?
+
     /// The products in the library
     public let products: [String]
+
+    /// The include path relative to the checkouts dir
+    public let includePath: [RelativePath]?
 
     /// The C modules that need their includes directory added to the include path
     public let cModules: [String]
 
-    public init(packageRef: PackageReference, libraryName: String, path: AbsolutePath, products: [String], cModules: [String]) {
-        self.packageRef = packageRef
+    public init(
+        identity: PackageIdentity,
+        libraryName: String,
+        path: AbsolutePath,
+        checkoutPath: AbsolutePath?,
+        products: [String],
+        includePath: [RelativePath]? = nil,
+        cModules: [String] = []
+    ) {
+        self.identity = identity
         self.libraryName = libraryName
         self.path = path
+        self.checkoutPath = checkoutPath
         self.products = products
+        self.includePath = includePath
         self.cModules = cModules
     }
 }
@@ -949,6 +967,19 @@ public final class PackageBuilder {
                 }
         }
 
+        // Ensure non-test targets do not depend on test targets.
+        // Only test targets are allowed to have dependencies on other test targets.
+        if !potentialModule.isTest {
+            for dependency in dependencies {
+                if let depTarget = dependency.module, depTarget.type == .test {
+                    self.observabilityScope.emit(.invalidDependencyOnTestTarget(
+                        dependency: dependency,
+                        targetName: potentialModule.name
+                    ))
+                }
+            }
+        }
+
         // Create the build setting assignment table for this target.
         let buildSettings = try self.buildSettings(
             for: manifestTarget,
@@ -1048,7 +1079,9 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1093,7 +1126,9 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: manifestTarget.usesUnsafeFlags
+                // unsafe flags check disabled in 6.2
+                usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                implicit: false
             )
         }
     }
@@ -1253,6 +1288,96 @@ public final class PackageBuilder {
 
                 values = [version.rawValue]
 
+            case .treatAllWarnings(let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wno-error"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatAllWarnings")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-warnings-as-errors"
+                    case .warning: "-no-warnings-as-errors"
+                    }
+                    values = [flag]
+                }
+
+            case .treatWarning(let name, let level):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    let flag = switch level {
+                    case .error: "-Werror=\(name)"
+                    case .warning: "-Wno-error=\(name)"
+                    }
+                    values = [flag]
+                    
+                case .linker:
+                    throw InternalError("linker does not support treatWarning")
+
+                case .swift:
+                    // We can't use SWIFT_WARNINGS_AS_WARNINGS_GROUPS and
+                    // SWIFT_WARNINGS_AS_ERRORS_GROUPS here.
+                    // See https://github.com/swiftlang/swift-build/issues/248
+                    decl = .OTHER_SWIFT_FLAGS
+                    let flag = switch level {
+                    case .error: "-Werror"
+                    case .warning: "-Wwarning"
+                    }
+                    values = [flag, name]
+                }
+
+            case .enableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-W\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-W\(name)"]
+                case .swift, .linker:
+                    throw InternalError("enableWarning is supported by C/C++")
+                }
+
+            case .disableWarning(let name):
+                switch setting.tool {
+                case .c:
+                    decl = .OTHER_CFLAGS
+                    values = ["-Wno-\(name)"]
+                case .cxx:
+                    decl = .OTHER_CPLUSPLUSFLAGS
+                    values = ["-Wno-\(name)"]
+                case .swift, .linker:
+                    throw InternalError("disableWarning is supported by C/C++")
+                }
+
             case .defaultIsolation(let isolation):
                 switch setting.tool {
                 case .c, .cxx, .linker:
@@ -1282,31 +1407,40 @@ public final class PackageBuilder {
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         }
 
-        // Add in flags for prebuilts
-        let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
-            guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
-                  let package = package,
-                  let prebuilt = prebuilts[.plain(package)]?[name]
-            else {
-                return
+        // Add in flags for prebuilts if the target is a macro or a macro test.
+        // Currently we only support prebuilts for macros.
+        if target.type == .macro || target.isMacroTest(in: manifest) {
+            let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
+                guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
+                      let package = package,
+                      let prebuilt = prebuilts[.plain(package)]?[name]
+                else {
+                    return
+                }
+
+                $0[prebuilt.libraryName] = prebuilt
             }
 
-            $0[prebuilt.libraryName] = prebuilt
-        }
+            for prebuilt in prebuiltLibraries.values {
+                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
+                var ldFlagsAssignment = BuildSettings.Assignment()
+                ldFlagsAssignment.values = [lib]
+                table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
 
-        for prebuilt in prebuiltLibraries.values {
-            let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
-            var ldFlagsAssignment = BuildSettings.Assignment()
-            ldFlagsAssignment.values = [lib]
-            table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
-
-            var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-            for cModule in prebuilt.cModules {
-                includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
+                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                    for includeDir in includePath {
+                        includeDirs.append(checkoutPath.appending(includeDir))
+                    }
+                } else {
+                    for cModule in prebuilt.cModules {
+                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                    }
+                }
+                var includeAssignment = BuildSettings.Assignment()
+                includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
+                table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
             }
-            var includeAssignment = BuildSettings.Assignment()
-            includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
-            table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
         }
 
         return table
@@ -1863,7 +1997,8 @@ extension PackageBuilder {
                     packageAccess: false,
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
-                    usesUnsafeFlags: false
+                    usesUnsafeFlags: false,
+                    implicit: true
                 )
             }
     }
@@ -1892,5 +2027,27 @@ extension Sequence {
 extension TargetDescription {
     fileprivate var usesUnsafeFlags: Bool {
         settings.filter(\.kind.isUnsafeFlags).isEmpty == false
+    }
+
+    fileprivate func isMacroTest(in manifest: Manifest) -> Bool {
+        guard self.type == .test else { return false }
+
+        return self.dependencies.contains(where: {
+            let name: String
+            switch $0 {
+            case .byName(name: let n, condition: _):
+                name = n
+            case .target(name: let n, condition: _):
+                name = n
+            default:
+                return false
+            }
+
+            guard let target = manifest.targetMap[name] else {
+                return false
+            }
+
+            return target.type == .macro
+        })
     }
 }

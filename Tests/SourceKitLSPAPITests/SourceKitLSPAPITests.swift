@@ -24,8 +24,6 @@ import XCTest
 
 final class SourceKitLSPAPITests: XCTestCase {
     func testBasicSwiftPackage() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fs = InMemoryFileSystem(emptyFiles:
             "/Pkg/Sources/exe/main.swift",
             "/Pkg/Sources/exe/README.md",
@@ -61,8 +59,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                         TargetDescription(name: "plugin", type: .plugin, pluginCapability: .buildTool)
                     ]),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -89,7 +86,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/exe.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/exe/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/exe/exe.docc")],
@@ -104,7 +101,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                 "-package-name", "pkg",
                 "-emit-dependencies",
                 "-emit-module",
-                "-emit-module-path", "/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule"
+                "-emit-module-path", AbsolutePath("/path/to/build/\(plan.destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
             ],
             resources: [.init(filePath: "/Pkg/Sources/lib/Resources/some_file.txt")],
             ignoredFiles: [.init(filePath: "/Pkg/Sources/lib/lib.docc")],
@@ -115,7 +112,7 @@ final class SourceKitLSPAPITests: XCTestCase {
             for: "plugin",
             graph: graph,
             partialArguments: [
-                "-I", "/fake/manifestLib/path"
+                "-I", AbsolutePath("/fake/manifestLib/path").pathString
             ],
             isPartOfRootPackage: true,
             destination: .host
@@ -149,8 +146,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     ]
                 ),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -221,8 +217,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     ]
                 ),
             ],
-            observabilityScope: observability.topScope,
-            traitConfiguration: nil
+            observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
@@ -318,7 +313,7 @@ final class SourceKitLSPAPITests: XCTestCase {
                     "-package-name", "pkg",
                     "-emit-dependencies",
                     "-emit-module",
-                    "-emit-module-path", "/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule".fixwin
+                    "-emit-module-path", AbsolutePath("/path/to/build/\(destinationBuildParameters.triple)/debug/Modules/lib.swiftmodule").pathString
                 ],
                 isPartOfRootPackage: true
             )
@@ -400,15 +395,5 @@ extension SourceKitLSPAPI.BuildDescription {
         XCTAssertTrue(result, "could not match \(partialArguments) to actual arguments \(arguments)")
         XCTAssertEqual(buildTarget.isPartOfRootPackage, isPartOfRootPackage)
         return result
-    }
-}
-
-extension String {
-    var fixwin: String {
-        #if os(Windows)
-        return self.replacingOccurrences(of: "/", with: "\\")
-        #else
-        return self
-        #endif
     }
 }

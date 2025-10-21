@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import PackageModel
 import PackageGraph
+import TSCUtility
 
 import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
@@ -32,7 +34,14 @@ final class PlainTextDumper: DependenciesDumper {
 
                 let pkgVersion = package.manifest.version?.description ?? "unspecified"
 
-                stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\n")
+                let traitsEnabled: String
+                if let enabled = package.enabledTraits, !enabled.isEmpty {
+                    traitsEnabled = "(traits: \(package.enabledTraits?.joined(separator: ", ") ?? ""))"
+                } else {
+                    traitsEnabled = ""
+                }
+
+                stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\(traitsEnabled)\n")
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -128,6 +137,7 @@ final class JSONDumper: DependenciesDumper {
                 "url": .string(package.manifest.packageLocation),
                 "version": .string(package.manifest.version?.description ?? "unspecified"),
                 "path": .string(package.path.pathString),
+                "traits": .array(package.enabledTraits?.map { .string($0) } ?? []),
                 "dependencies": .array(package.dependencies.compactMap { graph.packages[$0] }.map(convert)),
             ])
         }

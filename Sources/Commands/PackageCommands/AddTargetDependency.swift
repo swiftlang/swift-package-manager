@@ -13,9 +13,11 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import Foundation
+import PackageGraph
 import PackageModel
-import PackageModelSyntax
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
@@ -24,18 +26,18 @@ import Workspace
 extension SwiftPackageCommand {
     struct AddTargetDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target dependency to the manifest")
+            abstract: "Add a new target dependency to the manifest.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new dependency")
+        @Argument(help: "The name of the new dependency.")
         var dependencyName: String
 
-        @Argument(help: "The name of the target to update")
+        @Argument(help: "The name of the target to update.")
         var targetName: String
 
-        @Option(help: "The package in which the dependency resides")
+        @Option(help: "The package in which the dependency resides.")
         var package: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -64,17 +66,19 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let dependency: TargetDescription.Dependency
+            let dependency: PackageTarget.Dependency
             if let package {
                 dependency = .product(name: dependencyName, package: package)
             } else {
-                dependency = .target(name: dependencyName, condition: nil)
+                dependency = .target(name: dependencyName)
             }
 
-            let editResult = try PackageModelSyntax.AddTargetDependency.addTargetDependency(
-                dependency,
-                targetName: targetName,
-                to: manifestSyntax
+            let editResult = try SwiftRefactor.AddTargetDependency.textRefactor(
+                syntax: manifestSyntax,
+                in: .init(
+                    dependency: dependency,
+                    targetName: targetName
+                )
             )
 
             try editResult.applyEdits(

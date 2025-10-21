@@ -103,6 +103,9 @@ public class Workspace {
     /// to the store.
     package let resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>
 
+    ///  Computed enabled traits per package in the workspace
+    public var enabledTraitsMap: EnabledTraitsMap = [:]
+
     /// The file system on which the workspace will operate.
     package let fileSystem: any FileSystem
 
@@ -150,6 +153,11 @@ public class Workspace {
 
     /// The workspace configuration settings
     let configuration: WorkspaceConfiguration
+
+    /// The trait configuration as described in the Workspace's configuration.
+    public var traitConfiguration: TraitConfiguration {
+        configuration.traitConfiguration
+    }
 
     // MARK: State
 
@@ -408,7 +416,7 @@ public class Workspace {
         )
     }
 
-    private init(
+    private convenience init(
         // core
         fileSystem: FileSystem,
         environment: Environment,
@@ -568,22 +576,96 @@ public class Workspace {
         // register the binary artifacts downloader with the cancellation handler
         cancellator?.register(name: "binary artifacts downloads", handler: binaryArtifactsManager)
 
-        let prebuiltsManager: PrebuiltsManager? = configuration.usePrebuilts ? PrebuiltsManager(
-            fileSystem: fileSystem,
-            authorizationProvider: authorizationProvider,
-            scratchPath: location.prebuiltsDirectory,
-            cachePath: customPrebuiltsManager?.useCache == false || !configuration
-                .sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
-            customHTTPClient: customPrebuiltsManager?.httpClient,
-            customArchiver: customPrebuiltsManager?.archiver,
-            delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:))
-        ) : .none
-        // register the prebuilt packages downloader with the cancellation handler
-        if let prebuiltsManager {
-            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManager)
+        var prebuiltsManager: PrebuiltsManager?
+        if configuration.usePrebuilts,
+           let hostPlatform = customPrebuiltsManager?.hostPlatform ?? PrebuiltsManifest.Platform.hostPlatform
+        {
+            let rootCertPath: AbsolutePath?
+            if let path = configuration.prebuiltsRootCertPath {
+                rootCertPath = try AbsolutePath(validating: path)
+            } else {
+                rootCertPath = nil
+            }
+
+            let prebuiltsManagerObj = PrebuiltsManager(
+                fileSystem: fileSystem,
+                hostPlatform: hostPlatform,
+                authorizationProvider: authorizationProvider,
+                scratchPath: location.prebuiltsDirectory,
+                cachePath: customPrebuiltsManager?.useCache == false || !configuration.sharedDependenciesCacheEnabled ? .none : location.sharedPrebuiltsCacheDirectory,
+                customSwiftCompilerVersion: customPrebuiltsManager?.swiftVersion,
+                customHTTPClient: customPrebuiltsManager?.httpClient,
+                customArchiver: customPrebuiltsManager?.archiver,
+                delegate: delegate.map(WorkspacePrebuiltsManagerDelegate.init(workspaceDelegate:)),
+                prebuiltsDownloadURL: configuration.prebuiltsDownloadURL,
+                rootCertPath: customPrebuiltsManager?.rootCertPath ?? rootCertPath
+            )
+            cancellator?.register(name: "package prebuilts downloads", handler: prebuiltsManagerObj)
+            prebuiltsManager = prebuiltsManagerObj
+        } else {
+            prebuiltsManager = nil
         }
 
         // initialize
+        let resolvedPackagesStore = LoadableResult {
+            try ResolvedPackagesStore(
+                packageResolvedFile: location.resolvedVersionsFile,
+                workingDirectory: location.scratchDirectory,
+                fileSystem: fileSystem,
+                mirrors: mirrors
+            )
+        }
+
+        let state = WorkspaceState(
+            fileSystem: fileSystem,
+            storageDirectory: location.scratchDirectory,
+            initializationWarningHandler: initializationWarningHandler
+        )
+
+        self.init(
+            fileSystem: fileSystem,
+            configuration: configuration,
+            location: location,
+            delegate: delegate,
+            mirrors: mirrors,
+            hostToolchain: hostToolchain,
+            manifestLoader: manifestLoader,
+            currentToolsVersion: currentToolsVersion,
+            customPackageContainerProvider: customPackageContainerProvider,
+            repositoryManager: repositoryManager,
+            registryClient: registryClient,
+            registryDownloadsManager: registryDownloadsManager,
+            binaryArtifactsManager: binaryArtifactsManager,
+            identityResolver: identityResolver,
+            dependencyMapper: dependencyMapper,
+            fingerprints: fingerprints,
+            resolvedPackagesStore: resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: state
+        )
+    }
+
+    private init(
+        fileSystem: any FileSystem,
+        configuration: WorkspaceConfiguration,
+        location: Location,
+        delegate: Delegate?,
+        mirrors: DependencyMirrors,
+        hostToolchain: UserToolchain,
+        manifestLoader: ManifestLoaderProtocol,
+        currentToolsVersion: ToolsVersion,
+        customPackageContainerProvider: PackageContainerProvider?,
+        repositoryManager: RepositoryManager,
+        registryClient: RegistryClient,
+        registryDownloadsManager: RegistryDownloadsManager,
+        binaryArtifactsManager: BinaryArtifactsManager,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fingerprints: PackageFingerprintStorage?,
+        resolvedPackagesStore: LoadableResult<ResolvedPackagesStore>,
+        prebuiltsManager: PrebuiltsManager?,
+        state: WorkspaceState
+    ) {
         self.fileSystem = fileSystem
         self.configuration = configuration
         self.location = location
@@ -599,26 +681,15 @@ public class Workspace {
         self.registryClient = registryClient
         self.registryDownloadsManager = registryDownloadsManager
         self.binaryArtifactsManager = binaryArtifactsManager
-        self.prebuiltsManager = prebuiltsManager
 
         self.identityResolver = identityResolver
         self.dependencyMapper = dependencyMapper
         self.fingerprints = fingerprints
 
-        self.resolvedPackagesStore = LoadableResult {
-            try ResolvedPackagesStore(
-                packageResolvedFile: location.resolvedVersionsFile,
-                workingDirectory: location.scratchDirectory,
-                fileSystem: fileSystem,
-                mirrors: mirrors
-            )
-        }
+        self.resolvedPackagesStore = resolvedPackagesStore
+        self.prebuiltsManager = prebuiltsManager
 
-        self.state = WorkspaceState(
-            fileSystem: fileSystem,
-            storageDirectory: self.location.scratchDirectory,
-            initializationWarningHandler: initializationWarningHandler
-        )
+        self.state = state
     }
 }
 
@@ -766,19 +837,12 @@ extension Workspace {
             defaultRequirement
         }
 
-        var dependencyEnabledTraits: Set<String>?
-        if let traits = root.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == packageName })?
-            .traits
-        {
-            dependencyEnabledTraits = Set(traits.map(\.name))
-        }
-
         // If any products are required, the rest of the package graph will supply those constraints.
         let constraint = PackageContainerConstraint(
             package: dependency.packageRef,
             requirement: requirement,
             products: .nothing,
-            enabledTraits: dependencyEnabledTraits
+            enabledTraits: self.enabledTraitsMap[dependency.packageRef.identity]
         )
 
         // Run the resolution.
@@ -843,16 +907,6 @@ extension Workspace {
         }
     }
 
-    /// Cleans the build artifacts from workspace data.
-    ///
-    /// - Parameters:
-    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func purgeCache(observabilityScope: ObservabilityScope) {
-        self.repositoryManager.purgeCache(observabilityScope: observabilityScope)
-        self.registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
-        self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
-    }
-
     /// Resets the entire workspace by removing the data directory.
     ///
     /// - Parameters:
@@ -875,7 +929,7 @@ extension Workspace {
 
         self.repositoryManager.reset(observabilityScope: observabilityScope)
         self.registryDownloadsManager.reset(observabilityScope: observabilityScope)
-        self.manifestLoader.resetCache(observabilityScope: observabilityScope)
+        await self.manifestLoader.resetCache(observabilityScope: observabilityScope)
         do {
             try self.fileSystem.removeFileTree(self.location.scratchDirectory)
         } catch {
@@ -956,16 +1010,18 @@ extension Workspace {
 
         let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
             let prebuilt = PrebuiltLibrary(
-                packageRef: $1.packageRef,
+                identity: $1.identity,
                 libraryName: $1.libraryName,
                 path: $1.path,
+                checkoutPath: $1.checkoutPath,
                 products: $1.products,
-                cModules: $1.cModules
-            )
+                includePath: $1.includePath,
+                cModules: $1.cModules)
             for product in $1.products {
-                $0[$1.packageRef.identity, default: [:]][product] = prebuilt
+                $0[$1.identity, default: [:]][product] = prebuilt
             }
         }
+
         // Load the graph.
         let packageGraph = try ModulesGraph.load(
             root: manifests.root,
@@ -981,7 +1037,8 @@ extension Workspace {
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
         )
 
         try self.validateSignatures(
@@ -1001,7 +1058,7 @@ extension Workspace {
         try await self.loadPackageGraph(
             rootPath: rootPath,
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            traitConfiguration: .default,
             observabilityScope: observabilityScope
         )
     }
@@ -1010,7 +1067,7 @@ extension Workspace {
     package func loadPackageGraph(
         rootPath: AbsolutePath,
         explicitProduct: String? = nil,
-        traitConfiguration: TraitConfiguration? = nil,
+        traitConfiguration: TraitConfiguration = .default,
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
@@ -1025,10 +1082,52 @@ extension Workspace {
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope
     ) async throws -> [AbsolutePath: Manifest] {
-        try await withCheckedThrowingContinuation { continuation in
-            self.loadRootManifests(packages: packages, observabilityScope: observabilityScope) { result in
-                continuation.resume(with: result)
+        try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
+            var rootManifests = [AbsolutePath: Manifest]()
+            for package in Set(packages) {
+                group.addTask {
+                    // TODO: this does not use the identity resolver which is probably fine since its the root packages
+                    do {
+                        let manifest = try await self.loadManifest(
+                            packageIdentity: PackageIdentity(path: package),
+                            packageKind: .root(package),
+                            packagePath: package,
+                            packageLocation: package.pathString,
+                            observabilityScope: observabilityScope
+                        )
+                        return (package, manifest)
+                    } catch {
+                        return nil
+                    }
+                }
             }
+
+            // Collect the results.
+            for try await result in group {
+                if let (package, manifest) = result {
+                    // Store the manifest.
+                    rootManifests[package] = manifest
+
+                    // Compute the enabled traits for roots.
+                    let traitConfiguration = self.configuration.traitConfiguration
+                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
+                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+                }
+            }
+
+
+
+            // Check for duplicate root packages after all manifests are loaded.
+            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
+            if let firstDuplicateSet = duplicateRoots.first, let firstDuplicate = firstDuplicateSet.first {
+                observabilityScope.emit(error: "found multiple top-level packages named '\(firstDuplicate.displayName)'")
+                // Decide how to handle duplicates, e.g., throw an error or return an empty dictionary.
+                // For now, matching the original behavior of returning an empty dictionary on error.
+                // Consider throwing an error instead for better error propagation.
+                return [:]
+            }
+
+            return rootManifests
         }
     }
 
@@ -1037,40 +1136,13 @@ extension Workspace {
     public func loadRootManifests(
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<[AbsolutePath: Manifest], Error>) -> Void
+        completion: @escaping @Sendable (Result<[AbsolutePath: Manifest], Error>) -> Void
     ) {
-        let lock = NSLock()
-        let sync = DispatchGroup()
-        var rootManifests = [AbsolutePath: Manifest]()
-        for package in Set(packages) {
-            sync.enter()
-            // TODO: this does not use the identity resolver which is probably fine since its the root packages
-            self.loadManifest(
-                packageIdentity: PackageIdentity(path: package),
-                packageKind: .root(package),
-                packagePath: package,
-                packageLocation: package.pathString,
+        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+            try await self.loadRootManifests(
+                packages: packages,
                 observabilityScope: observabilityScope
-            ) { result in
-                defer { sync.leave() }
-                if case .success(let manifest) = result {
-                    lock.withLock {
-                        rootManifests[package] = manifest
-                    }
-                }
-            }
-        }
-
-        sync.notify(queue: .sharedConcurrent) {
-            // Check for duplicate root packages.
-            let duplicateRoots = rootManifests.values.spm_findDuplicateElements(by: \.displayName)
-            if !duplicateRoots.isEmpty {
-                let name = duplicateRoots[0][0].displayName
-                observabilityScope.emit(error: "found multiple top-level packages named '\(name)'")
-                return completion(.success([:]))
-            }
-
-            completion(.success(rootManifests))
+            )
         }
     }
 
@@ -1137,18 +1209,25 @@ extension Workspace {
                         if let path = target.path {
                             let artifactPath = try manifest.path.parentDirectory
                                 .appending(RelativePath(validating: path))
-                            guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                            if artifactPath.extension?.lowercased() == "zip" {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: .unknown,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else if let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
                                 fileSystem: self.fileSystem,
                                 path: artifactPath,
                                 observabilityScope: observabilityScope
-                            ) else {
+                            ) {
+                                partial[target.name] = BinaryArtifact(
+                                    kind: artifactKind,
+                                    originURL: .none,
+                                    path: artifactPath
+                                )
+                            } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                            partial[target.name] = BinaryArtifact(
-                                kind: artifactKind,
-                                originURL: .none,
-                                path: artifactPath
-                            )
                         } else if let url = target.url.flatMap(URL.init(string:)) {
                             let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
                                 .appending(RelativePath(validating: url.lastPathComponent))
@@ -1172,8 +1251,7 @@ extension Workspace {
                     prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
-                    // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
+                    enabledTraits: try manifest.enabledTraits(using: .default)
                 )
                 return try builder.construct()
             }
@@ -1216,16 +1294,33 @@ extension Workspace {
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
-        try await withCheckedThrowingContinuation { continuation in
-            self.loadPackage(
-                with: identity,
-                packageGraph: packageGraph,
-                observabilityScope: observabilityScope,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
+        guard let previousPackage = packageGraph.package(for: identity) else {
+            throw StringError("could not find package with identity \(identity)")
         }
+
+        let manifest = try await self.loadManifest(
+            packageIdentity: identity,
+            packageKind: previousPackage.underlying.manifest.packageKind,
+            packagePath: previousPackage.path,
+            packageLocation: previousPackage.underlying.manifest.packageLocation,
+            observabilityScope: observabilityScope
+        )
+        let builder = PackageBuilder(
+            identity: identity,
+            manifest: manifest,
+            productFilter: .everything,
+            // TODO: this will not be correct when reloading a transitive dependencies if `ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION` is enabled
+            path: previousPackage.path,
+            additionalFileRules: self.configuration.additionalFileRules,
+            binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
+            prebuilts: [:],
+            shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
+            createREPLProduct: self.configuration.createREPLProduct,
+            fileSystem: self.fileSystem,
+            observabilityScope: observabilityScope,
+            enabledTraits: try manifest.enabledTraits(using: .default)
+        )
+        return try builder.construct()
     }
 
     /// Loads a single package in the context of a previously loaded graph. This can be useful for incremental loading
@@ -1235,39 +1330,14 @@ extension Workspace {
         with identity: PackageIdentity,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<Package, Error>) -> Void
+        completion: @escaping @Sendable (Result<Package, Error>) -> Void
     ) {
-        guard let previousPackage = packageGraph.package(for: identity) else {
-            return completion(.failure(StringError("could not find package with identity \(identity)")))
-        }
-
-        self.loadManifest(
-            packageIdentity: identity,
-            packageKind: previousPackage.underlying.manifest.packageKind,
-            packagePath: previousPackage.path,
-            packageLocation: previousPackage.underlying.manifest.packageLocation,
-            observabilityScope: observabilityScope
-        ) { result in
-            let result = result.tryMap { manifest -> Package in
-                let builder = PackageBuilder(
-                    identity: identity,
-                    manifest: manifest,
-                    productFilter: .everything,
-                    // TODO: this will not be correct when reloading a transitive dependencies if `ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION` is enabled
-                    path: previousPackage.path,
-                    additionalFileRules: self.configuration.additionalFileRules,
-                    binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
-                    prebuilts: [:],
-                    shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
-                    createREPLProduct: self.configuration.createREPLProduct,
-                    fileSystem: self.fileSystem,
-                    observabilityScope: observabilityScope,
-                    // For now we enable all traits
-                    enabledTraits: Set(manifest.traits.map(\.name))
-                )
-                return try builder.construct()
-            }
-            completion(result)
+        DispatchQueue.sharedConcurrent.asyncResult(completion) {
+            try await self.loadPackage(
+                with: identity,
+                packageGraph: packageGraph,
+                observabilityScope: observabilityScope
+            )
         }
     }
 
@@ -1336,7 +1406,7 @@ extension Workspace {
         case .localSourceControl:
             break // NOOP
         case .remoteSourceControl:
-            try self.removeRepository(dependency: dependencyToRemove)
+            try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
         }
@@ -1346,7 +1416,40 @@ extension Workspace {
     }
 }
 
+
 // MARK: - Utility extensions
+
+extension Workspace {
+    /// Creates and returns a copy of the current workspace with an updated configuration using the passed parameters.
+    /// - Parameters:
+    /// - traitConfiguration: A configuration of traits that will override the existing trait configuration in the WorkspaceConfiguration.
+    public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
+        var newConfig = self.configuration
+        newConfig.traitConfiguration = traitConfiguration
+        
+        return Workspace(
+            fileSystem: self.fileSystem,
+            configuration: newConfig,
+            location: self.location,
+            delegate: self.delegate,
+            mirrors: self.mirrors,
+            hostToolchain: self.hostToolchain,
+            manifestLoader: self.manifestLoader,
+            currentToolsVersion: self.currentToolsVersion,
+            customPackageContainerProvider: self.customPackageContainerProvider,
+            repositoryManager: self.repositoryManager,
+            registryClient: self.registryClient,
+            registryDownloadsManager: self.registryDownloadsManager,
+            binaryArtifactsManager: self.binaryArtifactsManager,
+            identityResolver: self.identityResolver,
+            dependencyMapper: self.dependencyMapper,
+            fingerprints: self.fingerprints,
+            resolvedPackagesStore: self.resolvedPackagesStore,
+            prebuiltsManager: prebuiltsManager,
+            state: self.state
+        )
+    }
+}
 
 extension Workspace.ManagedArtifact {
     fileprivate var originURL: String? {

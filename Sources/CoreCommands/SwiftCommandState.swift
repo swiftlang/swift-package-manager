@@ -16,10 +16,14 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 @_spi(SwiftPMInternal)
 import PackageModel
+import PackageRegistry
+import PackageSigning
+import SourceControl
 import SPMBuildCore
 import Workspace
 
@@ -47,8 +51,10 @@ import Bionic
 import class Basics.AsyncProcess
 import func TSCBasic.exec
 import class TSCBasic.FileLock
+import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
+import struct TSCBasic.SHA256
 import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
@@ -214,17 +220,17 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
+    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
         } else {
-            packages = [try getPackageRoot()]
+            packages = try [self.getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
+        return PackageGraphRootInput(packages: packages, traitConfiguration: self.traitConfiguration)
     }
 
     /// Scratch space (.build) directory.
@@ -287,7 +293,11 @@ public final class SwiftCommandState {
 
     private let hostTriple: Basics.Triple?
 
+    private let targetInfo: JSON?
+
     package var preferredBuildConfiguration = BuildConfiguration.debug
+
+    package let traitConfiguration: TraitConfiguration
 
     /// Create an instance of this tool.
     ///
@@ -323,10 +333,12 @@ public final class SwiftCommandState {
         workspaceLoaderProvider: @escaping WorkspaceLoaderProvider,
         createPackagePath: Bool,
         hostTriple: Basics.Triple? = nil,
+        targetInfo: JSON? = nil,
         fileSystem: any FileSystem = localFileSystem,
         environment: Environment = .current
     ) throws {
         self.hostTriple = hostTriple
+        self.targetInfo = targetInfo
         self.fileSystem = fileSystem
         self.environment = environment
         // first, bootstrap the observability system
@@ -408,6 +420,9 @@ public final class SwiftCommandState {
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
 
+        // Set the trait configuration from user-passed trait options.
+        self.traitConfiguration = .init(traitOptions: options.traits)
+
         // set global process logging handler
         AsyncProcess.loggingHandler = { self.observabilityScope.emit(debug: $0) }
     }
@@ -415,11 +430,6 @@ public final class SwiftCommandState {
     static func postprocessArgParserResult(options: GlobalOptions, observabilityScope: ObservabilityScope) throws {
         if options.locations.multirootPackageDataFile != nil {
             observabilityScope.emit(.unsupportedFlag("--multiroot-data-file"))
-        }
-
-        if options.build.useExplicitModuleBuild && !options.build.useIntegratedSwiftDriver {
-            observabilityScope
-                .emit(error: "'--experimental-explicit-module-build' option requires '--use-integrated-swift-driver'")
         }
 
         if !options.build.architectures.isEmpty && options.build.customCompileTriple != nil {
@@ -457,11 +467,13 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(
-        emitDeprecatedConfigurationWarning: Bool = false,
-        traitConfiguration: TraitConfiguration? = nil
-    ) throws -> Workspace {
-        if let workspace = _workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) throws -> Workspace {
+        if var workspace = _workspace {
+            // if we decide to override the trait configuration, we can resolve accordingly for
+            // calls like createSymbolGraphForPlugin.
+            if enableAllTraits {
+                workspace = workspace.updateConfiguration(with: .enableAllTraits)
+            }
             return workspace
         }
 
@@ -511,8 +523,10 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.options.caching.usePrebuilts,
+                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
+                prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
                 pruneDependencies: self.options.resolver.pruneDependencies,
-                traitConfiguration: traitConfiguration
+                traitConfiguration: self.traitConfiguration
             ),
             cancellator: self.cancellator,
             initializationWarningHandler: { self.observabilityScope.emit(warning: $0) },
@@ -525,11 +539,58 @@ public final class SwiftCommandState {
         return workspace
     }
 
-    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws
-        -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]])
-    {
-        let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
-        let root = try self.getWorkspaceRoot(traitConfiguration: traitConfiguration)
+    /// Purges all global caches without requiring workspace initialization.
+    /// This method creates minimal cache managers directly and calls their purgeCache methods.
+    public func purgeCaches(observabilityScope: ObservabilityScope) async throws {
+        // Create repository manager for repository cache
+        let repositoryManager = RepositoryManager(
+            fileSystem: self.fileSystem,
+            path: self.scratchDirectory.appending("repositories"),
+            provider: GitRepositoryProvider(),
+            cachePath: self.sharedCacheDirectory.appending("repositories"),
+            initializationWarningHandler: { observabilityScope.emit(warning: $0) },
+            delegate: nil
+        )
+
+        // Create manifest loader for manifest cache
+        let manifestLoader = ManifestLoader(
+            toolchain: try self.getHostToolchain(),
+            cacheDir: Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory),
+            importRestrictions: nil,
+            delegate: nil,
+            pruneDependencies: false
+        )
+
+        // Create registry downloads manager for registry cache
+        let registryClient = RegistryClient(
+            configuration: .init(),
+            fingerprintStorage: nil,
+            fingerprintCheckingMode: .strict,
+            skipSignatureValidation: false,
+            signingEntityStorage: nil,
+            signingEntityCheckingMode: .strict,
+            authorizationProvider: nil,
+            delegate: nil,
+            checksumAlgorithm: SHA256()
+        )
+
+        let registryDownloadsManager = RegistryDownloadsManager(
+            fileSystem: self.fileSystem,
+            path: self.scratchDirectory.appending(components: "registry", "downloads"),
+            cachePath: self.sharedCacheDirectory.appending(components: "registry", "downloads"),
+            registryClient: registryClient,
+            delegate: nil
+        )
+
+        // Purge all caches
+        repositoryManager.purgeCache(observabilityScope: observabilityScope)
+        registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
+        await manifestLoader.purgeCache(observabilityScope: observabilityScope)
+    }
+
+    public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace(enableAllTraits: enableAllTraits)
+        let root = try self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -652,9 +713,9 @@ public final class SwiftCommandState {
     }
 
     /// Resolve the dependencies.
-    public func resolve(_ traitConfiguration: TraitConfiguration?) async throws {
-        let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
-        let root = try getWorkspaceRoot(traitConfiguration: traitConfiguration)
+    public func resolve() async throws {
+        let workspace = try getActiveWorkspace()
+        let root = try getWorkspaceRoot()
 
         try await workspace.resolve(
             root: root,
@@ -682,7 +743,7 @@ public final class SwiftCommandState {
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
-            traitConfiguration: nil,
+            enableAllTraits: false,
             testEntryPointPath: testEntryPointPath
         )
     }
@@ -695,15 +756,15 @@ public final class SwiftCommandState {
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
-        traitConfiguration: TraitConfiguration? = nil,
+        enableAllTraits: Bool = false,
         testEntryPointPath: AbsolutePath? = nil
     ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
+            let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: self.getWorkspaceRoot(traitConfiguration: traitConfiguration),
+                rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
@@ -750,7 +811,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration? = nil) async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -767,7 +828,7 @@ public final class SwiftCommandState {
         // Perform steps for build manifest caching if we can enabled it.
         //
         // FIXME: We don't add edited packages in the package structure command yet (SR-11254).
-        let hasEditedPackages = try await self.getActiveWorkspace(traitConfiguration: traitConfiguration).state.dependencies.contains(where: \.isEdited)
+        let hasEditedPackages = try await self.getActiveWorkspace().state.dependencies.contains(where: \.isEdited)
         if hasEditedPackages {
             return false
         }
@@ -782,7 +843,7 @@ public final class SwiftCommandState {
     public func createBuildSystem(
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
-        traitConfiguration: TraitConfiguration,
+        enableAllTraits: Bool = false,
         cacheBuildManifest: Bool = true,
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
@@ -790,26 +851,26 @@ public final class SwiftCommandState {
         packageGraphLoader: (() async throws -> ModulesGraph)? = .none,
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
-        observabilityScope: ObservabilityScope? = .none
+        observabilityScope: ObservabilityScope? = .none,
+        delegate: BuildSystemDelegate? = nil
     ) async throws -> BuildSystem {
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }
-
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
-
         let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? self.options.build.buildSystem,
             explicitProduct: explicitProduct,
-            traitConfiguration: traitConfiguration,
+            enableAllTraits: enableAllTraits,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsParameters,
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: packageGraphLoader,
             outputStream: outputStream,
             logLevel: logLevel ?? self.logLevel,
-            observabilityScope: observabilityScope
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
 
         // register the build system with the cancellation handler
@@ -855,6 +916,7 @@ public final class SwiftCommandState {
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             prepareForIndexing: prepareForIndexingMode,
@@ -872,12 +934,11 @@ public final class SwiftCommandState {
                     flags: ["entry-point-function-name"],
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
-                ),
+                ) && !options.build.sanitizers.contains(.fuzzer),
                 enableParseableModuleInterfaces: self.options.build.shouldEnableParseableModuleInterfaces,
                 explicitTargetDependencyImportCheckingMode: self.options.build.explicitTargetDependencyImportCheck
                     .modeParameter,
                 useIntegratedSwiftDriver: self.options.build.useIntegratedSwiftDriver,
-                useExplicitModuleBuild: self.options.build.useExplicitModuleBuild,
                 isPackageAccessModifierSupported: DriverSupport.isPackageNameSupported(
                     toolchain: toolchain,
                     fileSystem: self.fileSystem
@@ -926,16 +987,10 @@ public final class SwiftCommandState {
         )
     })
 
-    /// Lazily compute the target toolchain.z
+    /// Lazily compute the target toolchain.
     private lazy var _targetToolchain: Result<UserToolchain, Swift.Error> = {
         let swiftSDK: SwiftSDK
         let hostSwiftSDK: SwiftSDK
-        let store = SwiftSDKBundleStore(
-            swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-            fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope,
-            outputHandler: { print($0.description) }
-        )
         do {
             let hostToolchain = try _hostToolchain.get()
             hostSwiftSDK = hostToolchain.swiftSDK
@@ -945,6 +1000,15 @@ public final class SwiftCommandState {
                     warning: "`--experimental-swift-sdk` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdk` instead."
                 )
             }
+
+            let store = SwiftSDKBundleStore(
+                swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
+                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+                outputHandler: { print($0.description) }
+            )
+
             swiftSDK = try SwiftSDK.deriveTargetSwiftSDK(
                 hostSwiftSDK: hostSwiftSDK,
                 hostTriple: hostToolchain.targetTriple,
@@ -968,7 +1032,11 @@ public final class SwiftCommandState {
         }
 
         return Result(catching: {
-            try UserToolchain(swiftSDK: swiftSDK, environment: self.environment, fileSystem: self.fileSystem)
+            try UserToolchain(
+                swiftSDK: swiftSDK,
+                environment: self.environment,
+                customTargetInfo: targetInfo,
+                fileSystem: self.fileSystem)
         })
     }()
 
@@ -983,6 +1051,7 @@ public final class SwiftCommandState {
         return try UserToolchain(
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
+            customTargetInfo: targetInfo,
             fileSystem: self.fileSystem
         )
     })
@@ -1060,29 +1129,38 @@ public final class SwiftCommandState {
         self.workspaceLockState = .locked
 
         let workspaceLock = try FileLock.prepareLock(fileToLock: self.scratchDirectory)
+        let lockFile = self.scratchDirectory.appending(".lock").pathString
 
         // Try a non-blocking lock first so that we can inform the user about an already running SwiftPM.
         do {
             try workspaceLock.lock(type: .exclusive, blocking: false)
+            let pid = ProcessInfo.processInfo.processIdentifier
+            try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
         } catch ProcessLockError.unableToAquireLock(let errno) {
             if errno == EWOULDBLOCK {
+                let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
+                let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
+                
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', but this will be ignored since `--ignore-lock` has been passed"
                                 .utf8
                         )
                     self.outputStream.flush()
                 } else {
                     self.outputStream
                         .write(
-                            "Another instance of SwiftPM is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
+                            "Another instance of SwiftPM \(pidInfo)is already running using '\(self.scratchDirectory)', waiting until that process has finished execution..."
                                 .utf8
                         )
                     self.outputStream.flush()
 
                     // Only if we fail because there's an existing lock we need to acquire again as blocking.
                     try workspaceLock.lock(type: .exclusive, blocking: true)
+
+                    let pid = ProcessInfo.processInfo.processIdentifier
+                    try? String(pid).write(toFile: lockFile, atomically: true, encoding: .utf8)
                 }
             }
         }

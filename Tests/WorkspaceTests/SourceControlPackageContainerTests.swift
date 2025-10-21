@@ -125,7 +125,9 @@ private let v1Range: VersionSetSpecifier = .range("1.0.0" ..< "2.0.0")
 
 final class SourceControlPackageContainerTests: XCTestCase {
     func testVprefixVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -172,7 +174,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -261,7 +265,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
-                _ = try await container.getDependencies(at: revision.identifier, productFilter: .nothing, nil)
+                _ = try await container.getDependencies(at: revision.identifier, productFilter: .nothing)
             } catch let error as SourceControlPackageContainer.GetDependenciesError {
                 let error = error.underlyingError as! UnsupportedToolsVersion
                 XCTAssertMatch(error.description, .and(.prefix("package '\(PackageIdentity(path: repoPath))' @"), .suffix("is using Swift tools version 3.1.0 which is no longer supported; consider using '// swift-tools-version:4.0' to specify the current tools version")))
@@ -270,7 +274,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testPreReleaseVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -319,7 +325,9 @@ final class SourceControlPackageContainerTests: XCTestCase {
     }
 
     func testSimultaneousVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -374,7 +382,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
     func testDependencyConstraints() throws {
 #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
 #else
-        try XCTSkipIf(true)
+        try XCTSkipIf(true, "Target based dependency resolution is disabled")
 #endif
 
         let dependencies: [PackageDependency] = [
@@ -430,7 +438,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything, nil)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -452,7 +460,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything, nil)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5Constraints[0],
@@ -474,7 +482,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .everything, nil)
+                    .dependencyConstraints(productFilter: .everything)
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -496,7 +504,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
             XCTAssertEqual(
                 try manifest
-                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })), nil)
+                    .dependencyConstraints(productFilter: .specific(Set(products.map { $0.name })))
                     .sorted(by: { $0.package.identity < $1.package.identity }),
                 [
                     v5_2Constraints[0],
@@ -524,7 +532,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             try packageRepo.tag(name: "1.0.0")
 
             // Rename the `master` branch to `main`.
-            try systemQuietly([Git.tool, "-C", packageDir.pathString, "branch", "-m", "main"])
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", packageDir.pathString, "branch", "-m", "main")
 
             // Create a repository manager for it.
             let repoProvider = GitRepositoryProvider()
@@ -556,7 +564,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "master", productFilter: .everything, nil) }
+            do { _ = try await container.getDependencies(at: "master", productFilter: .everything) }
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message that mentions main.
                 XCTAssertMatch(error.description, .and(.prefix("could not find a branch named ‘master’"), .suffix("(did you mean ‘main’?)")))
@@ -565,7 +573,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             }
 
             // Simulate accessing a fictitious dependency on some random commit that doesn't exist, and check that we get back the expected error.
-            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything, nil) }
+            do { _ = try await container.getDependencies(at: "535f4cb5b4a0872fa691473e82d7b27b9894df00", productFilter: .everything) }
             catch let error as SourceControlPackageContainer.GetDependenciesError {
                 // We expect to get an error message about the specific commit.
                 XCTAssertMatch(error.description, .prefix("could not find the commit 535f4cb5b4a0872fa691473e82d7b27b9894df00"))
@@ -721,8 +729,8 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
             let container = try await containerProvider.getContainer(for: packageReference)
 
-            let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]), nil)
-            let forProduct = try await container.getDependencies(at: version, productFilter: .specific(["Product"]), nil)
+            let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]), ["default"])
+            let forProduct = try await container.getDependencies(at: version, productFilter: .specific(["Product"]), ["default"])
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
             // If the cache overlaps (incorrectly), these will be the same.
             XCTAssertNotEqual(forNothing, forProduct)

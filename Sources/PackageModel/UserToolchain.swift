@@ -12,6 +12,8 @@
 
 import Basics
 import Foundation
+import TSCUtility
+import enum TSCBasic.JSON
 
 import class Basics.AsyncProcess
 
@@ -39,6 +41,12 @@ public final class UserToolchain: Toolchain {
 
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
+
+    /// An array of paths to use with binaries produced by this toolchain at run time.
+    public lazy var runtimeLibraryPaths: [AbsolutePath] = {
+        guard let targetInfo else { return [] }
+        return (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
+    }()
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
@@ -69,9 +77,21 @@ public final class UserToolchain: Toolchain {
 
     /// The target triple that should be used for compilation.
     @available(*, deprecated, renamed: "targetTriple")
-    public var triple: Triple { targetTriple }
+    public var triple: Basics.Triple { targetTriple }
 
-    public let targetTriple: Triple
+    public let targetTriple: Basics.Triple
+
+    private let _targetInfo: JSON?
+    private lazy var targetInfo: JSON? = {
+        // Only call out to the swift compiler to fetch the target info when necessary
+        try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
+    }()
+
+    // A version string that can be used to identify the swift compiler version
+    public lazy var swiftCompilerVersion: String? = {
+        guard let targetInfo else { return nil }
+        return Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+    }()
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
@@ -159,10 +179,102 @@ public final class UserToolchain: Toolchain {
         return try getTool(name, binDirectories: envSearchPaths, fileSystem: fileSystem)
     }
 
+    private static func getTargetInfo(swiftCompiler: AbsolutePath) throws -> JSON {
+        // Call the compiler to get the target info JSON.
+        let compilerOutput: String
+        do {
+            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            compilerOutput = try result.utf8Output().spm_chomp()
+        } catch {
+            throw InternalError(
+                "Failed to load target info (\(error.interpolationDescription))"
+            )
+        }
+        // Parse the compiler's JSON output.
+        do {
+            return try JSON(string: compilerOutput)
+        } catch {
+            throw InternalError(
+                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+            )
+        }
+    }
+
+    private static func getHostTriple(targetInfo: JSON, versioned: Bool) throws -> Basics.Triple {
+        // Get the triple string from the target info.
+        let tripleString: String
+        do {
+            tripleString = try targetInfo.get("target").get(versioned ? "triple" : "unversionedTriple")
+        } catch {
+            throw InternalError(
+                "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(targetInfo)"
+            )
+        }
+
+        // Parse the triple string.
+        do {
+            return try Triple(tripleString)
+        } catch {
+            throw InternalError(
+                "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
+            )
+        }
+    }
+
+    private static func computeRuntimeLibraryPaths(targetInfo: JSON) throws -> [AbsolutePath] {
+        var libraryPaths: [AbsolutePath] = []
+
+        for runtimeLibPath in (try? (try? targetInfo.get("paths"))?.getArray("runtimeLibraryPaths")) ?? [] {
+            guard case .string(let value) = runtimeLibPath else {
+                continue
+            }
+
+            guard let path = try? AbsolutePath(validating: value) else {
+                continue
+            }
+
+            libraryPaths.append(path)
+        }
+
+        return libraryPaths
+    }
+
+    private static func computeSwiftCompilerVersion(targetInfo: JSON) -> String? {
+        // Use the new swiftCompilerTag if it's there
+        if let swiftCompilerTag: String = targetInfo.get("swiftCompilerTag") {
+            return swiftCompilerTag
+        }
+
+        // Default to the swift portion of the compilerVersion
+        let compilerVersion: String
+        do {
+            compilerVersion = try targetInfo.get("compilerVersion")
+        } catch {
+            return nil
+        }
+
+        // Extract the swift version using regex from the description if available
+        do {
+            let regex = try Regex(#"\((swift(lang)?-[^ )]*)"#)
+            if let match = try regex.firstMatch(in: compilerVersion), match.count > 1, let substring = match[1].substring {
+                return String(substring)
+            }
+
+            let regex2 = try Regex(#"\(.*Swift (.*)[ )]"#)
+            if let match2 = try regex2.firstMatch(in: compilerVersion), match2.count > 1, let substring = match2[1].substring {
+                return "swift-\(substring)"
+            } else {
+                return nil
+            }
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - public API
 
     public static func determineLibrarian(
-        triple: Triple,
+        triple: Basics.Triple,
         binDirectories: [AbsolutePath],
         useXcrun: Bool,
         environment: Environment,
@@ -355,6 +467,15 @@ public final class UserToolchain: Toolchain {
         )
     }
 
+    /// Returns the path to llvm-objdump tool.
+    package func getLLVMObjdump() throws -> AbsolutePath {
+        try UserToolchain.getTool(
+            "llvm-objdump",
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        )
+    }
+
     public func getSwiftAPIDigester() throws -> AbsolutePath {
         if let envValue = UserToolchain.lookup(
             variable: "SWIFT_API_DIGESTER",
@@ -405,7 +526,7 @@ public final class UserToolchain: Toolchain {
 #endif
 
     internal static func deriveSwiftCFlags(
-        triple: Triple,
+        triple: Basics.Triple,
         swiftSDK: SwiftSDK,
         environment: Environment,
         fileSystem: any FileSystem
@@ -569,6 +690,7 @@ public final class UserToolchain: Toolchain {
         swiftSDK: SwiftSDK,
         environment: Environment = .current,
         searchStrategy: SearchStrategy = .default,
+        customTargetInfo: JSON? = nil,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
         fileSystem: any FileSystem = localFileSystem
@@ -611,8 +733,16 @@ public final class UserToolchain: Toolchain {
                 default: InstalledSwiftPMConfiguration.default)
         }
 
-        // Use the triple from Swift SDK or compute the host triple using swiftc.
-        var triple = try swiftSDK.targetTriple ?? Triple.getHostTriple(usingSwiftCompiler: swiftCompilers.compile)
+        var triple: Basics.Triple
+        if let targetTriple = swiftSDK.targetTriple {
+            self._targetInfo = nil
+            triple = targetTriple
+        } else {
+            // targetInfo from the compiler
+            let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
+            self._targetInfo = targetInfo
+            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+        }
 
         // Change the triple to the specified arch if there's exactly one of them.
         // The Triple property is only looked at by the native build system currently.
@@ -635,24 +765,26 @@ public final class UserToolchain: Toolchain {
         )
 
         if triple.isMacOSX, let swiftTestingPath {
-            // swift-testing in CommandLineTools, needs extra frameworks search path
+            // Swift Testing is a framework (e.g. from CommandLineTools) so use -F.
             if swiftTestingPath.extension == "framework" {
                 swiftCompilerFlags += ["-F", swiftTestingPath.pathString]
-            }
 
-            // Otherwise we must have a custom toolchain, add overrides to find its swift-testing ahead of any in the
-            // SDK. We expect the library to be in `lib/swift/macosx/testing` and the plugin in
-            // `lib/swift/host/plugins/testing`
-            if let pluginsPath = try? AbsolutePath(
-                validating: "../../host/plugins/testing",
-                relativeTo: swiftTestingPath
-            ) {
+            // Otherwise Swift Testing is assumed to be a swiftmodule + library, so use -I and -L.
+            } else {
                 swiftCompilerFlags += [
                     "-I", swiftTestingPath.pathString,
                     "-L", swiftTestingPath.pathString,
-                    "-plugin-path", pluginsPath.pathString,
                 ]
             }
+        }
+
+        // Specify the plugin path for Swift Testing's macro plugin if such a
+        // path exists in this toolchain.
+        if let swiftTestingPluginPath = Self.deriveSwiftTestingPluginPath(
+            derivedSwiftCompiler: swiftCompilers.compile,
+            fileSystem: fileSystem
+        ) {
+            swiftCompilerFlags += ["-plugin-path", swiftTestingPluginPath.pathString]
         }
 
         swiftCompilerFlags += try Self.deriveSwiftCFlags(
@@ -839,7 +971,7 @@ public final class UserToolchain: Toolchain {
         return .init(swiftCompilerPath: swiftCompilerPath)
     }
 
-    private static func derivePluginServerPath(triple: Triple) throws -> AbsolutePath? {
+    private static func derivePluginServerPath(triple: Basics.Triple) throws -> AbsolutePath? {
         if triple.isDarwin() {
             let pluginServerPathFindArgs = ["/usr/bin/xcrun", "--find", "swift-plugin-server"]
             if let path = try? AsyncProcess.checkNonZeroExit(arguments: pluginServerPathFindArgs, environment: [:])
@@ -889,7 +1021,7 @@ public final class UserToolchain: Toolchain {
     // TODO: We should have some general utility to find tools.
     private static func deriveXCTestPath(
         swiftSDK: SwiftSDK,
-        triple: Triple,
+        triple: Basics.Triple,
         environment: Environment,
         fileSystem: any FileSystem
     ) throws -> AbsolutePath? {
@@ -970,9 +1102,9 @@ public final class UserToolchain: Toolchain {
 
     /// Find the swift-testing path if it is within a path that will need extra search paths.
     private static func deriveSwiftTestingPath(
-        derivedSwiftCompiler: AbsolutePath,
+        derivedSwiftCompiler: Basics.AbsolutePath,
         swiftSDK: SwiftSDK,
-        triple: Triple,
+        triple: Basics.Triple,
         environment: Environment,
         fileSystem: any FileSystem
     ) throws -> AbsolutePath? {
@@ -1031,6 +1163,35 @@ public final class UserToolchain: Toolchain {
             if let path = binPath, fileSystem.exists(path) {
                 return path
             }
+        }
+
+        return nil
+    }
+
+    /// Derive the plugin path needed to locate the Swift Testing macro plugin,
+    /// if such a path exists in the toolchain of the specified compiler.
+    ///
+    /// - Parameters:
+    ///   - derivedSwiftCompiler: The derived path of the Swift compiler to use
+    ///       when deriving the Swift Testing plugin path.
+    ///   - fileSystem: The file system instance to use when validating the path
+    ///       to return.
+    ///
+    /// - Returns: A path to the directory containing Swift Testing's macro
+    ///     plugin, or `nil` if the path does not exist or cannot be determined.
+    ///
+    /// The path returned is a directory containing a library, suitable for
+    /// passing to a client compiler via the `-plugin-path` flag.
+    private static func deriveSwiftTestingPluginPath(
+        derivedSwiftCompiler: Basics.AbsolutePath,
+        fileSystem: any FileSystem
+    ) -> AbsolutePath? {
+        guard let toolchainLibDir = try? toolchainLibDir(swiftCompilerPath: derivedSwiftCompiler) else {
+            return nil
+        }
+
+        if let pluginsPath = try? AbsolutePath(validating: "swift/host/plugins/testing", relativeTo: toolchainLibDir), fileSystem.exists(pluginsPath) {
+            return pluginsPath
         }
 
         return nil

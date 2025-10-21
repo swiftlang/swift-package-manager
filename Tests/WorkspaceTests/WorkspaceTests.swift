@@ -38,13 +38,11 @@ final class WorkspaceTests: XCTestCase {
     //     ]
     //     let matches = windowsPassingTests.filter { $0 == self.invocation?.selector}
     //     if matches.count == 0 {
-    //         try skipOnWindowsAsTestCurrentlyFails()
+    //         try XCTSkipOnWindows()
     //     }
     // }
 
     func testBasics() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -96,7 +94,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Quix")
                 result.check(modules: "Bar", "Baz", "Foo", "Quix")
@@ -171,8 +169,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testInterpreterFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let fs = localFileSystem
 
         try testWithTemporaryDirectory { path in
@@ -231,8 +227,57 @@ final class WorkspaceTests: XCTestCase {
                     )
                     """
                 )
+                if SwiftVersion.current.isDevelopment {
+                    XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                } else {
+                    XCTAssertThrowsError(
+                        try ws.interpreterFlags(for: packageManifest)
+                    )
+                }
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.0
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
 
                 XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.1
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.1.0")])
+            }
+
+            do {
+                let ws = try createWorkspace(
+                """
+                // swift-tools-version:6.2
+                import PackageDescription
+                let package = Package(
+                    name: "foo"
+                )
+                """
+                )
+
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-swift-version"), .equal("6")])
+                XCTAssertMatch(try ws.interpreterFlags(for: packageManifest), [.equal("-package-description-version"), .equal("6.2.0")])
             }
 
             do {
@@ -297,8 +342,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestParseError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let observability = ObservabilitySystem.makeForTesting()
 
         try await testWithTemporaryDirectory { path in
@@ -343,8 +386,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMultipleRootPackages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -388,7 +429,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Bar", "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
@@ -402,8 +443,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPackagesOverride() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -456,7 +495,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar", "Overridden/bazzz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "bar", "Foo", "bazzz")
                 result.check(packages: "bar", "bazzz", "foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
@@ -466,8 +505,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateRootPackages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -505,8 +542,6 @@ final class WorkspaceTests: XCTestCase {
 
     /// Test that the explicit name given to a package is not used as its identity.
     func testExplicitPackageNameIsNotUsedAsPackageIdentity() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -564,12 +599,12 @@ final class WorkspaceTests: XCTestCase {
             roots: ["foo-package", "bar-package"],
             dependencies: [
                 .localSourceControl(
-                    path: "/tmp/ws/pkgs/bar-package",
+                    path: "\(sandbox)/pkgs/bar-package",
                     requirement: .upToNextMajor(from: "1.0.0")
                 ),
             ]
         ) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "foo-package", "bar-package")
                 result.check(packages: "foo-package", "bar-package")
                 result.checkTarget("FooTarget") { result in result.check(dependencies: "BarProduct") }
@@ -580,8 +615,6 @@ final class WorkspaceTests: XCTestCase {
 
     /// Test that the remote repository is not resolved when a root package with same name is already present.
     func testRootAsDependency1() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -626,7 +659,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "BazA", "BazB", "Foo")
@@ -637,14 +670,12 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(notPresent: "baz")
         }
-        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: /tmp/ws/pkgs/Baz")])
+        XCTAssertNoMatch(workspace.delegate.events, [.equal("fetching package: \(sandbox)/pkgs/Baz")])
         XCTAssertNoMatch(workspace.delegate.events, [.equal("will resolve dependencies")])
     }
 
     /// Test that a root package can be used as a dependency when the remote version was resolved previously.
     func testRootAsDependency2() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -689,7 +720,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load only Foo right now so Baz is loaded from remote.
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Baz", "Foo")
@@ -709,7 +740,7 @@ final class WorkspaceTests: XCTestCase {
         // Now load with Baz as a root package.
         workspace.delegate.clear()
         try await workspace.checkPackageGraph(roots: ["Foo", "Baz"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Baz", "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "BazA", "BazB", "Foo")
@@ -732,8 +763,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testGraphRootDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -782,7 +811,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(dependencies: dependencies) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo")
                 result.check(modules: "Bar", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
@@ -796,8 +825,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanResolveWithIncompatiblePackages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -851,7 +878,7 @@ final class WorkspaceTests: XCTestCase {
                 .sourceControl(path: "./A", requirement: .exact("1.0.0"), products: .specific(["A"])),
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(packages: "A", "AA")
                     result.check(modules: "A", "AA")
                     result.checkTarget("A") { result in result.check(dependencies: "AA") }
@@ -874,7 +901,7 @@ final class WorkspaceTests: XCTestCase {
                 .sourceControl(path: "./A", requirement: .exact("1.0.1"), products: .specific(["A"])),
             ]
             try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.checkTarget("A") { result in result.check(dependencies: "AA") }
                 }
                 XCTAssertNoDiagnostics(diagnostics)
@@ -900,8 +927,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolverCanHaveError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -963,8 +988,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_empty() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1010,8 +1033,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_newPackages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1073,8 +1094,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToBranch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1143,8 +1162,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToRevision() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let cPath = RelativePath("C")
@@ -1196,8 +1213,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_localToBranch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1265,8 +1280,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_versionToLocal() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1334,8 +1347,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_requirementChange_branchToLocal() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1404,8 +1415,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_other() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1475,8 +1484,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrecomputeResolution_notRequired() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let bPath = RelativePath("B")
@@ -1542,8 +1549,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLoadingRootManifests() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1559,7 +1564,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["A", "B", "C"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "A", "B", "C")
                 result.check(modules: "A", "B", "C")
             }
@@ -1568,8 +1573,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUpdate() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1632,7 +1635,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -1648,7 +1651,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1671,8 +1674,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUpdateDryRun() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1723,7 +1724,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1744,7 +1745,7 @@ final class WorkspaceTests: XCTestCase {
                 .updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
 
-            let path = AbsolutePath("/tmp/ws/pkgs/Foo")
+            let path = sandbox.appending(components: ["pkgs","Foo"])
             let expectedChange = (
                 PackageReference.localSourceControl(identity: PackageIdentity(path: path), path: path),
                 stateChange
@@ -1756,7 +1757,7 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(expectedChange, change)
         }
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -1768,8 +1769,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPartialUpdate() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1874,8 +1873,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCleanAndReset() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -1955,10 +1952,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyManifestLoading() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
+        let fs: InMemoryFileSystem = InMemoryFileSystem()
 
         let workspace = try await MockWorkspace(
             sandbox: sandbox,
@@ -2005,7 +2000,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph with one root.
         try await workspace.checkPackageGraph(roots: ["Root1"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Foo", "Root1")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2022,7 +2017,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph with both roots.
         try await workspace.checkPackageGraph(roots: ["Root1", "Root2"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root1", "Root2")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2036,8 +2031,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyManifestsOrder() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2107,8 +2100,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBranchAndRevision() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2152,7 +2143,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         // Get some revision identifier of Bar.
-        let bar = RepositorySpecifier(path: "/tmp/ws/pkgs/Bar")
+        let bar = RepositorySpecifier(path: "\(sandbox)/pkgs/Bar")
         let barRevision = workspace.repositoryProvider.specifierMap[bar]!.revisions[0]
 
         // We request Bar via revision.
@@ -2160,7 +2151,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Bar", requirement: .revision(barRevision), products: .specific(["Bar"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -2173,8 +2164,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolve() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2209,7 +2198,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load initial version.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2248,8 +2237,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDeletedCheckoutDirectory() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2275,7 +2262,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2285,7 +2272,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.removeFileTree(workspace.getOrCreateWorkspace().location.repositoriesCheckoutsDirectory)
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2296,8 +2283,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMinimumRequiredToolsVersionInDependencyResolution() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2339,8 +2324,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testToolsVersionRootPackages() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2419,9 +2402,8 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testEditDependency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
 
+    func testEditDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2467,7 +2449,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: .plain("Root"))
                 result.check(packages: .plain("bar"), .plain("foo"), .plain("Root"))
             }
@@ -2508,14 +2490,14 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // Edit bar at a custom path and branch (ToT).
-        let barPath = AbsolutePath("/tmp/ws/custom/bar")
+        let barPath = sandbox.appending(components: ["custom", "bar"])
         await workspace.checkEdit(packageIdentity: "bar", path: barPath, checkoutBranch: "dev") { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "bar", at: .edited(barPath))
         }
-        let barRepo = try workspace.repositoryProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
+        let barRepo = try await workspace.repositoryProvider.openWorkingCopy(at: barPath) as! InMemoryGitRepository
         XCTAssert(barRepo.revisions.contains("dev"))
 
         // Test unediting.
@@ -2530,8 +2512,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUnsafeFlagsInEditedPackage() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2577,14 +2557,14 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: .plain("Root"))
                 result.check(packages: .plain("root"), .plain("Foo"))
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        let editedFooPath = AbsolutePath("/tmp/ws/Foo")
+        let editedFooPath = sandbox.appending("Foo")
         await workspace.checkEdit(packageIdentity: "Foo", path: editedFooPath) { diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -2595,8 +2575,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMissingEditCanRestoreOriginalCheckout() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2660,8 +2638,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanUneditRemovedDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2690,7 +2666,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph and edit foo.
         try await workspace.checkPackageGraph(deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Foo")
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -2736,8 +2712,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDependencyResolutionWithEdit() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2786,7 +2760,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -2859,8 +2833,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPrefetchingWithOverridenPackage() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2918,7 +2890,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -2932,7 +2904,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Bar", "Root")
             }
@@ -2946,8 +2918,6 @@ final class WorkspaceTests: XCTestCase {
 
     // Test that changing a particular dependency re-resolves the graph.
     func testChangeOneDependency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -2984,7 +2954,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Initial resolution.
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
             }
@@ -3006,14 +2976,14 @@ final class WorkspaceTests: XCTestCase {
                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                 location: settings.location,
                 requirement: .exact("1.5.0"),
-                productFilter: settings.productFilter,
-                traits: []
+                productFilter: settings.productFilter
             )
 
             workspace.manifestLoader.manifests[fooKey] = Manifest.createManifest(
                 displayName: manifest.displayName,
                 path: manifest.path,
                 packageKind: manifest.packageKind,
+                packageIdentity: manifest.packageIdentity,
                 packageLocation: manifest.packageLocation,
                 platforms: [],
                 version: manifest.version,
@@ -3034,8 +3004,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolutionFailureWithEditedDependency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3080,7 +3048,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Load the graph.
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3103,6 +3071,11 @@ final class WorkspaceTests: XCTestCase {
             let manifest = workspace.manifestLoader.manifests[fooKey]!
             workspace.manifestLoader.manifests[editedFooKey] = manifest
         }
+
+    }
+    func testResolutionFailureWithEditedDependencyWithABadGraph() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
 
         // Try resolving a bad graph.
         let deps: [MockDependency] = [
@@ -3156,8 +3129,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testStateModified() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3207,7 +3178,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root")
             }
         }
@@ -3232,7 +3203,7 @@ final class WorkspaceTests: XCTestCase {
 
         // reload graph after "external" change
         try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, _ in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "Bar", "Foo", "Root")
             }
         }
@@ -3249,8 +3220,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSkipUpdate() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3300,8 +3269,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalDependencyBasics() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3350,7 +3317,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -3379,9 +3346,8 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
-    func testLocalDependencyTransitive() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
 
+    func testLocalDependencyTransitive() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3429,7 +3395,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo")
                 result.check(modules: "Foo")
@@ -3444,8 +3410,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalDependencyWithPackageUpdate() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3479,7 +3443,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Foo")
             }
@@ -3510,8 +3474,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testMissingLocalDependencyDiagnostic() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3535,7 +3497,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Foo")
                 result.check(modules: "Foo")
@@ -3552,8 +3514,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRevisionVersionSwitch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3591,7 +3551,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Foo", requirement: .branch("develop"), products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3623,8 +3583,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalVersionSwitch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3662,7 +3620,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3694,8 +3652,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalLocalSwitch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3744,7 +3700,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3768,8 +3724,6 @@ final class WorkspaceTests: XCTestCase {
     // Test that switching between two same local packages placed at
     // different locations works correctly.
     func testDependencySwitchLocalWithSameIdentity() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3815,7 +3769,7 @@ final class WorkspaceTests: XCTestCase {
             .fileSystem(path: "./Foo", products: .specific(["Foo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3847,8 +3801,6 @@ final class WorkspaceTests: XCTestCase {
     // Test that switching between two remote packages at
     // different locations works correctly.
     func testDependencySwitchRemoteWithSameIdentity() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3896,7 +3848,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Foo", "Root")
             }
@@ -3927,8 +3879,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileUpdate() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -3984,15 +3934,12 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolvedFileSchemeToolsVersion() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        let fs = InMemoryFileSystem()
-
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),
             (ToolsVersion.v5_6, ToolsVersion.v5_6),
             (ToolsVersion.v5_2, ToolsVersion.v5_6),
         ] {
+            let fs = InMemoryFileSystem()
             let sandbox = AbsolutePath("/tmp/ws/")
             let workspace = try await MockWorkspace(
                 sandbox: sandbox,
@@ -4049,16 +3996,16 @@ final class WorkspaceTests: XCTestCase {
 
             let minToolsVersion = [pair.0, pair.1].min()!
             let expectedSchemeVersion = minToolsVersion >= .v5_6 ? 2 : 1
+            let actualSchemeVersion = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load().schemeVersion()
             XCTAssertEqual(
-                try workspace.getOrCreateWorkspace().resolvedPackagesStore.load().schemeVersion(),
-                expectedSchemeVersion
+                actualSchemeVersion,
+                expectedSchemeVersion,
+                "Actual scheme version (\(actualSchemeVersion)) is not as expected (\(expectedSchemeVersion)). Pair 0 (\(pair.0)) pair 1 (\(pair.1))"
             )
         }
     }
 
     func testResolvedFileStableCanonicalLocation() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4301,8 +4248,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPreferResolvedFileWhenExists() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4370,7 +4315,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4400,7 +4345,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4426,7 +4371,7 @@ final class WorkspaceTests: XCTestCase {
 
             // run resolution again, but change requirements
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4451,7 +4396,7 @@ final class WorkspaceTests: XCTestCase {
             try fs.writeFileContents(rootManifestPath, string: manifestContent)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4476,7 +4421,7 @@ final class WorkspaceTests: XCTestCase {
             ]
             // run resolution again, but change requirements
             try await workspace.checkPackageGraph(roots: ["Root"], dependencies: changedDeps) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Baz", "Foo", "Root")
                 }
@@ -4499,7 +4444,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, but change requirements back to original
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4522,7 +4467,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4543,7 +4488,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.closeWorkspace(resetResolvedFile: true)
             // run resolution again
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "Bar", "Foo", "Root")
                 }
@@ -4558,21 +4503,19 @@ final class WorkspaceTests: XCTestCase {
                 }
             }
         }
+    }
 
-        // util
-        func checkPinnedVersion(pin: ResolvedPackagesStore.ResolvedPackage, version: Version) {
-            switch pin.state {
-            case .version(let pinnedVersion, _):
-                XCTAssertEqual(pinnedVersion, version)
-            default:
-                XCTFail("non-version pin \(pin.state)")
-            }
+    // util
+    func checkPinnedVersion(pin: ResolvedPackagesStore.ResolvedPackage, version: Version) {
+        switch pin.state {
+        case .version(let pinnedVersion, _):
+            XCTAssertEqual(pinnedVersion, version)
+        default:
+            XCTFail("non-version pin \(pin.state)")
         }
     }
 
     func testPackageSimpleMirrorPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4648,7 +4591,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "BarMirror", "BazMirror", "Foo", "Dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
@@ -4665,8 +4608,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4754,7 +4695,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "BarMirror", "Foo", "Dep")
                 result.check(modules: "Bar", "Foo", "Dep")
@@ -4770,8 +4711,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageSimpleMirrorURL() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4844,7 +4783,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "baz-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Baz", "Foo", "Dep")
@@ -4861,8 +4800,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorURL() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -4952,7 +4889,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "foo", "dep")
                 result.check(modules: "Bar", "Foo", "Dep")
@@ -4968,8 +4905,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorURLToRegistry() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5025,7 +4960,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "org.bar-mirror", "baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -5040,8 +4975,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testPackageMirrorRegistryToURL() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5097,7 +5030,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "bar-mirror", "org.baz", "foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -5115,8 +5048,6 @@ final class WorkspaceTests: XCTestCase {
     // file for a transitive dependency whose URL is later changed to
     // something else, while keeping the same package identity.
     func testTransitiveDependencySwitchWithSameIdentity() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5216,7 +5147,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -5246,7 +5177,7 @@ final class WorkspaceTests: XCTestCase {
         ]
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Bar", "Foo", "Root")
             }
@@ -5270,8 +5201,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5398,8 +5327,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersionsDuplicateLocalDependency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5451,8 +5378,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveWithNoResolvedFile() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5510,8 +5435,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersionsLocalPackage() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5553,8 +5476,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testForceResolveToResolvedVersionsLocalPackageInAdditionalDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5656,8 +5577,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRevisionDepOnLocal() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5716,8 +5635,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPackagesOverrideBasenameMismatch() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5768,8 +5685,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManagedDependenciesNotCaseSensitive() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5835,7 +5750,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["Foo"]) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar", "Baz") }
@@ -5864,8 +5779,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testUnsafeFlags() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5881,7 +5794,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Foo",
@@ -5904,7 +5817,7 @@ final class WorkspaceTests: XCTestCase {
                     products: [
                         MockProduct(name: "Bar", modules: ["Bar"]),
                     ],
-                    versions: ["1.0.0", nil]
+                    versions: ["1.0.0", nil],
                 ),
                 MockPackage(
                     name: "Baz",
@@ -5921,13 +5834,15 @@ final class WorkspaceTests: XCTestCase {
                     dependencies: [
                         .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
-                    versions: ["1.0.0", "1.5.0"]
+                    versions: ["1.0.0", "1.5.0"],
+                    toolsVersion: .minimumRequired
                 ),
             ]
         )
 
         // We should only see errors about use of unsafe flag in the version-based dependency.
         try await workspace.checkPackageGraph(roots: ["Foo", "Bar"]) { _, diagnostics in
+            // We have disabled the check so there shouldn't be any errors.
             testDiagnostics(diagnostics) { result in
                 let diagnostic1 = result.checkUnordered(
                     diagnostic: .equal("the target 'Baz' in product 'Baz' contains unsafe build flags"),
@@ -5935,19 +5850,15 @@ final class WorkspaceTests: XCTestCase {
                 )
                 XCTAssertEqual(diagnostic1?.metadata?.packageIdentity, .plain("foo"))
                 XCTAssertEqual(diagnostic1?.metadata?.moduleName, "Foo")
-                let diagnostic2 = result.checkUnordered(
-                    diagnostic: .equal("the target 'Bar' in product 'Baz' contains unsafe build flags"),
-                    severity: .error
-                )
-                XCTAssertEqual(diagnostic2?.metadata?.packageIdentity, .plain("foo"))
-                XCTAssertEqual(diagnostic2?.metadata?.moduleName, "Foo")
+
+                // since Bar is using the current tools version and we've disabled the check since 6.2,
+                // the result should now be empty.
+                result.checkIsEmpty()
             }
         }
     }
 
     func testUnsafeFlagsInFoundation() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -5997,8 +5908,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testEditDependencyHadOverridableConstraints() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6100,8 +6009,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTargetBasedDependency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6210,8 +6117,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactExtractionHappyPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6316,17 +6221,17 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(bFrameworkArchivePath, bytes: ByteString([0xB0]))
 
         // Ensure that the artifacts do not exist yet
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A1.xcframework")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/A/A2.artifactbundle")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/B/B.xcframework")))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "A", "A1.xcframework"])))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "A", "A2", "artifactbundle"])))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "B", "B", "xcframework"])))
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
 
             // Ensure that the artifacts have been properly extracted
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a/A2/A2.artifactbundle")))
-            XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b/B/B.xcframework")))
+            XCTAssertTrue(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a", "A1", "A1.xcframework"])))
+            XCTAssertTrue(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a", "A2", "A2.artifactbundle"])))
+            XCTAssertTrue(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b", "B", "B.xcframework"])))
 
             // Ensure that the original archives have been untouched
             XCTAssertTrue(fs.exists(a1FrameworkArchivePath))
@@ -6335,15 +6240,15 @@ final class WorkspaceTests: XCTestCase {
 
             // Ensure that the temporary folders have been properly created
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
             ])
 
             // Ensure that the temporary directories have been removed
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1")).isEmpty)
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2")).isEmpty)
-            XCTAssertTrue(try! fs.getDirectoryContents(AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B")).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"])).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"])).isEmpty)
+            XCTAssertTrue(try! fs.getDirectoryContents(sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"])).isEmpty)
         }
 
         await workspace.checkManagedArtifacts { result in
@@ -6382,8 +6287,6 @@ final class WorkspaceTests: XCTestCase {
     // It ensures that all the appropriate clean-up operations are executed, and the workspace
     // contains the correct set of managed artifacts after the transition.
     func testLocalArchivedArtifactSourceTransitionPermutations() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6599,31 +6502,31 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertTrue(fs.exists(a4FrameworkArchivePath))
 
             // Ensure that the new artifacts have been properly extracted
-            XCTAssertTrue(try fs.exists(AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A1/\(a1FrameworkName)")))
+            XCTAssertTrue(try fs.exists(AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A1/\(a1FrameworkName)")))
             XCTAssertTrue(
                 try fs
                     .exists(
-                        AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A3/\(a3FrameworkName)/local-archived")
+                        AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A3/\(a3FrameworkName)/local-archived")
                     )
             )
             XCTAssertTrue(
                 try fs
-                    .exists(AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A4/\(a4FrameworkName)/remote"))
+                    .exists(AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A4/\(a4FrameworkName)/remote"))
             )
 
             // Ensure that the old artifacts have been removed
-            XCTAssertFalse(try fs.exists(AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A2/\(a2FrameworkName)")))
+            XCTAssertFalse(try fs.exists(AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A2/\(a2FrameworkName)")))
             XCTAssertFalse(
                 try fs
-                    .exists(AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A3/\(a3FrameworkName)/remote"))
+                    .exists(AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A3/\(a3FrameworkName)/remote"))
             )
             XCTAssertFalse(
                 try fs
                     .exists(
-                        AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A4/\(a4FrameworkName)/local-archived")
+                        AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A4/\(a4FrameworkName)/local-archived")
                     )
             )
-            XCTAssertFalse(try fs.exists(AbsolutePath(validating: "/tmp/ws/.build/artifacts/a/A5/\(a5FrameworkName)")))
+            XCTAssertFalse(try fs.exists(AbsolutePath(validating: "\(sandbox)/.build/artifacts/a/A5/\(a5FrameworkName)")))
         }
 
         await workspace.checkManagedArtifacts { result in
@@ -6655,10 +6558,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactNameDoesNotMatchTargetName() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
+        let fs: InMemoryFileSystem = InMemoryFileSystem()
 
         // create a dummy xcframework directory from the request archive
         let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
@@ -6716,8 +6617,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactExtractionError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6769,8 +6668,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchiveDoesNotMatchTargetName() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6847,8 +6744,6 @@ final class WorkspaceTests: XCTestCase {
 
 ////// STAET ATDIN
     func testLocalArchivedArtifactChecksumChange() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -6932,7 +6827,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, _ in
             // Ensure that only the artifact archive with the changed checksum has been extracted
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
             ])
         }
 
@@ -6953,8 +6848,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArchivedArtifactStripFirstComponent() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7028,17 +6921,17 @@ final class WorkspaceTests: XCTestCase {
         try fs.writeFileContents(archivesPath.appending("nested2.zip"), bytes: ByteString([0x3]))
 
         // ensure that the artifacts do not exist yet
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/flat/flat.xcframework")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/nested/nested.artifactbundle")))
-        XCTAssertFalse(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root/nested2/nested2.xcframework")))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root", "flat", "flat.xcframework"])))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root", "nested", "nested.artifactbundle"])))
+        XCTAssertFalse(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root", "nested2", "nested2.xcframework"])))
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
             ])
         }
 
@@ -7065,9 +6958,7 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArtifactHappyPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
-        let sandbox = AbsolutePath("/tmp/ws/")
+        let sandbox = AbsolutePath("/tmp/ws")
         let fs = InMemoryFileSystem()
 
         let workspace = try await MockWorkspace(
@@ -7119,8 +7010,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLocalArtifactDoesNotExist() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7150,13 +7039,13 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.checkUnordered(
                     diagnostic: .contains(
-                        "local binary target 'A1' at '\(AbsolutePath("/tmp/ws/roots/Root/XCFrameworks/incorrect.xcframework"))' does not contain a binary artifact."
+                        "local binary target 'A1' at '\(sandbox.appending(components: ["roots", "Root", "XCFrameworks", "incorrect.xcframework"]))' does not contain a binary artifact."
                     ),
                     severity: .error
                 )
                 result.checkUnordered(
                     diagnostic: .contains(
-                        "local binary target 'A2' at '\(AbsolutePath("/tmp/ws/roots/Root/ArtifactBundles/incorrect.artifactbundle"))' does not contain a binary artifact."
+                        "local binary target 'A2' at '\(sandbox.appending(components: ["roots", "Root", "ArtifactBundles", "incorrect.artifactbundle"]))' does not contain a binary artifact."
                     ),
                     severity: .error
                 )
@@ -7165,8 +7054,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadHappyPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -7288,8 +7175,8 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b"])))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2.zip",
@@ -7301,9 +7188,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -7356,8 +7243,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadWithPreviousState() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -7585,14 +7470,14 @@ final class WorkspaceTests: XCTestCase {
                     severity: .error
                 )
             }
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
-            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A1/A1.xcframework")))
-            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A2/A2.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A3/A3.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A4/A4.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/a/A5/A5.xcframework")))
-            XCTAssert(fs.exists(AbsolutePath("/tmp/ws/pkgs/a/XCFrameworks/A7.xcframework")))
-            XCTAssert(!fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/Foo")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b"])))
+            XCTAssert(fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A1", "A1.xcframework"])))
+            XCTAssert(fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A2", "A2.xcframework"])))
+            XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A3", "A3.xcframework"])))
+            XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A4", "A4.xcframework"])))
+            XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "a", "A5", "A5.xcframework"])))
+            XCTAssert(fs.exists(sandbox.appending(components: ["pkgs", "a", "XCFrameworks", "A7.xcframework"])))
+            XCTAssert(!fs.exists(sandbox.appending(components: [".build", "artifacts", "Foo"])))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a2.zip",
                 "https://a.com/a3.zip",
@@ -7606,10 +7491,10 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xB0]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A3"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A7"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
+                sandbox.appending(components: [".build", "artifacts", "extract","a", "A2"]),
+                sandbox.appending(components: [".build", "artifacts", "extract","a", "A3"]),
+                sandbox.appending(components: [".build", "artifacts", "extract","a", "A7"]),
+                sandbox.appending(components: [".build", "artifacts", "extract","b", "B"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -7666,8 +7551,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadTwice() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
@@ -7744,7 +7627,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation,
             ])
@@ -7754,7 +7637,7 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
+            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
         ])
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
@@ -7769,7 +7652,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
 
             XCTAssertEqual(workspace.checksumAlgorithm.hashes.map(\.hexadecimalRepresentation).sorted(), [
                 ByteString([0xA1]).hexadecimalRepresentation, ByteString([0xA1]).hexadecimalRepresentation,
@@ -7780,8 +7663,8 @@ final class WorkspaceTests: XCTestCase {
             "https://a.com/a1.zip", "https://a.com/a1.zip",
         ])
         XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
-            AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
+            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
+            sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
         ])
         XCTAssertEqual(
             downloads.map(\.1).sorted(),
@@ -7790,8 +7673,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadServerError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let fs = InMemoryFileSystem()
         let sandbox = AbsolutePath("/tmp/ws/")
         try fs.createDirectory(sandbox, recursive: true)
@@ -7845,8 +7726,8 @@ final class WorkspaceTests: XCTestCase {
         }
 
         // make sure artifact downloaded is deleted
-        XCTAssertTrue(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
-        XCTAssertFalse(fs.exists(AbsolutePath("/tmp/ws/.build/artifacts/root/a.zip")))
+        XCTAssertTrue(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
+        XCTAssertFalse(fs.exists(sandbox.appending(components: [".build", "artifacts", "root", "a.zip"])))
 
         // make sure the cached artifact is also deleted
         let artifactCacheKey = artifactUrl.spm_mangledToC99ExtendedIdentifier()
@@ -7862,8 +7743,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloaderOrArchiverError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -7888,7 +7767,7 @@ final class WorkspaceTests: XCTestCase {
         }
 
         let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
-            XCTAssertEqual(destinationPath.parentDirectory, AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A2"))
+            XCTAssertEqual(destinationPath.parentDirectory, sandbox.appending(components: [".build", "artifacts", "extract", "root", "A2"]))
             completion(.failure(DummyError()))
         })
 
@@ -7951,8 +7830,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactNotAnArchiveError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8061,8 +7938,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactInvalid() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8134,8 +8009,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactDoesNotMatchTargetName() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8211,11 +8084,14 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
+        try XCTSkipOnWindows(because: #"""
+        threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
+        """#)
 
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
         let sandbox = AbsolutePath("/tmp/ws/")
+
         try fs.createDirectory(sandbox, recursive: true)
 
         let checksumAlgorithm = MockHashAlgorithm()
@@ -8285,8 +8161,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactChecksumChange() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8339,8 +8213,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactChecksumChangeURLChange() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -8432,8 +8304,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactDownloadAddsAcceptHeader() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let acceptHeaders = ThreadSafeBox([String]())
@@ -8510,8 +8380,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactNoCache() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeBox(0)
@@ -8601,8 +8469,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactCache() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeBox(0)
@@ -8707,8 +8573,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactTransitive() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -8849,7 +8713,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a.zip",
             ])
@@ -8857,7 +8721,7 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -8879,8 +8743,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactArchiveExists() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         // this relies on internal knowledge of the destination path construction
@@ -8993,8 +8855,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactConcurrency() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9107,8 +8967,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadedArtifactStripFirstComponent() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
@@ -9215,7 +9073,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/root")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "root"])))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/flat.zip",
                 "https://a.com/nested.zip",
@@ -9227,9 +9085,9 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0x03]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/flat"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/nested2"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "flat"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "nested2"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -9269,10 +9127,8 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactMultipleExtensions() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
-        let fs = InMemoryFileSystem()
+        let fs: InMemoryFileSystem = InMemoryFileSystem()
         let downloads = ThreadSafeKeyValueStore<URL, AbsolutePath>()
 
         // returns a dummy zipfile for the requested artifact
@@ -9363,8 +9219,8 @@ final class WorkspaceTests: XCTestCase {
                 ByteString([0xA2]).hexadecimalRepresentation,
             ])
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/root/A2"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A1"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "root", "A2"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -9395,8 +9251,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testLoadRootPackageWithBinaryDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9425,6 +9279,11 @@ final class WorkspaceTests: XCTestCase {
                             url: "https://a.com/a2.zip.zip",
                             checksum: "a3"
                         ),
+                        MockTarget(
+                            name: "A4",
+                            type: .binary,
+                            path: "a4.zip"
+                        ),
                     ],
                     products: []
                 ),
@@ -9441,8 +9300,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFilesHappyPath() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9610,8 +9467,8 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/a")))
-            XCTAssert(fs.isDirectory(AbsolutePath("/tmp/ws/.build/artifacts/b")))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "a"])))
+            XCTAssert(fs.isDirectory(sandbox.appending(components: [".build", "artifacts", "b"])))
             XCTAssertEqual(downloads.map(\.key.absoluteString).sorted(), [
                 "https://a.com/a1.zip",
                 "https://a.com/a2/a2.zip",
@@ -9630,9 +9487,9 @@ final class WorkspaceTests: XCTestCase {
                 ).map(\.hexadecimalRepresentation).sorted()
             )
             XCTAssertEqual(archiver.extractions.map(\.destinationPath.parentDirectory).sorted(), [
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A1"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/a/A2"),
-                AbsolutePath("/tmp/ws/.build/artifacts/extract/b/B"),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A1"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "a", "A2"]),
+                sandbox.appending(components: [".build", "artifacts", "extract", "b", "B"]),
             ])
             XCTAssertEqual(
                 downloads.map(\.value).sorted(),
@@ -9685,8 +9542,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexServerError() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9729,8 +9584,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileBadChecksum() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9797,8 +9650,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileChecksumChanges() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -9849,8 +9700,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileBadArchivesChecksum() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -9958,8 +9807,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexFileArchiveNotFound() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
@@ -10032,10 +9879,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDownloadArchiveIndexTripleNotFound() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
+
         try fs.createMockToolchain()
 
         let hostToolchain = try UserToolchain.mockHostToolchain(fs)
@@ -10104,8 +9950,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateDependencyIdentityWithNameAtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10167,7 +10011,7 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "Conflicting identity for utility: dependency '/tmp/ws/pkgs/bar/utility' and dependency '/tmp/ws/pkgs/foo/utility' both point to the same package identity 'utility'.",
+                    diagnostic: "Conflicting identity for utility: dependency '\(CanonicalPackageLocation(sandbox.pathString))/pkgs/bar/utility' and dependency '\(CanonicalPackageLocation(sandbox.pathString))/pkgs/foo/utility' both point to the same package identity 'utility'.",
                     severity: .error
                 )
             }
@@ -10175,8 +10019,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateDependencyIdentityWithoutNameAtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10229,8 +10071,9 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 result.check(
-                    diagnostic: "Conflicting identity for utility: dependency '/tmp/ws/pkgs/bar/utility' and dependency '/tmp/ws/pkgs/foo/utility' both point to the same package identity 'utility'.",
+                    diagnostic: "Conflicting identity for utility: dependency '\(tmpDirCanonicalPackageLocation)/pkgs/bar/utility' and dependency '\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility' both point to the same package identity 'utility'.",
                     severity: .error
                 )
             }
@@ -10238,8 +10081,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateExplicitDependencyName_AtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10309,8 +10150,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateManifestNameAtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10366,8 +10205,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateManifestName_ExplicitProductPackage_AtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10423,8 +10260,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Pre52() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10480,8 +10315,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Post52_Incorrect() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10546,8 +10379,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_AtRoot_Post52_Correct() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10603,8 +10434,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_ExplicitDependencyNames_AtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10669,8 +10498,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testManifestNameAndIdentityConflict_ExplicitDependencyNames_ExplicitProductPackage_AtRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10735,8 +10562,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithNames() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10817,8 +10642,9 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 result.check(
-                    diagnostic: "Conflicting identity for utility: dependency '/tmp/ws/pkgs/other/utility' and dependency '/tmp/ws/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->/tmp/ws/pkgs/bar->/tmp/ws/pkgs/other/utility (B) /tmp/ws/roots/root->/tmp/ws/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
+                    diagnostic: "Conflicting identity for utility: dependency '\(tmpDirCanonicalPackageLocation)/pkgs/other/utility' and dependency '\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/bar->\(tmpDirCanonicalPackageLocation)/pkgs/other/utility (B) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
                     severity: .error
                 )
             }
@@ -10826,9 +10652,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityMultiplePossibleChains() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"""
-        threw error "\tmp\ws doesn't exist in file system"
-        """#)
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -10973,22 +10796,26 @@ final class WorkspaceTests: XCTestCase {
             ]
         )
 
+        let sandboxCanonicalPackageLocation: CanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
                 result.check(
-                    diagnostic: "Conflicting identity for glass: dependency '/tmp/ws/pkgs/tempered/glass' and dependency '/tmp/ws/pkgs/standard/glass' both point to the same package identity 'glass'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->/tmp/ws/pkgs/house->/tmp/ws/pkgs/premium_window->/tmp/ws/pkgs/tempered/glass (B) /tmp/ws/roots/root->/tmp/ws/pkgs/shack->/tmp/ws/pkgs/standard/glass. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
+                    diagnostic: "Conflicting identity for glass: dependency '\(sandboxCanonicalPackageLocation)/pkgs/tempered/glass' and dependency '\(sandboxCanonicalPackageLocation)/pkgs/standard/glass' both point to the same package identity 'glass'. The dependencies are introduced through the following chains: (A) \(sandboxCanonicalPackageLocation)/roots/root->\(sandboxCanonicalPackageLocation)/pkgs/house->\(sandboxCanonicalPackageLocation)/pkgs/premium_window->\(sandboxCanonicalPackageLocation)/pkgs/tempered/glass (B) \(sandboxCanonicalPackageLocation)/roots/root->\(sandboxCanonicalPackageLocation)/pkgs/shack->\(sandboxCanonicalPackageLocation)/pkgs/standard/glass. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
                     severity: .error
                 )
             }
         }
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                let prefix1 = sandbox.appending(components: ["pkgs", "tempered", "glass"])
                 result.checkUnordered(
-                    diagnostic: .contains("Conflicting identity for glass: chains of dependencies for /tmp/ws/pkgs/tempered/glass: [[/tmp/ws/roots/root, /tmp/ws/pkgs/house, /tmp/ws/pkgs/premium_window, /tmp/ws/pkgs/tempered/glass]]"),
+                    diagnostic: .contains("Conflicting identity for glass: chains of dependencies for \(prefix1): [[\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/house, \(sandboxCanonicalPackageLocation)/pkgs/premium_window, \(sandboxCanonicalPackageLocation)/pkgs/tempered/glass]]"),
                     severity: .debug
                 )
+
+                let prefix2 = sandbox.appending(components: ["pkgs", "standard", "glass"])
                 result.checkUnordered(
-                    diagnostic: .contains("Conflicting identity for glass: chains of dependencies for /tmp/ws/pkgs/standard/glass: [[/tmp/ws/roots/root, /tmp/ws/pkgs/shack, /tmp/ws/pkgs/standard/glass], [/tmp/ws/roots/root, /tmp/ws/pkgs/house, /tmp/ws/pkgs/budget_window, /tmp/ws/pkgs/standard/glass]]"),
+                    diagnostic: .contains("Conflicting identity for glass: chains of dependencies for \(prefix2): [[\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/shack, \(sandboxCanonicalPackageLocation)/pkgs/standard/glass], [\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/house, \(sandboxCanonicalPackageLocation)/pkgs/budget_window, \(sandboxCanonicalPackageLocation)/pkgs/standard/glass]]"),
                     severity: .debug
                 )
             }
@@ -10996,10 +10823,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateIdentityDependenciesMultipleRoots() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"""
-        threw error "\tmp\ws doesn't exist in file system"
-        """#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11072,12 +10895,16 @@ final class WorkspaceTests: XCTestCase {
             testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                 // Order of roots processing is not deterministic. To make the test less brittle, we check debug
                 // output of individual conflicts instead of a summarized error message.
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
+                let prefix = sandbox.appending(components: ["pkgs", "standing", "water"])
                 result.checkUnordered(
-                    diagnostic: .contains("Conflicting identity for water: chains of dependencies for /tmp/ws/pkgs/standing/water: [[/tmp/ws/roots/lake, /tmp/ws/pkgs/standing/water]]"),
+                    diagnostic: .contains("Conflicting identity for water: chains of dependencies for \(prefix): [[\(tmpDirCanonicalPackageLocation)/roots/lake, \(tmpDirCanonicalPackageLocation)/pkgs/standing/water]]"),
                     severity: .debug
                 )
+
+                let prefix2 = sandbox.appending(components: ["pkgs", "flowing", "water"])
                 result.checkUnordered(
-                    diagnostic: .contains("Conflicting identity for water: chains of dependencies for /tmp/ws/pkgs/flowing/water: [[/tmp/ws/roots/river, /tmp/ws/pkgs/flowing/water]]"),
+                    diagnostic: .contains("Conflicting identity for water: chains of dependencies for \(prefix2): [[\(tmpDirCanonicalPackageLocation)/roots/river, \(tmpDirCanonicalPackageLocation)/pkgs/flowing/water]]"),
                     severity: .debug
                 )
             }
@@ -11085,8 +10912,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithoutNames() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11157,8 +10982,9 @@ final class WorkspaceTests: XCTestCase {
         // we will escalate this to an error in a few versions to tighten up the validation
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 result.check(
-                    diagnostic: "Conflicting identity for utility: dependency '/tmp/ws/pkgs/other-foo/utility' and dependency '/tmp/ws/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->/tmp/ws/pkgs/bar->/tmp/ws/pkgs/other-foo/utility (B) /tmp/ws/roots/root->/tmp/ws/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency. This will be escalated to an error in future versions of SwiftPM.",
+                    diagnostic: "Conflicting identity for utility: dependency '\(tmpDirCanonicalPackageLocation)/pkgs/other-foo/utility' and dependency '\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/bar->\(tmpDirCanonicalPackageLocation)/pkgs/other-foo/utility (B) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency. This will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning
                 )
                 // FIXME: rdar://72940946
@@ -11172,8 +10998,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentitySimilarURLs1() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11249,8 +11073,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentitySimilarURLs2() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11326,8 +11148,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityGitHubURLs1() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11403,8 +11223,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityGitHubURLs2() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11483,8 +11301,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityUnfamiliarURLs() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11561,8 +11377,9 @@ final class WorkspaceTests: XCTestCase {
         // we will escalate this to an error in a few versions to tighten up the validation
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 result.check(
-                    diagnostic: "Conflicting identity for foo: dependency 'github.com/foo-moved/foo' and dependency 'github.com/foo/foo' both point to the same package identity 'foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->/tmp/ws/pkgs/bar->github.com/foo-moved/foo (B) /tmp/ws/roots/root->github.com/foo/foo. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency. This will be escalated to an error in future versions of SwiftPM.",
+                    diagnostic: "Conflicting identity for foo: dependency 'github.com/foo-moved/foo' and dependency 'github.com/foo/foo' both point to the same package identity 'foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/bar->github.com/foo-moved/foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->github.com/foo/foo. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency. This will be escalated to an error in future versions of SwiftPM.",
                     severity: .warning
                 )
             }
@@ -11570,8 +11387,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateTransitiveIdentityWithSimilarURLs() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11694,8 +11509,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateNestedTransitiveIdentityWithNames() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11779,8 +11592,9 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
             testDiagnostics(diagnostics) { result in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 result.check(
-                    diagnostic: "Conflicting identity for utility: dependency '/tmp/ws/pkgs/other/utility' and dependency '/tmp/ws/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->/tmp/ws/pkgs/foo/utility->/tmp/ws/pkgs/bar->/tmp/ws/pkgs/other/utility (B) /tmp/ws/roots/root->/tmp/ws/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
+                    diagnostic: "Conflicting identity for utility: dependency '\(tmpDirCanonicalPackageLocation)/pkgs/other/utility' and dependency '\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility' both point to the same package identity 'utility'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility->\(tmpDirCanonicalPackageLocation)/pkgs/bar->\(tmpDirCanonicalPackageLocation)/pkgs/other/utility (B) \(tmpDirCanonicalPackageLocation)/roots/root->\(tmpDirCanonicalPackageLocation)/pkgs/foo/utility. If there are multiple chains that lead to the same dependency, only the first chain is shown here. To see all chains use debug output option. To resolve the conflict, coordinate with the maintainer of the package that introduces the conflicting dependency.",
                     severity: .error
                 )
             }
@@ -11788,8 +11602,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDuplicateNestedTransitiveIdentityWithoutNames() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11874,8 +11686,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRootPathConflictsWithTransitiveIdentity() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -11951,8 +11761,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDeterministicURLPreference() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12081,7 +11889,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root", "qux")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -12114,8 +11922,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testDeterministicURLPreferenceWithRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12225,7 +12031,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12255,8 +12061,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanonicalURLWithPreviousManagedState() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12370,7 +12174,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12392,7 +12196,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "baz", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12419,8 +12223,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanonicalURLChanges() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12489,7 +12291,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -12514,7 +12316,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12534,8 +12336,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCanonicalURLChangesWithTransitiveDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12645,7 +12445,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "https://github.com/org/foo.git")
@@ -12676,7 +12476,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root2"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(packages: "bar", "foo", "Root2")
                 let package = result.find(package: "foo")
                 XCTAssertEqual(package?.manifest.packageLocation, "git@github.com:org/foo.git")
@@ -12702,8 +12502,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCycleRoot() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12820,8 +12618,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testResolutionBranchAndVersion() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -12878,7 +12674,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "bar", "foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -12950,27 +12746,20 @@ final class WorkspaceTests: XCTestCase {
                 dependencyMapper: DependencyMapper,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                delegateQueue: DispatchQueue,
-                callbackQueue: DispatchQueue,
-                completion: @escaping (Result<Manifest, Error>) -> Void
-            ) {
+                delegateQueue: DispatchQueue
+            ) async throws -> Manifest {
                 if let error {
-                    callbackQueue.async {
-                        completion(.failure(error))
-                    }
+                    throw error
                 } else {
-                    callbackQueue.async {
-                        completion(.success(
-                            Manifest.createManifest(
-                                displayName: packageIdentity.description,
-                                path: manifestPath,
-                                packageKind: packageKind,
-                                packageLocation: packageLocation,
-                                platforms: [],
-                                toolsVersion: manifestToolsVersion
-                            )
-                        ))
-                    }
+                    return Manifest.createManifest(
+                        displayName: packageIdentity.description,
+                        path: manifestPath,
+                        packageKind: packageKind,
+                        packageIdentity: packageIdentity,
+                        packageLocation: packageLocation,
+                        platforms: [],
+                        toolsVersion: manifestToolsVersion
+                    )
                 }
             }
 
@@ -13034,8 +12823,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicResolutionFromSourceControl() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13096,7 +12883,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "Bar", "Foo", "MyPackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
@@ -13142,8 +12929,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicTransitiveResolutionFromSourceControl() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13231,7 +13016,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "Bar", "Baz", "Foo", "MyPackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
@@ -13288,8 +13073,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicResolutionFromRegistry() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13350,7 +13133,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "org.bar", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "MyTarget1", "MyTarget2")
@@ -13396,8 +13179,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testBasicTransitiveResolutionFromRegistry() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13485,7 +13266,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "MyPackage")
                 result.check(packages: "org.bar", "org.baz", "org.foo", "mypackage")
                 result.check(modules: "Foo", "Bar", "Baz", "MyTarget1", "MyTarget2")
@@ -13542,8 +13323,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTransitiveResolutionFromRegistryWithByNameDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13603,7 +13382,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "org.bar", "org.foo", "Root")
                 result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13624,8 +13403,6 @@ final class WorkspaceTests: XCTestCase {
 
     // no dups
     func testResolutionMixedRegistryAndSourceControl1() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13693,7 +13470,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13716,7 +13493,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13739,7 +13516,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -13756,8 +13533,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTransitiveResolutionFromRegistryWithDifferentPackageNameCasing() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13803,7 +13578,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "org.foo", "Root")
                 result.check(modules: "FooTarget", "RootTarget")
@@ -13823,8 +13598,6 @@ final class WorkspaceTests: XCTestCase {
 
     // duplicate package at root level
     func testResolutionMixedRegistryAndSourceControl2() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -13924,8 +13697,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl3() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14015,15 +13786,16 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
+                    let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->git/org/bar->org.foo (B) /tmp/ws/roots/root->git/org/foo.
+                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
                         """),
                         severity: .warning
                     )
                 }
 
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14047,7 +13819,7 @@ final class WorkspaceTests: XCTestCase {
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
 
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14070,7 +13842,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14089,8 +13861,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 registry --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl4() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14180,14 +13950,15 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
+                    let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->org.bar->org.foo (B) /tmp/ws/roots/root->git/org/foo.
+                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
                         """),
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14210,7 +13981,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14229,8 +14000,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm
     //                  --> dep2 scm --> dep1 registry incompatible version
     func testResolutionMixedRegistryAndSourceControl5() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14356,8 +14125,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm
     func testResolutionMixedRegistryAndSourceControl6() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14446,10 +14213,11 @@ final class WorkspaceTests: XCTestCase {
             workspace.sourceControlToRegistryDependencyTransformation = .identity
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'git/org/foo' and dependency 'org.foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->org.bar->git/org/foo (B) /tmp/ws/roots/root->org.foo.
+                        dependency 'git/org/foo' and dependency 'org.foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->git/org/foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo.
                         """),
                         severity: .warning
                     )
@@ -14462,7 +14230,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14485,7 +14253,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -14504,8 +14272,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry
     //                  --> dep2 registry --> dep1 scm incompatible version
     func testResolutionMixedRegistryAndSourceControl7() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14631,8 +14397,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry
     func testResolutionMixedRegistryAndSourceControl8() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14738,9 +14502,10 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 testDiagnostics(diagnostics) { result in
+                    let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'git/org/baz' and dependency 'org.baz' both point to the same package identity 'org.baz'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->org.foo->git/org/baz (B) /tmp/ws/roots/root->org.bar->org.baz.
+                        dependency 'git/org/baz' and dependency 'org.baz' both point to the same package identity 'org.baz'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.foo->git/org/baz (B) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.baz.
                         """),
                         severity: .warning
                     )
@@ -14753,7 +14518,7 @@ final class WorkspaceTests: XCTestCase {
                         )
                     }
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
@@ -14781,7 +14546,7 @@ final class WorkspaceTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
                 XCTAssertNoDiagnostics(diagnostics)
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.baz", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "BazTarget", "RootTarget")
@@ -14803,8 +14568,6 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 registry --> dep3 scm
     //                  --> dep2 registry --> dep3 registry incompatible version
     func testResolutionMixedRegistryAndSourceControl9() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -14946,9 +14709,8 @@ final class WorkspaceTests: XCTestCase {
     // mixed graph root --> dep1 scm branch
     //                  --> dep2 registry --> dep1 registry
     func testResolutionMixedRegistryAndSourceControl10() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        let sandbox = AbsolutePath("/tmp/ws/")
+        let sandbox: AbsolutePath = AbsolutePath("/tmp/ws/")
+        let tmpDirCanonicalPackageLocation = CanonicalPackageLocation(sandbox.pathString)
         let fs = InMemoryFileSystem()
 
         let workspace = try await MockWorkspace(
@@ -15039,12 +14801,12 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->org.bar->org.foo (B) /tmp/ws/roots/root->git/org/foo.
+                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
                         """),
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -15069,12 +14831,12 @@ final class WorkspaceTests: XCTestCase {
                 testDiagnostics(diagnostics) { result in
                     result.check(
                         diagnostic: .contains("""
-                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) /tmp/ws/roots/root->org.bar->org.foo (B) /tmp/ws/roots/root->git/org/foo.
+                        dependency 'org.foo' and dependency 'git/org/foo' both point to the same package identity 'org.foo'. The dependencies are introduced through the following chains: (A) \(tmpDirCanonicalPackageLocation)/roots/root->org.bar->org.foo (B) \(tmpDirCanonicalPackageLocation)/roots/root->git/org/foo.
                         """),
                         severity: .warning
                     )
                 }
-                PackageGraphTester(graph) { result in
+                PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
                     result.check(packages: "org.bar", "org.foo", "Root")
                     result.check(modules: "FooTarget", "BarTarget", "RootTarget")
@@ -15095,8 +14857,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testCustomPackageContainerProvider() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15126,7 +14886,7 @@ final class WorkspaceTests: XCTestCase {
             customRetrievalPath: .root
         )
 
-        let fooPath = AbsolutePath("/tmp/ws/Foo")
+        let fooPath = sandbox.appending("Foo")
         let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
         let fooContainer = MockPackageContainer(package: fooPackageReference)
 
@@ -15169,7 +14929,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -15186,8 +14946,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryMissingConfigurationErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15237,12 +14995,10 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(diagnostic: .equal("no registry configured for 'org' scope"), severity: .error)
             }
-        }
+    }
     }
 
     func testRegistryReleasesServerErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15328,8 +15084,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryReleaseChecksumServerErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15417,8 +15171,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryManifestServerErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15506,8 +15258,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryDownloadServerErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15595,8 +15345,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryArchiveErrors() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15659,8 +15407,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryMetadata() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15713,6 +15459,7 @@ final class WorkspaceTests: XCTestCase {
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
                 packageKind: .registry("org.foo"),
+                packageIdentity: .plain("Foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
                 products: [
@@ -15725,7 +15472,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 guard let foo = result.find(package: "org.foo") else {
                     return XCTFail("missing package")
                 }
@@ -15743,8 +15490,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testRegistryDefaultRegistryConfiguration() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -15799,7 +15544,7 @@ final class WorkspaceTests: XCTestCase {
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 XCTAssertNotNil(result.find(package: "org.foo"), "missing package")
             }
         }
@@ -15811,9 +15556,8 @@ final class WorkspaceTests: XCTestCase {
         metadata: [String: RegistryReleaseMetadata],
         mirrors: DependencyMirrors? = nil
     ) async throws -> MockWorkspace {
-        try skipOnWindowsAsTestCurrentlyFails()
-
-        let sandbox = AbsolutePath("/tmp/ws/")
+        // let sandbox = AbsolutePath.root.appending("swiftpm-tests-can-be-deleted/tmp/ws")
+        let sandbox = AbsolutePath.root.appending(components: ["swiftpm-tests-can-be-deleted", "tmp", "ws"])
         let fs = InMemoryFileSystem()
 
         return try await MockWorkspace(
@@ -15899,8 +15643,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_SignedCorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
             .recognized(
                 type: "adp",
@@ -15920,8 +15662,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_SignedIncorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let actualMetadata = RegistryReleaseMetadata.createWithSigningEntity(
             .recognized(
                 type: "adp",
@@ -15953,8 +15693,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_Unsigned() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -15977,8 +15715,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_NotFound() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let expectedSigningEntity: RegistryReleaseMetadata.SigningEntity = .recognized(
             type: "adp",
             commonName: "Jane Doe",
@@ -16001,8 +15737,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredSignedCorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16024,7 +15758,7 @@ final class WorkspaceTests: XCTestCase {
             PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
         ]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 XCTAssertNotNil(result.find(package: "ecorp.bar"), "missing package")
                 XCTAssertNil(result.find(package: "org.bar"), "unexpectedly present package")
             }
@@ -16032,8 +15766,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirrorSignedIncorrectly() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16071,8 +15803,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredUnsigned() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "ecorp.bar", for: "org.bar")
 
@@ -16098,8 +15828,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testSigningEntityVerification_MirroredToSCM() async throws {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let mirrors = try DependencyMirrors()
         try mirrors.set(mirror: "https://scm.com/org/bar-mirror", for: "org.bar")
 
@@ -16125,8 +15853,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTraitConfigurationExists_NoDefaultTraits() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -16149,7 +15875,7 @@ final class WorkspaceTests: XCTestCase {
                                 .product(
                                     name: "Boo",
                                     package: "Boo",
-                                    // Trait2 disabled; should generate unused dependency warning
+                                    // Trait2 disabled; should remove this dependency from graph
                                     condition: .init(traits: ["Trait2"])
                                 ),
                             ]
@@ -16198,16 +15924,14 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
-                result.check(packages: "Baz", "Foo", "Boo")
-                result.check(modules: "Bar", "Baz", "Boo", "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Bar", "Baz", "Foo")
                 result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
             }
-            testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .contains("dependency 'boo' is not used by any target"), severity: .warning)
-            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
@@ -16215,8 +15939,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTraitConfigurationExists_WithDefaultTraits() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -16289,7 +16011,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Boo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -16305,8 +16027,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testTraitConfiguration_WithPrunedDependencies() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -16370,7 +16090,7 @@ final class WorkspaceTests: XCTestCase {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -16385,8 +16105,6 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testNoTraitConfiguration_WithDefaultTraits() async throws {
-        try skipOnWindowsAsTestCurrentlyFails(because: #"\tmp\ws doesn't exist in file system"#)
-
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -16453,7 +16171,7 @@ final class WorkspaceTests: XCTestCase {
             .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTester(graph) { result in
+            PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Boo", "Foo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -16464,6 +16182,357 @@ final class WorkspaceTests: XCTestCase {
         }
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testInvalidTrait_WhenParentPackageEnablesTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitNotFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' (Foo) is not declared by package 'baz' (Baz). The available traits declared by this package are: TraitFound."), severity: .error)
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testInvalidTraitConfiguration_ForRootPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(
+                            name: "Foo",
+                            dependencies: [
+                                .product(
+                                    name: "Baz",
+                                    package: "Baz",
+                                    condition: .init(traits: ["Trait1"])
+                                ),
+                            ]
+                        ),
+                        MockTarget(name: "Bar", dependencies: ["Baz"]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo", "Bar"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0"), traits: ["TraitFound"]),
+                    ],
+                    traits: [.init(name: "default", enabledTraits: ["Trait2"]), "Trait1", "Trait2"]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    targets: [
+                        MockTarget(name: "Baz"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    traits: ["TraitFound"],
+                    versions: ["1.0.0", "1.5.0"]
+                ),
+            ],
+            // Trait configuration containing trait that isn't defined in the root package.
+            traitConfiguration: .enabledTraits(["TraitNotFound"]),
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Baz", requirement: .exact("1.0.0"), products: .specific(["Baz"]), traits: ["TraitFound"]),
+        ]
+
+        try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+            }
+        }
+    }
+
+    func testManyTraitsEnableTargetDependency() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        func createMockWorkspace(_ traitConfiguration: TraitConfiguration) async throws -> MockWorkspace {
+            try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    MockPackage(
+                        name: "Cereal",
+                        targets: [
+                            MockTarget(
+                                name: "Wheat",
+                                dependencies: [
+                                    .product(
+                                        name: "Icing",
+                                        package: "Sugar",
+                                        condition: .init(traits: ["BreakfastOfChampions", "DontTellMom"])
+                                    ),
+                                ]
+                            ),
+                        ],
+                        products: [
+                            MockProduct(name: "YummyBreakfast", modules: ["Wheat"])
+                        ],
+                        dependencies: [
+                            .sourceControl(path: "./Sugar", requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        traits: ["BreakfastOfChampions", "DontTellMom"]
+                    ),
+                ],
+                packages: [
+                    MockPackage(
+                        name: "Sugar",
+                        targets: [
+                            MockTarget(name: "Icing"),
+                        ],
+                        products: [
+                            MockProduct(name: "Icing", modules: ["Icing"]),
+                        ],
+                        versions: ["1.0.0", "1.5.0"]
+                    ),
+                ],
+                traitConfiguration: traitConfiguration
+            )
+        }
+
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"])),
+        ]
+
+        let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
+        try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar")
+                result.check(modules: "Wheat", "Icing")
+                result.check(products: "YummyBreakfast", "Icing")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing")
+                }
+            }
+        }
+
+        let dontTellMomAboutThisWorkspace = try await createMockWorkspace(.enabledTraits(["DontTellMom"]))
+        try await dontTellMomAboutThisWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar")
+                result.check(modules: "Wheat", "Icing")
+                result.check(products: "YummyBreakfast", "Icing")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing")
+                }
+            }
+        }
+
+        let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
+        try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar")
+                result.check(modules: "Wheat", "Icing")
+                result.check(products: "YummyBreakfast", "Icing")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing")
+                }
+            }
+        }
+
+        let noSugarForBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
+        try await noSugarForBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal")
+                result.check(modules: "Wheat")
+                result.check(products: "YummyBreakfast")
+            }
+        }
+    }
+
+    func testTraitsConditionalDependencies() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        func createMockWorkspace(_ traitConfiguration: TraitConfiguration) async throws -> MockWorkspace {
+            try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    MockPackage(
+                        name: "Cereal",
+                        targets: [
+                            MockTarget(
+                                name: "Wheat",
+                                dependencies: [
+                                    .product(
+                                        name: "Icing",
+                                        package: "Sugar",
+                                        condition: .init(traits: ["BreakfastOfChampions"])
+                                    ),
+                                    .product(
+                                        name: "Raisin",
+                                        package: "Fruit",
+                                        condition: .init(traits: ["Healthy"])
+                                    )
+                                ]
+                            ),
+                        ],
+                        products: [
+                            MockProduct(name: "YummyBreakfast", modules: ["Wheat"])
+                        ],
+                        dependencies: [
+                            .sourceControl(path: "./Sugar", requirement: .upToNextMajor(from: "1.0.0")),
+                            .sourceControl(path: "./Fruit", requirement: .upToNextMajor(from: "1.0.0")),
+                        ],
+                        traits: ["Healthy", "BreakfastOfChampions"]
+                    ),
+                ],
+                packages: [
+                    MockPackage(
+                        name: "Sugar",
+                        targets: [
+                            MockTarget(name: "Icing"),
+                        ],
+                        products: [
+                            MockProduct(name: "Icing", modules: ["Icing"]),
+                        ],
+                        versions: ["1.0.0", "1.5.0"]
+                    ),
+                    MockPackage(
+                        name: "Fruit",
+                        targets: [
+                            MockTarget(name: "Raisin"),
+                        ],
+                        products: [
+                            MockProduct(name: "Raisin", modules: ["Raisin"]),
+                        ],
+                        versions: ["1.0.0", "1.2.0"]
+                    ),
+                ],
+                traitConfiguration: traitConfiguration
+            )
+        }
+
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Sugar", requirement: .exact("1.0.0"), products: .specific(["Icing"])),
+            .sourceControl(path: "./Fruit", requirement: .exact("1.0.0"), products: .specific(["Raisin"])),
+        ]
+
+        let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
+        try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar")
+                result.check(modules: "Wheat", "Icing")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing")
+                }
+            }
+        }
+
+        let healthyWorkspace = try await createMockWorkspace(.enabledTraits(["Healthy"]))
+        try await healthyWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "fruit")
+                result.check(modules: "Wheat", "Raisin")
+                result.check(products: "YummyBreakfast", "Raisin")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Raisin")
+                }
+            }
+        }
+
+        let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
+        try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal", "sugar", "fruit")
+                result.check(modules: "Wheat", "Icing", "Raisin")
+                result.check(products: "YummyBreakfast", "Icing", "Raisin")
+                result.checkTarget("Wheat") { result in
+                    result.check(dependencies: "Icing", "Raisin")
+                }
+            }
+        }
+
+        let boringBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
+        try await boringBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Cereal")
+                result.check(packages: "cereal")
+                result.check(modules: "Wheat")
+                result.check(products: "YummyBreakfast")
+            }
         }
     }
 
@@ -16485,8 +16554,6 @@ final class WorkspaceTests: XCTestCase {
         archiver: Archiver? = .none,
         fileSystem: FileSystem
     ) throws -> RegistryClient {
-        try skipOnWindowsAsTestCurrentlyFails()
-
         let jsonEncoder = JSONEncoder.makeWithDefaults()
 
         guard let identity = packageIdentity.registry else {

@@ -13,9 +13,10 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import PackageModel
-import PackageModelSyntax
+import Foundation
+import PackageGraph
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
@@ -34,20 +35,20 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new product to the manifest")
+            abstract: "Add a new product to the manifest.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The name of the new product")
+        @Argument(help: "The name of the new product.")
         var name: String
 
-        @Option(help: "The type of target to add")
+        @Option(help: "The type of target to add.")
         var type: CommandProductType = .library
 
         @Option(
             parsing: .upToNextOption,
-            help: "A list of targets that are part of this product"
+            help: "A list of targets that are part of this product."
         )
         var targets: [String] = []
 
@@ -78,7 +79,7 @@ extension SwiftPackageCommand {
             }
 
             // Map the product type.
-            let type: ProductType = switch self.type {
+            let type: ProductDescription.ProductType = switch self.type {
             case .executable: .executable
             case .library: .library(.automatic)
             case .dynamicLibrary: .library(.dynamic)
@@ -86,15 +87,15 @@ extension SwiftPackageCommand {
             case .plugin: .plugin
             }
 
-            let product = try ProductDescription(
+            let product = ProductDescription(
                 name: name,
                 type: type,
                 targets: targets
             )
 
-            let editResult = try PackageModelSyntax.AddProduct.addProduct(
-                product,
-                to: manifestSyntax
+            let editResult = try SwiftRefactor.AddProduct.textRefactor(
+                syntax: manifestSyntax,
+                in: .init(product: product)
             )
 
             try editResult.applyEdits(

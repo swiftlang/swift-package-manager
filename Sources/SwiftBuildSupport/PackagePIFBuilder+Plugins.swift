@@ -12,15 +12,15 @@
 
 import Foundation
 
-import struct Basics.AbsolutePath
-import let Basics.localFileSystem
+import protocol TSCBasic.FileSystem
+
 import enum Basics.Sandbox
+import struct Basics.AbsolutePath
 import struct Basics.SourceControlURL
 
-#if canImport(SwiftBuild)
-import enum SwiftBuild.PIF
+import enum SwiftBuild.ProjectModel
 
-extension PIFPackageBuilder {
+extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
     /// a target is built.
     ///
@@ -122,10 +122,10 @@ extension PIFPackageBuilder {
         }
 
         /// Applies the sandbox profile to the given command line, and return the modified command line.
-        public func apply(to command: [String]) throws -> [String] {
+        public func apply(to command: [String], fileSystem: FileSystem) throws -> [String] {
             try Sandbox.apply(
                 command: command,
-                fileSystem: localFileSystem,
+                fileSystem: fileSystem,
                 strictness: self.strictness,
                 writableDirectories: self.writableDirectories,
                 readOnlyDirectories: self.readOnlyDirectories
@@ -134,4 +134,3 @@ extension PIFPackageBuilder {
     }
 }
 
-#endif

@@ -23,12 +23,12 @@ import var TSCBasic.stdoutStream
 extension SwiftPackageCommand {
     struct ShowDependencies: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Print the resolved dependency graph")
+            abstract: "Print the resolved dependency graph.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "Set the output format")
+        @Option(help: "Set the output format.")
         var format: ShowDependenciesMode = .text
 
         @Option(name: [.long, .customShort("o") ],

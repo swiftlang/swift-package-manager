@@ -19,6 +19,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
+import TSCBasic
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -35,62 +36,9 @@ extension String {
     }
 }
 
-extension [String] {
-    /// Converts a set of C compiler flags into an equivalent set to be
-    /// indirected through the Swift compiler instead.
-    func asSwiftcCCompilerFlags() -> Self {
-        self.flatMap { ["-Xcc", $0] }
-    }
-
-    /// Converts a set of C++ compiler flags into an equivalent set to be
-    /// indirected through the Swift compiler instead.
-    func asSwiftcCXXCompilerFlags() -> Self {
-        _ = self.flatMap { ["-Xcxx", $0] }
-        // TODO: Pass -Xcxx flags to swiftc (#6491)
-        // Remove fatal error when downstream support arrives.
-        fatalError("swiftc does support -Xcxx flags yet.")
-    }
-
-    /// Converts a set of linker flags into an equivalent set to be indirected
-    /// through the Swift compiler instead.
-    ///
-    /// Some arguments can be passed directly to the Swift compiler. We omit
-    /// prefixing these arguments (in both the "-option value" and
-    /// "-option[=]value" forms) with "-Xlinker". All other arguments are
-    /// prefixed with "-Xlinker".
-    func asSwiftcLinkerFlags() -> Self {
-        // Arguments that can be passed directly to the Swift compiler and
-        // doesn't require -Xlinker prefix.
-        //
-        // We do this to avoid sending flags like linker search path at the end
-        // of the search list.
-        let directSwiftLinkerArgs = ["-L"]
-
-        var flags: [String] = []
-        var it = self.makeIterator()
-        while let flag = it.next() {
-            if directSwiftLinkerArgs.contains(flag) {
-                // `<option> <value>` variant.
-                flags.append(flag)
-                guard let nextFlag = it.next() else {
-                    // We expected a flag but don't have one.
-                    continue
-                }
-                flags.append(nextFlag)
-            } else if directSwiftLinkerArgs.contains(where: { flag.hasPrefix($0) }) {
-                // `<option>[=]<value>` variant.
-                flags.append(flag)
-            } else {
-                flags += ["-Xlinker", flag]
-            }
-        }
-        return flags
-    }
-}
-
 extension BuildParameters {
     /// Returns the directory to be used for module cache.
-    public var moduleCache: AbsolutePath {
+    public var moduleCache: Basics.AbsolutePath {
         get throws {
             // FIXME: We use this hack to let swiftpm's functional test use shared
             // cache so it doesn't become painfully slow.
@@ -151,10 +99,30 @@ extension BuildParameters {
             args = ["-alias", "_\(target.c99name)_main", "_main"]
         case .elf:
             args = ["--defsym", "main=\(target.c99name)_main"]
+        case .coff:
+            // If the user is specifying a custom entry point name that isn't "main", assume they may be setting WinMain or wWinMain
+            // and don't do any modifications ourselves. In that case the linker will infer the WINDOWS subsystem and call WinMainCRTStartup,
+            // which will then call the custom entry point. And WinMain/wWinMain != main, so this still won't run into duplicate symbol
+            // issues when called from a test target, which always uses main.
+            if let customEntryPointFunctionName = findCustomEntryPointFunctionName(of: target), customEntryPointFunctionName != "main" {
+                return nil
+            }
+            args = ["/ALTERNATENAME:main=\(target.c99name)_main", "/SUBSYSTEM:CONSOLE"]
         default:
             return nil
         }
         return args.asSwiftcLinkerFlags()
+    }
+
+    private func findCustomEntryPointFunctionName(of target: ResolvedModule) -> String? {
+        let flags = createScope(for: target).evaluate(.OTHER_SWIFT_FLAGS)
+        var it = flags.makeIterator()
+        while let value = it.next() {
+            if value == "-Xfrontend" && it.next() == "-entry-point-function-name" && it.next() == "-Xfrontend" {
+                return it.next()
+            }
+        }
+        return nil
     }
 
     /// Returns the scoped view of build settings for a given target.
@@ -168,9 +136,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Return value of `inputs()`
     package enum Input {
         /// Any file in this directory affects the build plan
-        case directoryStructure(AbsolutePath)
+        case directoryStructure(Basics.AbsolutePath)
         /// The file at the given path affects the build plan
-        case file(AbsolutePath)
+        case file(Basics.AbsolutePath)
     }
 
     public enum Error: Swift.Error, CustomStringConvertible, Equatable {
@@ -235,7 +203,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     private var pkgConfigCache = [SystemLibraryModule: (cFlags: [String], libs: [String])]()
 
     /// Cache for library information.
-    private var externalLibrariesCache = [BinaryModule: [LibraryInfo]]()
+    var externalLibrariesCache = [BinaryModule: [LibraryInfo]]()
 
     /// Cache for tools information.
     var externalExecutablesCache = [BinaryModule: [ExecutableInfo]]()
@@ -276,7 +244,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         pluginConfiguration: PluginConfiguration? = nil,
         pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
         additionalFileRules: [FileRuleDescription] = [],
-        pkgConfigDirectories: [AbsolutePath] = [],
+        pkgConfigDirectories: [Basics.AbsolutePath] = [],
         disableSandbox: Bool = false,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
@@ -369,7 +337,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     }
 
                     buildToolPluginInvocationResults[module.id] = pluginInvocationResults
-                    prebuildCommandResults[module.id] = try Self.runCommandPlugins(
+                    prebuildCommandResults[module.id] = try Self.runPluginCommands(
                         using: pluginConfiguration,
                         for: pluginInvocationResults,
                         fileSystem: fileSystem,
@@ -564,8 +532,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     public func createAPIToolCommonArgs(includeLibrarySearchPaths: Bool) throws -> [String] {
         // API tool runs on products, hence using `self.productsBuildParameters`, not `self.toolsBuildParameters`
-        let buildPath = self.destinationBuildParameters.buildPath.pathString
-        var arguments = ["-I", buildPath]
+        var arguments: [String] = []
 
         // swift-symbolgraph-extract does not support parsing `-use-ld=lld` and
         // will silently error failing the operation.  Filter out this flag
@@ -589,7 +556,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         for target in self.targets {
             switch target {
             case .swift(let targetDescription):
-                arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                if target.destination == .target {
+                    // Include in the analysis surface target destination. That way auxiliary
+                    // modules from building a build tool (destination == .host) won't conflict
+                    // with the modules intended to analyze.
+                    arguments += ["-I", targetDescription.moduleOutputPath.parentDirectory.pathString]
+                }
             case .clang(let targetDescription):
                 if let includeDir = targetDescription.moduleMap?.parentDirectory {
                     arguments += ["-I", includeDir.pathString]
@@ -612,13 +584,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
-    public func createREPLArguments() throws -> [String] {
+    public func createREPLArguments() throws -> CLIArguments {
         let buildPath = self.toolsBuildParameters.buildPath.pathString
         var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
-        let replProductName = self.graph.rootPackages[self.graph.rootPackages.startIndex].identity.description +
-            Product.replProductSuffix
+        let replProductName = try self.graph.getReplProductName()
         arguments.append("-l" + replProductName)
 
         // The graph should have the REPL product.
@@ -698,7 +669,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 .map { .directoryStructure($0) }
 
             // Add the output paths of any prebuilds that were run, so that we redo the plan if they change.
-            var derivedSourceDirPaths: [AbsolutePath] = []
+            var derivedSourceDirPaths: [Basics.AbsolutePath] = []
             for result in self.prebuildCommandResults.values.flatMap({ $0 }) {
                 derivedSourceDirPaths.append(contentsOf: result.outputDirectories)
             }
@@ -768,7 +739,7 @@ extension BuildPlan {
         modulesGraph: ModulesGraph,
         tools: [ResolvedModule.ID: [String: PluginTool]],
         additionalFileRules: [FileRuleDescription],
-        pkgConfigDirectories: [AbsolutePath],
+        pkgConfigDirectories: [Basics.AbsolutePath],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         surfaceDiagnostics: Bool = false
@@ -883,9 +854,9 @@ extension BuildPlan {
         return buildToolPluginResults
     }
 
-    /// Runs any command plugins associated with the given list of plugin invocation results,
+    /// Runs any commands associated with the given list of plugin invocation results,
     /// in order, and returns the results of running those prebuild commands.
-    fileprivate static func runCommandPlugins(
+    fileprivate static func runPluginCommands(
         using pluginConfiguration: PluginConfiguration,
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
@@ -895,8 +866,8 @@ extension BuildPlan {
         try pluginResults.map { pluginResult in
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
             // build, and a list of the files in those directories after running the commands.
-            var derivedFiles: [AbsolutePath] = []
-            var prebuildOutputDirs: [AbsolutePath] = []
+            var derivedFiles: [Basics.AbsolutePath] = []
+            var prebuildOutputDirs: [Basics.AbsolutePath] = []
             for command in pluginResult.prebuildCommands {
                 observabilityScope
                     .emit(
@@ -1095,13 +1066,40 @@ extension BuildPlan {
             guard visited.insert(.package(package)).inserted else {
                 return []
             }
-            return package.modules.compactMap {
-                if case .test = $0.underlying.type,
-                   !self.graph.rootPackages.contains(id: package.id)
+
+            var successors: [TraversalNode] = []
+            for product in package.products {
+                if case .test = product.underlying.type,
+                   !graph.rootPackages.contains(id: package.id)
                 {
-                    return nil
+                    continue
                 }
-                return .init(module: $0, context: .target)
+
+                successors.append(.init(product: product, context: .target))
+            }
+
+            for module in package.modules {
+                // Tests are discovered through an aggregate product which also
+                // informs their destination.
+                if case .test = module.type {
+                    continue
+                }
+                successors.append(.init(module: module, context: .target))
+            }
+
+            return successors
+        }
+
+        func successors(
+            for product: ResolvedProduct,
+            destination: Destination
+        ) -> [TraversalNode] {
+            guard destination == .host || product.underlying.type == .test else {
+                return []
+            }
+
+            return product.modules.map { module in
+                TraversalNode(module: module, context: destination)
             }
         }
 
@@ -1131,8 +1129,8 @@ extension BuildPlan {
                 successors(for: package)
             case .module(let module, let destination):
                 successors(for: module, destination: destination)
-            case .product:
-                []
+            case .product(let product, let destination):
+                successors(for: product, destination: destination)
             }
         } onNext: { current, parent in
             let parentModule: (ResolvedModule, BuildParameters.Destination)? = switch parent {
@@ -1209,6 +1207,82 @@ extension BuildPlan {
             }
         }
     }
+
+    // Only follow link time dependencies, i.e. skip dependencies on macros and plugins
+    // except for testTargets that depend on macros.
+    package func traverseLinkDependencies(
+        of description: ModuleBuildDescription,
+        onProduct: (ResolvedProduct, BuildParameters.Destination, ProductBuildDescription?) -> Void,
+        onModule: (ResolvedModule, BuildParameters.Destination, ModuleBuildDescription?) -> Void
+    ) {
+        var visited = Set<TraversalNode>()
+        func successors(
+            for product: ResolvedProduct,
+            destination: Destination
+        ) -> [TraversalNode] {
+            product.modules.map { module in
+                TraversalNode(module: module, context: destination)
+            }.filter {
+                visited.insert($0).inserted
+            }
+        }
+
+        func successors(
+            for parentModule: ResolvedModule,
+            destination: Destination
+        ) -> [TraversalNode] {
+            parentModule
+                .dependencies(satisfying: description.buildParameters.buildEnvironment)
+                .reduce(into: [TraversalNode]()) { partial, dependency in
+                    switch dependency {
+                    case .product(let product, _):
+                        guard product.type != .plugin else {
+                            return
+                        }
+                        
+                        guard product.type != .macro || parentModule.type == .test else {
+                            return
+                        }
+
+                        partial.append(.init(product: product, context: destination))
+                    case .module(let childModule, _):
+                        guard childModule.type != .plugin else {
+                            return
+                        }
+                        
+                        guard childModule.type != .macro || parentModule.type == .test else {
+                            return
+                        }
+
+                        partial.append(.init(module: childModule, context: destination))
+                    }
+                }.filter {
+                    visited.insert($0).inserted
+                }
+        }
+
+        depthFirstSearch(successors(for: description.module, destination: description.destination)) {
+            switch $0 {
+            case .module(let module, let destination):
+                successors(for: module, destination: destination)
+            case .product(let product, let destination):
+                successors(for: product, destination: destination)
+            case .package:
+                []
+            }
+        } onNext: { module, _ in
+            switch module {
+            case .package:
+                break
+
+            case .product(let product, let destination):
+                onProduct(product, destination, self.description(for: product, context: destination))
+
+            case .module(let module, let destination):
+                onModule(module, destination, self.description(for: module, context: destination))
+            }
+        }
+    }
 }
 
 extension Basics.Diagnostic {
@@ -1248,7 +1322,7 @@ extension Basics.Diagnostic {
 
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
-    func bundlePath(named name: String) -> AbsolutePath {
+    func bundlePath(named name: String) -> Basics.AbsolutePath {
         self.buildPath.appending(component: name + self.triple.nsbundleExtension)
     }
 }
@@ -1257,7 +1331,7 @@ extension BuildParameters {
 func generateResourceInfoPlist(
     fileSystem: FileSystem,
     target: ResolvedModule,
-    path: AbsolutePath
+    path: Basics.AbsolutePath
 ) throws -> Bool {
     guard let defaultLocalization = target.defaultLocalization else {
         return false

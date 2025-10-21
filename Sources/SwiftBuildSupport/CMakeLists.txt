@@ -8,6 +8,7 @@
 
 add_library(SwiftBuildSupport STATIC
   BuildSystem.swift
+  DotPIFSerializer.swift
   PackagePIFBuilder.swift
   PackagePIFBuilder+Helpers.swift
   PackagePIFBuilder+Plugins.swift
@@ -16,6 +17,7 @@ add_library(SwiftBuildSupport STATIC
   PackagePIFProjectBuilder+Products.swift
   PIF.swift
   PIFBuilder.swift
+  PluginConfiguration.swift
   SwiftBuildSystem.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Build
@@ -23,6 +25,8 @@ target_link_libraries(SwiftBuildSupport PUBLIC
   TSCBasic
   TSCUtility
   PackageGraph
+  SwiftBuild::SwiftBuild
+  SwiftBuild::SWBBuildService
 )
 
 set_target_properties(SwiftBuildSupport PROPERTIES

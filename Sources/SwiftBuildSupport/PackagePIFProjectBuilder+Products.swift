@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import TSCBasic
+import TSCUtility
 
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
@@ -27,8 +29,7 @@ import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
 
-#if canImport(SwiftBuild)
-import enum SwiftBuild.PIF
+import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **products** for a given package.
 extension PackagePIFProjectBuilder {
@@ -49,15 +50,15 @@ extension PackagePIFProjectBuilder {
         }
 
         // Determine the kind of PIF target *product type* to create for the package product.
-        let pifProductType: SwiftBuild.PIF.Target.ProductType
-        let moduleOrProductType: PIFPackageBuilder.ModuleOrProductType
-        let synthesizedResourceGeneratingPluginInvocationResults: [PIFPackageBuilder.BuildToolPluginInvocationResult] =
+        let pifProductType: ProjectModel.Target.ProductType
+        let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType
+        let synthesizedResourceGeneratingPluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult] =
             []
 
-        if product.type == .executable {
+        if [.executable, .snippet].contains(product.type) {
             if let customPIFProductType = pifBuilder.delegate.customProductType(forExecutable: product.underlying) {
                 pifProductType = customPIFProductType
-                moduleOrProductType = PIFPackageBuilder.ModuleOrProductType(from: customPIFProductType)
+                moduleOrProductType = PackagePIFBuilder.ModuleOrProductType(from: customPIFProductType)
             } else {
                 // No custom type provider. Current behavior is to fall back on regular executable.
                 pifProductType = .executable
@@ -71,28 +72,34 @@ extension PackagePIFProjectBuilder {
         }
 
         // It's not a library product, so create a regular PIF target of the appropriate product type.
-        let mainModulePifTarget = try self.pif.addTargetThrowing(
-            id: product.pifTargetGUID(),
-            productType: pifProductType,
-            name: product.name,
-            productName: product.name
-        )
-        log(
-            .debug,
-            "created \(type(of: mainModulePifTarget)) '\(mainModulePifTarget.id)' of type '\(mainModulePifTarget.productType.asString)' with name '\(mainModulePifTarget.name)' and product name '\(mainModulePifTarget.productName)'"
-        )
+        let mainModuleTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID,
+                productType: pifProductType,
+                name: product.targetName(),
+                productName: "$(EXECUTABLE_NAME)"
+            )
+        }
+        do {
+            let mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(mainModuleTarget.id)' of type '\(mainModuleTarget.productType)' " +
+                "with name '\(mainModuleTarget.name)' and product name '\(mainModuleTarget.productName)'"
+            )
+        }
 
         // We're currently *not* handling other module targets (and SwiftPM should never return them) for
         // a main-module product but, for diagnostic purposes, we warn about any that we do come across.
         if product.otherModules.hasContent {
             let otherModuleNames = product.otherModules.map(\.name).joined(separator: ",")
-            log(.debug, ".. warning: ignored unexpected other module targets \(otherModuleNames)")
+            log(.debug, indent: 1, "Warning: ignored unexpected other module targets \(otherModuleNames)")
         }
 
         // Deal with any generated source files or resource files.
         let (generatedSourceFiles, pluginGeneratedResourceFiles) = computePluginGeneratedFiles(
             module: mainModule,
-            pifTarget: mainModulePifTarget,
+            targetKeyPath: mainModuleTargetKeyPath,
             addBuildToolPluginCommands: pifProductType == .application
         )
         if mainModule.resources.hasContent || pluginGeneratedResourceFiles.hasContent {
@@ -101,87 +108,115 @@ extension PackagePIFProjectBuilder {
 
         // Configure the target-wide build settings. The details depend on the kind of product we're building,
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
-        var settings: SwiftBuild.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
-        settings.TARGET_NAME = product.name
-        settings.PACKAGE_RESOURCE_TARGET_KIND = "regular"
-        settings.PRODUCT_NAME = "$(TARGET_NAME)"
-        settings.PRODUCT_MODULE_NAME = product.c99name
-        settings.PRODUCT_BUNDLE_IDENTIFIER = "\(self.package.identity).\(product.name)"
+        var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        settings[.TARGET_NAME] = product.name
+        settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.PRODUCT_MODULE_NAME] = product.c99name
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(product.name)"
             .spm_mangledToBundleIdentifier()
-        settings.EXECUTABLE_NAME = product.name
-        settings.CLANG_ENABLE_MODULES = "YES"
-        settings.SWIFT_PACKAGE_NAME = mainModule.packageName
+        settings[.SWIFT_PACKAGE_NAME] = mainModule.packageName
 
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
-            settings.LD_RUNPATH_SEARCH_PATHS = ["@loader_path/Frameworks", "@loader_path/../Frameworks", "$(inherited)"]
-            settings.GENERATE_INFOPLIST_FILE = "YES"
-            settings.SKIP_INSTALL = "NO"
-            settings.SWIFT_ACTIVE_COMPILATION_CONDITIONS.lazilyInitialize { ["$(inherited)"] }
+            settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                "$(RPATH_ORIGIN)/Frameworks",
+                "$(RPATH_ORIGIN)/../Frameworks",
+                "$(inherited)"
+            ]
+            settings[.GENERATE_INFOPLIST_FILE] = "YES"
+            settings[.SKIP_INSTALL] = "NO"
+            settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
+            // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
+            settings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
-                settings.SKIP_INSTALL = "NO"
-                settings.INSTALL_PATH = "/usr/local/bin"
-                settings.LD_RUNPATH_SEARCH_PATHS = ["$(inherited)", "@executable_path/../lib"]
+                settings[.SKIP_INSTALL] = "NO"
+                settings[.INSTALL_PATH] = "/usr/local/bin"
+                settings[.LD_RUNPATH_SEARCH_PATHS] = ["$(inherited)", "@executable_path/../lib"]
             }
         }
 
+        mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
+
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
 
-        settings.MACOSX_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.macOS] ?? nil
-        settings.IPHONEOS_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.iOS] ?? nil
+        settings[.MACOSX_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.macOS] ?? nil
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.iOS] ?? nil
         if let deploymentTarget_macCatalyst = mainTargetDeploymentTargets[.macCatalyst] {
-            settings
-                .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
         }
-        settings.TVOS_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.tvOS] ?? nil
-        settings.WATCHOS_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.watchOS] ?? nil
-        settings.DRIVERKIT_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.driverKit] ?? nil
-        settings.XROS_DEPLOYMENT_TARGET = mainTargetDeploymentTargets[.visionOS] ?? nil
+        settings[.TVOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.tvOS] ?? nil
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.watchOS] ?? nil
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.driverKit] ?? nil
+        settings[.XROS_DEPLOYMENT_TARGET] = mainTargetDeploymentTargets[.visionOS] ?? nil
 
         // If the main module includes C headers, then we need to set up the HEADER_SEARCH_PATHS setting appropriately.
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
             // Let the main module itself find its own headers.
-            settings.HEADER_SEARCH_PATHS = [includeDirAbsolutePath.pathString, "$(inherited)"]
-            log(.debug, ".. added '\(includeDirAbsolutePath)' to HEADER_SEARCH_PATHS")
+            settings[.HEADER_SEARCH_PATHS] = [includeDirAbsolutePath.pathString, "$(inherited)"]
+            log(.debug, indent: 1, "Added '\(includeDirAbsolutePath)' to HEADER_SEARCH_PATHS")
         }
 
         // Set the appropriate language versions.
-        settings.SWIFT_VERSION = mainModule.packageSwiftLanguageVersion(manifest: packageManifest)
-        settings.GCC_C_LANGUAGE_STANDARD = mainModule.cLanguageStandard
-        settings.CLANG_CXX_LANGUAGE_STANDARD = mainModule.cxxLanguageStandard
-        settings.SWIFT_ENABLE_BARE_SLASH_REGEX = "NO"
+        settings[.SWIFT_VERSION] = mainModule.packageSwiftLanguageVersion(manifest: packageManifest)
+        settings[.GCC_C_LANGUAGE_STANDARD] = mainModule.cLanguageStandard
+        settings[.CLANG_CXX_LANGUAGE_STANDARD] = mainModule.cxxLanguageStandard
+        settings[.SWIFT_ENABLE_BARE_SLASH_REGEX] = "NO"
 
         // Create a group for the source files of the main module
         // For now we use an absolute path for it, but we should really make it
         // container-relative, since it's always inside the package directory.
-        let mainTargetSourceFileGroup = self.pif.mainGroup.addGroup(
-            path: mainModule.sourceDirAbsolutePath.pathString,
-            pathBase: .absolute
-        )
-        log(.debug, ".. added source file group '\(mainTargetSourceFileGroup.path)'")
+        let mainTargetSourceFileGroupKeyPath = self.project.mainGroup.addGroup { id in
+            ProjectModel.Group(
+                id: id,
+                path: mainModule.sourceDirAbsolutePath.pathString,
+                pathBase: .absolute
+            )
+        }
+        do {
+            let mainTargetSourceFileGroup = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
+            log(.debug, indent: 1, "Added source file group '\(mainTargetSourceFileGroup.path)'")
+        }
 
         // Add a source file reference for each of the source files, and also an indexable-file URL for each one.
         // Note that the indexer requires them to have any symbolic links resolved.
         var indexableFileURLs: [SourceControlURL] = []
         for sourcePath in mainModule.sourceFileRelativePaths {
-            mainModulePifTarget.addSourceFile(
-                ref: mainTargetSourceFileGroup.addFileReference(path: sourcePath.pathString, pathBase: .groupDir)
+            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(
+                        id: id,
+                        path: sourcePath.pathString,
+                        pathBase: .groupDir
+                    )
+                }
+            self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
+                BuildFile(id: id, fileRef: sourceFileRef)
+            }
+            log(.debug, indent: 2, "Added source file '\(sourcePath)'")
+            indexableFileURLs.append(
+                SourceControlURL(fileURLWithPath: mainModule.sourceDirAbsolutePath.appending(sourcePath))
             )
-            log(.debug, ".. .. added source file '\(sourcePath)'")
-            indexableFileURLs
-                .append(SourceControlURL(fileURLWithPath: mainModule.sourceDirAbsolutePath.appending(sourcePath)))
         }
 
         let headerFiles = Set(mainModule.headerFileAbsolutePaths)
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedSourceFiles {
-            mainModulePifTarget.addSourceFile(
-                ref: mainTargetSourceFileGroup.addFileReference(path: path.pathString, pathBase: .absolute)
-            )
-            log(.debug, ".. .. added generated source file '\(path)'")
+            let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(
+                        id: id,
+                        path: path.pathString,
+                        pathBase: .absolute
+                    )
+                }
+            self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
+                BuildFile(id: id, fileRef: sourceFileRef)
+            }
+            log(.debug, indent: 2, "Added generated source file '\(path)'")
         }
 
         // Add any additional resource files emitted by synthesized build commands
@@ -190,7 +225,7 @@ extension PackagePIFProjectBuilder {
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,
-                    pifTarget: mainModulePifTarget,
+                    targetKeyPath: mainModuleTargetKeyPath,
                     addBuildToolPluginCommands: pifProductType == .application
                 )
             )
@@ -202,76 +237,92 @@ extension PackagePIFProjectBuilder {
         if pifProductType == .application {
             let result = processResources(
                 for: mainModule,
-                sourceModulePifTarget: mainModulePifTarget,
+                sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                 // For application products we embed the resources directly into the PIF target.
-                resourceBundlePifTarget: nil,
+                resourceBundleTargetKeyPath: nil,
                 generatedResourceFiles: generatedResourceFiles
             )
 
             if result.shouldGenerateBundleAccessor {
-                settings.GENERATE_RESOURCE_ACCESSORS = "YES"
+                settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+
+                // Do not set `SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE` here since it is just going to point to the same bundle as code.
+                // #bundle can use its default implementation for that.
             }
             if result.shouldGenerateEmbedInCodeAccessor {
-                settings.GENERATE_EMBED_IN_CODE_ACCESSORS = "YES"
+                settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "YES"
             }
-
             // FIXME: We should also adjust the generated module bundle glue so that `Bundle.module` is a synonym for `Bundle.main` in this case.
         } else {
             let (result, resourceBundle) = try addResourceBundle(
                 for: mainModule,
-                pifTarget: mainModulePifTarget,
+                targetKeyPath: mainModuleTargetKeyPath,
                 generatedResourceFiles: generatedResourceFiles
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
             if let resourceBundle = result.bundleName {
                 // Associate the resource bundle with the target.
-                settings.PACKAGE_RESOURCE_BUNDLE_NAME = resourceBundle
+                settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
 
                 if result.shouldGenerateBundleAccessor {
-                    settings.GENERATE_RESOURCE_ACCESSORS = "YES"
+                    settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+
+                    if mainModule.usesSwift {
+                        settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
+                    }
+                } else if mainModule.usesSwift {
+                    settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE") }
                 }
                 if result.shouldGenerateEmbedInCodeAccessor {
-                    settings.GENERATE_EMBED_IN_CODE_ACCESSORS = "YES"
+                    settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "YES"
                 }
 
                 // If it's a kind of product that can contain resources, we also add a use of it.
-                let ref = self.pif.mainGroup
-                    .addFileReference(path: "$(CONFIGURATION_BUILD_DIR)/\(resourceBundle).bundle")
+                let resourceBundleRef = self.project.mainGroup.addFileReference { id in
+                    FileReference(id: id, path: "$(CONFIGURATION_BUILD_DIR)/\(resourceBundle).bundle")
+                }
                 if pifProductType == .bundle || pifProductType == .unitTest {
-                    settings.COREML_CODEGEN_LANGUAGE = mainModule.usesSwift ? "Swift" : "Objective-C"
-                    settings.COREML_COMPILER_CONTAINER = "swift-package"
+                    settings[.COREML_CODEGEN_LANGUAGE] = mainModule.usesSwift ? "Swift" : "Objective-C"
+                    settings[.COREML_COMPILER_CONTAINER] = "swift-package"
 
-                    mainModulePifTarget.addResourceFile(ref: ref)
-                    log(.debug, ".. added use of resource bundle '\(ref.path)'")
+                    self.project[keyPath: mainModuleTargetKeyPath].addResourceFile { id in
+                        BuildFile(id: id, fileRef: resourceBundleRef)
+                    }
+                    log(.debug, indent: 2, "Added use of resource bundle '\(resourceBundleRef.path)'")
                 } else {
                     log(
                         .debug,
-                        ".. ignored resource bundle '\(ref.path)' for main module of type \(type(of: mainModule))"
+                        indent: 2,
+                        "Ignored resource bundle '\(resourceBundleRef.path)' for main module of type \(type(of: mainModule))"
                     )
                 }
 
                 // Add build tool commands to the resource bundle target.
-                let resourceBundlePifTarget = self
-                    .resourceBundleTarget(forModuleName: mainModule.name) ?? mainModulePifTarget
+                let mainResourceBundleTargetKeyPath = self.resourceBundleTargetKeyPath(forModuleName: mainModule.name)
+                let resourceBundleTargetKeyPath = mainResourceBundleTargetKeyPath ?? mainModuleTargetKeyPath
+
                 addBuildToolCommands(
                     module: mainModule,
-                    sourceModulePifTarget: mainModulePifTarget,
-                    resourceBundlePifTarget: resourceBundlePifTarget,
+                    sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
+                    resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                     sourceFilePaths: generatedSourceFiles,
                     resourceFilePaths: generatedResourceFiles
                 )
             } else {
                 // Generated resources always trigger the creation of a bundle accessor.
-                settings.GENERATE_RESOURCE_ACCESSORS = "YES"
-                settings.GENERATE_EMBED_IN_CODE_ACCESSORS = "NO"
+                settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+                settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "NO"
 
-                // If we did not create a resource bundle target, we still need to add build tool commands for any
-                // generated files.
+                // Do not set `SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE` here since it is just going to point to the same bundle as code.
+                // #bundle can use its default implementation for that.
+
+                // If we did not create a resource bundle target,
+                // we still need to add build tool commands for any generated files.
                 addBuildToolCommands(
                     module: mainModule,
-                    sourceModulePifTarget: mainModulePifTarget,
-                    resourceBundlePifTarget: mainModulePifTarget,
+                    sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
+                    resourceBundleTargetKeyPath: mainModuleTargetKeyPath,
                     sourceFilePaths: generatedSourceFiles,
                     resourceFilePaths: generatedResourceFiles
                 )
@@ -288,39 +339,44 @@ extension PackagePIFProjectBuilder {
 
                 switch moduleDependency.type {
                 case .binary:
-                    let binaryReference = self.binaryGroup.addFileReference(path: moduleDependency.path.pathString)
-                    mainModulePifTarget.addLibrary(
-                        ref: binaryReference,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        codeSignOnCopy: true,
-                        removeHeadersOnCopy: true
-                    )
-                    log(.debug, ".. added use of binary library '\(moduleDependency.path)'")
+                    let binaryFileRef = self.binaryGroup.addFileReference { id in
+                        FileReference(id: id, path: moduleDependency.path.pathString)
+                    }
+                    let toolsVersion = self.package.manifest.toolsVersion
+                    self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
+                        BuildFile(
+                            id: id,
+                            fileRef: binaryFileRef,
+                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            codeSignOnCopy: true,
+                            removeHeadersOnCopy: true
+                        )
+                    }
+                    log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
 
                 case .plugin:
-                    let dependencyId = moduleDependency.pifTargetGUID()
-                    mainModulePifTarget.addDependency(
+                    let dependencyId = moduleDependency.pifTargetGUID
+                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
-                    log(.debug, ".. added use of plugin target '\(dependencyId)'")
+                    log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
 
                 case .macro:
-                    let dependencyId = moduleDependency.pifTargetGUID()
-                    mainModulePifTarget.addDependency(
+                    let dependencyId = moduleDependency.pifTargetGUID
+                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
-                    log(.debug, ".. added dependency on product '\(dependencyId)'")
+                    log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
 
                     // Link with a testable version of the macro if appropriate.
                     if product.type == .test {
-                        mainModulePifTarget.addDependency(
+                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -328,7 +384,8 @@ extension PackagePIFProjectBuilder {
                         )
                         log(
                             .debug,
-                            ".. added linked dependency on target '\(moduleDependency.pifTargetGUID(suffix: .testable))'"
+                            indent: 1,
+                            "Added linked dependency on target '\(moduleDependency.pifTargetGUID(suffix: .testable))'"
                         )
 
                         // FIXME: Manually propagate product dependencies of macros but the build system should really handle this.
@@ -340,7 +397,7 @@ extension PackagePIFProjectBuilder {
                                     productDependency,
                                     with: packageConditions,
                                     isLinkable: isLinkable,
-                                    pifTarget: mainModulePifTarget,
+                                    targetKeyPath: mainModuleTargetKeyPath,
                                     settings: &settings
                                 )
                             case .module:
@@ -354,33 +411,34 @@ extension PackagePIFProjectBuilder {
                     // (i.e., we infuse the product's main module target into the one for the product itself).
                     let productDependency = modulesGraph.allProducts.only { $0.name == moduleDependency.name }
                     if let productDependency {
-                        let productDependencyGUID = productDependency.pifTargetGUID()
-                        mainModulePifTarget.addDependency(
+                        let productDependencyGUID = productDependency.pifTargetGUID
+                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: productDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: false
                         )
-                        log(.debug, ".. added dependency on product '\(productDependencyGUID)'")
+                        log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
                     }
 
                     // If we're linking against an executable and the tools version is new enough,
                     // we also link against a testable version of the executable.
                     if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
-                        mainModulePifTarget.addDependency(
+                        self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                            linkProduct: true
+                            // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
+                            linkProduct: moduleDependency.usesSwift
                         )
-                        log(.debug, ".. added linked dependency on target '\(moduleDependencyGUID)'")
+                        log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
 
                 case .library, .systemModule, .test:
                     let shouldLinkProduct = moduleDependency.type != .systemModule
-                    let dependencyGUID = moduleDependency.pifTargetGUID()
-                    mainModulePifTarget.addDependency(
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
@@ -388,7 +446,8 @@ extension PackagePIFProjectBuilder {
                     )
                     log(
                         .debug,
-                        ".. added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+                        indent: 1,
+                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
                     )
                 }
 
@@ -398,7 +457,7 @@ extension PackagePIFProjectBuilder {
                     productDependency,
                     with: packageConditions,
                     isLinkable: isLinkable,
-                    pifTarget: mainModulePifTarget,
+                    targetKeyPath: mainModuleTargetKeyPath,
                     settings: &settings
                 )
             }
@@ -407,54 +466,52 @@ extension PackagePIFProjectBuilder {
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
-        var debugSettings: SwiftBuild.PIF.BuildSettings = settings
-        var releaseSettings: SwiftBuild.PIF.BuildSettings = settings
+        var debugSettings: ProjectModel.BuildSettings = settings
+        var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in mainModule.allBuildSettings.targetSettings {
-            for (platform, declarations) in declarationsByPlatform {
-                // A `nil` platform means that the declaration applies to *all* platforms.
-                let pifPlatform = platform.map { SwiftBuild.PIF.BuildSettings.Platform(from: $0) }
-                for (declaration, stringValues) in declarations {
-                    let pifDeclaration = SwiftBuild.PIF.BuildSettings.Declaration(from: declaration)
-                    switch buildConfig {
-                    case .debug:
-                        debugSettings.append(values: stringValues, to: pifDeclaration, platform: pifPlatform)
-                    case .release:
-                        releaseSettings.append(values: stringValues, to: pifDeclaration, platform: pifPlatform)
-                    }
-                }
-            }
+        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
+        
+        // Apply settings using the convenience methods
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
+        self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: debugSettings)
         }
-        mainModulePifTarget.addBuildConfig(name: "Debug", settings: debugSettings)
-        mainModulePifTarget.addBuildConfig(name: "Release", settings: releaseSettings)
+        self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: releaseSettings)
+        }
 
         // Collect linked binaries.
-        let linkedPackageBinaries: [PIFPackageBuilder.LinkedPackageBinary] = mainModule.dependencies.compactMap {
-            PIFPackageBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
+        let linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = mainModule.dependencies.compactMap {
+            PackagePIFBuilder.LinkedPackageBinary(dependency: $0, package: self.package)
         }
 
-        let moduleOrProduct = PIFPackageBuilder.ModuleOrProduct(
+        let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
             name: product.name,
             moduleName: product.c99name,
-            pifTarget: mainModulePifTarget,
+            pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: mainTargetDeploymentTargets
         )
         self.builtModulesAndProducts.append(moduleOrProduct)
+
+        if moduleOrProductType == .unitTest {
+            try makeTestRunnerProduct(for: moduleOrProduct)
+        }
     }
 
-    private func handleProduct(
+    private mutating func handleProduct(
         _ product: PackageGraph.ResolvedProduct,
         with packageConditions: [PackageModel.PackageCondition],
         isLinkable: Bool,
-        pifTarget: SwiftBuild.PIF.Target,
-        settings: inout SwiftBuild.PIF.BuildSettings
+        targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        settings: inout ProjectModel.BuildSettings
     ) {
         // Do not add a dependency for binary-only executable products since they are not part of the build.
         if product.isBinaryOnlyExecutableProduct {
@@ -463,14 +520,15 @@ extension PackagePIFProjectBuilder {
 
         if !pifBuilder.delegate.shouldSuppressProductDependency(product: product.underlying, buildSettings: &settings) {
             let shouldLinkProduct = isLinkable
-            pifTarget.addDependency(
-                on: product.pifTargetGUID(),
+            self.project[keyPath: targetKeyPath].common.addDependency(
+                on: product.pifTargetGUID,
                 platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                 linkProduct: shouldLinkProduct
             )
             log(
                 .debug,
-                ".. added \(shouldLinkProduct ? "linked " : "")dependency on product '\(product.pifTargetGUID()))'"
+                indent: 1,
+                "Added \(shouldLinkProduct ? "linked " : "")dependency on product '\(product.pifTargetGUID)'"
             )
         }
     }
@@ -503,14 +561,13 @@ extension PackagePIFProjectBuilder {
             dynamicLibraryVariant.isDynamicLibraryVariant = true
             self.builtModulesAndProducts.append(dynamicLibraryVariant)
 
-            let pifTarget = library.pifTarget as? SwiftBuild.PIF.Target
-            let dynamicPifTarget = dynamicLibraryVariant.pifTarget as? SwiftBuild.PIF.Target
-
-            if let pifTarget, let dynamicPifTarget {
-                pifTarget.dynamicTargetVariant = dynamicPifTarget
-            } else {
-                assertionFailure("Could not assign dynamic PIF target")
+            guard let pifTarget = library.pifTarget,
+                  let pifTargetKeyPath = self.project.findTarget(id: pifTarget.id),
+                  let dynamicPifTarget = dynamicLibraryVariant.pifTarget
+            else {
+                fatalError("Could not assign dynamic PIF target")
             }
+            self.project[keyPath: pifTargetKeyPath].dynamicTargetVariantId = dynamicPifTarget.id
         }
     }
 
@@ -520,123 +577,131 @@ extension PackagePIFProjectBuilder {
     /// all SwiftPM library products are represented by two PIF targets:
     /// one of the "native" manifestation that gets linked into the client,
     /// and another for a dynamic framework specifically for use by the development-time features.
-    private func buildLibraryProduct(
+    private mutating func buildLibraryProduct(
         _ product: PackageGraph.ResolvedProduct,
         type desiredProductType: ProductType.LibraryType,
-        targetSuffix: TargetGUIDSuffix? = nil,
+        targetSuffix: TargetSuffix? = nil,
         embedResources: Bool
-    ) throws -> PIFPackageBuilder.ModuleOrProduct {
+    ) throws -> PackagePIFBuilder.ModuleOrProduct {
         precondition(product.type.isLibrary)
 
         // FIXME: Cleanup this mess with <rdar://56889224>
 
-        let pifTargetProductName: String
-        let executableName: String
-        let productType: SwiftBuild.PIF.Target.ProductType
-
+        let productType: ProjectModel.Target.ProductType
+        var productName = "$(EXECUTABLE_NAME)"
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
-                pifTargetProductName = "lib\(product.name).dylib"
-                executableName = pifTargetProductName
                 productType = .dynamicLibrary
             } else {
-                // If a product is explicitly declared dynamic, we preserve its name, otherwise we will compute an
-                // automatic one.
-                if product.libraryType == .dynamic {
-                    if let customExecutableName = pifBuilder.delegate
-                        .customExecutableName(product: product.underlying)
-                    {
-                        executableName = customExecutableName
-                    } else {
-                        executableName = product.name
-                    }
-                } else {
-                    executableName = PIFPackageBuilder.computePackageProductFrameworkName(productName: product.name)
-                }
-                pifTargetProductName = "\(executableName).framework"
+                productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
         } else {
-            pifTargetProductName = "lib\(product.name).a"
-            executableName = pifTargetProductName
             productType = .packageProduct
         }
 
         // Create a special kind of PIF target that just "groups" a set of targets for clients to depend on.
-        // SwiftBuild will *not* produce a separate artifact for a package product, but will instead consider any
-        // dependency on
-        // the package product to be a dependency on the whole set of targets on which the package product depends.
-        let pifTarget = try self.pif.addTargetThrowing(
-            id: product.pifTargetGUID(suffix: targetSuffix),
-            productType: productType,
-            name: product.name,
-            productName: pifTargetProductName
-        )
-        log(
-            .debug,
-            "created \(type(of: pifTarget)) '\(pifTarget.id)' of type '\(pifTarget.productType.asString)' with name '\(pifTarget.name)' and product name '\(pifTarget.productName)'"
-        )
+        // Swift Build will *not* produce a separate artifact for a package product, but will instead consider any
+        // dependency on the package product to be a dependency on the whole set of targets
+        // on which the package product depends.
+        let libraryUmbrellaTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID(suffix: targetSuffix),
+                productType: productType,
+                name: product.targetName(suffix: targetSuffix),
+                productName: productName
+            )
+        }
+        do {
+            let librayTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(librayTarget.id)' of type '\(librayTarget.productType)' with " +
+                "name '\(librayTarget.name)' and product name '\(librayTarget.productName)'"
+            )
+        }
 
         // Add linked dependencies on the *targets* that comprise the product.
         for module in product.modules {
             // Binary targets are special in that they are just linked, not built.
             if let binaryTarget = module.underlying as? BinaryModule {
-                let binaryReference = self.binaryGroup.addFileReference(path: binaryTarget.artifactPath.pathString)
-                pifTarget.addLibrary(ref: binaryReference, codeSignOnCopy: true, removeHeadersOnCopy: true)
-                log(.debug, ".. added use of binary library '\(binaryTarget.artifactPath.pathString)'")
+                let binaryFileRef = self.binaryGroup.addFileReference { id in
+                    FileReference(id: id, path: binaryTarget.artifactPath.pathString)
+                }
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
+                    BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
+                }
+                log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
                 continue
             }
             // We add these as linked dependencies; because the product type is `.packageProduct`,
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.
-            pifTarget.addDependency(on: module.pifTargetGUID(), platformFilters: [], linkProduct: true)
-            log(.debug, ".. added linked dependency on target '\(module.pifTargetGUID())'")
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
+                on: module.pifTargetGUID,
+                platformFilters: [],
+                linkProduct: true
+            )
+            log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
         }
 
         for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
-            // FIXME: Find a way to determine whether a module has generated resources here so that we can embed resources into dynamic targets.
-            pifTarget.addDependency(on: pifTargetIdForResourceBundle(module.name), platformFilters: [])
+            // FIXME: Find a way to determine whether a module has generated resources
+            // here so that we can embed resources into dynamic targets.
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
+                on: pifTargetIdForResourceBundle(module.name),
+                platformFilters: []
+            )
 
-            let filreRef = self.pif.mainGroup
-                .addFileReference(path: "$(CONFIGURATION_BUILD_DIR)/\(package.name)_\(module.name).bundle")
+            let packageName = self.package.name
+            let fileRef = self.project.mainGroup.addFileReference { id in
+                FileReference(id: id, path: "$(CONFIGURATION_BUILD_DIR)/\(packageName)_\(module.name).bundle")
+            }
             if embedResources {
-                pifTarget.addResourceFile(ref: filreRef)
-                log(.debug, ".. added use of resource bundle '\(filreRef.path)'")
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].addResourceFile { id in
+                    BuildFile(id: id, fileRef: fileRef)
+                }
+                log(.debug, indent: 1, "Added use of resource bundle '\(fileRef.path)'")
             } else {
-                log(.debug, ".. ignored resource bundle '\(filreRef.path)' because resource embedding is disabled")
+                log(
+                    .debug,
+                    indent: 1,
+                    "Ignored resource bundle '\(fileRef.path)' because resource embedding is disabled"
+                )
             }
         }
 
-        var settings: SwiftBuild.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
+        var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
 
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
             settings.configureDynamicSettings(
                 productName: product.name,
-                targetName: product.targetNameForProduct(),
-                executableName: executableName,
+                targetName: product.targetName(),
                 packageIdentity: package.identity,
                 packageName: package.identity.c99name,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate
             )
-
-            pifTarget.addSourcesBuildPhase()
+            self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addSourcesBuildPhase { id in
+                ProjectModel.SourcesBuildPhase(id: id)
+            }
         }
 
         // Additional configuration and files for this library product.
         pifBuilder.delegate.configureLibraryProduct(
             product: product.underlying,
-            pifTarget: pifTarget,
-            additionalFiles: self.additionalFilesGroup
+            project: &self.project,
+            target: libraryUmbrellaTargetKeyPath,
+            additionalFiles: additionalFilesGroupKeyPath
         )
 
         // If the given package is a root package or it is used via a branch/revision, we allow unsafe flags.
-        let implicitlyAllowAllUnsafeFlags = pifBuilder.delegate.isBranchOrRevisionBased || pifBuilder.delegate
-            .isUserManaged
+        let implicitlyAllowAllUnsafeFlags = pifBuilder.delegate.isBranchOrRevisionBased ||
+            pifBuilder.delegate.isUserManaged
         let recordUsesUnsafeFlags = try !implicitlyAllowAllUnsafeFlags && product.usesUnsafeFlags
-        settings.USES_SWIFTPM_UNSAFE_FLAGS = recordUsesUnsafeFlags ? "YES" : "NO"
+        settings[.USES_SWIFTPM_UNSAFE_FLAGS] = recordUsesUnsafeFlags ? "YES" : "NO"
 
         // Handle the dependencies of the targets in the product
         // (and link against them, which in the case of a package product, really just means that clients should link
@@ -647,34 +712,39 @@ extension PackagePIFProjectBuilder {
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-                
+
                 if moduleDependency.type == .systemModule {
-                    log(.debug, ".. noted use of system module '\(moduleDependency.name)'")
+                    log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
                     return
                 }
 
                 if let binaryTarget = moduleDependency.underlying as? BinaryModule {
-                    let binaryReference = self.binaryGroup.addFileReference(path: binaryTarget.path.pathString)
-                    pifTarget.addLibrary(
-                        ref: binaryReference,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        codeSignOnCopy: true,
-                        removeHeadersOnCopy: true
-                    )
-                    log(.debug, ".. added use of binary library '\(binaryTarget.path)'")
+                    let binaryFileRef = self.binaryGroup.addFileReference { id in
+                        FileReference(id: id, path: binaryTarget.path.pathString)
+                    }
+                    let toolsVersion = package.manifest.toolsVersion
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
+                        BuildFile(
+                            id: id,
+                            fileRef: binaryFileRef,
+                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            codeSignOnCopy: true,
+                            removeHeadersOnCopy: true
+                        )
+                    }
+                    log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.path)'")
                     return
                 }
 
                 if moduleDependency.type == .plugin {
-                    let dependencyId = moduleDependency.pifTargetGUID()
-                    pifTarget.addDependency(
+                    let dependencyId = moduleDependency.pifTargetGUID
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: false
                     )
-                    log(.debug, ".. added use of plugin target '\(dependencyId)'")
+                    log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
                     return
                 }
 
@@ -689,28 +759,29 @@ extension PackagePIFProjectBuilder {
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
                     {
-                        pifTarget.addDependency(
-                            on: product.pifTargetGUID(),
+                        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
+                            on: product.pifTargetGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                             linkProduct: false
                         )
-                        log(.debug, ".. added dependency on product '\(product.pifTargetGUID())'")
+                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
                         return
                     } else {
                         log(
                             .debug,
-                            ".. could not find a build plugin product to depend on for target '\(product.pifTargetGUID()))'"
+                            indent: 1,
+                            "Could not find a build plugin product to depend on for target '\(product.pifTargetGUID)'"
                         )
                     }
                 }
 
-                pifTarget.addDependency(
-                    on: moduleDependency.pifTargetGUID(),
+                self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
+                    on: moduleDependency.pifTargetGUID,
                     platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                     linkProduct: true
                 )
-                log(.debug, ".. added linked dependency on target '\(moduleDependency.pifTargetGUID()))'")
+                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
 
             case .product(let productDependency, let packageConditions):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
@@ -723,15 +794,16 @@ extension PackagePIFProjectBuilder {
                     buildSettings: &settings
                 ) {
                     let shouldLinkProduct = productDependency.isLinkable
-                    pifTarget.addDependency(
-                        on: productDependency.pifTargetGUID(),
+                    self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addDependency(
+                        on: productDependency.pifTargetGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
                         linkProduct: shouldLinkProduct
                     )
                     log(
                         .debug,
-                        ".. added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID()))'"
+                        indent: 1,
+                        "Added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID)'"
                     )
                 }
             }
@@ -754,29 +826,33 @@ extension PackagePIFProjectBuilder {
             let encoder = PropertyListEncoder()
             encoder.outputFormat = .xml
             let data = try encoder.encode(signatureData)
-            settings.PACKAGE_REGISTRY_SIGNATURE = String(data: data, encoding: .utf8)
+            settings[.PACKAGE_REGISTRY_SIGNATURE] = String(data: data, encoding: .utf8)
         }
 
-        pifTarget.addBuildConfig(name: "Debug", settings: settings)
-        pifTarget.addBuildConfig(name: "Release", settings: settings)
+        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: settings)
+        }
+        self.project[keyPath: libraryUmbrellaTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: settings)
+        }
 
         // Collect linked binaries.
         let linkedPackageBinaries = product.modules.compactMap {
-            PIFPackageBuilder.LinkedPackageBinary(module: $0, package: self.package)
+            PackagePIFBuilder.LinkedPackageBinary(module: $0, package: self.package)
         }
 
-        let moduleOrProductType: PIFPackageBuilder.ModuleOrProductType = switch product.libraryType {
+        let moduleOrProductType: PackagePIFBuilder.ModuleOrProductType = switch product.libraryType {
         case .dynamic:
             pifBuilder.createDylibForDynamicProducts ? .dynamicLibrary : .framework
         default:
             .staticArchive
         }
 
-        return PIFPackageBuilder.ModuleOrProduct(
+        return PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
             name: product.name,
             moduleName: product.c99name,
-            pifTarget: pifTarget,
+            pifTarget: .target(self.project[keyPath: libraryUmbrellaTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: linkedPackageBinaries,
@@ -791,34 +867,42 @@ extension PackagePIFProjectBuilder {
     mutating func makeSystemLibraryProduct(_ product: PackageGraph.ResolvedProduct) throws {
         precondition(product.type == .library(.automatic))
 
-        let pifTarget = try self.pif.addTargetThrowing(
-            id: product.pifTargetGUID(),
-            productType: .packageProduct,
-            name: product.name,
-            productName: product.name
-        )
-
-        log(
-            .debug,
-            "created \(type(of: pifTarget)) '\(pifTarget.id)' of type '\(pifTarget.productType.asString)' " +
-                "with name '\(pifTarget.name)' and product name '\(pifTarget.productName)'"
-        )
+        let systemLibraryTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID,
+                productType: .packageProduct,
+                name: product.targetName(),
+                productName: product.name
+            )
+        }
+        do {
+            let systemLibraryTarget = self.project[keyPath: systemLibraryTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " +
+                "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
+            )
+        }
 
         let buildSettings = self.package.underlying.packageBaseBuildSettings
-        pifTarget.addBuildConfig(name: "Debug", settings: buildSettings)
-        pifTarget.addBuildConfig(name: "Release", settings: buildSettings)
+        self.project[keyPath: systemLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        self.project[keyPath: systemLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
 
-        pifTarget.addDependency(
-            on: product.systemModule!.pifTargetGUID(),
+        self.project[keyPath: systemLibraryTargetKeyPath].common.addDependency(
+            on: product.systemModule!.pifTargetGUID,
             platformFilters: [],
             linkProduct: false
         )
 
-        let systemLibrary = PIFPackageBuilder.ModuleOrProduct(
+        let systemLibrary = PackagePIFBuilder.ModuleOrProduct(
             type: .staticArchive,
             name: product.name,
             moduleName: product.c99name,
-            pifTarget: pifTarget,
+            pifTarget: .target(self.project[keyPath: systemLibraryTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -834,24 +918,33 @@ extension PackagePIFProjectBuilder {
     mutating func makePluginProduct(_ pluginProduct: PackageGraph.ResolvedProduct) throws {
         precondition(pluginProduct.type == .plugin)
 
-        let pluginPifTarget = self.pif.addAggregateTarget(
-            id: pluginProduct.pifTargetGUID(),
-            name: pluginProduct.name
-        )
-        log(.debug, "created \(type(of: pluginPifTarget)) '\(pluginPifTarget.id)' with name '\(pluginPifTarget.name)'")
+        let pluginTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: pluginProduct.pifTargetGUID,
+                name: pluginProduct.targetName()
+            )
+        }
+        do {
+            let pluginTarget = self.project[keyPath: pluginTargetKeyPath]
+            log(.debug, "Created aggregate target '\(pluginTarget.id)' with name '\(pluginTarget.name)'")
+        }
 
-        let buildSettings: SwiftBuild.PIF.BuildSettings = package.underlying.packageBaseBuildSettings
-        pluginPifTarget.addBuildConfig(name: "Debug", settings: buildSettings)
-        pluginPifTarget.addBuildConfig(name: "Release", settings: buildSettings)
+        let buildSettings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
 
         for pluginModule in pluginProduct.pluginModules! {
-            pluginPifTarget.addDependency(
-                on: pluginModule.pifTargetGUID(),
+            self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                on: pluginModule.pifTargetGUID,
                 platformFilters: []
             )
         }
 
-        let pluginType: PIFPackageBuilder.ModuleOrProductType = {
+        let pluginType: PackagePIFBuilder.ModuleOrProductType = {
             if let pluginTarget = pluginProduct.pluginModules!.only {
                 switch pluginTarget.capability {
                 case .buildTool:
@@ -867,11 +960,11 @@ extension PackagePIFProjectBuilder {
             }
         }()
 
-        let pluginProductMetadata = PIFPackageBuilder.ModuleOrProduct(
+        let pluginProductMetadata = PackagePIFBuilder.ModuleOrProduct(
             type: pluginType,
             name: pluginProduct.name,
             moduleName: pluginProduct.c99name,
-            pifTarget: pluginPifTarget,
+            pifTarget: .aggregate(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -881,13 +974,115 @@ extension PackagePIFProjectBuilder {
         )
         self.builtModulesAndProducts.append(pluginProductMetadata)
     }
+
+    // MARK: - Test Runners
+    mutating func makeTestRunnerProduct(for unitTestProduct: PackagePIFBuilder.ModuleOrProduct) throws {
+        // Only generate a test runner for root packages with tests.
+        guard pifBuilder.delegate.isRootPackage else {
+            return
+        }
+
+        guard let unitTestModuleName = unitTestProduct.moduleName else {
+            throw StringError("Unit test product '\(unitTestProduct.name)' is missing a module name")
+        }
+
+        let name = "\(unitTestProduct.name)-test-runner"
+        let moduleName = "\(unitTestModuleName)_test_runner"
+        let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
+
+        let testRunnerTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target (
+                id: guid,
+                productType: .swiftpmTestRunner,
+                name: name,
+                productName: name
+            )
+        }
+
+        var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let impartedSettings = BuildSettings()
+
+        settings[.TARGET_NAME] = name
+        settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.PRODUCT_MODULE_NAME] = moduleName
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
+            .spm_mangledToBundleIdentifier()
+        settings[.SKIP_INSTALL] = "NO"
+        settings[.SWIFT_VERSION] = "5.0"
+        // This should eventually be set universally for all package targets/products.
+        settings[.LINKER_DRIVER] = "swiftc"
+
+        // A test-runner should always be adjacent to the dynamic library containing the tests,
+        // so add the appropriate rpaths.
+        settings[.LD_RUNPATH_SEARCH_PATHS] = [
+            "$(inherited)",
+            "$(RPATH_ORIGIN)"
+        ]
+
+        let deploymentTargets = unitTestProduct.deploymentTargets
+        settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets?[.iOS] ?? nil
+        if let deploymentTarget_macCatalyst = deploymentTargets?[.macCatalyst] ?? nil {
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
+        }
+        settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets?[.tvOS] ?? nil
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets?[.watchOS] ?? nil
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = deploymentTargets?[.driverKit] ?? nil
+        settings[.XROS_DEPLOYMENT_TARGET] = deploymentTargets?[.visionOS] ?? nil
+
+        // Add an empty sources phase so derived sources are compiled
+        self.project[keyPath: testRunnerTargetKeyPath].common.addSourcesBuildPhase { id in
+            ProjectModel.SourcesBuildPhase(id: id)
+        }
+
+        guard let unitTestGUID = unitTestProduct.pifTarget?.id else {
+            throw StringError("Unit test product '\(unitTestProduct.name)' is missing a PIF GUID")
+        }
+        self.project[keyPath: testRunnerTargetKeyPath].common.addDependency(
+            on: unitTestGUID,
+            platformFilters: [],
+            linkProduct: true
+        )
+
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+        self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        let testRunner = PackagePIFBuilder.ModuleOrProduct(
+            type: .unitTestRunner,
+            name: name,
+            moduleName: moduleName,
+            pifTarget: .target(self.project[keyPath: testRunnerTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets
+        )
+        self.builtModulesAndProducts.append(testRunner)
+    }
 }
 
 // MARK: - Helper Types
 
 private struct PackageRegistrySignature: Encodable {
     enum Source: Encodable {
-        case registry(url: URL)
+        case registry(url: Foundation.URL)
     }
 
     let packageIdentity: String
@@ -898,4 +1093,3 @@ private struct PackageRegistrySignature: Encodable {
     let formatVersion = 2
 }
 
-#endif

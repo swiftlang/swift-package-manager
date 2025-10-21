@@ -14,9 +14,12 @@ add_library(PackageModel
   BuildSettings.swift
   DependencyMapper.swift
   Diagnostics.swift
+  EnabledTraitsMap.swift
   IdentityResolver.swift
   InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
+  Manifest/Manifest+Traits.swift
+  Manifest/TraitConfiguration.swift
   Manifest/PackageConditionDescription.swift
   Manifest/PackageDependencyDescription.swift
   Manifest/PlatformDescription.swift
@@ -56,6 +59,7 @@ add_library(PackageModel
   SwiftSDKs/SwiftSDKBundleStore.swift
   Toolchain.swift
   ToolchainConfiguration.swift
+  Toolchain+SupportedFeatures.swift
   Toolset.swift
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift

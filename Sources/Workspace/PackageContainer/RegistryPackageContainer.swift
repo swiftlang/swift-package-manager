@@ -17,6 +17,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import PackageRegistry
+import TSCBasic
 
 import struct TSCUtility.Version
 
@@ -103,16 +104,16 @@ public class RegistryPackageContainer: PackageContainer {
         return results
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>?) async throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest(version: version)
         return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         throw InternalError("getDependencies for revision not supported by RegistryPackageContainer")
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>?) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
         throw InternalError("getUnversionedDependencies not supported by RegistryPackageContainer")
     }
 
@@ -147,8 +148,7 @@ public class RegistryPackageContainer: PackageContainer {
                 dependencyMapper: self.dependencyMapper,
                 fileSystem: result.fileSystem,
                 observabilityScope: self.observabilityScope,
-                delegateQueue: .sharedConcurrent,
-                callbackQueue: .sharedConcurrent
+                delegateQueue: .sharedConcurrent
             )
         }
 
@@ -178,7 +178,7 @@ public class RegistryPackageContainer: PackageContainer {
                 throw StringError("failed locating placeholder manifest for \(preferredToolsVersion)")
             }
             // replace the fake manifest with the real manifest content
-            let manifestPath = AbsolutePath.root.appending(component: placeholderManifestFileName)
+            let manifestPath = Basics.AbsolutePath.root.appending(component: placeholderManifestFileName)
             try fileSystem.removeFileTree(manifestPath)
             try fileSystem.writeFileContents(manifestPath, string: manifestContent)
             // finally, load the manifest
@@ -202,25 +202,13 @@ public class RegistryPackageContainer: PackageContainer {
         // ToolsVersionLoader is designed to scan files to decide which is the best tools-version
         // as such, this writes a fake manifest based on the information returned by the registry
         // with only the header line which is all that is needed by ToolsVersionLoader
-        let fileSystem = InMemoryFileSystem()
+        let fileSystem = Basics.InMemoryFileSystem()
         for manifest in manifests {
             let content = manifest.value.content ?? "// swift-tools-version:\(manifest.value.toolsVersion)"
             try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: content)
         }
         self.availableManifestsCache[version] = (manifests: manifests, fileSystem: fileSystem)
         return (manifests: manifests, fileSystem: fileSystem)
-    }
-
-    public func getEnabledTraits(traitConfiguration: TraitConfiguration?, at version: Version?) async throws -> Set<String> {
-        guard let version else {
-            throw InternalError("Version needed to compute enabled traits for registry package \(self.package.identity.description)")
-        }
-        let manifest = try await loadManifest(version: version)
-        guard manifest.packageKind.isRoot else {
-            return []
-        }
-        let enabledTraits = try manifest.enabledTraits(using: traitConfiguration?.enabledTraits, enableAllTraits: traitConfiguration?.enableAllTraits ?? false)
-        return enabledTraits ?? []
     }
 }
 

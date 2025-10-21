@@ -18,10 +18,11 @@ import Foundation
 import _InternalTestSupport
 import SwiftASN1
 @testable import X509 // need internal APIs for OCSP testing
-import XCTest
+import Testing
 
-final class SigningTests: XCTestCase {
-    func testCMS1_0_0EndToEnd() async throws {
+struct SigningTests {
+    @Test
+    func CMS1_0_0EndToEnd() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -55,17 +56,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC) leaf", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC) leaf" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMSEndToEndWithECSigningIdentity() async throws {
+    @Test
+    func CMSEndToEndWithECSigningIdentity() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -97,17 +101,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC) leaf", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC) leaf" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMSEndToEndWithRSASigningIdentity() async throws {
+    @Test
+    func CMSEndToEndWithRSASigningIdentity() async throws {
         let keyAndCertChain = try self.rsaTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -139,17 +146,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (RSA) leaf", name)
-        XCTAssertEqual("Test (RSA) org unit", organizationalUnit)
-        XCTAssertEqual("Test (RSA) org", organization)
+        #expect("Test (RSA) leaf" == name)
+        #expect("Test (RSA) org unit" == organizationalUnit)
+        #expect("Test (RSA) org" == organization)
     }
 
-    func testCMSWrongKeyTypeForSignatureAlgorithm() async throws {
+    @Test
+    func CMSWrongKeyTypeForSignatureAlgorithm() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -168,15 +178,18 @@ final class SigningTests: XCTestCase {
                 intermediateCertificates: keyAndCertChain.intermediateCertificates,
                 observabilityScope: ObservabilitySystem.NOOP
             )
-            XCTFail("Expected error")
+            Issue.record("Expected error")
         } catch {
             guard case SigningError.keyDoesNotSupportSignatureAlgorithm = error else {
-                return XCTFail("Expected SigningError.keyDoesNotSupportSignatureAlgorithm but got \(error)")
+                Issue.record(
+                    "Expected SigningError.keyDoesNotSupportSignatureAlgorithm but got \(error)")
+                return
             }
         }
     }
 
-    func testCMS1_0_0EndToEndWithSelfSignedCertificate() async throws {
+    @Test
+    func CMS1_0_0EndToEndWithSelfSignedCertificate() async throws {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -210,17 +223,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC)", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC)" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMSEndToEndWithSelfSignedECSigningIdentity() async throws {
+    @Test
+    func CMSEndToEndWithSelfSignedECSigningIdentity() async throws {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -252,17 +268,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC)", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC)" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMSEndToEndWithSelfSignedRSASigningIdentity() async throws {
+    @Test
+    func CMSEndToEndWithSelfSignedRSASigningIdentity() async throws {
         let keyAndCertChain = try self.rsaSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -294,17 +313,20 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (RSA)", name)
-        XCTAssertEqual("Test (RSA) org unit", organizationalUnit)
-        XCTAssertEqual("Test (RSA) org", organization)
+        #expect("Test (RSA)" == name)
+        #expect("Test (RSA) org unit" == organizationalUnit)
+        #expect("Test (RSA) org" == organization)
     }
 
-    func testCMSBadSignature() async throws {
+    @Test
+    func CMSBadSignature() async throws {
         let content = Array("per aspera ad astra".utf8)
         let signature = Array("bad signature".utf8)
 
@@ -317,11 +339,13 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .invalid = status else {
-            return XCTFail("Expected signature status to be .invalid but got \(status)")
+            Issue.record("Expected signature status to be .invalid but got \(status)")
+            return
         }
     }
 
-    func testCMSInvalidSignature() async throws {
+    @Test
+    func CMSInvalidSignature() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -354,11 +378,13 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .invalid = status else {
-            return XCTFail("Expected signature status to be .invalid but got \(status)")
+            Issue.record("Expected signature status to be .invalid but got \(status)")
+            return
         }
     }
 
-    func testCMSUntrustedCertificate() async throws {
+    @Test
+    func CMSUntrustedCertificate() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -390,11 +416,14 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .certificateNotTrusted = status else {
-            return XCTFail("Expected signature status to be .certificateNotTrusted but got \(status)")
+            Issue.record(
+                "Expected signature status to be .certificateNotTrusted but got \(status)")
+            return
         }
     }
 
-    func testCMSCheckCertificateValidityPeriod() async throws {
+    @Test
+    func CMSCheckCertificateValidityPeriod() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -429,9 +458,11 @@ final class SigningTests: XCTestCase {
             )
 
             guard case .certificateInvalid(let reason) = status else {
-                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+                Issue.record(
+                    "Expected signature status to be .certificateInvalid but got \(status)")
+                return
             }
-            XCTAssertTrue(reason.contains("not yet valid"))
+            #expect(reason.contains("not yet valid"))
         }
 
         do {
@@ -452,13 +483,16 @@ final class SigningTests: XCTestCase {
             )
 
             guard case .certificateInvalid(let reason) = status else {
-                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+                Issue.record(
+                    "Expected signature status to be .certificateInvalid but got \(status)")
+                return
             }
-            XCTAssertTrue(reason.contains("has expired"))
+            #expect(reason.contains("has expired"))
         }
     }
 
-    func testCMSCheckCertificateRevocationStatus() async throws {
+    @Test
+    func CMSCheckCertificateRevocationStatus() async throws {
         let leafName = try OCSPTestHelper.distinguishedName(commonName: "localhost")
         let intermediateName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test Intermediate CA")
         let caName = try OCSPTestHelper.distinguishedName(commonName: "SwiftPM Test CA")
@@ -511,19 +545,23 @@ final class SigningTests: XCTestCase {
                     throw StringError("Missing OCSP request")
                 }
 
-                let ocspResponse = try OCSPResponse.successful(.signed(
-                    responderID: ResponderID.byName(intermediateName),
-                    producedAt: GeneralizedTime(validationTime),
-                    responses: [OCSPSingleResponse(
-                        certID: singleRequest.certID,
-                        certStatus: .unknown,
-                        thisUpdate: GeneralizedTime(validationTime - .days(1)),
-                        nextUpdate: GeneralizedTime(validationTime + .days(1))
-                    )],
-                    privateKey: intermediatePrivateKey,
-                    responseExtensions: { nonce }
-                ))
-                return HTTPClientResponse(statusCode: 200, body: try Data(ocspResponse.derEncodedBytes()))
+                let ocspResponse = try OCSPResponse.successful(
+                    .signed(
+                        responderID: ResponderID.byName(intermediateName),
+                        producedAt: GeneralizedTime(validationTime),
+                        responses: [
+                            OCSPSingleResponse(
+                                certID: singleRequest.certID,
+                                certStatus: .unknown,
+                                thisUpdate: GeneralizedTime(validationTime - .days(1)),
+                                nextUpdate: GeneralizedTime(validationTime + .days(1))
+                            )
+                        ],
+                        privateKey: intermediatePrivateKey,
+                        responseExtensions: { nonce }
+                    ))
+                return HTTPClientResponse(
+                    statusCode: 200, body: try Data(ocspResponse.derEncodedBytes()))
             default:
                 throw StringError("method and url should match")
             }
@@ -557,9 +595,11 @@ final class SigningTests: XCTestCase {
                 observabilityScope: ObservabilitySystem.NOOP
             )
             guard case .certificateInvalid(let reason) = status else {
-                return XCTFail("Expected signature status to be .certificateInvalid but got \(status)")
+                Issue.record(
+                    "Expected signature status to be .certificateInvalid but got \(status)")
+                return
             }
-            XCTAssertTrue(reason.contains("status unknown"))
+            #expect(reason.contains("status unknown"))
         }
 
         // certificateRevocation = .allowSoftFail allows status 'unknown'
@@ -578,17 +618,16 @@ final class SigningTests: XCTestCase {
                 observabilityScope: ObservabilitySystem.NOOP
             )
             guard case .valid = status else {
-                return XCTFail("Expected signature status to be .valid but got \(status)")
+                Issue.record("Expected signature status to be .valid but got \(status)")
+                return
             }
         }
     }
 
-    func testCMSEndToEndWithRSAKeyADPCertificate() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
+    @Test(
+        .enabled(if: isRealSigningIdentitTestDefined)
+    )
+    func CMSEndToEndWithRSAKeyADPCertificate() async throws {
         let keyAndCertChain = try rsaADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -620,7 +659,8 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
 
         func rsaADPKeyAndCertChain() throws -> KeyAndCertChain {
@@ -642,12 +682,10 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    func testCMSEndToEndWithECKeyADPCertificate() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
+    @Test(
+        .enabled(if: isRealSigningIdentitTestDefined)
+    )
+    func CMSEndToEndWithECKeyADPCertificate() async throws {
         let keyAndCertChain = try ecADPKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -679,7 +717,8 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
 
         func ecADPKeyAndCertChain() throws -> KeyAndCertChain {
@@ -701,19 +740,18 @@ final class SigningTests: XCTestCase {
         }
     }
 
-    #if os(macOS)
-    func testCMS1_0_0EndToEndWithADPSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
+    // #if os(macOS)
+    @Test(
+        .enabled(if: ProcessInfo.hostOperatingSystem == .windows),
+        .enabled(if: isRealSigningIdentitTestDefined),
+        .enabled(if: isRealSigningIdentyEcLabelEnvVarSet),
+    )
+    func CMS1_0_0EndToEndWithADPSigningIdentityFromKeychain() async throws {
+        let label = try #require(Environment.current["REAL_SIGNING_IDENTITY_EC_LABEL"])
 
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
-        }
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
+        #expect(!matches.isEmpty)
 
         let signingIdentity = matches[0]
         let content = Array("per aspera ad astra".utf8)
@@ -744,34 +782,31 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+            #expect(name != nil)
+            #expect(organizationalUnit != nil)
+            #expect(organization != nil)
         }
     }
-    #endif
+    // #endif
 
-    #if os(macOS)
-    func testCMSEndToEndWithECKeyADPSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_EC_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_EC_LABEL' env var is not set")
-        }
+    // #if os(macOS)
+    @Test(
+        .enabled(if: ProcessInfo.hostOperatingSystem == .windows),
+        .enabled(if: isRealSigningIdentitTestDefined),
+        .enabled(if: isRealSigningIdentyEcLabelEnvVarSet),
+    )
+    func CMSEndToEndWithECKeyADPSigningIdentityFromKeychain() async throws {
+        let label = try #require(Environment.current["REAL_SIGNING_IDENTITY_EC_LABEL"])
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
+        #expect(!matches.isEmpty)
 
         let signingIdentity = matches[0]
         let content = Array("per aspera ad astra".utf8)
@@ -800,34 +835,31 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+            #expect(name != nil)
+            #expect(organizationalUnit != nil)
+            #expect(organization != nil)
         }
     }
-    #endif
+    // #endif
 
-    #if os(macOS)
+    // #if os(macOS)
+    @Test(
+        .enabled(if: ProcessInfo.hostOperatingSystem == .windows),
+        .enabled(if: isRealSigningIdentitTestDefined),
+        .enabled(if: isRealSigningIdentyEcLabelEnvVarSet),
+    )
     func testCMSEndToEndWithRSAKeyADPSigningIdentityFromKeychain() async throws {
-        #if ENABLE_REAL_SIGNING_IDENTITY_TEST
-        #else
-        try XCTSkipIf(true)
-        #endif
-
-        guard let label = Environment.current["REAL_SIGNING_IDENTITY_RSA_LABEL"] else {
-            throw XCTSkip("Skipping because 'REAL_SIGNING_IDENTITY_RSA_LABEL' env var is not set")
-        }
+        let label = try #require(Environment.current["REAL_SIGNING_IDENTITY_EC_LABEL"])
         let identityStore = SigningIdentityStore(observabilityScope: ObservabilitySystem.NOOP)
         let matches = identityStore.find(by: label)
-        XCTAssertTrue(!matches.isEmpty)
+        #expect(!matches.isEmpty)
 
         let signingIdentity = matches[0]
         let content = Array("per aspera ad astra".utf8)
@@ -856,22 +888,22 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .valid(let signingEntity) = status else {
-            return XCTFail("Expected signature status to be .valid but got \(status)")
+            Issue.record("Expected signature status to be .valid but got \(status)")
+            return
         }
         switch signingEntity {
-        case .recognized(_, let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+        case .recognized:
+            break
         case .unrecognized(let name, let organizationalUnit, let organization):
-            XCTAssertNotNil(name)
-            XCTAssertNotNil(organizationalUnit)
-            XCTAssertNotNil(organization)
+            #expect(name != nil)
+            #expect(organizationalUnit != nil)
+            #expect(organization != nil)
         }
     }
-    #endif
+    // #endif
 
-    func testCMS1_0_0ExtractSigningEntity() async throws {
+    @Test
+    func CMS1_0_0ExtractSigningEntity() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -903,14 +935,16 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC) leaf", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC) leaf" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMS1_0_0ExtractSigningEntityWithSelfSignedCertificate() async throws {
+    @Test
+    func CMS1_0_0ExtractSigningEntityWithSelfSignedCertificate() async throws {
         let keyAndCertChain = try self.ecSelfSignedTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -942,14 +976,16 @@ final class SigningTests: XCTestCase {
         )
 
         guard case .unrecognized(let name, let organizationalUnit, let organization) = signingEntity else {
-            return XCTFail("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            Issue.record("Expected SigningEntity.unrecognized but got \(signingEntity)")
+            return
         }
-        XCTAssertEqual("Test (EC)", name)
-        XCTAssertEqual("Test (EC) org unit", organizationalUnit)
-        XCTAssertEqual("Test (EC) org", organization)
+        #expect("Test (EC)" == name)
+        #expect("Test (EC) org unit" == organizationalUnit)
+        #expect("Test (EC) org" == organization)
     }
 
-    func testCMS1_0_0ExtractSigningEntityWithUntrustedCertificate() async throws {
+    @Test
+    func CMS1_0_0ExtractSigningEntityWithUntrustedCertificate() async throws {
         let keyAndCertChain = try self.ecTestKeyAndCertChain()
         let signingIdentity = SwiftSigningIdentity(
             certificate: try Certificate(keyAndCertChain.leafCertificate),
@@ -980,10 +1016,12 @@ final class SigningTests: XCTestCase {
                 format: signatureFormat,
                 verifierConfiguration: verifierConfiguration
             )
-            XCTFail("expected error")
+            Issue.record("expected error")
         } catch {
             guard case SigningError.certificateNotTrusted = error else {
-                return XCTFail("Expected error to be SigningError.certificateNotTrusted but got \(error)")
+                Issue.record(
+                    "Expected error to be SigningError.certificateNotTrusted but got \(error)")
+                return
             }
         }
     }

@@ -68,6 +68,12 @@ extension Product: Hashable {
     }
 }
 
+extension Product: Comparable {
+    public static func < (lhs: Product, rhs: Product) -> Bool {
+        lhs.name < rhs.name
+    }
+}
+
 /// The type of product.
 public enum ProductType: Equatable, Hashable, Sendable {
 

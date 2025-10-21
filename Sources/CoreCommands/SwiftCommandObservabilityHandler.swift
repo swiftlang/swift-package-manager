@@ -13,6 +13,7 @@
 @_spi(SwiftPMInternal)
 import Basics
 import Dispatch
+import PackageModel
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.TerminalController
@@ -218,11 +219,5 @@ extension ObservabilityMetadata {
         } else {
             return .none
         }
-    }
-}
-
-extension Basics.Diagnostic.Severity {
-    fileprivate var isVerbose: Bool {
-        return self <= .info
     }
 }

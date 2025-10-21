@@ -13,45 +13,48 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-import PackageModel
-import PackageModelSyntax
+import Foundation
+import PackageGraph
 import SwiftParser
+@_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
 import TSCUtility
 import Workspace
 
+import class PackageModel.Manifest
+
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a package dependency to the manifest"
+            abstract: "Add a package dependency to the manifest."
         )
 
-        @Argument(help: "The URL or directory of the package to add")
+        @Argument(help: "The URL or directory of the package to add.")
         var dependency: String
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(help: "The exact package version to depend on")
+        @Option(help: "The exact package version to depend on.")
         var exact: Version?
 
-        @Option(help: "The specific package revision to depend on")
+        @Option(help: "The specific package revision to depend on.")
         var revision: String?
 
-        @Option(help: "The branch of the package to depend on")
+        @Option(help: "The branch of the package to depend on.")
         var branch: String?
 
-        @Option(help: "The package version to depend on (up to the next major version)")
+        @Option(help: "The package version to depend on (up to the next major version).")
         var from: Version?
 
-        @Option(help: "The package version to depend on (up to the next minor version)")
+        @Option(help: "The package version to depend on (up to the next minor version).")
         var upToNextMinorFrom: Version?
 
-        @Option(help: "Specify upper bound on the package version range (exclusive)")
+        @Option(help: "Specify upper bound on the package version range (exclusive).")
         var to: Version?
 
-        @Option(help: "Specify dependency type")
+        @Option(help: "Specify dependency type.")
         var type: DependencyType = .url
 
         enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {
@@ -96,7 +99,7 @@ extension SwiftPackageCommand {
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.SourceControl.Requirement] = []
             if let exact {
-                requirements.append(.exact(exact))
+                requirements.append(.exact(exact.description))
             }
 
             if let branch {
@@ -108,11 +111,17 @@ extension SwiftPackageCommand {
             }
 
             if let from {
-                requirements.append(.range(.upToNextMajor(from: from)))
+                requirements.append(.rangeFrom(from.description))
             }
 
             if let upToNextMinorFrom {
-                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+                let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+                requirements.append(
+                    .range(
+                        lowerBound: range.lowerBound.description,
+                        upperBound: range.upperBound.description
+                    )
+                )
             }
 
             if requirements.count > 1 {
@@ -128,13 +137,14 @@ extension SwiftPackageCommand {
             }
 
             let requirement: PackageDependency.SourceControl.Requirement
-            if case .range(let range) = firstRequirement {
-                if let to {
-                    requirement = .range(range.lowerBound ..< to)
+            switch firstRequirement {
+            case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+                requirement = if let to {
+                    .range(lowerBound: lowerBound, upperBound: to.description)
                 } else {
-                    requirement = .range(range)
+                    firstRequirement
                 }
-            } else {
+            default:
                 requirement = firstRequirement
 
                 if self.to != nil {
@@ -145,7 +155,7 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .sourceControl(name: nil, location: url, requirement: requirement)
+                packageDependency: .sourceControl(.init(location: url, requirement: requirement))
             )
         }
 
@@ -157,15 +167,21 @@ extension SwiftPackageCommand {
             // Collect all of the possible version requirements.
             var requirements: [PackageDependency.Registry.Requirement] = []
             if let exact {
-                requirements.append(.exact(exact))
+                requirements.append(.exact(exact.description))
             }
 
             if let from {
-                requirements.append(.range(.upToNextMajor(from: from)))
+                requirements.append(.rangeFrom(from.description))
             }
 
             if let upToNextMinorFrom {
-                requirements.append(.range(.upToNextMinor(from: upToNextMinorFrom)))
+                let range: Range<Version> = .upToNextMinor(from: upToNextMinorFrom)
+                requirements.append(
+                    .range(
+                        lowerBound: range.lowerBound.description,
+                        upperBound: range.upperBound.description
+                    )
+                )
             }
 
             if requirements.count > 1 {
@@ -181,13 +197,14 @@ extension SwiftPackageCommand {
             }
 
             let requirement: PackageDependency.Registry.Requirement
-            if case .range(let range) = firstRequirement {
-                if let to {
-                    requirement = .range(range.lowerBound ..< to)
+            switch firstRequirement {
+            case .range(let lowerBound, _), .rangeFrom(let lowerBound):
+                requirement = if let to {
+                    .range(lowerBound: lowerBound, upperBound: to.description)
                 } else {
-                    requirement = .range(range)
+                    firstRequirement
                 }
-            } else {
+            default:
                 requirement = firstRequirement
 
                 if self.to != nil {
@@ -198,7 +215,7 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .registry(id: id, requirement: requirement)
+                packageDependency: .registry(.init(identity: id, requirement: requirement))
             )
         }
 
@@ -210,14 +227,14 @@ extension SwiftPackageCommand {
             try self.applyEdits(
                 packagePath: packagePath,
                 workspace: workspace,
-                packageDependency: .fileSystem(name: nil, path: directory)
+                packageDependency: .fileSystem(.init(path: directory))
             )
         }
 
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
             workspace: Workspace,
-            packageDependency: MappablePackageDependency.Kind
+            packageDependency: PackageDependency
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem
@@ -238,9 +255,9 @@ extension SwiftPackageCommand {
                 }
             }
 
-            let editResult = try AddPackageDependency.addPackageDependency(
-                packageDependency,
-                to: manifestSyntax
+            let editResult = try AddPackageDependency.textRefactor(
+                syntax: manifestSyntax,
+                in: .init(dependency: packageDependency)
             )
 
             try editResult.applyEdits(

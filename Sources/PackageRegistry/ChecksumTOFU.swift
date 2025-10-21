@@ -16,6 +16,7 @@ import Dispatch
 import Basics
 import PackageFingerprint
 import PackageModel
+import Foundation
 
 import struct TSCUtility.Version
 
@@ -75,7 +76,7 @@ struct PackageVersionChecksumTOFU {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Void, Error>) -> Void
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.validateSourceArchive(

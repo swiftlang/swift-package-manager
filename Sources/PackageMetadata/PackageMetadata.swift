@@ -232,15 +232,15 @@ public struct PackageSearchClient {
         let fetchStandalonePackageByURL = { (error: Error?) async throws -> [Package] in
             let url = SourceControlURL(query)
             do {
-                return try withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
+                return try await withTemporaryDirectory(removeTreeOnDeinit: true) { (tempDir: AbsolutePath) in
                     let tempPath = tempDir.appending(component: url.lastPathComponent)
                     let repositorySpecifier = RepositorySpecifier(url: url)
-                    try self.repositoryProvider.fetch(
+                    try await self.repositoryProvider.fetch(
                         repository: repositorySpecifier,
                         to: tempPath,
                         progressHandler: nil
                     )
-                    guard try self.repositoryProvider.isValidDirectory(tempPath), let repository = try self.repositoryProvider.open(
+                    guard try self.repositoryProvider.isValidDirectory(tempPath), let repository = try await self.repositoryProvider.open(
                         repository: repositorySpecifier,
                         at: tempPath
                     ) as? GitRepository else {
@@ -329,15 +329,15 @@ public struct PackageSearchClient {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<PackageIdentity>, Error>) -> Void
+        completion: @Sendable @escaping (Result<Set<PackageIdentity>, Error>) -> Void
     ) {
-        registryClient.lookupIdentities(
-            scmURL: scmURL,
-            timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
-            completion: completion
-        )
+        callbackQueue.asyncResult(completion) {
+            try await registryClient.lookupIdentities(
+                scmURL: scmURL,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
+        }
     }
 
     public func lookupSCMURLs(
@@ -345,21 +345,16 @@ public struct PackageSearchClient {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        completion: @escaping (Result<Set<SourceControlURL>, Error>) -> Void
+        completion: @Sendable @escaping (Result<Set<SourceControlURL>, Error>) -> Void
     ) {
-        registryClient.getPackageMetadata(
-            package: package,
-            timeout: timeout,
-            observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue
-        ) { result in
-            do {
-                let metadata = try result.get()
-                let alternateLocations = metadata.alternateLocations
-                return completion(.success(Set(alternateLocations)))
-            } catch {
-                return completion(.failure(error))
-            }
+        callbackQueue.asyncResult(completion) {
+            let metadata = try await registryClient.getPackageMetadata(
+                package: package,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
+            let alternateLocations = metadata.alternateLocations
+            return Set(alternateLocations)
         }
     }
 }

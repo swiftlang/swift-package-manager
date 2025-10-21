@@ -14,6 +14,7 @@ import ArgumentParser
 
 @_spi(SwiftPMInternal)
 import Basics
+import struct Basics.Triple
 
 import _Concurrency
 
@@ -28,6 +29,7 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
+import TSCUtility
 
 import func TSCLibc.exit
 import Workspace
@@ -80,7 +82,7 @@ extension TestError: CustomStringConvertible {
 
 struct SharedOptions: ParsableArguments {
     @Flag(name: .customLong("skip-build"),
-          help: "Skip building the test target")
+          help: "Skip building the test target.")
     var shouldSkipBuilding: Bool = false
 
     /// The test product to use. This is useful when there are multiple test products
@@ -110,20 +112,28 @@ struct TestEventStreamOptions: ParsableArguments {
             help: .hidden)
     var eventStreamOutputPath: AbsolutePath?
 
-    /// Legacy equivalent of ``eventStreamVersion``.
+    /// The experimental version number of Swift Testing's event stream to use.
+    ///
+    /// Unlike ``eventStreamVersion``, this permits specifying a version which
+    /// is experimental.
     @Option(name: .customLong("experimental-event-stream-version"),
             help: .private)
-    var experimentalEventStreamVersion: Int?
+    var experimentalEventStreamVersion: String?
 
-    /// The schema version of swift-testing's JSON input/output.
+    /// The version number of Swift Testing's event stream to use.
     @Option(name: .customLong("event-stream-version"),
             help: .hidden)
-    var eventStreamVersion: Int?
+    var eventStreamVersion: String?
 
     /// Experimental path for writing attachments (Swift Testing only.)
     @Option(name: .customLong("experimental-attachments-path"),
             help: .private)
     var experimentalAttachmentsPath: AbsolutePath?
+
+    /// Path for writing attachments (Swift Testing only.)
+    @Option(name: .customLong("attachments-path"),
+            help: "Path where attachments should be written (Swift Testing only). This path must be an existing directory the current user can write to. If not specified, any attachments created during testing are discarded.")
+    var attachmentsPath: AbsolutePath?
 }
 
 struct TestCommandOptions: ParsableArguments {
@@ -154,12 +164,12 @@ struct TestCommandOptions: ParsableArguments {
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
-          help: "Lists test methods in specifier format")
+          help: "Lists test methods in specifier format.")
     var _deprecated_shouldListTests: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
     @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")],
-          help: "Print the path of the exported code coverage JSON file")
+          help: "Print the path of the exported code coverage JSON file.")
     var shouldPrintCodeCovPath: Bool = false
 
     var testCaseSpecifier: TestCaseSpecifier {
@@ -174,13 +184,13 @@ struct TestCommandOptions: ParsableArguments {
     var _testCaseSpecifier: String?
 
     @Option(help: """
-        Run test cases matching regular expression, Format: <test-target>.<test-case> \
-        or <test-target>.<test-case>/<test>
+        Run test cases that match a regular expression, Format: '<test-target>.<test-case>' \
+        or '<test-target>.<test-case>/<test>'.
         """)
     var filter: [String] = []
 
     @Option(name: .customLong("skip"),
-            help: "Skip test cases matching regular expression, Example: --skip PerformanceTests")
+            help: "Skip test cases that match a regular expression, Example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
     /// Path where the xUnit xml file should be generated.
@@ -204,7 +214,7 @@ struct TestCommandOptions: ParsableArguments {
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage")
+          help: "Enable code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// Configure test output.
@@ -214,9 +224,6 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
-
-    @OptionGroup(visibility: .hidden)
-    package var traits: TraitOptions
 }
 
 /// Tests filtering specifier, which is used to filter tests to run.
@@ -251,7 +258,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     public static var configuration = CommandConfiguration(
         commandName: "test",
         _superCommandName: "swift",
-        abstract: "Build and run tests",
+        abstract: "Build and run tests.",
         discussion: "SEE ALSO: swift build, swift run, swift package",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
@@ -591,7 +598,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         for product in testProducts {
             // Export the codecov data as JSON.
             let jsonPath = productsBuildParameters.codeCovAsJSONPath(packageName: rootManifest.displayName)
-            try await exportCodeCovAsJSON(to: jsonPath, testBinary: product.binaryPath, swiftCommandState: swiftCommandState)
+            try await exportCodeCovAsJSON(
+                to: jsonPath,
+                testBinary: product.binaryPath,
+                swiftCommandState: swiftCommandState,
+            )
         }
     }
 
@@ -613,7 +624,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", productsBuildParameters.codeCovDataFile.pathString]
-
         try await AsyncProcess.checkNonZeroExit(arguments: args)
     }
 
@@ -626,11 +636,17 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
+        let archArgs: [String] = if let arch = productsBuildParameters.triple.llvmCovArchArgument {
+            ["--arch", "\(arch)"]
+        } else {
+            []
+        }
         let args = [
             llvmCov.pathString,
             "export",
             "-instr-profile=\(productsBuildParameters.codeCovDataFile)",
-            testBinary.pathString
+        ] + archArgs + [
+            testBinary.pathString,
         ]
         let result = try await AsyncProcess.popen(arguments: args)
 
@@ -653,7 +669,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            traitConfiguration: .init(traitOptions: self.options.traits)
+            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
         )
     }
 
@@ -703,6 +719,21 @@ extension SwiftTestCommand {
     }
 }
 
+fileprivate extension Triple {
+    var llvmCovArchArgument: String? {
+        guard let arch = self.arch else {
+            return nil
+        }
+        switch arch {
+        case .aarch64:
+            // Apple platforms uses arm64
+            return self.isApple() ? "arm64" : "aarch64"
+        default:
+            return "\(arch)"
+        }
+    }
+}
+
 extension SwiftTestCommand {
     struct Last: SwiftCommand {
         @OptionGroup(visibility: .hidden)
@@ -734,9 +765,6 @@ extension SwiftTestCommand {
         /// Options for Swift Testing's event stream.
         @OptionGroup()
         var testEventStreamOptions: TestEventStreamOptions
-
-        @OptionGroup(visibility: .hidden)
-        package var traits: TraitOptions
 
         // for deprecated passthrough from SwiftTestTool (parse will fail otherwise)
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
@@ -844,7 +872,7 @@ extension SwiftTestCommand {
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
-                traitConfiguration: .init(traitOptions: self.traits)
+                traitConfiguration: .init(traitOptions: self.globalOptions.traits)
             )
         }
     }
@@ -1555,7 +1583,6 @@ private func buildTestsIfNeeded(
     traitConfiguration: TraitConfiguration
 ) async throws -> [BuiltTestProduct] {
     let buildSystem = try await swiftCommandState.createBuildSystem(
-        traitConfiguration: traitConfiguration,
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )
@@ -1566,7 +1593,7 @@ private func buildTestsIfNeeded(
         .allIncludingTests
     }
 
-    try await buildSystem.build(subset: subset)
+    try await buildSystem.build(subset: subset, buildOutputs: [])
 
     // Find the test product.
     let testProducts = await buildSystem.builtTestProducts

@@ -12,11 +12,12 @@
 
 import ArgumentParser
 import CoreCommands
+import Workspace
 
 extension SwiftPackageCommand {
     struct Clean: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Delete build artifacts")
+            abstract: "Delete build artifacts.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -26,21 +27,21 @@ extension SwiftPackageCommand {
         }
     }
 
-    struct PurgeCache: SwiftCommand {
+    struct PurgeCache: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Purge the global repository cache.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.getActiveWorkspace().purgeCache(observabilityScope: swiftCommandState.observabilityScope)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.purgeCaches(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 
     struct Reset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Reset the complete cache/build directory")
+            abstract: "Reset the complete cache/build directory.")
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
