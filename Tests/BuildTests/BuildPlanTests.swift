@@ -4617,16 +4617,48 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             emptyFiles: [
                 "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
                 "/MyPackage/Sources/MyMacros/MyMacros.swift",
-                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
+                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/SwiftSyntaxMacrosTestSupport.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+                "/swift-syntax/Sources/SwiftCompilerPlugin/SwiftCompilerPlugin.swift",
             ]
         )
 
         let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "swift-syntax",
+                    url: "https://github.com/swiftlang/swift-syntax",
+                    path: "/swift-syntax",
+                    products: [
+                        .init(
+                            name: "SwiftSyntaxMacrosTestSupport",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacrosTestSupport"]
+                        ),
+                        .init(
+                            name: "SwiftSyntaxMacros",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacros"]
+                        ),
+                        .init(
+                            name: "SwiftCompilerPlugin",
+                            type: .library(.automatic),
+                            targets: ["SwiftCompilerPlugin"])
+                    ],
+                    targets: [
+                        .init(name: "SwiftSyntaxMacrosTestSupport"),
+                        .init(name: "SwiftSyntaxMacros"),
+                        .init(name: "SwiftCompilerPlugin"),
+                    ]
+                ),
                 Manifest.createRootManifest(
                     displayName: "MyPackage",
                     path: "/MyPackage",
+                    dependencies: [
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                    ],
                     targets: [
                         TargetDescription(
                             name: "MyMacroMacros",
@@ -4723,27 +4755,60 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "/MyPackage/Sources/MyMacroLibrary/MyMacroLibrary.swift",
                 "/MyPackage/Sources/MyMacroMacros/MyMacroMacros.swift",
                 "/MyPackage/Sources/MyMacros/MyMacros.swift",
-                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift"
+                "/MyPackage/Sources/MyMacroTests/MyMacroTests.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacrosTestSupport/SwiftSyntaxMacrosTestSupport.swift",
+                "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+                "/swift-syntax/Sources/SwiftCompilerPlugin/SwiftCompilerPlugin.swift",
+                "/swift-syntax/Sources/SwiftSyntax/SwiftSyntax.swift"
             ]
         )
 
         let graph = try loadModulesGraph(
             fileSystem: fs,
             manifests: [
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "swift-syntax",
+                    url: "https://github.com/swiftlang/swift-syntax",
+                    path: "/swift-syntax",
+                    products: [
+                        .init(
+                            name: "SwiftSyntaxMacrosTestSupport",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacrosTestSupport"]
+                        ),
+                        .init(
+                            name: "SwiftSyntaxMacros",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntaxMacros"]
+                        ),
+                        .init(
+                            name: "SwiftCompilerPlugin",
+                            type: .library(.automatic),
+                            targets: ["SwiftCompilerPlugin"]
+                        ),
+                        .init(
+                            name: "SwiftSyntax",
+                            type: .library(.automatic),
+                            targets: ["SwiftSyntax"]
+                        ),
+                    ],
+                    targets: [
+                        .init(name: "SwiftSyntaxMacrosTestSupport"),
+                        .init(name: "SwiftSyntaxMacros"),
+                        .init(name: "SwiftCompilerPlugin"),
+                        .init(name: "SwiftSyntax"),
+                    ]
+                ),
                 Manifest.createRootManifest(
                     displayName: "MyPackage",
                     path: "/MyPackage",
+                    dependencies: [
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                    ],
                     targets: [
-                        TargetDescription(
-                            name: "MyMacroLibrary",
-                            dependencies: [
-                                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                            ]
-                        ),
                         TargetDescription(
                             name: "MyMacroMacros",
                             dependencies: [
-                                "MyMacroLibrary",
                                 .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
                                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
                             ],
