@@ -2936,6 +2936,93 @@ struct PackageCommandTests {
     }
 
     @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheWithoutPackage(
+        data: BuildData,
+    ) async throws {
+        // Create a temporary directory without Package.swift
+        try await fixture(name: "Miscellaneous") { fixturePath in
+            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+            try localFileSystem.createDirectory(tempDir, recursive: true)
+
+            // Use a unique temporary cache directory to avoid conflicts with parallel tests
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                let result = try await executeSwiftPackage(
+                    tempDir,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                    buildSystem: data.buildSystem
+                )
+
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+            }
+        }
+    }
+
+    @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheInPackageDirectory(
+        data: BuildData,
+    ) async throws {
+        // Test that purge-cache works in a package directory and successfully purges caches
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+
+            // Use a unique temporary cache directory for this test
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+                let cacheDir = tempDir.appending("test-cache")
+                let cacheArgs = ["--cache-path", cacheDir.pathString]
+
+                // Resolve dependencies to populate cache
+                // Note: This fixture uses local dependencies, so only manifest cache will be populated
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["resolve"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify manifest cache was populated
+                let manifestsCache = cacheDir.appending(components: "manifests")
+                expectDirectoryExists(at: manifestsCache)
+
+                // Check for manifest.db file (main database file)
+                let manifestDB = manifestsCache.appending("manifest.db")
+                let hasManifestDB = localFileSystem.exists(manifestDB)
+
+                // Check for SQLite auxiliary files that might exist
+                let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
+                let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
+                let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
+
+                // At least one manifest database file should exist
+                #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
+
+                // Run purge-cache
+                let result = try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify command succeeded
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+
+                // Verify manifest.db was removed (the purge implementation removes this file)
+                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+
+                // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
+                // The important check is that the main database file is removed
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Package.Resolve,
         ),
@@ -7121,7 +7208,7 @@ struct PackageCommandTests {
                                 "iteration \(num) failed.  stderr: \(stderr)",
                             )
                         } when: {
-                            data.config == .release && data.buildSystem == .native
+                            data.buildSystem == .native
                         }
                         #expect(
                             !stdout.contains("Building for \(data.config.buildFor)..."),

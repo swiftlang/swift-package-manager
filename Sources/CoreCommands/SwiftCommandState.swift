@@ -16,10 +16,14 @@ import Basics
 import Dispatch
 import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import PackageFingerprint
 import PackageGraph
 import PackageLoading
 @_spi(SwiftPMInternal)
 import PackageModel
+import PackageRegistry
+import PackageSigning
+import SourceControl
 import SPMBuildCore
 import Workspace
 
@@ -50,6 +54,7 @@ import class TSCBasic.FileLock
 import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.ProcessEnv
+import struct TSCBasic.SHA256
 import enum TSCBasic.ProcessLockError
 import var TSCBasic.stderrStream
 import class TSCBasic.TerminalController
@@ -534,6 +539,55 @@ public final class SwiftCommandState {
         return workspace
     }
 
+    /// Purges all global caches without requiring workspace initialization.
+    /// This method creates minimal cache managers directly and calls their purgeCache methods.
+    public func purgeCaches(observabilityScope: ObservabilityScope) async throws {
+        // Create repository manager for repository cache
+        let repositoryManager = RepositoryManager(
+            fileSystem: self.fileSystem,
+            path: self.scratchDirectory.appending("repositories"),
+            provider: GitRepositoryProvider(),
+            cachePath: self.sharedCacheDirectory.appending("repositories"),
+            initializationWarningHandler: { observabilityScope.emit(warning: $0) },
+            delegate: nil
+        )
+
+        // Create manifest loader for manifest cache
+        let manifestLoader = ManifestLoader(
+            toolchain: try self.getHostToolchain(),
+            cacheDir: Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory),
+            importRestrictions: nil,
+            delegate: nil,
+            pruneDependencies: false
+        )
+
+        // Create registry downloads manager for registry cache
+        let registryClient = RegistryClient(
+            configuration: .init(),
+            fingerprintStorage: nil,
+            fingerprintCheckingMode: .strict,
+            skipSignatureValidation: false,
+            signingEntityStorage: nil,
+            signingEntityCheckingMode: .strict,
+            authorizationProvider: nil,
+            delegate: nil,
+            checksumAlgorithm: SHA256()
+        )
+
+        let registryDownloadsManager = RegistryDownloadsManager(
+            fileSystem: self.fileSystem,
+            path: self.scratchDirectory.appending(components: "registry", "downloads"),
+            cachePath: self.sharedCacheDirectory.appending(components: "registry", "downloads"),
+            registryClient: registryClient,
+            delegate: nil
+        )
+
+        // Purge all caches
+        repositoryManager.purgeCache(observabilityScope: observabilityScope)
+        registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
+        await manifestLoader.purgeCache(observabilityScope: observabilityScope)
+    }
+
     public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace(enableAllTraits: enableAllTraits)
         let root = try self.getWorkspaceRoot()
@@ -862,6 +916,7 @@ public final class SwiftCommandState {
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
             architectures: options.build.architectures,
             workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
             prepareForIndexing: prepareForIndexingMode,

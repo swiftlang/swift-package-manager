@@ -35,7 +35,7 @@ extension SwiftPackageCommand {
         var globalOptions: GlobalOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.getActiveWorkspace().purgeCache(observabilityScope: swiftCommandState.observabilityScope)
+            try await swiftCommandState.purgeCaches(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 
