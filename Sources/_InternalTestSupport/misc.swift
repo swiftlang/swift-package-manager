@@ -100,7 +100,7 @@ public func testWithTemporaryDirectory<Result>(
 
     // Use shorter prefix on Windows to avoid MAX_PATH issues
     #if os(Windows)
-    let prefix = "spm-\(abs(cleanedFunction.hashValue))"
+    let prefix = "spm-\(String(abs(cleanedFunction.hashValue)).prefix(5))"
     #else
     let prefix = "spm-tests-\(cleanedFunction)"
     #endif
