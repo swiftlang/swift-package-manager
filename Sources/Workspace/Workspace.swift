@@ -1161,32 +1161,39 @@ extension Workspace {
         let binaryArtifacts = try manifest.targets.filter { $0.type == .binary }
             .reduce(into: [String: BinaryArtifact]()) { partial, target in
                 if let path = target.path {
-                    let artifactPath = try manifest.path.parentDirectory
-                        .appending(RelativePath(validating: path))
-                    guard let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
-                        fileSystem: self.fileSystem,
-                        path: artifactPath,
-                        observabilityScope: observabilityScope
-                    ) else {
-                        throw StringError("\(artifactPath) does not contain binary artifact")
-                    }
+                let artifactPath = try manifest.path.parentDirectory
+                    .appending(RelativePath(validating: path))
+                if artifactPath.extension?.lowercased() == "zip" {
+                    partial[target.name] = BinaryArtifact(
+                        kind: .unknown,
+                        originURL: .none,
+                        path: artifactPath
+                    )
+                } else if let (_, artifactKind) = try BinaryArtifactsManager.deriveBinaryArtifact(
+                    fileSystem: self.fileSystem,
+                    path: artifactPath,
+                    observabilityScope: observabilityScope
+                ) {
                     partial[target.name] = BinaryArtifact(
                         kind: artifactKind,
                         originURL: .none,
                         path: artifactPath
                     )
-                } else if let url = target.url.flatMap(URL.init(string:)) {
-                    let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
-                        .appending(RelativePath(validating: url.lastPathComponent))
-                    partial[target.name] = BinaryArtifact(
-                        kind: .unknown,
-                        originURL: url.absoluteString,
-                        path: fakePath
-                    )
                 } else {
-                    throw InternalError("a binary target should have either a path or a URL and a checksum")
+                    throw StringError("\(artifactPath) does not contain binary artifact")
                 }
+            } else if let url = target.url.flatMap(URL.init(string:)) {
+                let fakePath = try manifest.path.parentDirectory.appending(components: "remote", "archive")
+                    .appending(RelativePath(validating: url.lastPathComponent))
+                partial[target.name] = BinaryArtifact(
+                    kind: .unknown,
+                    originURL: url.absoluteString,
+                    path: fakePath
+                )
+            } else {
+                throw InternalError("a binary target should have either a path or a URL and a checksum")
             }
+        }
 
         let builder = PackageBuilder(
             identity: identity,
