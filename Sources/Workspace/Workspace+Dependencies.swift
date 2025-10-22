@@ -540,10 +540,6 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        // Update traits map here; before we make call to
-        // resolveDependencies below, which will check out
-        // the depenedencies we need.
-
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }
@@ -606,14 +602,11 @@ extension Workspace {
             }
         }
 
-        try await self.updateEnabledTraitsMap()
-
         // Create the constraints; filter unused dependencies.
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
 
-        manifestLoader
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)

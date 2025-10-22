@@ -40,7 +40,8 @@ add_library(Workspace
   Workspace+ResolvedPackages.swift
   Workspace+Signing.swift
   Workspace+SourceControl.swift
-  Workspace+State.swift)
+  Workspace+State.swift
+  Workspace+Traits.swift)
 target_link_libraries(Workspace PUBLIC
   TSCBasic
   TSCUtility
