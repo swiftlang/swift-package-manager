@@ -730,7 +730,6 @@ extension Workspace {
             dependencies.append((node.manifest, dependency, node.productFilter, fileSystem ?? self.fileSystem))
         }
 
-        // dependency manifests returned here
         return DependencyManifests(
             root: root,
             dependencies: dependencies,
