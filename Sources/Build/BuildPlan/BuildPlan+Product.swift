@@ -298,7 +298,8 @@ extension BuildPlan {
                     case .xcframework:
                         let libraries = try self.parseXCFramework(
                             for: binaryTarget,
-                            triple: productDescription.buildParameters.triple
+                            triple: productDescription.buildParameters.triple,
+                            enableXCFrameworksOnLinux: productDescription.buildParameters.enableXCFrameworksOnLinux
                         )
                         for library in libraries {
                             libraryBinaryPaths.insert(library.libraryPath)
