@@ -11,6 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 @_spi(SwiftPMInternal)
 import Basics
@@ -342,7 +348,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         observabilityScope: swiftCommandState.observabilityScope
                     )
 
-                    testResults = try runner.run(tests)
+                    testResults = try await runner.run(tests)
                     result = runner.ranSuccessfully ? .success : .failure
                 }
 
@@ -538,7 +544,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         )
 
         // Finally, run the tests.
-        return runner.test(outputHandler: {
+        return await runner.test(outputHandler: {
             // command's result output goes on stdout
             // ie "swift test" should output to stdout
             print($0, terminator: "")
@@ -837,7 +843,7 @@ extension SwiftTestCommand {
                     )
 
                     // Finally, run the tests.
-                    let result = runner.test(outputHandler: {
+                    let result = await runner.test(outputHandler: {
                         // command's result output goes on stdout
                         // ie "swift test" should output to stdout
                         print($0, terminator: "")
@@ -911,7 +917,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    private let testEnv: Environment
+    private let testEnv: Basics.Environment
 
     /// ObservabilityScope  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -945,7 +951,7 @@ final class TestRunner {
         additionalArguments: [String],
         cancellator: Cancellator,
         toolchain: UserToolchain,
-        testEnv: Environment,
+        testEnv: Basics.Environment,
         observabilityScope: ObservabilityScope,
         library: TestingLibrary
     ) {
@@ -974,10 +980,10 @@ final class TestRunner {
 
     /// Executes and returns execution status. Prints test output on standard streams if requested
     /// - Returns: Result of spawning and running the test process, and the output stream result
-    func test(outputHandler: @escaping (String) -> Void) -> Result {
+    func test(outputHandler: @escaping (String) -> Void) async -> Result {
         var results = [Result]()
         for path in self.bundlePaths {
-            let testSuccess = self.test(at: path, outputHandler: outputHandler)
+            let testSuccess = await self.test(at: path, outputHandler: outputHandler)
             results.append(testSuccess)
         }
         return results.reduce()
@@ -1021,33 +1027,27 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) -> Result {
+    private func test(at path: AbsolutePath, outputHandler: @escaping (String) -> Void) async -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8) {
-                    outputHandler(output)
-                }
+            let args = try args(forTestAt: path)
+            let processConfig = try Subprocess.Configuration(commandLine: args, environment: .init(self.testEnv))
+            let status = try await cancellator.run(name: "Test Execution") {
+                try await Subprocess.run(processConfig, input: .none, error: .combineWithOutput) { execution, outputSequence in
+                    for try await line in outputSequence.lines() {
+                        outputHandler(line)
+                    }
+                }.terminationStatus
             }
-            let outputRedirection = AsyncProcess.OutputRedirection.stream(
-                stdout: outputHandler,
-                stderr: outputHandler
-            )
-            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
-            guard let terminationKey = self.cancellator.register(process) else {
-                return .failure // terminating
-            }
-            defer { self.cancellator.deregister(terminationKey) }
-            try process.launch()
-            let result = try process.waitUntilExit()
-            switch result.exitStatus {
-            case .terminated(code: 0):
+
+            switch status {
+            case .exited(code: 0):
                 return .success
-            case .terminated(code: EXIT_NO_TESTS_FOUND) where library == .swiftTesting:
+            case .exited(code: numericCast(EXIT_NO_TESTS_FOUND)) where library == .swiftTesting:
                 return .noMatchingTests
             #if !os(Windows)
-            case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
+            case .unhandledException(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
                 testObservabilityScope.emit(error: "Exited with unexpected signal code \(signal)")
                 return .failure
             #endif
@@ -1087,20 +1087,8 @@ final class ParallelTestRunner {
     /// Path to XCTest binaries.
     private let bundlePaths: [AbsolutePath]
 
-    /// The queue containing list of tests to run (producer).
-    private let pendingTests = SynchronizedQueue<UnitTest?>()
-
-    /// The queue containing tests which are finished running.
-    private let finishedTests = SynchronizedQueue<TestResult?>()
-
     /// Instance of a terminal progress animation.
     private let progressAnimation: ProgressAnimationProtocol
-
-    /// Number of tests that will be executed.
-    private var numTests = 0
-
-    /// Number of the current tests that has been executed.
-    private var numCurrentTest = 0
 
     /// True if all tests executed successfully.
     private(set) var ranSuccessfully = true
@@ -1160,27 +1148,8 @@ final class ParallelTestRunner {
         assert(numJobs > 0, "num jobs should be > 0")
     }
 
-    /// Updates the progress bar status.
-    private func updateProgress(for test: UnitTest) {
-        numCurrentTest += 1
-        progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
-    }
-
-    private func enqueueTests(_ tests: [UnitTest]) throws {
-        // Enqueue all the tests.
-        for test in tests {
-            pendingTests.enqueue(test)
-        }
-        self.numTests = tests.count
-        self.numCurrentTest = 0
-        // Enqueue the sentinels, we stop a thread when it encounters a sentinel in the queue.
-        for _ in 0..<numJobs {
-            pendingTests.enqueue(nil)
-        }
-    }
-
     /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
-    func run(_ tests: [UnitTest]) throws -> [TestResult] {
+    func run(_ tests: [UnitTest]) async throws -> [TestResult] {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
         let testEnv = try TestingSupport.constructTestEnvironment(
@@ -1190,69 +1159,66 @@ final class ParallelTestRunner {
             library: .xctest // swift-testing does not use ParallelTestRunner
         )
 
-        // Enqueue all the tests.
-        try enqueueTests(tests)
+        var pendingTests: [UnitTest] = tests
+        var processedTests: [TestResult] = []
 
-        // Create the worker threads.
-        let workers: [Thread] = (0..<numJobs).map({ _ in
-            let thread = Thread {
-                // Dequeue a specifier and run it till we encounter nil.
-                while let test = self.pendingTests.dequeue() {
-                    let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
-                    let testRunner = TestRunner(
-                        bundlePaths: [test.productPath],
-                        additionalArguments: additionalArguments,
-                        cancellator: self.cancellator,
-                        toolchain: self.toolchain,
-                        testEnv: testEnv,
-                        observabilityScope: self.observabilityScope,
-                        library: .xctest // swift-testing does not use ParallelTestRunner
-                    )
-                    var output = ""
-                    let outputLock = NSLock()
-                    let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in outputLock.withLock{ output += _output }})
-                    let duration = start.distance(to: .now())
-                    if result == .failure {
-                        self.ranSuccessfully = false
+        await withTaskGroup { group in
+            func runTest(_ test: UnitTest) async -> TestResult {
+                observabilityScope.emit(error: "enqueuing \(test.specifier)")
+                let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
+                let testRunner = TestRunner(
+                    bundlePaths: [test.productPath],
+                    additionalArguments: additionalArguments,
+                    cancellator: self.cancellator,
+                    toolchain: self.toolchain,
+                    testEnv: testEnv,
+                    observabilityScope: self.observabilityScope,
+                    library: .xctest // swift-testing does not use ParallelTestRunner
+                )
+                var output = ""
+                let start = DispatchTime.now()
+                let result = await testRunner.test(outputHandler: { _output in output += _output })
+                let duration = start.distance(to: .now())
+                if result == .failure {
+                    self.ranSuccessfully = false
+                }
+                return TestResult(
+                    unitTest: test,
+                    output: output,
+                    success: result != .failure,
+                    duration: duration
+                )
+            }
+            for _ in 0..<numJobs {
+                if !pendingTests.isEmpty {
+                    let test = pendingTests.removeLast()
+                    group.addTask {
+                        await runTest(test)
                     }
-                    self.finishedTests.enqueue(TestResult(
-                        unitTest: test,
-                        output: output,
-                        success: result != .failure,
-                        duration: duration
-                    ))
                 }
             }
-            thread.start()
-            return thread
-        })
+            var completedTests = 0
+            while let result = await group.next() {
+                completedTests += 1
+                progressAnimation.update(step: completedTests, total: tests.count, text: "Testing \(result.unitTest.specifier)")
 
-        // List of processed tests.
-        let processedTests = ThreadSafeArrayStore<TestResult>()
+                if !pendingTests.isEmpty {
+                    let test = pendingTests.removeLast()
+                    group.addTask(operation: {
+                        await runTest(test)
+                    })
+                }
 
-        // Report (consume) the tests which have finished running.
-        while let result = finishedTests.dequeue() {
-            updateProgress(for: result.unitTest)
-
-            // Store the result.
-            processedTests.append(result)
-
-            // We can't enqueue a sentinel into finished tests queue because we won't know
-            // which test is last one so exit this when all the tests have finished running.
-            if numCurrentTest == numTests {
-                break
+                // Store the result.
+                processedTests.append(result)
             }
         }
 
-        // Wait till all threads finish execution.
-        workers.forEach { $0.join() }
-
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        progressAnimation.complete(success: processedTests.contains(where: { !$0.success }))
 
         // Print test results.
-        for test in processedTests.get() {
+        for test in processedTests {
             if (!test.success || shouldOutputSuccess) && !productsBuildParameters.testingParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
@@ -1260,7 +1226,7 @@ final class ParallelTestRunner {
             }
         }
 
-        return processedTests.get()
+        return processedTests
     }
 }
 

@@ -190,6 +190,17 @@ public final class Cancellator: Cancellable, Sendable {
     }
 }
 
+extension Cancellator {
+    public func run<T: Sendable>(name: String, _ block: @escaping @Sendable () async throws -> T) async throws -> T {
+        let task = Task { try await block() }
+        let token = register(name: name, handler: { _ in task.cancel() })
+        defer {
+            token.map { deregister($0) }
+        }
+        return try await task.value
+    }
+}
+
 public protocol Cancellable {
     func cancel(deadline: DispatchTime) throws -> Void
 }

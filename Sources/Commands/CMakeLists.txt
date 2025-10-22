@@ -61,6 +61,7 @@ add_library(Commands
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   SwiftSyntax::SwiftRefactor
+  SwiftSubprocess::Subprocess
   ArgumentParser
   Basics
   BinarySymbols
