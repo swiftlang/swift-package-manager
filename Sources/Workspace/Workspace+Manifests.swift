@@ -738,54 +738,6 @@ extension Workspace {
         )
     }
 
-    public func precomputeTraits(
-        _ topLevelManifests: [Manifest],
-        _ manifestMap: [PackageIdentity: Manifest]
-    ) throws -> [PackageIdentity: Set<String>] {
-        var visited: Set<PackageIdentity> = []
-
-        func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
-            let parentTraits = self.enabledTraitsMap[parent.packageIdentity]
-            let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
-            let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
-
-            _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
-                return try manifestMap[dependency.identity].flatMap({ manifest in
-
-                    let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let condition = $0.condition else { return true }
-                        return condition.isSatisfied(by: parentTraits)
-                    }.map(\.name)
-
-                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-                        let calculatedTraits = try manifest.enabledTraits(
-                            using: enabledTraitsSet,
-                            .init(parent)
-                        )
-                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
-                    }
-
-                    let result = visited.insert(dependency.identity)
-                    if result.inserted {
-                        try dependencies(of: manifest, dependency.productFilter)
-                    }
-
-                    return manifest
-                })
-            })
-        }
-
-        for manifest in topLevelManifests {
-            // Track already-visited manifests to avoid cycles
-            let result = visited.insert(manifest.packageIdentity)
-            if result.inserted {
-                try dependencies(of: manifest)
-            }
-        }
-
-        return self.enabledTraitsMap.dictionaryLiteral
-    }
-
     /// Loads the given manifests, if it is present in the managed dependencies.
     ///
 
@@ -962,6 +914,7 @@ extension Workspace {
             diagnostics: manifestLoadingDiagnostics,
             duration: duration
         )
+
         return manifest
     }
 

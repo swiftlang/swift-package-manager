@@ -60,7 +60,7 @@ extension PackageContainerConstraint {
     internal func nodes() -> [DependencyResolutionNode] {
         switch products {
         case .everything:
-            return [.root(package: self.package)]
+            return [.root(package: self.package, enabledTraits: self.enabledTraits)]
         case .specific:
             switch products {
             case .everything:
@@ -70,7 +70,7 @@ extension PackageContainerConstraint {
                 if set.isEmpty { // Pointing at the package without a particular product.
                     return [.empty(package: self.package)]
                 } else {
-                    return set.sorted().map { .product($0, package: self.package) }
+                    return set.sorted().map { .product($0, package: self.package, enabledTraits: self.enabledTraits) }
                 }
             }
         }
