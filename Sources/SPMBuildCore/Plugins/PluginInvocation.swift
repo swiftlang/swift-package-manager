@@ -412,10 +412,6 @@ extension PluginModule {
             throw InternalError("Could not find package for \(self)")
         }
 
-        // Set up a delegate to handle callbacks from the build tool plugin.
-        // We'll capture free-form text output as well as defined commands and diagnostics.
-        let delegateQueue = DispatchQueue(label: "plugin-invocation")
-
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
@@ -424,7 +420,6 @@ extension PluginModule {
 
         let delegate = DefaultPluginInvocationDelegate(
             fileSystem: fileSystem,
-            delegateQueue: delegateQueue,
             toolPaths: toolPaths,
             builtToolPaths: builtToolPaths
         )
@@ -746,7 +741,6 @@ public protocol PluginInvocationDelegate {
 
 final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     let fileSystem: FileSystem
-    let delegateQueue: DispatchQueue
     let toolPaths: [AbsolutePath]
     let builtToolPaths: [AbsolutePath]
     var outputData = Data()
@@ -756,12 +750,10 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
 
     package init(
         fileSystem: FileSystem,
-        delegateQueue: DispatchQueue,
         toolPaths: [AbsolutePath],
         builtToolPaths: [AbsolutePath]
     ) {
         self.fileSystem = fileSystem
-        self.delegateQueue = delegateQueue
         self.toolPaths = toolPaths
         self.builtToolPaths = builtToolPaths
     }
@@ -773,14 +765,12 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {}
 
     func pluginEmittedOutput(_ data: Data) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.outputData.append(contentsOf: data)
     }
 
     func pluginEmittedProgress(_: String) {}
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.diagnostics.append(diagnostic)
     }
 
@@ -793,7 +783,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         inputFiles: [AbsolutePath],
         outputFiles: [AbsolutePath]
     ) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.buildCommands.append(.init(
             configuration: .init(
                 displayName: displayName,
@@ -815,7 +804,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         workingDirectory: AbsolutePath?,
         outputFilesDirectory: AbsolutePath
     ) -> Bool {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         // executable must exist before running prebuild command
         if builtToolPaths.contains(executable) {
             self.diagnostics
