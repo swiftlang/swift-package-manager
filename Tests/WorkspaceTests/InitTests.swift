@@ -519,6 +519,7 @@ let package = Package(
         #if canImport(TestingDisabled)
             return buildSystem
         #else
+            Issue.record("TestingDisabled was not imported, falling back to default buildSystem", severity: .warning)
             return nil
         #endif
     }
