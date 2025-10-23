@@ -231,6 +231,33 @@ extension SwiftPackageCommand {
             )
         }
 
+        private func findAllManifests(packagePath: Basics.AbsolutePath, fileSystem: Basics.FileSystem) -> [Basics.AbsolutePath] {
+            var manifests: [Basics.AbsolutePath] = []
+
+            // Add standard manifest if it exists
+            let standardManifest = packagePath.appending(component: Manifest.filename)
+            let manifestContents: ByteString
+            if fileSystem.isFile(standardManifest) {
+                manifests.append(standardManifest)
+            }
+
+            // Find version specific manifests
+            do {
+                let packageContents = try fileSystem.getDirectoryContents(packagePath)
+                let regexManifestFile = try! RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+
+                for file in packageContents {
+                    if regexManifestFile.matchGroups(in: file).first != nil {
+                        manifests.append(packagePath.appending(component: file))
+                    }
+                }
+            } catch {
+                // If we cannot read directory, just use standard manifest
+            }
+            return manifests
+        }
+
+
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
             workspace: Workspace,
@@ -238,7 +265,39 @@ extension SwiftPackageCommand {
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let packageManifests = findAllManifests(packagePath: packagePath, fileSystem: workspace.fileSystem)
+
+            guard !packageManifests.isEmpty else {
+                throw StringError("cannot find package manifest in \(packagePath)")
+            }
+
+            var successCount = 0
+            var errors: [String] = []
+
+            for manifest in packageManifests {
+                do {
+                    try applyEditsToSingleManifest(manifestPath: manifest, fileSystem: fileSystem, packageDependency: packageDependency)
+                    successCount += 1
+                } catch {
+                    let errorMessage = "Failed to update \(manifest.basename)"
+                    errors.append(errorMessage)
+                }
+            }
+
+            if successCount == 0 {
+                throw StringError("Failed to update any manifest files:\n" + errors.joined(separator: "\n"))
+            } else if !errors.isEmpty {
+                print("Successfully updated \(successCount)/\(packageManifests.count) manifest files")
+                print("Warnings/Errors occured:\n" + errors.joined(separator: "\n"))
+            }
+        }
+
+        private func applyEditsToSingleManifest(
+            manifestPath: Basics.AbsolutePath,
+            fileSystem: FileSystem,
+            packageDependency: PackageDependency
+        ) throws {
+            // Load the manifest file
             let manifestContents: ByteString
             do {
                 manifestContents = try fileSystem.readFileContents(manifestPath)
