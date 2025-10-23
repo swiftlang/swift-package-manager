@@ -24,7 +24,8 @@ extension SwiftPackageCommand {
     struct Install: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "experimental-install",
-            abstract: "Offers the ability to install executable products of the current package."
+            abstract: "Offers the ability to install executable products of the current package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup()
@@ -102,7 +103,8 @@ extension SwiftPackageCommand {
     struct Uninstall: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "experimental-uninstall",
-            abstract: "Offers the ability to uninstall executable products previously installed by `swift package experimental-install`."
+            abstract: "Offers the ability to uninstall executable products previously installed by `swift package experimental-install`.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup

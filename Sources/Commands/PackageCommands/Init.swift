@@ -23,7 +23,9 @@ import SPMBuildCore
 extension SwiftPackageCommand {
     struct Init: SwiftCommand {
         public static let configuration = CommandConfiguration(
-            abstract: "Initialize a new package.")
+            abstract: "Initialize a new package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

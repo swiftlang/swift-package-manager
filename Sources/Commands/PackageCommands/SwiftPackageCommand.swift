@@ -30,7 +30,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
         commandName: "package",
         _superCommandName: "swift",
         abstract: "Perform operations on Swift packages.",
-        discussion: "SEE ALSO: swift build, swift run, swift test",
+        discussion: "SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
             AddDependency.self,
@@ -77,7 +77,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
         ]
             + (ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_SNIPPETS"] == "1" ? [Learn.self] : []),
         defaultSubcommand: DefaultCommand.self,
-        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        helpNames: []
     )
 
     @OptionGroup()
@@ -106,10 +106,25 @@ extension SwiftPackageCommand {
         @Argument(parsing: .captureForPassthrough)
         var remaining: [String] = []
 
+        @Flag(name: [.short, .long, .customLong("help", withSingleDash: true)])
+        var help = false
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // See if have a possible plugin command.
-            guard let command = remaining.first else {
+            guard !self.help, let command = remaining.first else {
                 print(SwiftPackageCommand.helpMessage())
+                do {
+                    let pluginCommands = try await fetchAvailablePluginCommands(swiftCommandState: swiftCommandState)
+                    if !pluginCommands.isEmpty {
+                        print("\nAVAILABLE PLUGIN COMMANDS:")
+                        for cmd in pluginCommands {
+                            let formattedDescription = "\(cmd.name)"
+                                .padding(toLength: 24, withPad: " ", startingAt: 0) + cmd.description
+                            print("  " + formattedDescription)
+                        }
+                    }
+                } catch {} // fail silently as user does not need to know we could not fetch plugin command's for the
+                // help screen
                 return
             }
 
@@ -127,6 +142,38 @@ extension SwiftPackageCommand {
                 arguments: self.remaining,
                 swiftCommandState: swiftCommandState
             )
+        }
+
+        private func fetchAvailablePluginCommands(swiftCommandState: SwiftCommandState) async throws -> [(
+            name: String,
+            description: String
+        )] {
+            let packageGraph = try await swiftCommandState.loadPackageGraph()
+            let allPlugins = PluginCommand.availableCommandPlugins(
+                in: packageGraph,
+                limitedTo: self.pluginOptions.packageIdentity
+            ).map {
+                $0.underlying as! PluginModule
+            }
+
+            var result: [(String, String)] = []
+
+            for plugin in allPlugins.sorted(by: { $0.name < $1.name }) {
+                guard case .command(let intent, _) = plugin.capability else { continue }
+                let commandName = intent.invocationVerb
+                var commandDescription = "(plugin ‘\(plugin.name)’"
+
+                if let package = packageGraph.packages
+                    .first(where: { $0.modules.contains(where: { $0.name == plugin.name }) })
+                {
+                    commandDescription += " in package ‘\(package.manifest.displayName)’"
+                }
+                commandDescription += ")"
+
+                result.append((commandName, commandDescription))
+            }
+
+            return result
         }
     }
 }

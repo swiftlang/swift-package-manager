@@ -20,7 +20,9 @@ import Workspace
 
 struct ShowExecutables: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "List the available executables from this package.")
+        abstract: "List the available executables from this package.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions

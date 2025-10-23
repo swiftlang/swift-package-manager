@@ -25,7 +25,9 @@ import enum TSCUtility.Diagnostics
 extension SwiftPackageCommand {
     struct Format: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            commandName: "_format", shouldDisplay: false)
+            commandName: "_format", shouldDisplay: false,
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions
