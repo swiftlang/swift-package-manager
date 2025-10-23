@@ -611,41 +611,44 @@ extension ModulesGraph {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
         prebuildCommandResults: [CommandPluginResult],
         observabilityScope: ObservabilityScope
-    ) -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
-        var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
-
+    ) -> GeneratedFiles {
         // Add any derived files that were declared for any commands from plugin invocations.
-        var pluginDerivedFiles = [AbsolutePath]()
-        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            for absPath in command.outputFiles {
-                pluginDerivedFiles.append(absPath)
+        var generatedFiles = GeneratedFiles()
+
+        for result in buildToolPluginInvocationResults {
+            var files = TargetSourcesBuilder.computeContents(
+                for: result.buildCommands.flatMap(\.outputFiles),
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                targetName: target.name,
+                targetPath: target.underlying.path,
+                observabilityScope: observabilityScope
+            )
+            generatedFiles.merge(files)
+            if !files.headers.isEmpty || !files.moduleMaps.isEmpty {
+                // Add plugin output directory as include path
+                // TODO: plugins should be able to explicity add header search paths to the target
+                if !generatedFiles.headerSearchPaths.contains(result.pluginOutputDirectory) {
+                    generatedFiles.headerSearchPaths.append(result.pluginOutputDirectory)
+                }
             }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
         for result in prebuildCommandResults {
-            for path in result.derivedFiles {
-                pluginDerivedFiles.append(path)
-            }
+            generatedFiles.merge(TargetSourcesBuilder.computeContents(
+                for: result.derivedFiles,
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                targetName: target.name,
+                targetPath: target.underlying.path,
+                observabilityScope: observabilityScope
+            ))
         }
 
-        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
-        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
-            for: pluginDerivedFiles,
-            toolsVersion: toolsVersion,
-            additionalFileRules: additionalFileRules,
-            defaultLocalization: target.defaultLocalization,
-            targetName: target.name,
-            targetPath: target.underlying.path,
-            observabilityScope: observabilityScope
-        )
-        let pluginDerivedResources = derivedResources
-        derivedSources.forEach { absPath in
-            let relPath = absPath.relative(to: pluginDerivedSources.root)
-            pluginDerivedSources.relativePaths.append(relPath)
-        }
-
-        return (pluginDerivedSources, pluginDerivedResources)
+        return generatedFiles
     }
 }
 
