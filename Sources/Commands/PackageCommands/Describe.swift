@@ -23,7 +23,9 @@ import struct TSCBasic.StringError
 extension SwiftPackageCommand {
     struct Describe: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Describe the current package.")
+            abstract: "Describe the current package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

@@ -57,7 +57,8 @@ struct MigrateOptions: ParsableArguments {
 extension SwiftPackageCommand {
     struct Migrate: AsyncSwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Migrate a package or its individual targets to use the given set of features."
+            abstract: "Migrate a package or its individual targets to use the given set of features.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup(visibility: .hidden)

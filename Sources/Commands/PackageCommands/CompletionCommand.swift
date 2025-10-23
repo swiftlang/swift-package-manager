@@ -22,7 +22,8 @@ extension SwiftPackageCommand {
     struct CompletionCommand: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "completion-tool",
-            abstract: "Command to generate shell completions."
+            abstract: "Command to generate shell completions.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         enum Mode: String, CaseIterable, ExpressibleByArgument {
