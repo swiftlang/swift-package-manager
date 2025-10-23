@@ -34,6 +34,27 @@ public func expectFileExists(
     )
 }
 
+/// Requires that a file exists at the specified path.
+///
+/// - Parameters:
+///   - path: The absolute path to check for file existence.
+///   - sourceLocation: The source location where the expectation is made.
+public func requireFileExists(
+    at path: AbsolutePath,
+    _ comment: Comment? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) throws {
+    try #require(
+        localFileSystem.exists(path),
+        wrapMessage(
+            "Files '\(path)' does not exist.",
+            comment: comment,
+            directoryPath: path.parentDirectory
+        ),
+        sourceLocation: sourceLocation,
+    )
+}
+
 /// Verifies that a file does not exist at the specified path.
 ///
 /// - Parameters:
