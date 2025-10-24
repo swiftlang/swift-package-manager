@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Testing
 import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 
@@ -26,6 +27,12 @@ public var SupportedBuildSystemOnPlatform: [BuildSystemProvider.Kind] {
 public struct BuildData {
     public let buildSystem: BuildSystemProvider.Kind
     public let config: BuildConfiguration
+}
+
+extension BuildData: CustomTestStringConvertible {
+    public var testDescription: String {
+        return "\(buildSystem):\(config)"
+    }
 }
 
 public func getBuildData(for buildSystems: [BuildSystemProvider.Kind]) -> [BuildData] {
