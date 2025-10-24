@@ -104,13 +104,13 @@ struct InitTests {
                 #expect(manifestContents.contains(".testTarget("))
             }
 
-            try customVerification?(path, packageName)
-
             if let buildSystem = buildSystem {
                 await expectBuilds(path, buildSystem: buildSystem, configurations: Set([buildConfiguration]))
 
                 try verifyBuildProducts(for: packageType, at: path, name: packageName, buildSystem: buildSystem, buildConfiguration: buildConfiguration)
             }
+
+            try customVerification?(path, packageName)
         }
     }
 
@@ -152,28 +152,11 @@ struct InitTests {
         if hasSwiftTesting {
             #expect(testFileContents.contains(#"import Testing"#))
             #expect(testFileContents.contains(#"@Test func"#))
-        } else {
-            #expect(!testFileContents.contains(#"import Testing"#))
-            #expect(!testFileContents.contains(#"@Test func"#))
         }
 
         if hasXCTest {
             #expect(testFileContents.contains(#"import XCTest"#))
             #expect(testFileContents.contains("func test"))
-
-            if hasSwiftTesting {
-                // When both are present, ensure XCTest content is properly formatted
-                #expect(testFileContents.contains("import XCTest"), "XCTest import should be present")
-            } else {
-                // When only XCTest is present, ensure it's at the beginning of the file
-                #expect(testFileContents.hasPrefix("import XCTest"), """
-                    Validates formatting of XCTest source file, in particular that it does not contain leading whitespace:
-                    \(testFileContents)
-                    """)
-            }
-        } else {
-            #expect(!testFileContents.contains(#"import XCTest"#))
-            #expect(!testFileContents.contains("func test"))
         }
     }
 
@@ -274,7 +257,7 @@ struct InitTests {
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.xctest],
-            buildSystem: buildSystemRespectingTestingDisabled(data.buildSystem),
+            buildSystem: data.buildSystem,
             buildConfiguration: data.config,
             customVerification: { path, name in
                 #expect(
@@ -299,21 +282,17 @@ struct InitTests {
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.swiftTesting],
-            buildSystem: buildSystemRespectingTestingDisabled(data.buildSystem),
+            buildSystem: data.buildSystem,
             buildConfiguration: data.config,
             customVerification: { path, name in
                 try verifyTestFileContents(at: path, name: name, hasSwiftTesting: true, hasXCTest: false)
+                let binPath = try data.buildSystem.binPath(for: data.config, triple: Self.targetTriple.platformBuildPathComponent)
+                let swiftModule = "\(name).swiftmodule"
+                let expectedPath = path
+                    .appending(components: binPath)
+                    .appending(components: data.buildSystem == .native ? ["Modules", swiftModule] : [swiftModule])
 
-                #if canImport(TestingDisabled)
-                let expectedPath = path.appending(components: 
-                    ".build", 
-                    Self.targetTriple.platformBuildPathComponent, 
-                    "debug", 
-                    "Modules", 
-                    "\(name).swiftmodule"
-                )
-                try requireFileExists(at: expectedPath)
-                #endif
+                expectFileExists(at: expectedPath)
             }
         )
     }
@@ -324,21 +303,17 @@ struct InitTests {
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [.swiftTesting, .xctest],
-            buildSystem: buildSystemRespectingTestingDisabled(data.buildSystem),
+            buildSystem: data.buildSystem,
             buildConfiguration: data.config,
             customVerification: { path, name in
                 try verifyTestFileContents(at: path, name: name, hasSwiftTesting: true, hasXCTest: true)
+                let binPath = try data.buildSystem.binPath(for: data.config, triple: Self.targetTriple.platformBuildPathComponent)
+                let swiftModule = "\(name).swiftmodule"
+                let expectedPath = path
+                    .appending(components: binPath)
+                    .appending(components: data.buildSystem == .native ? ["Modules", swiftModule] : [swiftModule])
 
-                #if canImport(TestingDisabled)
-                let expectedPath = path.appending(components: 
-                    ".build",
-                    Self.targetTriple.platformBuildPathComponent,
-                    "debug",
-                    "Modules",
-                    "\(name).swiftmodule"
-                )
                 expectFileExists(at: expectedPath)
-                #endif
             }
         )
     }
@@ -349,7 +324,7 @@ struct InitTests {
         try await createAndVerifyPackage(
             packageType: packageType,
             supportedTestingLibraries: [],
-            buildSystem: buildSystemRespectingTestingDisabled(data.buildSystem),
+            buildSystem: data.buildSystem,
             buildConfiguration: data.config,
             customVerification: { path, name in
                 let manifestContents: String = try localFileSystem.readFileContents(path.appending("Package.swift"))
@@ -357,16 +332,13 @@ struct InitTests {
 
                 expectDirectoryDoesNotExist(at: path.appending("Tests"))
 
-                #if canImport(TestingDisabled)
-                let expectedPath = path.appending(components: 
-                    ".build",
-                    Self.targetTriple.platformBuildPathComponent,
-                    "debug",
-                    "Modules",
-                    "\(name).swiftmodule"
-                )
+                let binPath = try data.buildSystem.binPath(for: data.config, triple: Self.targetTriple.platformBuildPathComponent)
+                let swiftModule = "\(name).swiftmodule"
+                let expectedPath = path
+                    .appending(components: binPath)
+                    .appending(components: data.buildSystem == .native ? ["Modules", swiftModule] : [swiftModule])
+
                 expectFileExists(at: expectedPath)
-                #endif
             }
         )
     }
@@ -513,14 +485,4 @@ let package = Package(
 )
 """
     }
-
-    /// Returns the build system to use, respecting whether TestingDisabled is imported.
-    func buildSystemRespectingTestingDisabled(_ buildSystem: BuildSystemProvider.Kind?) -> BuildSystemProvider.Kind? {
-        #if canImport(TestingDisabled)
-            return buildSystem
-        #else
-            return nil
-        #endif
-    }
-
 }

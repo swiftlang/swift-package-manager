@@ -61,7 +61,7 @@ public func requireFileExists(
 ///   - path: The absolute path to check for file non-existence.
 ///   - comment: An optional comment to include in the failure message.
 ///   - sourceLocation: The source location where the expectation is made.
-public func expectFileDoesNotExists(
+public func expectFileDoesNotExist(
     at path: AbsolutePath,
     _ comment: Comment? = nil,
     sourceLocation: SourceLocation = #_sourceLocation,
