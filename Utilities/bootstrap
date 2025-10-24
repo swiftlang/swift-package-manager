@@ -121,6 +121,10 @@ def add_global_args(parser):
         "--reconfigure",
         action="store_true",
         help="whether to always reconfigure cmake")
+    parser.add_argument(
+        "--install-only",
+        action="store_true",
+        default=False)
 
 @log_entry_exit
 def add_build_args(parser):
@@ -494,7 +498,10 @@ def test(args):
 @log_entry_exit
 def install(args):
     """Builds SwiftPM, then installs its build products."""
-    build(args)
+    if args.install_only:
+        parse_build_args(args)
+    else:
+        build(args)
 
     # Install swiftpm content in all of the passed prefixes.
     for prefix in args.install_prefixes:
