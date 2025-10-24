@@ -443,7 +443,7 @@ struct InitTests {
 
             // Create package with non c99name.
             let initPackage = try InitPackage(
-                name: "package-name",
+                name: "Foo",
                 packageType: .executable,
                 destinationPath: packageRoot,
                 fileSystem: localFileSystem
