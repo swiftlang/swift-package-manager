@@ -177,8 +177,13 @@ public struct BuildParameters: Encodable {
         testingParameters: Testing = .init(),
         apiDigesterMode: APIDigesterMode? = nil
     ) throws {
-        // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target.
-        let triple = try triple ?? .getUnversionedHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
+        let triple = try triple ?? {
+            let hostTriple = try Triple.getHostTriple(
+                    usingSwiftCompiler: toolchain.swiftCompilerPath)
+            return hostTriple.versionedTriple.isDarwin() ? hostTriple.unversionedTriple : hostTriple.versionedTriple
+        }()
+
         self.debuggingParameters = debuggingParameters ?? .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: configuration == .debug,
