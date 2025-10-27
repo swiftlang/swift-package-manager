@@ -24,10 +24,13 @@ extension Tag.TestSize {
 
 extension Tag.Feature {
     public enum Command {}
+    public enum CommandLineArguments {}
+    public enum EnvironmentVariables  {}
     public enum PackageType {}
     public enum ProductType {}
     public enum TargetType {}
 
+    @Tag public static var BuildCache: Tag
     @Tag public static var CodeCoverage: Tag
     @Tag public static var Mirror: Tag
     @Tag public static var NetRc: Tag
@@ -45,6 +48,45 @@ extension Tag.Feature.Command {
     @Tag public static var Run: Tag
     @Tag public static var Sdk: Tag
     @Tag public static var Test: Tag
+}
+
+extension Tag.Feature.CommandLineArguments {
+    public enum Experimental {}
+    @Tag public static var BuildSystem: Tag
+    @Tag public static var BuildTests: Tag
+    @Tag public static var Configuration: Tag
+    @Tag public static var DisableGetTaskAllowEntitlement: Tag
+    @Tag public static var EnableParseableModuleInterfaces: Tag
+    @Tag public static var EnableGetTaskAllowEntitlement: Tag
+    @Tag public static var EnableTestDiscovery: Tag
+    @Tag public static var ExplicitTargetDependencyImportCheck: Tag
+    @Tag public static var Help: Tag
+    @Tag public static var Product: Tag
+    @Tag public static var PrintManifestJobGraph: Tag
+    @Tag public static var PrintPIFManifestGraph: Tag
+    @Tag public static var Quiet: Tag
+    @Tag public static var ShowBinPath: Tag
+    @Tag public static var Target: Tag
+    @Tag public static var Toolset: Tag
+    @Tag public static var Triple: Tag
+    @Tag public static var Version: Tag
+    @Tag public static var Verbose: Tag
+    @Tag public static var VeryVerbose: Tag
+    @Tag public static var Xlinker: Tag
+    @Tag public static var Xcc: Tag
+    @Tag public static var Xcxx: Tag
+    @Tag public static var SWIFT_ORIGINAL_PATH: Tag
+    @Tag public static var Xswiftc: Tag
+}
+
+extension Tag.Feature.CommandLineArguments.Experimental {
+     @Tag public static var BuildDylibsAsFrameworks: Tag
+}
+extension Tag.Feature.EnvironmentVariables {
+    @Tag public static var CUSTOM_SWIFT_VERSION: Tag
+    @Tag public static var SWIFT_EXEC: Tag
+    @Tag public static var SWIFT_EXEC_MANIFEST: Tag
+    @Tag public static var SWIFT_ORIGINAL_PATH: Tag
 }
 
 extension Tag.Feature.Command.Package {

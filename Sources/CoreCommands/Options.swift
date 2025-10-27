@@ -489,7 +489,7 @@ public struct BuildOptions: ParsableArguments {
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
-        help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)."
+        help: "Turn on runtime checks for erroneous behavior."
     )
     public var sanitizers: [Sanitizer] = []
 
