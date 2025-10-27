@@ -350,7 +350,7 @@ extension PackagePIFProjectBuilder {
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        let moduleMapFile = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        let generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -364,10 +364,19 @@ extension PackagePIFProjectBuilder {
             }
             """
             // We only need to impart this to C clients.
-            impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-        } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
+            impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+        } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if case .umbrellaHeader(let path) = sourceModule.moduleMapType {
+            switch sourceModule.moduleMapType {
+            case nil, .some(.none):
+                // No modulemap, no action required.
+                break
+            case .custom(let customModuleMapPath):
+                // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
+                // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+            case .umbrellaHeader(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
@@ -375,7 +384,10 @@ extension PackagePIFProjectBuilder {
                 export *
                 }
                 """
-            } else if case .umbrellaDirectory(let path) = sourceModule.moduleMapType {
+                // Pass the path of the module map up to all direct and indirect clients.
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+            case .umbrellaDirectory(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
@@ -383,11 +395,9 @@ extension PackagePIFProjectBuilder {
                 export *
                 }
                 """
-            }
-            if moduleMapFileContents.hasContent {
                 // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
             }
         }
 
@@ -457,7 +467,7 @@ extension PackagePIFProjectBuilder {
 
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
-        settings[.MODULEMAP_PATH] = moduleMapFile
+        settings[.MODULEMAP_PATH] = generatedModuleMapPath
         settings[.DEFINES_MODULE] = "YES"
 
         // Settings for text-based API.

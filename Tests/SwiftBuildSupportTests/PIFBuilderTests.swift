@@ -102,12 +102,19 @@ extension SwiftBuildSupport.PIF.Project {
         let matchingTargets = underlying.targets.filter {
             $0.common.name == name
         }
-        if matchingTargets.isEmpty {
+        switch matchingTargets.count {
+        case 0:
             throw StringError("No target named \(name) in PIF project")
-        } else if matchingTargets.count > 1 {
-            throw StringError("Multiple target named \(name) in PIF project")
-        } else {
+        case 1:
             return matchingTargets[0]
+        case 2:
+            if let nonDynamicVariant = matchingTargets.filter({ !$0.id.value.hasSuffix("-dynamic") }).only {
+                return nonDynamicVariant
+            } else {
+                fallthrough
+            }
+        default:
+            throw StringError("Multiple targets named \(name) in PIF project")
         }
     }
 }
@@ -195,6 +202,41 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test func impartedModuleMaps() async throws {
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: "UmbrellaHeader")
+                    .buildConfig(named: "Release")
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaHeader.modulemap").pathString)", "$(inherited)"])
+            }
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: "UmbrellaDirectoryInclude")
+                    .buildConfig(named: "Release")
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS] == ["-fmodule-map-file=\(RelativePath("$(GENERATED_MODULEMAP_DIR)").appending(component: "UmbrellaDirectoryInclude.modulemap").pathString)", "$(inherited)"])
+            }
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: "CustomModuleMap")
+                    .buildConfig(named: "Release")
+                let arg = try #require(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS]?.first)
+                #expect(arg.hasPrefix("-fmodule-map-file") && arg.hasSuffix(RelativePath("CustomModuleMap").appending(components: ["include", "module.modulemap"]).pathString))
+            }
         }
     }
 }
