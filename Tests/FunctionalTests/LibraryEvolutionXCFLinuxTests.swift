@@ -10,106 +10,102 @@
 //
 //===----------------------------------------------------------------------===//
 
+import _InternalTestSupport
 import Basics
 import Testing
-import _InternalTestSupport
 
 private struct SwiftPMTests {
-  func swiftFrameworkFixture(_ closure: (AbsolutePath) async throws -> Void) async throws {
-    try await fixture(name: "Miscellaneous/LibraryEvolutionLinuxXCF") { fixturePath in
-      let swiftFramework = "SwiftFramework"
-      try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
-        let scratchPath = tmpDir.appending(component: ".build")
-        try await executeSwiftBuild(
-          fixturePath.appending(component: swiftFramework),
-          configuration: .debug,
-          extraArgs: ["--scratch-path", scratchPath.pathString],
-          buildSystem: .native
-        )
+    @Test(.requireHostOS(.linux))
+    func libraryEvolutionLinuxXCFramework() async throws {
+        try await fixture(name: "Miscellaneous/LibraryEvolutionLinuxXCF") { fixturePath in
+            let swiftFramework = "SwiftFramework"
+            try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
+                let scratchPath = tmpDir.appending(component: ".build")
+                try await executeSwiftBuild(
+                    fixturePath.appending(component: swiftFramework),
+                    configuration: .debug,
+                    extraArgs: ["--scratch-path", scratchPath.pathString],
+                    buildSystem: .native
+                )
 
-        #if arch(arm64)
-          let arch = "arm64"
-        #elseif arch(x86_64)
-          let arch = "x86_64"
-        #endif
+                #if arch(arm64)
+                let arch = "arm64"
+                #elseif arch(x86_64)
+                let arch = "x86_64"
+                #endif
 
-        #if os(macOS)
-          let platform = "macos"
-          let libraryExtension = "dylib"
-        #elseif os(Linux)
-          let platform = "linux"
-          let libraryExtension = "so"
-        #endif
+                #if os(macOS)
+                let platform = "macos"
+                let libraryExtension = "dylib"
+                #elseif os(Linux)
+                let platform = "linux"
+                let libraryExtension = "so"
+                #endif
 
-        let xcframeworkPath = fixturePath.appending(
-          components: "TestBinary",
-          "\(swiftFramework).xcframework"
-        )
-        let libraryName = "lib\(swiftFramework).\(libraryExtension)"
-        let artifactsPath = xcframeworkPath.appending(component: "\(platform)-\(arch)")
+                let xcframeworkPath = fixturePath.appending(
+                    components: "TestBinary",
+                    "\(swiftFramework).xcframework"
+                )
+                let libraryName = "lib\(swiftFramework).\(libraryExtension)"
+                let artifactsPath = xcframeworkPath.appending(component: "\(platform)-\(arch)")
 
-        try localFileSystem.createDirectory(artifactsPath, recursive: true)
+                try localFileSystem.createDirectory(artifactsPath, recursive: true)
 
-        try localFileSystem.copy(
-          from: scratchPath.appending(components: "debug", libraryName),
-          to: artifactsPath.appending(component: libraryName)
-        )
+                try localFileSystem.copy(
+                    from: scratchPath.appending(components: "debug", libraryName),
+                    to: artifactsPath.appending(component: libraryName)
+                )
 
-        try localFileSystem.copy(
-          from: scratchPath.appending(components: "debug", "Modules", "\(swiftFramework).swiftinterface"),
-          to: artifactsPath.appending(component: "\(swiftFramework).swiftinterface")
-        )
+                try localFileSystem.copy(
+                    from: scratchPath.appending(components: "debug", "Modules", "\(swiftFramework).swiftinterface"),
+                    to: artifactsPath.appending(component: "\(swiftFramework).swiftinterface")
+                )
 
-        try localFileSystem.writeFileContents(
-          xcframeworkPath.appending(component: "Info.plist"),
-          string: """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-                <key>AvailableLibraries</key>
-                <array>
+                try localFileSystem.writeFileContents(
+                    xcframeworkPath.appending(component: "Info.plist"),
+                    string: """
+                    <?xml version="1.0" encoding="UTF-8"?>
+                    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                    <plist version="1.0">
                     <dict>
-                        <key>BinaryPath</key>
-                        <string>\(libraryName)</string>
-                        <key>LibraryIdentifier</key>
-                        <string>\(platform)-\(arch)</string>
-                        <key>LibraryPath</key>
-                        <string>\(libraryName)</string>
-                        <key>SupportedArchitectures</key>
+                        <key>AvailableLibraries</key>
                         <array>
-                            <string>\(arch)</string>
+                            <dict>
+                                <key>BinaryPath</key>
+                                <string>\(libraryName)</string>
+                                <key>LibraryIdentifier</key>
+                                <string>\(platform)-\(arch)</string>
+                                <key>LibraryPath</key>
+                                <string>\(libraryName)</string>
+                                <key>SupportedArchitectures</key>
+                                <array>
+                                    <string>\(arch)</string>
+                                </array>
+                                <key>SupportedPlatform</key>
+                                <string>\(platform)</string>
+                            </dict>
                         </array>
-                        <key>SupportedPlatform</key>
-                        <string>\(platform)</string>
+                        <key>CFBundlePackageType</key>
+                        <string>XFWK</string>
+                        <key>XCFrameworkFormatVersion</key>
+                        <string>1.0</string>
                     </dict>
-                </array>
-                <key>CFBundlePackageType</key>
-                <string>XFWK</string>
-                <key>XCFrameworkFormatVersion</key>
-                <string>1.0</string>
-            </dict>
-            </plist>
-            """
-        )
-      }
-      try await closure(fixturePath.appending(component: "TestBinary"))
-    }
-  }
+                    </plist>
+                    """
+                )
+            }
 
-  @Test(.requireHostOS(.linux))
-  func libraryEvolutionLinuxXCFramework() async throws {
-    try await self.swiftFrameworkFixture { packagePath in
-      let scratchPath = packagePath.appending(component: ".build-test")
-      let runOutput = try await executeSwiftRun(
-        packagePath, "TestBinary",
-        extraArgs: [
-          "--scratch-path", scratchPath.pathString, "--experimental-xcframeworks-on-linux",
-        ],
-        buildSystem: .native
-      )
-      #expect(!runOutput.stderr.contains("error:"))
-      #expect(runOutput.stdout.contains("Latest Framework with LibraryEvolution version: v2"))
+            let packagePath = fixturePath.appending(component: "TestBinary")
+            let scratchPath = packagePath.appending(component: ".build-test")
+            let runOutput = try await executeSwiftRun(
+                packagePath, "TestBinary",
+                extraArgs: [
+                    "--scratch-path", scratchPath.pathString, "--experimental-xcframeworks-on-linux",
+                ],
+                buildSystem: .native
+            )
+            #expect(!runOutput.stderr.contains("error:"))
+            #expect(runOutput.stdout.contains("Latest Framework with LibraryEvolution version: v2"))
+        }
     }
-  }
 }
