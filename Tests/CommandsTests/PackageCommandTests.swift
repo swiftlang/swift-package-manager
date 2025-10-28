@@ -2587,6 +2587,210 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyExternalPackage(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            _ = try await execute(
+                ["add-target-plugin", "--package", "other-package", "other-product", "library"],
+                packagePath: path,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(contents.contains(#".plugin(name: "other-product", package: "other-package"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyFromExternalPackageToNonexistentTarget(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            await expectThrowsCommandExecutionError(
+                try await execute(
+                    ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+                    packagePath: path,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("error: unable to find target named 'library-that-does-not-exist' in package"))
+            }
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(!contents.contains(#".plugin(name: "other-product", package: "other-package"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyInternalPackage(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            _ = try await execute(
+                ["add-target-plugin", "other-product", "library"],
+                packagePath: path,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(contents.contains(#".plugin(name: "other-product"#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.AddTargetPlugin,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func packageAddPluginDependencyFromInternalPackageToNonexistentTarget(
+        data: BuildData,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("PackageB")
+            try fs.createDirectory(path)
+
+            try fs.writeFileContents(
+                path.appending("Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "client",
+                        targets: [ .target(name: "library") ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                path.appending(components: "Sources", "library", "library.swift"),
+                string:
+                    """
+                    public func Foo() { }
+                    """
+            )
+
+            await expectThrowsCommandExecutionError(
+                try await execute(
+                    ["add-target-plugin", "--package", "other-package", "other-product", "library-that-does-not-exist"],
+                    packagePath: path,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                )
+            ) { error in
+                #expect(error.stderr.contains("error: unable to find target named 'library-that-does-not-exist' in package"))
+            }
+
+            let manifest = path.appending("Package.swift")
+            expectFileExists(at: manifest)
+            let contents: String = try fs.readFileContents(manifest)
+
+            #expect(!contents.contains(#".plugin(name: "other-product"#))
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.AddProduct,
             .Feature.ProductType.StaticLibrary,
         ),
