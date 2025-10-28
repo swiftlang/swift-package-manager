@@ -517,12 +517,12 @@ extension Workspace {
 
         // Precompute enabled traits, beginning with
         // root manifests, if we haven't already done so.
-        if self.enabledTraitsMap.dictionaryLiteral.isEmpty {
-            let rootManifestMap = rootManifests.values.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
-                manifestMap[manifest.packageIdentity] = manifest
-            }
-            self.enabledTraitsMap = .init(try precomputeTraits(rootManifests.values.map({ $0 }), rootManifestMap))
-        }
+//        if self.enabledTraitsMap.dictionaryLiteral.isEmpty {
+//            let rootManifestMap = rootManifests.values.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
+//                manifestMap[manifest.packageIdentity] = manifest
+//            }
+//            self.enabledTraitsMap = .init(try precomputeTraits(rootManifests.values.map({ $0 }), rootManifestMap))
+//        }
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
@@ -538,6 +538,11 @@ extension Workspace {
             root: graphRoot,
             observabilityScope: observabilityScope
         )
+
+        // Update the traits map if we've fetched new manifests
+//        currentManifests.allDependencyManifests.forEach({ manifest in
+//            let enabledTraits =
+//        })
 
         guard !observabilityScope.errorsReported else {
             return currentManifests

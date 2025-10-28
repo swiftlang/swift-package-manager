@@ -115,7 +115,7 @@ public struct PackageGraphRoot {
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
             return manifests.values.reduce(false) { result, manifest in
-                let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
+                let enabledTraits = enabledTraitsMap[manifest.packageIdentity]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed
                 }
@@ -128,7 +128,7 @@ public struct PackageGraphRoot {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
-                    let enabledTraits: Set<String> = enabledTraitsMap[manifest.packageIdentity]
+                    let enabledTraits = enabledTraitsMap[manifest.packageIdentity]
                     return try manifest.dependenciesRequired(for: .everything, enabledTraits)
                 })
                 .flatMap({ $0 })
@@ -145,7 +145,7 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(_ enabledTraitsMap: EnabledTraitsMap) throws -> [PackageContainerConstraint] {
-        var rootEnabledTraits: Set<String> = []
+        var rootEnabledTraits: Set<EnabledTrait> = []
         let constraints = self.packages.map { (identity, package) in
             let enabledTraits = enabledTraitsMap[identity]
             rootEnabledTraits.formUnion(enabledTraits)
@@ -161,11 +161,13 @@ public struct PackageGraphRoot {
             .map { dep in
                 let enabledTraits = dep.traits?.filter {
                     guard let condition = $0.condition else { return true }
-                    return condition.isSatisfied(by: rootEnabledTraits)
-                }.map(\.name)
+                    return condition.isSatisfied(by: rootEnabledTraits.names)
+                    // TODO bp modify this.
+                }.map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: "root", name: "root"))) })
 
+                // TODO bp enabled traits map must flatten default traits before this
                 var enabledTraitsSet = enabledTraitsMap[dep.identity]
-                enabledTraitsSet.formUnion(enabledTraits.flatMap({ Set($0) }) ?? [])
+                enabledTraitsSet.formUnion(EnabledTraits(enabledTraits ?? [])) // TODO bp modify this.
 
                 return PackageContainerConstraint(
                     package: dep.packageRef,

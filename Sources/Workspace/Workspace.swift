@@ -1108,10 +1108,11 @@ extension Workspace {
                     // Store the manifest.
                     rootManifests[package] = manifest
 
+                    // TODO bp: call update enabled traits here instead?
                     // Compute the enabled traits for roots.
-                    let traitConfiguration = self.configuration.traitConfiguration
-                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+//                    let traitConfiguration = self.traitConfiguration
+//                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
+//                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
                 }
             }
 
@@ -1251,7 +1252,7 @@ extension Workspace {
                     prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
-                    enabledTraits: try manifest.enabledTraits(using: .default)
+                    enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)
                 )
                 return try builder.construct()
             }
@@ -1318,7 +1319,7 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
-            enabledTraits: try manifest.enabledTraits(using: .default)
+            enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)
         )
         return try builder.construct()
     }

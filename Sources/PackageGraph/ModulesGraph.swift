@@ -488,7 +488,7 @@ public func loadModulesGraph(
         _ enabledTraitsMap: EnabledTraitsMap,
         _ topLevelManifests: [Manifest],
         _ manifestMap: [PackageIdentity: Manifest]
-    ) throws -> [PackageIdentity: Set<String>] {
+    ) throws -> [PackageIdentity: EnabledTraits] {
         var visited: Set<PackageIdentity> = []
         var enabledTraitsMap = enabledTraitsMap
 
@@ -499,19 +499,22 @@ public func loadModulesGraph(
 
             _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
                 return try manifestMap[dependency.identity].flatMap({ manifest in
-
-                    let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let condition = $0.condition else { return true }
-                        return condition.isSatisfied(by: parentTraits)
-                    }.map(\.name)
-
-                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-                        let calculatedTraits = try manifest.enabledTraits(
-                            using: enabledTraitsSet,
-                            .init(parent)
+                    let explicitlyEnabledTraitsSet = dependency.traits?.filter({ $0.isEnabled(by: parentTraits) }).map(\.name)
+                    if let explicitlyEnabledTraitsSet {
+                        let explicitlyEnabledTraits = EnabledTraits(
+                            explicitlyEnabledTraitsSet,
+                            setBy: .package(.init(identity: parent.packageIdentity, name: parent.displayName))
                         )
-                        enabledTraitsMap[dependency.identity] = calculatedTraits
+                        enabledTraitsMap[dependency.identity] = try manifest.enabledTraits(using: explicitlyEnabledTraits)
                     }
+
+//                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+//                        let calculatedTraits = try manifest.enabledTraits(
+//                            using: enabledTraitsSet
+////                            .init(parent)
+//                        )
+//                        enabledTraitsMap[dependency.identity] = calculatedTraits
+//                    }
 
                     let result = visited.insert(dependency.identity)
                     if result.inserted {

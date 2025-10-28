@@ -13,12 +13,58 @@
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductFilter
+import enum PackageModel.PackageDependency
+import struct PackageModel.EnabledTrait
+import struct PackageModel.EnabledTraits
 
 extension Workspace {
+    public func updateEnabledTraits(for manifest: Manifest) throws {
+        let explicitlyEnabledTraits = manifest.packageKind.isRoot ? try manifest.enabledTraits(using: self.traitConfiguration) : self.enabledTraitsMap[manifest.packageIdentity]
+        // TODO bp set parent here, if possible, for loaded manifests that aren't root.
+        let enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
+//        print("====== package \(manifest.packageIdentity.description) ========")
+//        print("explicit traits: \(explicitlyEnabledTraits)")
+//        print("new calculated traits: \(traits)")
+        self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+//        print("traits in map: \(self.enabledTraitsMap[manifest.packageIdentity])")
+//        print(self.enabledTraitsMap)
+
+        // Check dependencies of the manifest; see if present in enabled traits map
+        for dep in manifest.dependencies {
+            updateEnabledTraits(forDependency: dep, manifest)
+        }
+    }
+
+    private func updateEnabledTraits(forDependency dependency: PackageDependency, _ parent: Manifest) {
+        let parentEnabledTraits = self.enabledTraitsMap[parent.packageIdentity]
+        let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: parentEnabledTraits)}.map(\.name)
+
+        if let explicitlyEnabledTraits {
+            let explicitlyEnabledTraits = EnabledTraits(
+                explicitlyEnabledTraits,
+                setBy: .package(.init(parent))
+            )
+            self.enabledTraitsMap[dependency.identity] = explicitlyEnabledTraits
+        }
+
+        // TODO bp: fetch loaded manifest for dependency, if it exists.
+        // otherwise, we can omit this part:
+//        if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+////            let calculatedTraits = try dependencyManifest.enabledTraits(
+////                using: enabledTraitsSet,
+////                .init(parent)
+////            )
+//            // just add the parent enabled traits to
+//            // the map; once this dependency is loaded, it will make a call to updateenabledtraits anyways
+//            // TODO bp see if necessary to add parent here
+//            self.enabledTraitsMap[dependency.identity/*, .package(.init(parent))*/] = enabledTraitsSet
+//        }
+    }
+
     public func precomputeTraits(
         _ topLevelManifests: [Manifest],
         _ manifestMap: [PackageIdentity: Manifest]
-    ) throws -> [PackageIdentity: Set<String>] {
+    ) throws -> [PackageIdentity: EnabledTraits] {
         var visited: Set<PackageIdentity> = []
 
         func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
@@ -29,18 +75,23 @@ extension Workspace {
             _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
                 return try manifestMap[dependency.identity].flatMap({ manifest in
 
-                    let explicitlyEnabledTraits = dependency.traits?.filter {
-                        guard let condition = $0.condition else { return true }
-                        return condition.isSatisfied(by: parentTraits)
-                    }.map(\.name)
-
-                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-                        let calculatedTraits = try manifest.enabledTraits(
-                            using: enabledTraitsSet,
-                            .init(parent)
+                    let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: parentTraits) }.map(\.name)
+//                        .map({ EnabledTrait(name: $0.name, setBy: .package(.init(parent))) })
+                    if let explicitlyEnabledTraits {
+                        let explicitlyEnabledTraits = EnabledTraits(
+                            explicitlyEnabledTraits,
+                            setBy: .package(.init(parent))
                         )
+                        let calculatedTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
                         self.enabledTraitsMap[dependency.identity] = calculatedTraits
                     }
+//                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
+//                        let calculatedTraits = try manifest.enabledTraits(
+//                            using: enabledTraitsSet
+////                            .init(parent)
+//                        )
+//                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
+//                    }
 
                     let result = visited.insert(dependency.identity)
                     if result.inserted {
@@ -60,7 +111,7 @@ extension Workspace {
             }
         }
 
+        print("enabled traits map: \(enabledTraitsMap)")
         return self.enabledTraitsMap.dictionaryLiteral
     }
-
 }
