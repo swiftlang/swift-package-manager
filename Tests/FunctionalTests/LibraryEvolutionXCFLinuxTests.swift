@@ -14,6 +14,7 @@ import _InternalTestSupport
 import Basics
 import Testing
 
+#if os(Linux)
 private struct SwiftPMTests {
     @Test(.requireHostOS(.linux))
     func libraryEvolutionLinuxXCFramework() async throws {
@@ -109,3 +110,4 @@ private struct SwiftPMTests {
         }
     }
 }
+#endif
