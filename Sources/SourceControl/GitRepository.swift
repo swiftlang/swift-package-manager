@@ -92,6 +92,10 @@ private struct GitShellHelper {
         // Fetch all LFS objects
         _ = try self.run(["-C", path.pathString, "lfs", "fetch", "--all"])
     }
+    
+    func pullLFS(path: AbsolutePath) throws -> String {
+        try self.run(["-C", path.pathString, "lfs", "pull"])
+    }
 }
 
 // MARK: - GitRepositoryProvider
@@ -448,6 +452,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     private var cachedBranches = ThreadSafeBox<[String]>()
     private var cachedIsBareRepo = ThreadSafeBox<Bool>()
     private var cachedHasSubmodules = ThreadSafeBox<Bool>()
+    private var cachedHasLFS = ThreadSafeBox<Bool>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important
@@ -716,6 +721,9 @@ public final class GitRepository: Repository, WorkingCheckout {
             self.cachedHasSubmodules.put(true)
             try self.updateSubmoduleAndCleanNotOnQueue()
         }
+        
+        // Pull LFS files if the repository uses LFS
+        try self.pullLFSIfNecessary()
     }
 
     /// Initializes and updates the submodules, if any, and cleans left over the files and directories using git-clean.
@@ -790,6 +798,42 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
         let repositoryPath = objectsPath.parentDirectory
         return expected == repositoryPath
+    }
+
+    /// Checks if the working repository uses Git LFS by looking for .gitattributes with LFS filters.
+    private func hasLFS() throws -> Bool {
+        return try self.cachedHasLFS.memoize {
+            // Check if .gitattributes exists and contains LFS filters
+            let gitattributesPath = self.path.appending(".gitattributes")
+            guard localFileSystem.exists(gitattributesPath) else {
+                return false
+            }
+            
+            let contents = try localFileSystem.readFileContents(gitattributesPath).cString
+            return contents.contains("filter=lfs")
+        }
+    }
+
+    /// Pulls Git LFS files if the repository uses LFS.
+    private func pullLFSIfNecessary() throws {
+        guard try self.hasLFS() else {
+            return
+        }
+        
+        // Check if git-lfs is installed
+        do {
+            _ = try self.callGit("lfs", "version", failureMessage: "")
+        } catch {
+            // Git LFS is not installed, throw a more descriptive error
+            throw GitInterfaceError.missingGitLFS("Git LFS is required but not installed. Please install Git LFS.")
+        }
+        
+        // Pull LFS files
+        _ = try self.callGit(
+            "lfs",
+            "pull",
+            failureMessage: "Couldn't pull Git LFS files"
+        )
     }
 
     /// Returns true if the file at `path` is ignored by `git`
