@@ -598,8 +598,10 @@ extension Workspace {
             // Resolve and flatten the list of traits on top level manifests. This handles
             // the case where a package is being loaded in a wrapper project (not package),
             // where there are no root packages but there are dependencies.
-            let topLevelManifestTraits = try manifest.enabledTraits(using: parentEnabledTraits, nil)
-            self.enabledTraitsMap[manifest.packageIdentity] = topLevelManifestTraits
+            if root.packages.isEmpty {
+                let topLevelManifestTraits = try manifest.enabledTraits(using: parentEnabledTraits, nil)
+                self.enabledTraitsMap[manifest.packageIdentity] = topLevelManifestTraits
+            }
 
             return try manifest.dependencies.filter { dep in
                 let explicitlyEnabledTraits = dep.traits?.filter({
