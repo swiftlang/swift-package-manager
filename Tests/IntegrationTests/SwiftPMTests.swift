@@ -20,65 +20,59 @@ import struct SPMBuildCore.BuildSystemProvider
     .tags(Tag.TestSize.large)
 )
 private struct SwiftPMTests {
-    @Test(.requireHostOS(.macOS))
-    func binaryTargets() async throws {
-        await withKnownIssue("error: the path does not point to a valid framework:") {
-            try await binaryTargetsFixture { fixturePath in
-                do {
-                    await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let runOutput = try await executeSwiftRun(
-                            fixturePath,
-                            "exe",
-                            buildSystem: .native,
-                        )
-                        #expect(!runOutput.stderr.contains("error:"))
-                        #expect(
-                            runOutput.stdout == """
+    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func binaryTargets(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await binaryTargetsFixture { fixturePath in
+            do {
+                let runOutput = try await executeSwiftRun(
+                    fixturePath,
+                    "exe",
+                    buildSystem: buildSystem,
+                )
+                #expect(!runOutput.stderr.contains("error:"))
+                #expect(
+                    runOutput.stdout == """
                             SwiftFramework()
                             Library(framework: SwiftFramework.SwiftFramework())
-
+                            
                             """
-                        )
-                    }
-                }
+                )
+            }
 
-                do {
-                    await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let runOutput = try await executeSwiftRun(fixturePath, "cexe", buildSystem: .native)
-                        #expect(!runOutput.stderr.contains("error:"))
-                        #expect(runOutput.stdout.contains("<CLibrary: "))
-                    }
-                }
+            do {
+                let runOutput = try await executeSwiftRun(fixturePath, "cexe", buildSystem: buildSystem)
+                #expect(!runOutput.stderr.contains("error:"))
+                #expect(runOutput.stdout.contains("<CLibrary: "))
+            }
 
-                do {
-                    let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
+            do {
+                let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
 
-                    await #expect {
-                        try await executeSwiftPackage(
-                            fixturePath,
-                            extraArgs: ["compute-checksum", invalidPath.pathString],
-                            buildSystem: .native,
-                        )
-                    } throws: { error in
-                        // The order of supported extensions is not ordered, and changes.
-                        //   '...supported extensions are: zip, tar.gz, tar'
-                        //   '...supported extensions are: tar.gz, zip, tar'
-                        // Only check for the start of that string.
-                        // TODO: error.stderr.contains("error: unexpected file type; supported extensions are:")
-                        return true
-                    }
-
-                    let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                    let packageOutput = try await executeSwiftPackage(
+                await #expect {
+                    try await executeSwiftPackage(
                         fixturePath,
-                        extraArgs: ["compute-checksum", validPath.pathString],
+                        extraArgs: ["compute-checksum", invalidPath.pathString],
                         buildSystem: .native,
                     )
-                    #expect(
-                        packageOutput.stdout.spm_chomp()
-                            == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
-                    )
+                } throws: { error in
+                    // The order of supported extensions is not ordered, and changes.
+                    //   '...supported extensions are: zip, tar.gz, tar'
+                    //   '...supported extensions are: tar.gz, zip, tar'
+                    // Only check for the start of that string.
+                    // TODO: error.stderr.contains("error: unexpected file type; supported extensions are:")
+                    return true
                 }
+
+                let validPath = fixturePath.appending(component: "SwiftFramework.zip")
+                let packageOutput = try await executeSwiftPackage(
+                    fixturePath,
+                    extraArgs: ["compute-checksum", validPath.pathString],
+                    buildSystem: .native,
+                )
+                #expect(
+                    packageOutput.stdout.spm_chomp()
+                    == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
+                )
             }
         }
     }
