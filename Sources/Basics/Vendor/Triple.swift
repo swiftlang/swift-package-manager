@@ -1089,6 +1089,7 @@ extension Triple {
     case cloudABI = "cloudabi"
     case darwin
     case dragonFly = "dragonfly"
+    case driverkit
     case freebsd = "freebsd"
     case fuchsia
     case ios
@@ -1113,6 +1114,7 @@ extension Triple {
     case elfiamcu
     case tvos
     case watchos
+    case visionos = "xros"
     case mesa3d
     case contiki
     case amdpal
@@ -1136,6 +1138,8 @@ extension Triple {
         return .darwin
       case _ where os.hasPrefix("dragonfly"):
         return .dragonFly
+      case _ where os.hasPrefix("driverkit"):
+        return .driverkit
       case _ where os.hasPrefix("freebsd"):
         return .freebsd
       case _ where os.hasPrefix("fuchsia"):
@@ -1186,6 +1190,8 @@ extension Triple {
         return .tvos
       case _ where os.hasPrefix("watchos"):
         return .watchos
+      case _ where os.hasPrefix("xros") || os.hasPrefix("visionos"):
+        return .visionos
       case _ where os.hasPrefix("mesa3d"):
         return .mesa3d
       case _ where os.hasPrefix("contiki"):
@@ -1479,6 +1485,7 @@ extension Triple.OS {
   /// changes, i.e., if the two operating systems diverge or their version
   /// numbers get out of sync, that will need to be changed.
   /// watchOS has completely different version numbers so it is not included.
+  @available(*, unavailable, message: "Do not use - this confusingly named property indicates either iOS or tvOS due to LLVM history. Compare directly with .ios or .tvos as needed.")
   public var isiOS: Bool {
     self == .ios || isTvOS
   }
@@ -1493,9 +1500,9 @@ extension Triple.OS {
     self == .watchos
   }
 
-  /// isOSDarwin - Is this a "Darwin" OS (OS X, iOS, or watchOS).
+  /// isOSDarwin - Is this a "Darwin" OS (macOS, iOS, tvOS, watchOS, visionOS, or DriverKit).
   public var isDarwin: Bool {
-    isMacOSX || isiOS || isWatchOS
+      [.darwin, .macosx, .ios, .tvos, .watchos, .visionos, .driverkit].contains(self)
   }
 }
 
@@ -1605,7 +1612,7 @@ extension Triple {
         return nil
       }
 
-    case .ios, .tvos, .watchos:
+    case .ios, .tvos, .watchos, .visionos, .driverkit:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1638,7 +1645,7 @@ extension Triple {
         version.major = arch == .aarch64 ? 7 : 5
       }
       return version
-    case .watchos:
+    case .watchos, .visionos, .driverkit:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
@@ -1670,13 +1677,53 @@ extension Triple {
       fatalError("unexpected OS for Darwin triple")
     }
   }
+
+  /// Parse the version number as with getOSVersion. This should only be
+  /// called with visionOS or generic triples.
+  ///
+  /// This accessor is semi-private; it's typically better to use `version(for:)` or
+  /// `Triple.FeatureAvailability`.
+  public var _visionOSVersion: Version {
+      switch os {
+      case .visionos:
+          var version = self.osVersion
+          if version.major == 0 {
+              version.major = 1
+          }
+          return version
+      case .darwin, .macosx, .ios, .tvos, .watchos:
+          fatalError("conflicting triple info")
+      default:
+          fatalError("unexpected OS for Darwin triple")
+      }
+  }
+
+  /// Parse the version number as with getOSVersion. This should only be
+  /// called with DriverKit or generic triples.
+  ///
+  /// This accessor is semi-private; it's typically better to use `version(for:)` or
+  /// `Triple.FeatureAvailability`.
+  public var _driverKitOSVersion: Version {
+      switch os {
+      case .driverkit:
+          var version = self.osVersion
+          if version.major == 0 {
+              version.major = 1
+          }
+          return version
+      case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+          fatalError("conflicting triple info")
+      default:
+          fatalError("unexpected OS for Darwin triple")
+      }
+  }
 }
 
 // MARK: - Catalyst
 
 extension Triple {
   @_spi(Testing) public var isMacCatalyst: Bool {
-    return self.isiOS && !self.isTvOS && environment == .macabi
+    return os == .ios && environment == .macabi
   }
 
   func isValidForZipperingWithTriple(_ variant: Triple) -> Bool {

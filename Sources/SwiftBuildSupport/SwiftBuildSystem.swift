@@ -1245,6 +1245,10 @@ fileprivate extension Triple {
             return "TVOS_DEPLOYMENT_TARGET"
         case (.watchos, _):
             return "WATCHOS_DEPLOYMENT_TARGET"
+        case (.visionos, _):
+            return "XROS_DEPLOYMENT_TARGET"
+        case (.driverkit, _):
+            return "DRIVERKIT_DEPLOYMENT_TARGET"
         case (_, .android):
             return "ANDROID_DEPLOYMENT_TARGET"
         default:

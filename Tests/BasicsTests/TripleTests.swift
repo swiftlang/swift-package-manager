@@ -43,6 +43,8 @@ struct TripleTests {
             (tripleName: "x86_64-apple-macosx", isApple: true, isDarwin: true),
             (tripleName: "x86_64-apple-macosx10.15", isApple: true, isDarwin: true),
             (tripleName: "x86_64h-apple-darwin", isApple: true, isDarwin: true),
+            (tripleName: "x86_64-apple-driverkit", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-driverkit", isApple: true, isDarwin: true),
             (tripleName: "i686-pc-windows-msvc", isApple: false, isDarwin: false),
             (tripleName: "i686-pc-windows-gnu", isApple: false, isDarwin: false),
             (tripleName: "i686-pc-windows-cygnus", isApple: false, isDarwin: false),
@@ -246,6 +248,15 @@ struct TripleTests {
                 expectedOs: .wasi,
                 expectedEnvironment: nil,
                 expectedObjectFormat: .wasm
+            ),
+            DataKnownTripleParsing(
+                tripleName: "arm64-apple-driverkit19.0",
+                expectedArch: .aarch64,
+                expectedSubArch: nil,
+                expectedVendor: .apple,
+                expectedOs: .driverkit,
+                expectedEnvironment: nil,
+                expectedObjectFormat: .macho
             )
         ]
     )
