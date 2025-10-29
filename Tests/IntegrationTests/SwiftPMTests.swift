@@ -152,15 +152,15 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireHostOS(.macOS))
-    func testArchCustomization() async throws {
+    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
         try await  withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
                 extraArgs: ["init", "--type", "executable"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             // delete any files generated
             for entry in try localFileSystem.getDirectoryContents(
@@ -181,36 +181,61 @@ private struct SwiftPMTests {
                 try await executeSwiftBuild(
                     packagePath,
                     extraArgs: ["--arch", arch],
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                let fooPath = try AbsolutePath(
-                    validating: ".build/\(arch)-apple-macosx/debug/foo",
-                    relativeTo: packagePath
-                )
+                let fooPath: AbsolutePath
+                switch buildSystem {
+                case .native:
+                    fooPath = try AbsolutePath(
+                        validating: ".build/\(arch)-apple-macosx/debug/foo",
+                        relativeTo: packagePath
+                    )
+                case .swiftbuild:
+                    fooPath = try AbsolutePath(
+                        validating: ".build/\(arch)-apple-macosx/Products/Debug/foo",
+                        relativeTo: packagePath
+                    )
+                default:
+                    preconditionFailure("Unsupported backend: \(buildSystem)")
+                }
                 #expect(localFileSystem.exists(fooPath))
+                // Check the product has the expected slice
+                #expect(try sh("/usr/bin/file", fooPath.pathString).stdout.contains(arch))
             }
 
-            // let args =
-            //     [swiftBuild.pathString, "--package-path", packagePath.pathString]
-            //         + archs.flatMap { ["--arch", $0] }
             try await executeSwiftBuild(
                 packagePath,
                 extraArgs: archs.flatMap { ["--arch", $0] },
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
 
-            let fooPath = try AbsolutePath(
-                validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
-            )
+            let fooPath: AbsolutePath
+            let hostArch: String
+            #if arch(x86_64)
+            hostArch = "x86_64"
+            #elseif arch(arm64)
+            hostArch = "arm64"
+            #else
+            precondition("Unsupported platform or host arch for test")
+            #endif
+            switch buildSystem {
+            case .native:
+                fooPath = try AbsolutePath(
+                    validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+                )
+            case .swiftbuild:
+                fooPath = try AbsolutePath(
+                    validating: ".build/\(hostArch)-apple-macosx/Products/Debug/foo",
+                    relativeTo: packagePath
+                )
+            default:
+                preconditionFailure("Unsupported backend: \(buildSystem)")
+            }
             #expect(localFileSystem.exists(fooPath))
-
-            let objectsDir = try AbsolutePath(
-                validating:
-                ".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal",
-                relativeTo: packagePath
-            )
+            // Check the product has the expected slices
+            let fileOutput = try sh("/usr/bin/file", fooPath.pathString).stdout
             for arch in archs {
-                #expect(localFileSystem.isDirectory(objectsDir.appending(component: arch)))
+                #expect(fileOutput.contains(arch))
             }
         }
     }
