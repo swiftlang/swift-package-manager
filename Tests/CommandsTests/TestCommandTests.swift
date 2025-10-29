@@ -116,12 +116,17 @@ struct TestCommandTests {
 
     @Test(
         .SWBINTTODO("Windows: Driver threw unable to load output file map"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        .tags(
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func toolsetRunner(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(
             "Windows: Driver threw unable to load output file map",
             isIntermittent: true
