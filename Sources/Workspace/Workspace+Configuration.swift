@@ -786,6 +786,9 @@ public struct WorkspaceConfiguration {
     /// Whether to create a product for use in the Swift REPL
     public var createREPLProduct: Bool
 
+    /// Whether to create a product for use by swift-play
+    public var createPlaygroundProduct: Bool
+
     /// Whether or not there should be import restrictions applied when loading manifests
     public var manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?
 
@@ -809,6 +812,7 @@ public struct WorkspaceConfiguration {
         prefetchBasedOnResolvedFile: Bool,
         shouldCreateMultipleTestProducts: Bool,
         createREPLProduct: Bool,
+        createPlaygroundProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
         fingerprintCheckingMode: CheckingMode,
@@ -827,6 +831,7 @@ public struct WorkspaceConfiguration {
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.createREPLProduct = createREPLProduct
+        self.createPlaygroundProduct = createPlaygroundProduct
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled
         self.fingerprintCheckingMode = fingerprintCheckingMode
@@ -849,6 +854,7 @@ public struct WorkspaceConfiguration {
             prefetchBasedOnResolvedFile: true,
             shouldCreateMultipleTestProducts: false,
             createREPLProduct: false,
+            createPlaygroundProduct: false,
             additionalFileRules: [],
             sharedDependenciesCacheEnabled: true,
             fingerprintCheckingMode: .strict,
