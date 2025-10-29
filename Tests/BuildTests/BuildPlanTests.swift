@@ -957,6 +957,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: true,
                     configuration: .release
                 ),
                 graph: graph,
@@ -999,6 +1000,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
+                    isHost: true,
                     configuration: .debug
                 ),
                 graph: graph,
@@ -1507,6 +1509,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: true,
                     configuration: .release
                 ),
                 graph: graph,
@@ -1526,6 +1529,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .macOS,
+                    isHost: true,
                     configuration: .debug
                 ),
                 graph: graph,
@@ -2106,6 +2110,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             let plan = try await mockBuildPlan(
                 environment: BuildEnvironment(
                     platform: .linux,
+                    isHost: true,
                     configuration: .release
                 ),
                 graph: graph,
@@ -3527,7 +3532,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let graphResult = PackageGraphResultXCTest(graph)
 
         do {
-            let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
+            let linuxDebug = BuildEnvironment(platform: .linux, isHost: true, configuration: .debug)
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary1", "BLibrary2", in: linuxDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget1", "BTarget2", in: linuxDebug)
 
@@ -3542,7 +3547,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
 
         do {
-            let macosDebug = BuildEnvironment(platform: .macOS, configuration: .debug)
+            let macosDebug = BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug)
             try graphResult.check(reachableBuildProducts: "aexec", "BLibrary2", in: macosDebug)
             try graphResult.check(reachableBuildTargets: "ATarget", "BTarget2", "BTarget3", in: macosDebug)
 
@@ -3557,7 +3562,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
 
         do {
-            let androidRelease = BuildEnvironment(platform: .android, configuration: .release)
+            let androidRelease = BuildEnvironment(platform: .android, isHost: false, configuration: .release)
             try graphResult.check(reachableBuildProducts: "aexec", "CLibrary", in: androidRelease)
             try graphResult.check(reachableBuildTargets: "ATarget", "CTarget", in: androidRelease)
 
@@ -4864,7 +4869,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4886,7 +4891,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4952,7 +4957,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -4970,7 +4975,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5090,7 +5095,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test debug configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .debug),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -5121,7 +5126,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // Test release configuration
         do {
             let result = try await BuildPlanResult(plan: mockBuildPlan(
-                environment: BuildEnvironment(platform: .macOS, configuration: .release),
+                environment: BuildEnvironment(platform: .macOS, isHost: true, configuration: .release),
                 graph: graph,
                 fileSystem: fs,
                 observabilityScope: observability.topScope
@@ -7194,6 +7199,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             environment: BuildEnvironment(
                 platform: .linux,
+                isHost: true,
                 configuration: .release
             ),
             graph: graph,
