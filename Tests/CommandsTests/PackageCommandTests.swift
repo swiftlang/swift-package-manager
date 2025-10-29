@@ -1070,7 +1070,7 @@ struct PackageCommandTests {
                 let tool = try SwiftCommandState.makeMockState(
                     options: GlobalOptions.parse(["--package-path", fixturePath.pathString])
                 )
-                let symbolGraphExtractorPath = try tool.getTargetToolchain().getSymbolGraphExtract()
+                let symbolGraphExtractorPath = try await tool.getTargetToolchain().getSymbolGraphExtract()
 
                 let arguments =
                     withPrettyPrinting ? ["dump-symbol-graph", "--pretty-print"] : ["dump-symbol-graph"]
@@ -2724,7 +2724,7 @@ struct PackageCommandTests {
             )
 
             // Path to the executable.
-            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let binPath = try await fooPath.appending(components: data.buildSystem.binPath(for: data.config))
             let exec = [
                 binPath.appending("foo").pathString
             ]
@@ -2854,7 +2854,7 @@ struct PackageCommandTests {
                 buildSystem: data.buildSystem,
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
+            let binPath = try await buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: []))
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -2899,7 +2899,7 @@ struct PackageCommandTests {
                 buildSystem: data.buildSystem
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
+            let binPath = try await buildPath.appending(components: data.buildSystem.binPath(for: data.config, scratchPath: [], ))
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -3108,7 +3108,7 @@ struct PackageCommandTests {
     ) async throws {
         try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let binPath = try await fooPath.appending(components: data.buildSystem.binPath(for: data.config))
             let exec = [
                 binPath.appending("foo").pathString
             ]
@@ -4691,8 +4691,8 @@ struct PackageCommandTests {
                         """
                 )
                 let environment = Environment.current
-                let hostTriple = try UserToolchain(
-                    swiftSDK: .hostSwiftSDK(environment: environment),
+                let hostTriple = try await UserToolchain.create(
+                    swiftSDK: try await .hostSwiftSDKAsync(environment: environment),
                     environment: environment
                 ).targetTriple
                 let hostTripleString =
@@ -4927,8 +4927,8 @@ struct PackageCommandTests {
                         """
                 )
                 let environment = Environment.current
-                let hostTriple = try UserToolchain(
-                    swiftSDK: .hostSwiftSDK(environment: environment),
+                let hostTriple = try await UserToolchain.create(
+                    swiftSDK: try await .hostSwiftSDKAsync(environment: environment),
                     environment: environment
                 ).targetTriple
                 let hostTripleString =
@@ -5329,8 +5329,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryIsBuildinDebugByDefault(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
+            let debugTarget = try await buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try await buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // By default, a plugin-requested build produces a debug binary
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5360,8 +5360,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInDebugIfPluginSpecifiesDebugBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
+            let debugTarget = try await buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try await buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5395,8 +5395,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInReleaseIfPluginSpecifiesReleaseBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
+            let debugTarget = try await buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try await buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5429,8 +5429,8 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltCorrectlyIfPluginSpecifiesInheritBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
+            let debugTarget = try await buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
+            let releaseTarget = try await buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue {
                 // If the plugin inherits the overall build configuration, that is what will be built
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -7275,10 +7275,10 @@ struct PackageCommandTests {
 
                 // Load a workspace from the package.
                 let observability = ObservabilitySystem.makeForTesting()
-                let workspace = try Workspace(
+                let workspace = try await Workspace.create(
                     fileSystem: localFileSystem,
                     forRootPackage: packageDir,
-                    customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
+                    customManifestLoader: ManifestLoader(toolchain: await UserToolchain.default()),
                     delegate: MockWorkspaceDelegate()
                 )
 

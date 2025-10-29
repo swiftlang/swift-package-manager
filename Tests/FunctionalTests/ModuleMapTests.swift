@@ -26,7 +26,7 @@ final class ModuleMapsTestCase: XCTestCase {
     ) async throws {
         try await _InternalTestSupport.fixtureXCTest(name: name) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             let outdir = fixturePath.appending(components: rootpkg, ".build", triple.platformBuildPathComponent, "debug")
             try makeDirectories(outdir)
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
@@ -50,7 +50,7 @@ final class ModuleMapsTestCase: XCTestCase {
                 buildSystem: .native,
             )
 
-            let triple = try UserToolchain.default.targetTriple
+            let triple = try await UserToolchain.default().targetTriple
             let targetPath = fixturePath.appending(components: "App", ".build", triple.platformBuildPathComponent)
             let debugout = try await AsyncProcess.checkNonZeroExit(
                 args: targetPath.appending(components: "debug", "App").pathString
@@ -73,7 +73,7 @@ final class ModuleMapsTestCase: XCTestCase {
             )
             
             func verify(_ conf: String) async throws {
-                let triple = try UserToolchain.default.targetTriple
+                let triple = try await UserToolchain.default().targetTriple
                 let out = try await AsyncProcess.checkNonZeroExit(
                     args: fixturePath.appending(components: "packageA", ".build", triple.platformBuildPathComponent, conf, "packageA").pathString
                 )

@@ -69,12 +69,18 @@ extension Basics.Triple {
     public static let arm64iOS = try! Self("arm64-apple-ios")
 }
 
-public let hostTriple = try! UserToolchain.default.targetTriple
+public func hostTriple() async throws -> Basics.Triple {
+    return try await UserToolchain.default().targetTriple
+}
+
+public func defaultTargetTriple() async throws -> String {
+    let triple = try await hostTriple()
 #if os(macOS)
-public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
+    return triple.tripleString(forPlatformVersion: "10.13")
 #else
-public let defaultTargetTriple: String = hostTriple.tripleString
+    return triple.tripleString
 #endif
+}
 
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
@@ -86,14 +92,19 @@ public func mockBuildParameters(
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
-    triple: Basics.Triple = hostTriple,
+    triple: Basics.Triple? = nil,
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
-) -> BuildParameters {
-    try! BuildParameters(
+) async throws -> BuildParameters {
+    let triple = if let triple = triple {
+        triple
+    } else {
+        try await UserToolchain.default().targetTriple
+    }
+    return try BuildParameters(
         destination: destination,
         dataPath: buildPath ?? AbsolutePath("/path/to/build").appending(triple.tripleString),
         configuration: config,
@@ -125,7 +136,7 @@ public func mockBuildParameters(
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
     environment: BuildEnvironment
-) -> BuildParameters {
+) async throws -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
     case .macOS:
@@ -140,7 +151,7 @@ public func mockBuildParameters(
         fatalError("unsupported platform in tests")
     }
 
-    return mockBuildParameters(
+    return try await mockBuildParameters(
         destination: destination,
         config: environment.configuration ?? .debug,
         triple: triple

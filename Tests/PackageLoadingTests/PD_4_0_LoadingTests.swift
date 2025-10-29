@@ -353,7 +353,7 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         try fs.writeFileContents(manifestPath, string: content)
 
         let observability = ObservabilitySystem.makeForTesting()
-        let manifest = try await manifestLoader.load(
+        let manifest = try await (try await manifestLoader()).load(
             manifestPath: manifestPath,
             packageKind: .root(.root),
             toolsVersion: .v4,

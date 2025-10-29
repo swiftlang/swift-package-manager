@@ -385,7 +385,7 @@ private extension ParsableCommand {
         _ swiftCommandState: SwiftCommandState,
         handler: (_ collections: PackageCollectionsProtocol) async throws -> T
     ) async throws -> T {
-        _ = try? swiftCommandState.getActiveWorkspace(emitDeprecatedConfigurationWarning: true)
+        _ = try? await swiftCommandState.getActiveWorkspace(emitDeprecatedConfigurationWarning: true)
         let collections = PackageCollections(
             configuration: .init(
                 configurationDirectory: swiftCommandState.sharedConfigurationDirectory,

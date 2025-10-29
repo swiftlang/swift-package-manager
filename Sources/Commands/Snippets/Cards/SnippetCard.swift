@@ -114,7 +114,7 @@ struct SnippetCard: Card {
         print("Building '\(snippet.path)'\n")
         let buildSystem = try await swiftCommandState.createBuildSystem(explicitProduct: snippet.name)
         try await buildSystem.build(subset: .product(snippet.name), buildOutputs: [])
-        let executablePath = try swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
+        let executablePath = try await swiftCommandState.productsBuildParameters.buildPath.appending(component: snippet.name)
         if let exampleTarget = try await buildSystem.getPackageGraph().module(for: snippet.name) {
             try ProcessEnv.chdir(exampleTarget.sources.paths[0].parentDirectory)
         }
