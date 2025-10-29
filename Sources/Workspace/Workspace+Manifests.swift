@@ -553,14 +553,14 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
             let deps = try manifest.dependencies.filter { dep in
-                let explicitlyEnabledTraitsSet = dep.traits?.filter({ $0.isEnabled(by: parentEnabledTraits) }).map(\.name)
-                if let explicitlyEnabledTraitsSet {
-                    let explicitlyEnabledTraits = EnabledTraits(
-                        explicitlyEnabledTraitsSet,
-                        setBy: .package(.init(manifest))
-                    )
-                    self.enabledTraitsMap[dep.identity] = explicitlyEnabledTraits
-                }
+//                let explicitlyEnabledTraitsSet = dep.traits?.filter({ $0.isEnabled(by: parentEnabledTraits) }).map(\.name)
+//                if let explicitlyEnabledTraitsSet {
+//                    let explicitlyEnabledTraits = EnabledTraits(
+//                        explicitlyEnabledTraitsSet,
+//                        setBy: .package(.init(manifest))
+//                    )
+//                    self.enabledTraitsMap[dep.identity] = explicitlyEnabledTraits
+//                }
 //                    .map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: manifest.packageIdentity, name: manifest.displayName))) })
 
 //                if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
@@ -602,7 +602,6 @@ extension Workspace {
         // optimization: preload first level dependencies manifest (in parallel)
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
-            print("enabled traits for \(manifest.packageIdentity.description): \(parentEnabledTraits)")
             return try manifest.dependencies.filter { dep in
                 let explicitlyEnabledTraitsSet = dep.traits?.filter({ $0.isEnabled(by: parentEnabledTraits)}).map(\.name)
 
@@ -649,18 +648,18 @@ extension Workspace {
             return try dependenciesRequired.compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
 
-                    let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: node.item.enabledTraits)}.map(\.name)
+//                    let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: node.item.enabledTraits)}.map(\.name)
 
 //                        .map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: node.item.identity, name: node.item.manifest.displayName)))})
 
-                    if let explicitlyEnabledTraits {
-                        let explicitlyEnabledTraits = EnabledTraits(
-                            explicitlyEnabledTraits,
-                            setBy: .package(.init(node.item.manifest))
-                        )
-                        let calculatedTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
-                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
-                    }
+//                    if let explicitlyEnabledTraits {
+//                        let explicitlyEnabledTraits = EnabledTraits(
+//                            explicitlyEnabledTraits,
+//                            setBy: .package(.init(node.item.manifest))
+//                        )
+//                        let calculatedTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
+//                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
+//                    }
 
 //                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
 //                        let calculatedTraits = try manifest.enabledTraits(
@@ -713,11 +712,6 @@ extension Workspace {
                 // Nothing we need to compute here.
             }
         }
-
-        // Update enabled traits map
-        // TODO bp
-//        self.enabledTraitsMap = .init(try precomputeTraits( topLevelManifests.values.map({ $0 }), loadedManifests))
-//        self.updateEnabledTraits(for: <#T##Manifest#>)
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 
@@ -925,9 +919,8 @@ extension Workspace {
             throw Diagnostics.fatalError
         }
 
-        // Upon loading a new manifest, check whether the enabledTraitsMap needs to update.
-        // TODO bp: to add parent here if possible
-        try updateEnabledTraits(for: manifest)
+        // Upon loading a new manifest, update enabled traits.
+        try self.updateEnabledTraits(for: manifest)
 
         self.delegate?.didLoadManifest(
             packageIdentity: packageIdentity,

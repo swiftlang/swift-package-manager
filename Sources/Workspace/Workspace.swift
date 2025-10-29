@@ -1097,8 +1097,8 @@ extension Workspace {
                         )
                         return (package, manifest)
                     } catch {
+                        // Propagate the TraitError if it exists.
                         if let error = error as? TraitError {
-                            print("trait error; please propagate")
                             throw error
                         }
                         return nil
@@ -1111,12 +1111,6 @@ extension Workspace {
                 if let (package, manifest) = result {
                     // Store the manifest.
                     rootManifests[package] = manifest
-
-                    // TODO bp: call update enabled traits here instead?
-                    // Compute the enabled traits for roots.
-//                    let traitConfiguration = self.traitConfiguration
-//                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-//                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
                 }
             }
 

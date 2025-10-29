@@ -624,8 +624,6 @@ public final class MockWorkspace {
                 expectedSigningEntities: expectedSigningEntities,
                 observabilityScope: observability.topScope
             )
-            print("mock enabled traits map: \(self.enabledTraitsMap)")
-            print("real enabled traits map: \(workspace.enabledTraitsMap)")
             try result(graph, observability.diagnostics)
         } catch {
             // helpful when graph fails to load

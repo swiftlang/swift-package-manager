@@ -20,7 +20,8 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
     public typealias Key = PackageIdentity
     public typealias Value = EnabledTraits
 
-    var storage: [PackageIdentity: EnabledTraits] = [:]
+    var storage: ThreadSafeKeyValueStore<PackageIdentity, EnabledTraits> = .init()
+//    var storage: [PackageIdentity: EnabledTraits] = [:]
 
     public init() { }
 
@@ -31,7 +32,7 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
     }
 
     public init(_ dictionary: [Key: Value]) {
-        self.storage = dictionary
+        self.storage = .init(dictionary)
     }
 
     public subscript(key: PackageIdentity) -> EnabledTraits {
@@ -55,7 +56,7 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
     }
 
     public var dictionaryLiteral: [PackageIdentity: EnabledTraits] {
-        return storage
+        return storage.get()
     }
 }
 
@@ -85,15 +86,12 @@ public struct EnabledTrait: Identifiable, CustomStringConvertible, ExpressibleBy
 
     /// An enumeration that describes where a given trait was enabled.
     public enum Setter: Hashable, CustomStringConvertible {
-//        case `default`
         case traitConfiguration
         case package(Manifest.PackageIdentifier)
         case trait(String)
 
         public var description: String {
             switch self {
-//            case .default:
-//                "default"
             case .traitConfiguration:
                 "custom trait configuration."
             case .package(let parent):
@@ -242,6 +240,16 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
         return EnabledTraits(unionedTraits)
     }
 
+    public func intersection<C: Collection>(_ other: C) -> EnabledTraits where C.Element == Self.Element {
+        let otherSet = IdentifiableSet(other.map({ $0 }))
+        let intersection = self._traits.intersection(otherSet)
+        return EnabledTraits(intersection)
+    }
+
+    public func intersection<C: Collection>(_ other: C) -> EnabledTraits where C.Element == String {
+        self.intersection(other.map(\.asEnabledTrait))
+    }
+
     public mutating func remove(_ member: Element) -> Element? {
         return _traits.remove(member)
     }
@@ -311,3 +319,12 @@ extension IdentifiableSet where Element == EnabledTrait {
     }
 }
 
+package protocol EnabledTraitConvertible {
+    var asEnabledTrait: EnabledTrait { get }
+}
+
+extension String: EnabledTraitConvertible {
+    package var asEnabledTrait: EnabledTrait {
+        .init(stringLiteral: self)
+    }
+}
