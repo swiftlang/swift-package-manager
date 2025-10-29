@@ -322,7 +322,7 @@ fileprivate func setup(
         #else
         try Process.checkNonZeroExit(args: "cp", "-R", "-H", srcDir.pathString, dstDir.pathString)
         #endif
-        
+
         // Ensure we get a clean test fixture.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
         try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
@@ -533,14 +533,7 @@ private func swiftArgs(
     Xswiftc: [String],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
-    var args = ["--configuration"]
-    switch configuration {
-    case .debug:
-        args.append("debug")
-    case .release:
-        args.append("release")
-    }
-
+    var args = configuration.buildArgs
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
@@ -549,7 +542,7 @@ private func swiftArgs(
     return args
 }
 
-@available(*, 
+@available(*,
     deprecated,
     renamed: "loadModulesGraph",
     message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
@@ -580,6 +573,19 @@ public func loadPackageGraph(
         observabilityScope: observabilityScope,
         traitConfiguration: traitConfiguration
     )
+}
+
+extension BuildConfiguration {
+    public var buildArgs: [String] {
+        var args = ["--configuration"]
+        switch self {
+        case .debug:
+            args.append("debug")
+        case .release:
+            args.append("release")
+        }
+        return args
+    }
 }
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
@@ -694,7 +700,7 @@ public func getNumberOfMatches(of match: String, in value: String) -> Int {
 }
 
 public extension String {
-    var withSwiftLineEnding: String {   
+    var withSwiftLineEnding: String {
         return replacingOccurrences(of: "\r\n", with: "\n")
     }
 }
