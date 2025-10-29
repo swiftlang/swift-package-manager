@@ -127,28 +127,22 @@ struct PluginsBuildPlanTests {
         let targetTriple = hostToolchain.targetTriple.arch == .aarch64 ? x86Triple : armTriple
 
         let hostBinPathSegments = try buildData.buildSystem.binPath(
-            for: buildData.config,
+            for: buildData.config
         )
         let targetDebugBinPathSegments = try buildData.buildSystem.binPath(
             for: .debug,
-            triple: targetTriple,
+            triple: targetTriple
+        )
+        let targetBinPathSegments = try buildData.buildSystem.binPath(
+            for: buildData.config,
+            triple: targetTriple
         )
 
         // When cross compiling the final product, plugin dependencies should still be built for the host
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            // let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
             let targetDebugBinPath: AbsolutePath = fixturePath.appending(components: targetDebugBinPathSegments)
-            let hostBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
-                    for: buildData.config,
-                )
-            )
-            let targetBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
-                    for: buildData.config,
-                    triple: targetTriple,
-                )
-            )
+            let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
+            let targetBinPath: AbsolutePath = fixturePath.appending(components: targetBinPathSegments)
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath,
                 configuration: buildData.config,
