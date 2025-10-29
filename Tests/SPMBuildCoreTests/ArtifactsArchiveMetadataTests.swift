@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SPMBuildCore
 import Testing
 
 struct ArtifactsArchiveMetadataTests {
@@ -122,6 +123,161 @@ struct ArtifactsArchiveMetadataTests {
         #expect(throws: (any Error).self) {
             try binaryTarget.parseExecutableArtifactArchives(
                 for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
+            )
+        }
+    }
+
+    @Test
+    func parseMetadataLibrary() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.2",
+                "artifacts": {
+                    "KrabbyPatty": {
+                        "type": "dynamicLibrary",
+                        "version": "1.0.0",
+                        "variants": [{ "path": "KrabbyPatty" }]
+                    }
+                }
+            }
+            """
+        )
+
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
+        #expect(metadata == ArtifactsArchiveMetadata(
+            schemaVersion: "1.2",
+            artifacts: [
+                "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
+                    type: .dynamicLibrary,
+                    version: "1.0.0",
+                    variants: [
+                        ArtifactsArchiveMetadata.Variant(
+                            path: "KrabbyPatty",
+                            supportedTriples: nil
+                        ),
+                    ]
+                ),
+            ]
+        ))
+
+        let binaryTarget = BinaryModule(
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
+        )
+        let libraries = try binaryTarget.parseLibraries(
+            for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
+        )
+        #expect(libraries.count == 1)
+    }
+
+    @Test
+    func parseMetadataLibraryDiagnoseUnexpectedTriple() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.2",
+                "artifacts": {
+                    "KrabbyPatty": {
+                        "type": "dynamicLibrary",
+                        "version": "1.0.0",
+                        "variants": [
+                            {
+                                "path": "KrabbyPatty",
+                                "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        )
+
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
+        #expect(metadata == ArtifactsArchiveMetadata(
+            schemaVersion: "1.2",
+            artifacts: [
+                "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
+                    type: .dynamicLibrary,
+                    version: "1.0.0",
+                    variants: [
+                        ArtifactsArchiveMetadata.Variant(
+                            path: "KrabbyPatty",
+                            supportedTriples: [try Triple("x86_64-unknown-linux-gnu")]
+                        ),
+                    ]
+                ),
+            ]
+        ))
+
+        let binaryTarget = BinaryModule(
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
+        )
+        // library artifacts must not specify supported triples
+        #expect(throws: (any Error).self) {
+            try binaryTarget.parseLibraries(
+                for: Triple("x86_64-unknown-linux-gnu"), fileSystem: fileSystem
+            )
+        }
+    }
+
+    @Test
+    func parseMetadataLibraryDiagnoseMultipleVariants() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.2",
+                "artifacts": {
+                    "KrabbyPatty": {
+                        "type": "dynamicLibrary",
+                        "version": "1.0.0",
+                        "variants": [
+                            {
+                                "path": "KrabbyPatty1",
+                            },
+                            {
+                                "path": "KrabbyPatty2",
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        )
+
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
+        #expect(metadata == ArtifactsArchiveMetadata(
+            schemaVersion: "1.2",
+            artifacts: [
+                "KrabbyPatty": ArtifactsArchiveMetadata.Artifact(
+                    type: .dynamicLibrary,
+                    version: "1.0.0",
+                    variants: [
+                        ArtifactsArchiveMetadata.Variant(
+                            path: "KrabbyPatty1",
+                            supportedTriples: nil
+                        ),
+                        ArtifactsArchiveMetadata.Variant(
+                            path: "KrabbyPatty2",
+                            supportedTriples: nil
+                        ),
+                    ]
+                ),
+            ]
+        ))
+
+        let binaryTarget = BinaryModule(
+            name: "KrabbyPatty", kind: .artifactsArchive(types: [.dynamicLibrary]), path: .root, origin: .local
+        )
+        // library artifacts must not specify supported triples
+        #expect(throws: (any Error).self) {
+            try binaryTarget.parseLibraries(
+                for: Triple("x86_64-unknown-linux-gnu"), fileSystem: fileSystem
             )
         }
     }

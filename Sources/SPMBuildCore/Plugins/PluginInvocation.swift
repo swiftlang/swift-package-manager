@@ -242,7 +242,7 @@ extension PluginModule {
                     context: wireInput,
                     rootPackageId: rootPackageId,
                     arguments: arguments)
-                
+
             case .performXcodeProjectCommand(let xcodeProject, let arguments):
                 let rootProjectId = try serializer.serialize(xcodeProject: xcodeProject)
                 let wireInput = WireInput(
@@ -516,7 +516,7 @@ extension PluginModule {
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
-        
+
         let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(

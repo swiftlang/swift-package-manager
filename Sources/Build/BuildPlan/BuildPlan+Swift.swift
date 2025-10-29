@@ -44,13 +44,24 @@ extension BuildPlan {
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
             case let target as BinaryModule:
                 switch target.kind {
-                case .unknown:
-                    break
                 case .artifactsArchive:
-                    let libraries = try self.parseLibraryArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
-                    for library in libraries {
-                        library.headersPaths.forEach {
-                            swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
+                    let dynamicLibraries = try self.parseLibraries(in: target, triple: swiftTarget.buildParameters.triple)
+                    for library in dynamicLibraries {
+                        for header in library.headersPaths {
+                            swiftTarget.additionalFlags += ["-I", header.pathString]
+                        }
+                        // This is not strictly necessary to build the target, but it tells the
+                        // build system to copy the library to the build directory, which
+                        // makes executables that depend on it runnable by default instead of
+                        // requiring the user to configure LD_LIBRARY_PATH (as they would in
+                        // production)
+                        swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
+                    }
+
+                    let staticLibraries = try self.parseLibraryArtifactsArchive(for: target, triple: swiftTarget.buildParameters.triple)
+                    for library in staticLibraries {
+                        for header in library.headersPaths {
+                            swiftTarget.additionalFlags += ["-I", header.pathString, "-Xcc", "-I", "-Xcc", header.pathString]
                         }
                         if let moduleMapPath = library.moduleMapPath {
                             // We need to pass the module map if there is one. If there is none Swift cannot import it but
@@ -60,6 +71,7 @@ extension BuildPlan {
 
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+
                 case .xcframework:
                     let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
@@ -68,6 +80,9 @@ extension BuildPlan {
                         }
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+
+                case .unknown:
+                    break
                 }
             default:
                 break
