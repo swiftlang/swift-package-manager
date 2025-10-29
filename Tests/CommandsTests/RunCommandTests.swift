@@ -94,6 +94,13 @@ struct RunCommandTests {
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
         .SWBINTTODO("Test package fails to build on Windows"),
+        .tags(
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func toolsetDebugger(

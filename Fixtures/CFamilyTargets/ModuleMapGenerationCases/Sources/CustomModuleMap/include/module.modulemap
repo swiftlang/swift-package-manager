@@ -1,0 +1,5 @@
+module CustomModuleMap {
+    header "CustomModuleMap.h"
+
+    export *
+}

@@ -86,15 +86,15 @@ extension Triple {
 
     /// Determine the versioned host triple using the Swift compiler.
     public static func getVersionedHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
-        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler, versioned: true)
+        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler).versionedTriple
     }
 
     /// Determine the unversioned host triple using the Swift compiler.
     public static func getUnversionedHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> Triple {
-        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler, versioned: false)
+        try Self.getHostTriple(usingSwiftCompiler: swiftCompiler).unversionedTriple
     }
 
-    private static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath, versioned: Bool) throws -> Triple {
+    public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> (versionedTriple: Triple, unversionedTriple: Triple) {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
         do {
@@ -113,9 +113,11 @@ extension Triple {
             )
         }
         // Get the triple string from the parsed JSON.
-        let tripleString: String
+        let versionedTripleString: String
+        let unversionedTripleString: String
         do {
-            tripleString = try parsedTargetInfo.get("target").get(versioned ? "triple" : "unversionedTriple")
+            versionedTripleString = try parsedTargetInfo.get("target").get("triple")
+            unversionedTripleString = try parsedTargetInfo.get("target").get("unversionedTriple")
         } catch {
             throw InternalError(
                 "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(parsedTargetInfo)"
@@ -124,10 +126,10 @@ extension Triple {
 
         // Parse the triple string.
         do {
-            return try Triple(tripleString)
+            return try (Triple(versionedTripleString), Triple(unversionedTripleString))
         } catch {
             throw InternalError(
-                "Failed to parse triple string (\(error.interpolationDescription)).\nTriple string: \(tripleString)"
+                "Failed to parse triple string (\(error.interpolationDescription)).\nVersioned triple string: \(versionedTripleString), unversioned triple string \(unversionedTripleString)"
             )
         }
     }
