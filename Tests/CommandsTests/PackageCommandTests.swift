@@ -2866,7 +2866,7 @@ struct PackageCommandTests {
                 configuration: data.config,
                 buildSystem: data.buildSystem,
             )
-            expectFileDoesNotExists(at: binFile)
+            expectFileDoesNotExist(at: binFile)
             // Clean again to ensure we get no error.
             _ = try await execute(
                 ["clean"],
@@ -2911,7 +2911,7 @@ struct PackageCommandTests {
                 configuration: data.config,
                 buildSystem: data.buildSystem,
             )
-            expectFileDoesNotExists(at: binFile)
+            expectFileDoesNotExist(at: binFile)
             try #expect(
                 !localFileSystem.getDirectoryContents(buildPath.appending("repositories")).isEmpty
             )
@@ -3014,7 +3014,7 @@ struct PackageCommandTests {
                 #expect(!result.stderr.contains("Could not find Package.swift"))
 
                 // Verify manifest.db was removed (the purge implementation removes this file)
-                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+                expectFileDoesNotExist(at: manifestDB, "manifest.db should be removed after purge")
 
                 // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
                 // The important check is that the main database file is removed
@@ -5341,7 +5341,7 @@ struct PackageCommandTests {
                         buildSystem: buildData.buildSystem,
                     )
                     expectFileIsExecutable(at: fixturePath.appending(components: debugTarget), "build-target")
-                    expectFileDoesNotExists(
+                    expectFileDoesNotExist(
                         at: fixturePath.appending(components: releaseTarget),
                         "build-target build-inherit"
                     )
@@ -5375,7 +5375,7 @@ struct PackageCommandTests {
                         at: fixturePath.appending(components: debugTarget),
                         "build-target build-debug"
                     )
-                    expectFileDoesNotExists(
+                    expectFileDoesNotExist(
                         at: fixturePath.appending(components: releaseTarget),
                         "build-target build-inherit"
                     )
@@ -5406,7 +5406,7 @@ struct PackageCommandTests {
                         configuration: buildData.config,
                         buildSystem: buildData.buildSystem,
                     )
-                    expectFileDoesNotExists(
+                    expectFileDoesNotExist(
                         at: fixturePath.appending(components: debugTarget),
                         "build-target build-inherit"
                     )
@@ -5450,7 +5450,7 @@ struct PackageCommandTests {
                         fileShouldNotExist = fixturePath.appending(components: debugTarget)
                         fileShouldExist = fixturePath.appending(components: releaseTarget)
                     }
-                    expectFileDoesNotExists(at: fileShouldNotExist, "build-target build-inherit")
+                    expectFileDoesNotExist(at: fileShouldNotExist, "build-target build-inherit")
                     expectFileIsExecutable(at: fileShouldExist, "build-target build-inherit")
                 }
             } when: {
