@@ -101,6 +101,14 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
     public func contains(id: Element.ID) -> Bool {
         self.storage.keys.contains(id)
     }
+
+    public mutating func remove(id: Element.ID) -> Element? {
+        self.storage.removeValue(forKey: id)
+    }
+
+    public mutating func remove(_ member: Element) -> Element? {
+        self.storage.removeValue(forKey: member.id)
+    }
 }
 
 extension OrderedDictionary where Value: Identifiable, Key == Value.ID {

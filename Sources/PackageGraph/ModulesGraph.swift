@@ -499,6 +499,8 @@ public func loadModulesGraph(
 
             _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
                 return try manifestMap[dependency.identity].flatMap({ manifest in
+                    // TODO bp can this be shortened as an initializer for EnabledTraits?
+                    // possibly have it filter across the dependencies itself
                     let explicitlyEnabledTraitsSet = dependency.traits?.filter({ $0.isEnabled(by: parentTraits) }).map(\.name)
                     if let explicitlyEnabledTraitsSet {
                         let explicitlyEnabledTraits = EnabledTraits(

@@ -19,9 +19,13 @@ import struct PackageModel.EnabledTraits
 
 extension Workspace {
     public func updateEnabledTraits(for manifest: Manifest) throws {
+        print("calling update enabled traits on \(manifest.displayName)")
         let explicitlyEnabledTraits = manifest.packageKind.isRoot ? try manifest.enabledTraits(using: self.traitConfiguration) : self.enabledTraitsMap[manifest.packageIdentity]
         // TODO bp set parent here, if possible, for loaded manifests that aren't root.
+        print("updating traits for manifest \(manifest.displayName)")
         let enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
+        print("new enabled traits: \(enabledTraits)")
+        print("with map: \(enabledTraitsMap)")
 //        print("====== package \(manifest.packageIdentity.description) ========")
 //        print("explicit traits: \(explicitlyEnabledTraits)")
 //        print("new calculated traits: \(traits)")

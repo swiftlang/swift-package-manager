@@ -782,6 +782,8 @@ extension WorkspaceTests {
                         return
                     }
 
+                    print("enabled traits: \(enabledTraits)")
+
                     let deps = package.dependencies
                     XCTAssertEqual(deps, [PackageIdentity(urlString: "./GuardedDependency")])
                     XCTAssertEqual(enabledTraits, ["Enabled1", "Enabled2"])

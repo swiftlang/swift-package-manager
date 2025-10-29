@@ -463,7 +463,7 @@ class ManifestTests: XCTestCase {
             // Like the above configuration, Trait1 is on by default. When calling `isTraitEnabled`,
             // it should calculate transitively enabled traits from here which would eventualy uncover
             // that each trait is enabled.
-            let enabledTraits = EnabledTrait.createSet(from: ["Trait1"], enabledBy: .trait("default"))
+            let enabledTraits = EnabledTraits(["Trait1"], setBy: .trait("default"))
 
             for trait in traits.sorted(by: { $0.name < $1.name }) {
                 XCTAssertTrue(try manifest.isTraitEnabled(trait, enabledTraits))

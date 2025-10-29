@@ -69,7 +69,7 @@ extension Manifest {
 
     /// Validates a trait by checking that it is defined in the manifest; if not, an error is thrown.
     private func validateTrait(_ trait: EnabledTrait) throws {
-        guard trait != "default" else {
+        guard !trait.isDefault else {
             if !supportsTraits {
                 throw TraitError.invalidTrait(
                     package: .init(self),
@@ -152,7 +152,7 @@ extension Manifest {
         // Get the enabled traits; if the trait configuration's `.enabledTraits` returns nil,
         // we know that it's the `.enableAllTraits` case, since the config does not store
         // all the defined traits of the manifest itself.
-        let enabledTraits: EnabledTraits = traitConfiguration.enabledTraits ?? EnabledTrait.createSet(from: self.traits.map(\.name), enabledBy: .traitConfiguration)
+        let enabledTraits: EnabledTraits = traitConfiguration.enabledTraits ?? EnabledTraits(self.traits.map(\.name), setBy: .traitConfiguration)
 
         try validateEnabledTraits(enabledTraits)
     }
@@ -224,7 +224,7 @@ extension Manifest {
 
         var enabledTraits: EnabledTraits = []
 
-        if let allEnabledTraits = try? calculateAllEnabledTraits(explictlyEnabledTraits: explicitlyEnabledTraits) {
+        if let allEnabledTraits = try? calculateAllEnabledTraits(explicitlyEnabledTraits: explicitlyEnabledTraits) {
             enabledTraits = allEnabledTraits
         }
 
@@ -299,28 +299,28 @@ extension Manifest {
         }
 
         // Compute all transitively enabled traits.
-        let allEnabledTraits = try calculateAllEnabledTraits(explictlyEnabledTraits: enabledTraits)
+        let allEnabledTraits = try calculateAllEnabledTraits(explicitlyEnabledTraits: enabledTraits)
 
         return allEnabledTraits.contains(trait.name)
     }
 
     /// Calculates and returns a set of all enabled traits, beginning with a set of explicitly enabled traits (which can either be the default traits of a manifest, or a configuration of enabled traits determined from a user-generated trait configuration) and determines which traits are transitively enabled.
     private func calculateAllEnabledTraits(
-        explictlyEnabledTraits: EnabledTraits,
+        explicitlyEnabledTraits: EnabledTraits,
 //        _ parentPackage: PackageIdentifier? = nil
     ) throws -> EnabledTraits {
-        try validateEnabledTraits(explictlyEnabledTraits)
+        try validateEnabledTraits(explicitlyEnabledTraits)
         // This the point where we flatten the enabled traits and resolve the recursive traits
-        var enabledTraits = explictlyEnabledTraits
-        let areDefaultsEnabled = enabledTraits.remove("default") != nil // TODO bp check if this remove is ok
+        var enabledTraits = explicitlyEnabledTraits
+        let areDefaultsEnabled = enabledTraits.remove("default") != nil
 
         // We have to enable all default traits if no traits are enabled or the defaults are explicitly enabled
-        if explictlyEnabledTraits == ["default"] || areDefaultsEnabled {
+        if explicitlyEnabledTraits == ["default"] || areDefaultsEnabled {
             if let defaultTraits {
-            let transitiveDefaultTraits = EnabledTrait.createSet(
-                from: defaultTraits,
-                enabledBy: .trait("default")
-            )
+                let transitiveDefaultTraits = EnabledTraits(
+                    defaultTraits,
+                    setBy: .default
+                )
                 enabledTraits.formUnion(transitiveDefaultTraits)
             }
         }
@@ -339,9 +339,9 @@ extension Manifest {
                         trait: trait
                     )
                 }
-                return EnabledTrait.createSet(
-                    from: traitDescription.enabledTraits,
-                    enabledBy: .trait(traitDescription.name)
+                return EnabledTraits(
+                    traitDescription.enabledTraits,
+                    setBy: .trait(traitDescription.name)
                 )
             }
 

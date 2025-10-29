@@ -1097,6 +1097,10 @@ extension Workspace {
                         )
                         return (package, manifest)
                     } catch {
+                        if let error = error as? TraitError {
+                            print("trait error; please propagate")
+                            throw error
+                        }
                         return nil
                     }
                 }

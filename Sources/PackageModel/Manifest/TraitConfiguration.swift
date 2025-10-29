@@ -47,9 +47,9 @@ public enum TraitConfiguration: Codable, Hashable {
     public var enabledTraits: EnabledTraits? {
         switch self {
         case .default:
-            ["default"]
+            EnabledTraits.defaults
         case .enabledTraits(let traits):
-            EnabledTrait.createSet(from: traits, enabledBy: .traitConfiguration)
+            EnabledTraits(traits, setBy: .traitConfiguration)
         case .disableAllTraits:
             []
         case .enableAllTraits:

@@ -145,7 +145,7 @@ public struct PackageGraphRoot {
 
     /// Returns the constraints imposed by root manifests + dependencies.
     public func constraints(_ enabledTraitsMap: EnabledTraitsMap) throws -> [PackageContainerConstraint] {
-        var rootEnabledTraits: Set<EnabledTrait> = []
+        var rootEnabledTraits: EnabledTraits = []
         let constraints = self.packages.map { (identity, package) in
             let enabledTraits = enabledTraitsMap[identity]
             rootEnabledTraits.formUnion(enabledTraits)
