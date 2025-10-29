@@ -339,8 +339,12 @@ extension PackagePIFProjectBuilder {
 
                 switch moduleDependency.type {
                 case .binary:
+                    guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
+                        log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: moduleDependency.path.pathString)
+                        FileReference(id: id, path: binaryModule.artifactPath.pathString)
                     }
                     let toolsVersion = self.package.manifest.toolsVersion
                     self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
@@ -720,7 +724,7 @@ extension PackagePIFProjectBuilder {
 
                 if let binaryTarget = moduleDependency.underlying as? BinaryModule {
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: binaryTarget.path.pathString)
+                        FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                     }
                     let toolsVersion = package.manifest.toolsVersion
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in

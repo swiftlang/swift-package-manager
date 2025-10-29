@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 
 import class PackageModel.Manifest
 import class PackageModel.Module
+import class PackageModel.BinaryModule
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
 
@@ -639,8 +640,12 @@ extension PackagePIFProjectBuilder {
                     }
 
                 case .binary:
+                    guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
+                        log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
                     let binaryReference = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: moduleDependency.path.pathString)
+                        FileReference(id: id, path: (binaryModule.artifactPath.pathString))
                     }
                     if shouldLinkProduct {
                         self.project[keyPath: sourceModuleTargetKeyPath].addLibrary { id in
