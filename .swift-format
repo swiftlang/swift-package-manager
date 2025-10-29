@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "lineLength": 10000,
+    "indentation": {
+        "spaces": 4
+    },
+    "lineBreakBeforeEachArgument": true,
+    "maximumBlankLines" : 1,
+    "multiElementCollectionTrailingCommas" : true,
+    "rules": {
+    },
+    "tabWidth": 4
+}
