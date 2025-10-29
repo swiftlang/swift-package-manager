@@ -500,9 +500,9 @@ extension PackagePIFProjectBuilder {
                 // darwin & freebsd
                 switch platform {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                        settings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
+                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
                     case .android, .linux, .wasi, .openbsd:
-                        settings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
                     case .windows, ._iOSDevice:
                         break
                 }
