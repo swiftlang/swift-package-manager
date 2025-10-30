@@ -16,6 +16,7 @@ public enum OperatingSystem: Hashable, Sendable {
     case linux
     case android
     case freebsd
+    case openbsd
     case unknown
 }
 
@@ -30,6 +31,8 @@ extension ProcessInfo {
         .windows
         #elseif os(FreeBSD)
         .freebsd
+        #elseif os(OpenBSD)
+        .openbsd
         #else
         .unknown
         #endif
