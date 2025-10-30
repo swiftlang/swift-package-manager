@@ -173,10 +173,39 @@ struct PackageCommandTests {
         }
     }
 
-    @Test
-    func commandDisplaysNoAvailablePluginCommands() async throws {
-        let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
-        #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+    // Have to create empty package, as in CI, --help is invoked on swiftPM, causing test to fail
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysNoAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+
+            let packageDir = tmpPath.appending(components: "MyPackage")
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+            )
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+        }
     }
 
     @Test(
