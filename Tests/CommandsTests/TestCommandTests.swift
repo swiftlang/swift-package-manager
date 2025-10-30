@@ -227,8 +227,7 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
-            .Feature.TargetType.Executable
+            .Feature.TargetType.Executable,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
@@ -258,7 +257,6 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Test currently fails due to 'error: build failed'"),
@@ -296,8 +294,7 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
-            .Feature.TargetType.Executable
+            .Feature.TargetType.Executable,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
@@ -322,8 +319,7 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
-            .Feature.TargetType.Executable
+            .Feature.TargetType.Executable,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -361,7 +357,7 @@ struct TestCommandTests {
         .tags(
             .Feature.Command.Run,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestNoParallel
+            .Feature.CommandLineArguments.TestNoParallel,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -396,9 +392,8 @@ struct TestCommandTests {
 
     @Test(
          .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestParallel
+            .Feature.CommandLineArguments.TestParallel,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -435,10 +430,9 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestParallel,
-            .Feature.CommandLineArguments.TestOutputXunit
+            .Feature.CommandLineArguments.TestOutputXunit,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -490,10 +484,9 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestParallel,
-            .Feature.CommandLineArguments.TestOutputXunit
+            .Feature.CommandLineArguments.TestOutputXunit,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -547,12 +540,11 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestParallel,
             .Feature.CommandLineArguments.TestOutputXunit,
             .Feature.CommandLineArguments.TestEnableXCTest,
-            .Feature.CommandLineArguments.TestEnableSwiftTesting
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -720,9 +712,8 @@ struct TestCommandTests {
 
     @Test(
          .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestFilter
+            .Feature.CommandLineArguments.TestFilter,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -767,9 +758,8 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestSkip
+            .Feature.CommandLineArguments.TestSkip,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
@@ -844,7 +834,6 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Fails to find test executable"),
@@ -892,7 +881,6 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Fails to find test executable"),
@@ -929,9 +917,8 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.BuildTests
+            .Feature.CommandLineArguments.BuildTests,
         ),
         .SWBINTTODO("Fails to find test executable when run in self-hosted pipeline"),
         .SWBINTTODO("Linux: fails to build with --build-test in Smoke Tests"),
@@ -986,9 +973,8 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.BuildTests
+            .Feature.CommandLineArguments.BuildTests,
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
@@ -1070,9 +1056,8 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestEnableSwiftTesting
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
@@ -1100,7 +1085,6 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
@@ -1128,7 +1112,6 @@ struct TestCommandTests {
     }
     @Test(
          .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
@@ -1157,7 +1140,6 @@ struct TestCommandTests {
 
     @Test(
          .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
@@ -1190,9 +1172,8 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
-            .Feature.CommandLineArguments.TestDisableSwiftTesting
+            .Feature.CommandLineArguments.TestDisableSwiftTesting,
         ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
@@ -1219,7 +1200,6 @@ struct TestCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Test,
             .Feature.TargetType.Executable,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/6605", relationship: .verifies),

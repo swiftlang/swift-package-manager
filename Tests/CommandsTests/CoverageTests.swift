@@ -24,14 +24,16 @@ import Testing
     .tags(
         .TestSize.large,
         .Feature.CodeCoverage,
+        .Feature.CommandLineArguments.EnableCodeCoverage
     )
 )
 struct CoverageTests {
     @Test(
         .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .tags(
-            .Feature.CodeCoverage,
+            .Feature.Command.Build,
             .Feature.Command.Test,
+            .Feature.CommandLineArguments.BuildTests,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -69,8 +71,8 @@ struct CoverageTests {
         .SWBINTTODO("Test failed because of missing plugin support in the PIF builder. This can be reinvestigated after the support is there."),
         .IssueWindowsCannotSaveAttachment,
         .tags(
-            .Feature.CodeCoverage,
             .Feature.Command.Test,
+            .Feature.CommandLineArguments.BuildTests,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -130,7 +132,6 @@ struct CoverageTests {
 
     @Test(
         .tags(
-            .Feature.CodeCoverage,
             .Feature.Command.Test,
         ),
         arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), [

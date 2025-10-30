@@ -143,7 +143,6 @@ struct RunCommandTests {
 
     @Test(
          .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
@@ -212,7 +211,6 @@ struct RunCommandTests {
 
     @Test(
          .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
         ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
@@ -253,7 +251,6 @@ struct RunCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
         ),
         .IssueWindowsPathTestsFailures,
@@ -276,7 +273,6 @@ struct RunCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
         ),
         arguments: SupportedBuildSystemOnPlatform,
@@ -299,7 +295,6 @@ struct RunCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.SkipBuild
@@ -327,7 +322,6 @@ struct RunCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
         ),
         arguments: SupportedBuildSystemOnPlatform,
@@ -431,7 +425,6 @@ struct RunCommandTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run,
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.Quiet
         ),

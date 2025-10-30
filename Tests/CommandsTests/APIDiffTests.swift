@@ -198,7 +198,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run
+            .Feature.Command.Run,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
@@ -277,7 +277,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run
+            .Feature.Command.Run,
         ),
         .requiresAPIDigester, 
         arguments: SupportedBuildSystemOnAllPlatforms
@@ -314,7 +314,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run
+            .Feature.Command.Run,
         ),
         .requiresAPIDigester,
         arguments: SupportedBuildSystemOnAllPlatforms
@@ -334,7 +334,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run
+            .Feature.Command.Run,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
@@ -360,7 +360,7 @@ struct APIDiffTests {
 
     @Test(
         .tags(
-            .Feature.Command.Run
+            .Feature.Command.Run,
         ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),

@@ -89,6 +89,7 @@ extension Tag.Feature.CommandLineArguments {
     @Tag public static var TestFilter: Tag
     @Tag public static var TestSkip: Tag
     @Tag public static var SkipBuild: Tag
+    @Tag public static var EnableCodeCoverage: Tag
 }
 
 extension Tag.Feature.CommandLineArguments.Experimental {
