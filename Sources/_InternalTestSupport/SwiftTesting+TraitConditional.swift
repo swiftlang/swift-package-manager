@@ -18,8 +18,8 @@ import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 extension Trait where Self == Testing.ConditionTrait {
     /// Skip test if the host operating system does not match the running OS.
-    public static func requireHostOS(_ os: OperatingSystem, when condition: Bool = true) -> Self {
-        enabled("This test requires a \(os) host OS.") {
+    public static func requireHostOS(_ os: OperatingSystem, _ comment: Comment? = nil, when condition: Bool = true) -> Self {
+        enabled(comment ?? "This test requires a \(os) host OS.") {
             ProcessInfo.hostOperatingSystem == os && condition
         }
     }
