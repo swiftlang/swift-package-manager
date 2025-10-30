@@ -25,7 +25,8 @@ import enum TSCUtility.Git
 @Suite(
     .serializedIfOnWindows,
     .tags(
-        Tag.TestSize.large,
+        .TestSize.large,
+        .Feature.DependencyResolution,
     ),
 )
 struct DependencyResolutionTests {
@@ -163,6 +164,7 @@ struct DependencyResolutionTests {
     @Test(
         .IssueWindowsLongPath,
         .IssueLdFailsUnexpectedly,
+        .issue("rdar://162339964", relationship: .defect),
         .tags(
             Tag.Feature.Command.Build,
         ),
