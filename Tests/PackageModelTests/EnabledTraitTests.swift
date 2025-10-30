@@ -294,6 +294,9 @@ struct EnabledTraitTests {
         #expect(traits.contains("Chocolate"))
 
         let bananaTrait = try traits.unwrapRemove("Banana")
+        #expect(traits.count == 1)
+        #expect(traits.contains("Chocolate"))
+        #expect(!traits.contains(bananaTrait))
     }
 
     // MARK: - EnabledTraitsMap Tests
