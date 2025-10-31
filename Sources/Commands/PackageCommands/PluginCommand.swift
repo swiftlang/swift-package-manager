@@ -25,7 +25,8 @@ import Workspace
 struct PluginCommand: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "plugin",
-        abstract: "Invoke a command plugin or perform other actions on command plugins."
+        abstract: "Invoke a command plugin or perform other actions on command plugins.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
     @OptionGroup(visibility: .hidden)

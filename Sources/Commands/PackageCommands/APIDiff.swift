@@ -26,7 +26,8 @@ import Workspace
 struct DeprecatedAPIDiff: ParsableCommand {
     static let configuration = CommandConfiguration(commandName: "experimental-api-diff",
                                                     abstract: "Deprecated - use `swift package diagnose-api-breaking-changes` instead",
-                                                    shouldDisplay: false)
+                                                    shouldDisplay: false,
+                                                    helpNames: [.short, .long, .customLong("help", withSingleDash: true)])
 
     @Argument(parsing: .captureForPassthrough)
     var args: [String] = []
@@ -49,7 +50,9 @@ struct APIDiff: AsyncSwiftCommand {
         behavior may be undesirable as the comparison can be slow. \
         The `--products` and `--targets` options may be used to restrict the scope of \
         the comparison.
-        """)
+        """,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions

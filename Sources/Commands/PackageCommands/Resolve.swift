@@ -35,7 +35,9 @@ extension SwiftPackageCommand {
 
     struct Resolve: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Resolve package dependencies.")
+            abstract: "Resolve package dependencies.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -66,7 +68,10 @@ extension SwiftPackageCommand {
     }
 
     struct Fetch: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(shouldDisplay: false)
+        static let configuration = CommandConfiguration(
+            shouldDisplay: false,
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .private)
         var globalOptions: GlobalOptions

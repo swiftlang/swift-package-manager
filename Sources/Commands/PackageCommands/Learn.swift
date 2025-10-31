@@ -23,7 +23,10 @@ extension SwiftPackageCommand {
         @OptionGroup()
         var globalOptions: GlobalOptions
 
-        static let configuration = CommandConfiguration(abstract: "Learn about Swift and this package.")
+        static let configuration = CommandConfiguration(
+            abstract: "Learn about Swift and this package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         func files(fileSystem: FileSystem, in directory: AbsolutePath, fileExtension: String? = nil) throws -> [AbsolutePath] {
             guard fileSystem.isDirectory(directory) else {

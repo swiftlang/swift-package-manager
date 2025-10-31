@@ -20,7 +20,9 @@ import Workspace
 
 struct ShowTraits: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "List the available traits for a package.")
+        abstract: "List the available traits for a package.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions

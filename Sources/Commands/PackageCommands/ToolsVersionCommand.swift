@@ -21,7 +21,9 @@ import Workspace
 struct ToolsVersionCommand: SwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "tools-version",
-        abstract: "Manipulate tools version of the current package.")
+        abstract: "Manipulate tools version of the current package.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
