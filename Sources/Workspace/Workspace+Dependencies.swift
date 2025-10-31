@@ -515,6 +515,15 @@ extension Workspace {
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
+        // Precompute enabled traits, beginning with
+        // root manifests, if we haven't already done so.
+//        if self.enabledTraitsMap.dictionaryLiteral.isEmpty {
+//            let rootManifestMap = rootManifests.values.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
+//                manifestMap[manifest.packageIdentity] = manifest
+//            }
+//            self.enabledTraitsMap = .init(try precomputeTraits(rootManifests.values.map({ $0 }), rootManifestMap))
+//        }
+
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
             input: root,
@@ -525,7 +534,6 @@ extension Workspace {
             enabledTraitsMap: self.enabledTraitsMap
         )
 
-        // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope
@@ -597,6 +605,7 @@ extension Workspace {
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
+
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
