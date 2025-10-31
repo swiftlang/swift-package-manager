@@ -65,7 +65,11 @@ extension BuildPlan {
                         clangTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 case .xcframework:
-                    let libraries = try self.parseXCFramework(for: target, triple: clangTarget.buildParameters.triple)
+                    let libraries = try self.parseXCFramework(
+                        for: target,
+                        triple: clangTarget.buildParameters.triple,
+                        enableXCFrameworksOnLinux: clangTarget.buildParameters.enableXCFrameworksOnLinux
+                    )
                     for library in libraries {
                         library.headersPaths.forEach {
                             clangTarget.additionalFlags += ["-I", $0.pathString]
