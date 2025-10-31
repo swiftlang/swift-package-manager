@@ -162,12 +162,10 @@ public struct PackageGraphRoot {
                 let enabledTraits = dep.traits?.filter {
                     guard let condition = $0.condition else { return true }
                     return condition.isSatisfied(by: rootEnabledTraits.names)
-                    // TODO bp modify this.
-                }.map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: "root", name: "root"))) })
+                }.map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: "root"))) })
 
-                // TODO bp enabled traits map must flatten default traits before this
                 var enabledTraitsSet = enabledTraitsMap[dep.identity]
-                enabledTraitsSet.formUnion(EnabledTraits(enabledTraits ?? [])) // TODO bp modify this.
+                enabledTraitsSet.formUnion(EnabledTraits(enabledTraits ?? []))
 
                 return PackageContainerConstraint(
                     package: dep.packageRef,

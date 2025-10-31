@@ -539,11 +539,6 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
-        // Update the traits map if we've fetched new manifests
-//        currentManifests.allDependencyManifests.forEach({ manifest in
-//            let enabledTraits =
-//        })
-
         guard !observabilityScope.errorsReported else {
             return currentManifests
         }

@@ -42,8 +42,7 @@ extension Manifest {
                 return condition.isSatisfied(by: enabledTraits.names)
             }.map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: self.packageIdentity, name: self.displayName))) })
 
-            // TODO bp enabledTraitsMap must be propagated here?
-            let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? []) //explicitlyEnabledTraits.flatMap({ Set($0) }) ?? ["default"]
+            let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? [])
 
             return PackageContainerConstraint(
                 package: $0.packageRef,

@@ -345,7 +345,6 @@ class ManifestTests: XCTestCase {
             }
 
             // If given a parent package, and the default traits are disabled:
-            // TODO bp need to uncover a method to deal with parent pacakge disabling dependencies' traits for this error
             XCTAssertThrowsError(try manifest.enabledTraits(using: [])) { error in
                 XCTAssertEqual("\(error)", """
                     Disabled default traits by package 'qux' on package 'foo' (Foo) that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.

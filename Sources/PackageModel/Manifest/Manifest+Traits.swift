@@ -94,14 +94,10 @@ extension Manifest {
     /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
     /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
     /// error indicating the issue will be thrown.
-    private func validateEnabledTraits(
-        _ explicitlyEnabledTraits: EnabledTraits,
-//        _ parentPackage: PackageIdentifier? = nil
-    ) throws {
+    private func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
         guard supportsTraits else {
             if explicitlyEnabledTraits != ["default"] {
                 throw TraitError.traitsNotSupported(
-//                    parent: parentPackage,
                     package: .init(self),
                     explicitlyEnabledTraits: explicitlyEnabledTraits.map({ $0 })
                 )
@@ -124,7 +120,6 @@ extension Manifest {
             // We throw an error when default traits are disabled for a package without any traits
             // This allows packages to initially move new API behind traits once.
             throw TraitError.traitsNotSupported(
-//                parent: parentPackage,
                 package: .init(self),
                 explicitlyEnabledTraits: enabledTraits.map({ $0 })
             )

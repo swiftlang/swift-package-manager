@@ -553,20 +553,6 @@ extension Workspace {
         let rootManifests = try root.manifests.mapValues { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
             let deps = try manifest.dependencies.filter { dep in
-//                let explicitlyEnabledTraitsSet = dep.traits?.filter({ $0.isEnabled(by: parentEnabledTraits) }).map(\.name)
-//                if let explicitlyEnabledTraitsSet {
-//                    let explicitlyEnabledTraits = EnabledTraits(
-//                        explicitlyEnabledTraitsSet,
-//                        setBy: .package(.init(manifest))
-//                    )
-//                    self.enabledTraitsMap[dep.identity] = explicitlyEnabledTraits
-//                }
-//                    .map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: manifest.packageIdentity, name: manifest.displayName))) })
-
-//                if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-//                    self.enabledTraitsMap[dep.identity] = enabledTraitsSet
-//                }
-
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
                 return isDepUsed
             }
@@ -603,16 +589,6 @@ extension Workspace {
         let firstLevelDependencies = try topLevelManifests.values.map { manifest in
             let parentEnabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
             return try manifest.dependencies.filter { dep in
-                let explicitlyEnabledTraitsSet = dep.traits?.filter({ $0.isEnabled(by: parentEnabledTraits)}).map(\.name)
-
-                if let explicitlyEnabledTraitsSet {
-                    let explicitlyEnabledTraits = EnabledTraits(
-                        explicitlyEnabledTraitsSet,
-                        setBy: .package(.init(manifest))
-                    )
-                    self.enabledTraitsMap[dep.identity] = explicitlyEnabledTraits
-                }
-
                 let isDepUsed = try manifest.isPackageDependencyUsed(dep, enabledTraits: parentEnabledTraits)
                 return isDepUsed
 
