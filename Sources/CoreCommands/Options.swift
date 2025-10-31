@@ -489,7 +489,7 @@ public struct BuildOptions: ParsableArguments {
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
-        help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)."
+        help: "Turn on runtime checks for erroneous behavior."
     )
     public var sanitizers: [Sanitizer] = []
 
@@ -578,6 +578,10 @@ public struct BuildOptions: ParsableArguments {
     // this can be removed once the backtracer uses DWARF instead of frame pointers
     @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
+
+    // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
+    @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
+    public var shouldBuildDylibsAsFrameworks: Bool = false
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed

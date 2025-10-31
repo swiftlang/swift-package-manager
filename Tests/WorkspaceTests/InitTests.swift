@@ -510,6 +510,31 @@ final class InitTests: XCTestCase {
         }
     }
 
+    func testInitPackageIncludesSwiftLanguageMode() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("testInitPackageIncludesSwiftLanguageMode")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create a library package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .library,
+                supportedTestingLibraries: [],
+                destinationPath: path,
+                installedSwiftPMConfiguration: .default,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            // Verify the manifest includes Swift language mode
+            let manifest = path.appending("Package.swift")
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            XCTAssertMatch(manifestContents, .contains("swiftLanguageModes: [.v6]"))
+        }
+    }
+
     private func packageWithNameOnly(named name: String) -> String {
         return """
         let package = Package(

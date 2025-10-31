@@ -6,7 +6,10 @@ let package = Package(
     targets: [
 		.target(
             name: "Baz",
-            dependencies: ["FlatInclude", "NonModuleDirectoryInclude", "UmbrellaHeader", "UmbrellaDirectoryInclude", "UmbrellaHeaderFlat"]),
+            dependencies: ["CustomModuleMap", "FlatInclude", "NonModuleDirectoryInclude", "UmbrellaHeader", "UmbrellaDirectoryInclude", "UmbrellaHeaderFlat"]),
+        .target(
+            name: "CustomModuleMap",
+            dependencies: []),
 		.target(
             name: "FlatInclude",
             dependencies: []),
