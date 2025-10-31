@@ -466,7 +466,8 @@ public func loadModulesGraph(
     useXCBuildFileRules: Bool = false,
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration = .default
+    traitConfiguration: TraitConfiguration = .default,
+    enabledTraitsMap: EnabledTraitsMap = .init()
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
@@ -478,75 +479,6 @@ public func loadModulesGraph(
         }
 
     let packages = Array(rootManifests.keys)
-
-    let manifestMap = manifests.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
-        manifestMap[manifest.packageIdentity] = manifest
-    }
-
-    // Note: The following is a copy of the existing `Workspace.precomputeTraits` method
-    func precomputeTraits(
-        _ enabledTraitsMap: EnabledTraitsMap,
-        _ topLevelManifests: [Manifest],
-        _ manifestMap: [PackageIdentity: Manifest]
-    ) throws -> [PackageIdentity: EnabledTraits] {
-        var visited: Set<PackageIdentity> = []
-        var enabledTraitsMap = enabledTraitsMap
-
-        func dependencies(of parent: Manifest, _ productFilter: ProductFilter = .everything) throws {
-            let parentTraits = enabledTraitsMap[parent.packageIdentity]
-            let requiredDependencies = try parent.dependenciesRequired(for: productFilter, parentTraits)
-            let guardedDependencies = parent.dependenciesTraitGuarded(withEnabledTraits: parentTraits)
-
-            _ = try (requiredDependencies + guardedDependencies).compactMap({ dependency in
-                return try manifestMap[dependency.identity].flatMap({ manifest in
-                    // TODO bp can this be shortened as an initializer for EnabledTraits?
-                    // possibly have it filter across the dependencies itself
-                    let explicitlyEnabledTraitsSet = dependency.traits?.filter({ $0.isEnabled(by: parentTraits) }).map(\.name)
-                    if let explicitlyEnabledTraitsSet {
-                        let explicitlyEnabledTraits = EnabledTraits(
-                            explicitlyEnabledTraitsSet,
-                            setBy: .package(.init(identity: parent.packageIdentity, name: parent.displayName))
-                        )
-                        enabledTraitsMap[dependency.identity] = try manifest.enabledTraits(using: explicitlyEnabledTraits)
-                    }
-
-//                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-//                        let calculatedTraits = try manifest.enabledTraits(
-//                            using: enabledTraitsSet
-////                            .init(parent)
-//                        )
-//                        enabledTraitsMap[dependency.identity] = calculatedTraits
-//                    }
-
-                    let result = visited.insert(dependency.identity)
-                    if result.inserted {
-                        try dependencies(of: manifest, dependency.productFilter)
-                    }
-
-                    return manifest
-                })
-            })
-        }
-
-        for manifest in topLevelManifests {
-            // Track already-visited manifests to avoid cycles
-            let result = visited.insert(manifest.packageIdentity)
-            if result.inserted {
-                try dependencies(of: manifest)
-            }
-        }
-
-        return enabledTraitsMap.dictionaryLiteral
-    }
-
-
-    // Precompute enabled traits for roots.
-    var enabledTraitsMap: EnabledTraitsMap = [:]
-    for root in rootManifests.values {
-        let enabledTraits = try root.enabledTraits(using: traitConfiguration)
-        enabledTraitsMap[root.packageIdentity] = enabledTraits
-    }
-    enabledTraitsMap = .init(try precomputeTraits(enabledTraitsMap, manifests, manifestMap))
 
     let input = PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration)
     let graphRoot = try PackageGraphRoot(

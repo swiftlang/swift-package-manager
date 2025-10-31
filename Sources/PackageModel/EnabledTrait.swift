@@ -12,28 +12,19 @@
 
 import Basics
 
+// MARK: - EnabledTraitsMap
+
 /// A wrapper struct for a dictionary that stores the transitively enabled traits for each package.
 /// This struct implicitly omits adding `default` traits to its storage, and returns `nil` if it there is no existing entry for
 /// a given package, since if there are no explicitly enabled traits set by anything else a package will then default to its `default` traits,
 /// if they exist.
-public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
+public struct EnabledTraitsMap {
     public typealias Key = PackageIdentity
     public typealias Value = EnabledTraits
 
-    var storage: ThreadSafeKeyValueStore<PackageIdentity, EnabledTraits> = .init()
-//    var storage: [PackageIdentity: EnabledTraits] = [:]
+    private var storage: ThreadSafeKeyValueStore<PackageIdentity, EnabledTraits> = .init()
 
     public init() { }
-
-    public init(dictionaryLiteral elements: (Key, Value)...) {
-        for (key, value) in elements {
-            storage[key] = value
-        }
-    }
-
-    public init(_ dictionary: [Key: Value]) {
-        self.storage = .init(dictionary)
-    }
 
     public subscript(key: PackageIdentity) -> EnabledTraits {
         get { storage[key] ?? ["default"] }
@@ -51,12 +42,27 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
         }
     }
 
+    /// Returns a list of traits that were explicitly enabled for a given package.
     public subscript(explicitlyEnabledTraitsFor key: PackageIdentity) -> EnabledTraits? {
         get { storage[key] }
     }
 
+    /// Returns a dictionary literal representation of the map.
     public var dictionaryLiteral: [PackageIdentity: EnabledTraits] {
         return storage.get()
+    }
+}
+
+// MARK: EnabledTraitsMap + ExpressibleByDictionaryLiteral
+extension EnabledTraitsMap: ExpressibleByDictionaryLiteral {
+    public init(dictionaryLiteral elements: (Key, Value)...) {
+        for (key, value) in elements {
+            storage[key] = value
+        }
+    }
+
+    public init(_ dictionary: [Key: Value]) {
+        self.storage = .init(dictionary)
     }
 }
 
@@ -66,25 +72,61 @@ public struct EnabledTraitsMap: ExpressibleByDictionaryLiteral {
 /// the EnabledTraitsMap.
 ///
 /// An enabled trait is a trait that is either explicitly enabled by a user-passed trait configuration from the command line,
-/// a parent package that has defined enabled traits for its dependency package(s), or by another trait (including the default case).
+/// a parent package that has defined enabled traits for its dependency package, or transitively by another trait (including the default case).
 ///
-/// An EnabledTrait is differentiated by its `name`, and all other data stored in this struct is treated as metadata for
-/// convenience. When unifying two `EnabledTrait`s, it will combine the list of setters (`setBy`) if the `name`s match.
+/// An `EnabledTrait` is differentiated by its `name`, and all other data stored in this struct is treated as metadata for
+/// convenience. When unifying two `EnabledTrait`s, it will combine the list of setters if the `name`s match.
 ///
-public struct EnabledTrait: Identifiable, CustomStringConvertible, ExpressibleByStringLiteral, Comparable {
-    // Convenience typealias for a list of `Setter`
+public struct EnabledTrait: Identifiable {
+    /// Convenience typealias for a list of `Setter`
     public typealias Setters = Set<Setter>
 
-    // The identifier for the trait.
+    /// The identifier for the trait.
     public var id: String { name }
 
-    // The name of the trait.
+    /// The name of the trait.
     public let name: String
 
-    // The list of setters who have enabled this trait.
+    /// The list of setters who have enabled this trait.
     public var setters: Setters = []
 
-    /// An enumeration that describes where a given trait was enabled.
+    public init(name: String, setBy: Setter) {
+        self.name = name
+        self.setters = [setBy]
+    }
+
+    public init(name: String, setBy: [Setter]) {
+        self.name = name
+        self.setters = Set(setBy)
+    }
+
+    /// The packages that have enabled this trait.
+    public var parentPackages: [Manifest.PackageIdentifier] {
+        setters.compactMap(\.parentPackage)
+    }
+
+    public var isDefault: Bool {
+        name == "default"
+    }
+
+    /// Returns a new `EnabledTrait` that contains a merged list of `Setters` from
+    /// `self` and the `otherTrait`, only if the traits are equal. Otherwise, returns nil.
+    /// - Parameter otherTrait: The trait to merge in.
+    public func unify(_ otherTrait: EnabledTrait) -> EnabledTrait? {
+        guard self.name == otherTrait.name else {
+            return nil
+        }
+
+        var updatedTrait = self
+        updatedTrait.setters = setters.union(otherTrait.setters)
+        return updatedTrait
+    }
+}
+
+// MARK: EnabledTrait.Setter
+
+extension EnabledTrait {
+    /// An enumeration that describes how a given trait was set as enabled.
     public enum Setter: Hashable, CustomStringConvertible {
         case traitConfiguration
         case package(Manifest.PackageIdentifier)
@@ -93,14 +135,15 @@ public struct EnabledTrait: Identifiable, CustomStringConvertible, ExpressibleBy
         public var description: String {
             switch self {
             case .traitConfiguration:
-                "custom trait configuration."
+                "command-line trait configuration"
             case .package(let parent):
-                parent.description
+                "parent package: \(parent.description)"
             case .trait(let trait):
-                trait
+                "trait: \(trait)"
             }
         }
 
+        /// The identifier of the parent package that defined this trait, if any.
         public var parentPackage: Manifest.PackageIdentifier? {
             switch self {
             case .package(let id):
@@ -114,47 +157,11 @@ public struct EnabledTrait: Identifiable, CustomStringConvertible, ExpressibleBy
             .trait("default")
         }
     }
+}
 
-    public init(name: String, setBy: Setter) {
-        self.name = name
-        self.setters = [setBy]
-    }
+// MARK: EnabledTrait + Equatable
 
-    public init(name: String, setBy: [Setter]) {
-        self.name = name
-        self.setters = Set(setBy)
-    }
-
-    public var parentPackages: [Manifest.PackageIdentifier] {
-        setters.compactMap(\.parentPackage)
-    }
-
-    public var isDefault: Bool {
-        name == "default"
-    }
-
-    public func unify(_ otherTrait: EnabledTrait) -> EnabledTrait? {
-        guard self.name == otherTrait.name else {
-            return nil
-        }
-
-        var updatedTrait = self
-        updatedTrait.setters = setters.union(otherTrait.setters)
-        return updatedTrait
-    }
-
-    // MARK: - CustomStringConvertible
-    public var description: String {
-        name
-    }
-
-    // MARK: - ExpressibleByStringLiteral
-    public init(stringLiteral value: String) {
-        self.name = value
-    }
-
-    // MARK: - Equatable
-
+extension EnabledTrait: Equatable {
     // When comparing two `EnabledTraits`, if the names are the same then
     // we know that these two objects are referring to the same trait of a package.
     // In this case, the two objects should be combined into one.
@@ -169,18 +176,40 @@ public struct EnabledTrait: Identifiable, CustomStringConvertible, ExpressibleBy
     public static func ==(lhs: String, rhs: EnabledTrait) -> Bool {
         return lhs == rhs.name
     }
+}
 
-    // MARK: - Comparable
+// MARK: EnabledTrait + Comparable
 
+extension EnabledTrait: Comparable {
     public static func <(lhs: EnabledTrait, rhs: EnabledTrait) -> Bool {
         return lhs.name < rhs.name
     }
 }
 
+// MARK: EnabledTrait + CustomStringConvertible
+
+extension EnabledTrait: CustomStringConvertible {
+    public var description: String {
+        name
+    }
+}
+
+// MARK: EnabledTrait + ExpressibleByStringLiteral
+
+extension EnabledTrait: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.name = value
+    }
+}
+
 // MARK: - EnabledTraits
 
-/// This struct acts as a wrapper for a set of `EnabledTrait` to handle special cases.
-public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
+/// A collection wrapper around a set of `EnabledTrait` instances that provides specialized behavior
+/// for trait management. This struct ensures that traits with the same name are automatically unified
+/// by merging their setters when inserted, maintaining a single entry per unique trait name. It provides
+/// convenient set operations like union and intersection, along with collection protocol conformance for
+/// easy iteration and manipulation of enabled traits.
+public struct EnabledTraits: Hashable {
     public typealias Element = EnabledTrait
     public typealias Index = IdentifiableSet<Element>.Index
 
@@ -188,12 +217,6 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
 
     public static var defaults: EnabledTraits {
         ["default"]
-    }
-
-    public init(arrayLiteral elements: Element...) {
-        for element in elements {
-            _traits.insert(element)
-        }
     }
 
     public init<C: Collection>(_ traits: C, setBy origin: EnabledTrait.Setter) where C.Element == String {
@@ -205,6 +228,24 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
         self._traits = IdentifiableSet(traits)
     }
 
+    public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
+        lhs._traits.names == rhs._traits.names
+    }
+}
+
+// MARK: EnabledTraits + ExpressibleByArrayLiteral
+
+extension EnabledTraits: ExpressibleByArrayLiteral {
+    public init(arrayLiteral elements: Element...) {
+        for element in elements {
+            _traits.insert(element)
+        }
+    }
+}
+
+// MARK: EnabledTraits + Collection
+
+extension EnabledTraits: Collection {
     public var startIndex: Index {
         return _traits.startIndex
     }
@@ -221,23 +262,20 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
         return _traits[position]
     }
 
-    public mutating func formUnion(_ other: EnabledTraits) {
-        self._traits = self.union(other)._traits
+    public mutating func insert(_ newMember: Element) {
+        _traits.insert(newMember)
     }
 
-    public func flatMap(_ transform: (Self.Element) throws -> EnabledTraits) rethrows -> EnabledTraits {
-        let transformedTraits = try _traits.flatMap(transform)
-        return EnabledTraits(transformedTraits)
+    public mutating func remove(_ member: Element) -> Element? {
+        return _traits.remove(member)
     }
 
-    public func map(_ transform: (Self.Element) throws -> Self.Element) rethrows -> EnabledTraits {
-        let transformedTraits = try _traits.map(transform)
-        return EnabledTraits(transformedTraits)
+    public func contains(_ member: Element) -> Bool {
+        return _traits.contains(member)
     }
 
-    public func union(_ other: EnabledTraits) -> EnabledTraits {
-        let unionedTraits = _traits.union(other)
-        return EnabledTraits(unionedTraits)
+    public func intersection<C: Collection>(_ other: C) -> EnabledTraits where C.Element == String {
+        self.intersection(other.map(\.asEnabledTrait))
     }
 
     public func intersection<C: Collection>(_ other: C) -> EnabledTraits where C.Element == Self.Element {
@@ -246,20 +284,23 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
         return EnabledTraits(intersection)
     }
 
-    public func intersection<C: Collection>(_ other: C) -> EnabledTraits where C.Element == String {
-        self.intersection(other.map(\.asEnabledTrait))
+    public func union(_ other: EnabledTraits) -> EnabledTraits {
+        let unionedTraits = _traits.union(other)
+        return EnabledTraits(unionedTraits)
     }
 
-    public mutating func remove(_ member: Element) -> Element? {
-        return _traits.remove(member)
+    public mutating func formUnion(_ other: EnabledTraits) {
+        self._traits = self.union(other)._traits
     }
 
-    public mutating func insert(_ newMember: Element) {
-        _traits.insert(newMember)
+    public func map(_ transform: (Self.Element) throws -> Self.Element) rethrows -> EnabledTraits {
+        let transformedTraits = try _traits.map(transform)
+        return EnabledTraits(transformedTraits)
     }
 
-    public func contains(_ member: Element) -> Bool {
-        return _traits.contains(member)
+    public func flatMap(_ transform: (Self.Element) throws -> EnabledTraits) rethrows -> EnabledTraits {
+        let transformedTraits = try _traits.flatMap(transform)
+        return EnabledTraits(transformedTraits)
     }
 
     public static func ==<C: Collection>(_ lhs: EnabledTraits, _ rhs: C) -> Bool where C.Element == Element {
@@ -269,13 +310,32 @@ public struct EnabledTraits: ExpressibleByArrayLiteral, Collection, Hashable {
     public static func ==<C: Collection>(_ lhs: C, _ rhs: EnabledTraits) -> Bool where C.Element == Element {
         lhs.names == rhs._traits.names
     }
+}
 
-    public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
-        lhs._traits.names == rhs._traits.names
+// MARK: - EnabledTraitConvertible
+
+/// Represents a type that can be converted into an `EnabledTrait`.
+/// This protocol enables conversion between string-like types and `EnabledTrait` instances,
+/// allowing for more flexible APIs that can accept either strings or traits interchangeably.
+package protocol EnabledTraitConvertible: Equatable {
+    var asEnabledTrait: EnabledTrait { get }
+}
+
+// MARK: String + EnabledTraitConvertible
+
+extension String: EnabledTraitConvertible {
+    package var asEnabledTrait: EnabledTrait {
+        .init(stringLiteral: self)
     }
 }
 
+// MARK: - Collection + EnabledTrait
+
 extension Collection where Element == EnabledTrait {
+    public var names: Set<String> {
+        Set<String>(self.map(\.name))
+    }
+
     public func contains(_ trait: String) -> Bool {
         return self.map(\.name).contains(trait)
     }
@@ -284,16 +344,23 @@ extension Collection where Element == EnabledTrait {
         return self.contains(trait.description)
     }
 
-    public var names: Set<String> {
-        Set<String>(self.map(\.name))
-    }
-
     public func joined(separator: String = "") -> String {
         names.joined(separator: separator)
     }
 }
 
+
+// MARK: - IdentifiableSet + EnabledTrait
+
 extension IdentifiableSet where Element == EnabledTrait {
+    private mutating func insertTrait(_ member: Element) {
+        if let oldElement = self.remove(member), let newElement = oldElement.unify(member) {
+            insert(newElement)
+        } else {
+            insert(member)
+        }
+    }
+
     public func union(_ other: IdentifiableSet<Element>) -> IdentifiableSet<Element> {
         var updatedContents = self
         for element in other {
@@ -309,22 +376,5 @@ extension IdentifiableSet where Element == EnabledTrait {
             return self.union(IdentifiableSet(other.map({ $0 })))
         }
     }
-
-    private mutating func insertTrait(_ member: Element) {
-        if let oldElement = self.remove(member), let newElement = oldElement.unify(member) {
-            insert(newElement)
-        } else {
-            insert(member)
-        }
-    }
 }
 
-package protocol EnabledTraitConvertible {
-    var asEnabledTrait: EnabledTrait { get }
-}
-
-extension String: EnabledTraitConvertible {
-    package var asEnabledTrait: EnabledTrait {
-        .init(stringLiteral: self)
-    }
-}

@@ -469,12 +469,8 @@ extension Manifest {
 
         // Determine whether the current set of enabled traits still gate the package dependency
         // across targets.
-//        let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.filter({ $0.condition?.traits != nil }).allSatisfy({ self.isTraitGuarded($0, enabledTraits: enabledTraits)
-//        })
-        let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.compactMap({ $0.condition?.traits }).allSatisfy({
-            let isGuarded = $0.intersection(enabledTraitNames).isEmpty
-            return isGuarded
-         })
+        let isTraitGuarded = targetDependenciesForPackageDependency.isEmpty ? false : targetDependenciesForPackageDependency.filter({ $0.condition?.traits != nil }).allSatisfy({ self.isTraitGuarded($0, enabledTraits: enabledTraits)
+        })
 
         // Since we only omit a package dependency that is only guarded by traits, determine
         // whether this dependency is used elsewhere without traits.
@@ -488,7 +484,6 @@ extension Manifest {
         enabledTraits: EnabledTraits
     ) -> Bool {
         // Validate enabled traits
-//        try validateEnabledTraits(enabledTraits)
         guard let condition = dependency.condition, let traits = condition.traits else { return false }
 
         return enabledTraits.intersection(traits).isEmpty
