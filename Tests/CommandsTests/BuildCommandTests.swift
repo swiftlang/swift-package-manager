@@ -354,6 +354,10 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .tags(
+              .Feature.Command.Build,
+              .Feature.TargetType.Executable
+        ),
         .IssueWindowsLongPath,
         buildDataUsingAllBuildSystemWithTags.tags,
         arguments: buildDataUsingAllBuildSystemWithTags.buildData,

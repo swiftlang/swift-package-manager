@@ -29,6 +29,7 @@ extension Tag.Feature {
     public enum PackageType {}
     public enum ProductType {}
     public enum TargetType {}
+    public enum Product {}
 
     @Tag public static var BuildCache: Tag
     @Tag public static var CodeCoverage: Tag
@@ -38,6 +39,7 @@ extension Tag.Feature {
     @Tag public static var SpecialCharacters: Tag
     @Tag public static var Snippets: Tag
     @Tag public static var Traits: Tag
+    @Tag public static var TargetSettings: Tag
 
 }
 
@@ -77,6 +79,17 @@ extension Tag.Feature.CommandLineArguments {
     @Tag public static var Xcxx: Tag
     @Tag public static var SWIFT_ORIGINAL_PATH: Tag
     @Tag public static var Xswiftc: Tag
+    @Tag public static var TestParallel: Tag
+    @Tag public static var TestNoParallel: Tag
+    @Tag public static var TestOutputXunit: Tag
+    @Tag public static var TestEnableSwiftTesting: Tag
+    @Tag public static var TestDisableSwiftTesting: Tag
+    @Tag public static var TestEnableXCTest: Tag
+    @Tag public static var TestDisableXCTest: Tag
+    @Tag public static var TestFilter: Tag
+    @Tag public static var TestSkip: Tag
+    @Tag public static var SkipBuild: Tag
+    @Tag public static var EnableCodeCoverage: Tag
 }
 
 extension Tag.Feature.CommandLineArguments.Experimental {
@@ -150,4 +163,9 @@ extension Tag.Feature.PackageType {
     @Tag public static var BuildToolPlugin: Tag
     @Tag public static var CommandPlugin: Tag
     @Tag public static var Macro: Tag
+}
+
+extension Tag.Feature.Product {
+    @Tag public static var Execute: Tag
+    @Tag public static var Link: Tag
 }

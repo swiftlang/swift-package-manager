@@ -17,7 +17,11 @@ import _InternalTestSupport
 import Testing
 
 struct PackageDescription6_2LoadingTests {
-    @Test
+    @Test(
+        .tags(
+            Tag.Feature.TargetSettings
+        )
+    )
     func warningControlFlags() async throws {
         let content = """
             import PackageDescription

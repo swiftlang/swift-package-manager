@@ -142,6 +142,9 @@ struct RunCommandTests {
     }
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
@@ -207,6 +210,9 @@ struct RunCommandTests {
 
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
         arguments: SupportedBuildSystemOnPlatform,
@@ -244,6 +250,9 @@ struct RunCommandTests {
 
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
@@ -263,6 +272,9 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func fileDeprecation(
@@ -282,6 +294,11 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.SkipBuild
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func mutualExclusiveFlags(
@@ -304,6 +321,9 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftRunSIGINT(
@@ -404,6 +424,10 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.Quiet
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),

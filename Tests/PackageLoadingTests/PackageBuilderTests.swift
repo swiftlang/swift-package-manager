@@ -585,8 +585,12 @@ struct PackageBuilderTests {
 
     @Test(
         .IssueWindowsLongPath,
-        .IssueWindowsPathLastConponent,
-        .IssueWindowsRelativePathAssert
+        .IssueWindowsPathLastComponent,
+        .IssueWindowsRelativePathAssert,
+        .tags(
+            Tag.Feature.PackageType.Executable,
+            Tag.Feature.PackageType.Library,
+        ),
     )
     func testTestManifestSearch() throws {
         try withKnownIssue(isIntermittent: true) {
