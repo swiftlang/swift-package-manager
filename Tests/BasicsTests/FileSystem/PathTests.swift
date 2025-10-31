@@ -19,6 +19,12 @@ private var windows: Bool { false }
 #endif
 
 
+@Suite(
+    .tags(
+        .TestSize.small,
+        .Platform.FileSystem,
+    ),
+)
 struct PathTests {
     struct AbsolutePathTests {
         private func pathStringIsSetCorrectlyTestImplementation(path: String, expected: String, label: String) {
