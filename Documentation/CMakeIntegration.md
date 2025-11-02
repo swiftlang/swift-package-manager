@@ -9,6 +9,9 @@ This guide shows you how to create a Swift Package that wraps a CMake-based C/C+
 * [Configuration Reference](#configuration-reference)
 * [Module Map Modes](#module-map-modes)
 * [Advanced Topics](#advanced-topics)
+  * [Cross-Compilation and Swift SDKs](#cross-compilation-and-swift-sdks)
+  * [Textual Headers](#textual-headers)
+  * [Build Caching](#build-caching)
 * [Troubleshooting](#troubleshooting)
 * [Examples](#examples)
 
@@ -300,6 +303,11 @@ Complete schema:
     "BUILD_SHARED_LIBS": "OFF",
     "ENABLE_TESTING": "OFF"
   },
+  "env": {
+    "CC": "/path/to/clang",
+    "CXX": "/path/to/clang++",
+    "AR": "/path/to/llvm-ar"
+  },
   "moduleMap": {
     "mode": "auto | provided | overlay | none",
     "path": "config/MyModule.modulemap",
@@ -330,6 +338,30 @@ Any CMake cache variables can be set via `defines`:
   }
 }
 ```
+
+#### Environment Variables
+
+The `env` field allows you to set environment variables for the CMake build process:
+
+```json
+{
+  "env": {
+    "CC": "/usr/local/bin/clang-18",
+    "CXX": "/usr/local/bin/clang++-18",
+    "AR": "/usr/local/bin/llvm-ar",
+    "RANLIB": "/usr/local/bin/llvm-ranlib",
+    "STRIP": "/usr/local/bin/llvm-strip"
+  }
+}
+```
+
+This is useful for:
+- Specifying custom compiler toolchains
+- Setting Android NDK paths
+- Overriding default build tools
+- Platform-specific tool selection
+
+Note: User-provided `env` takes precedence over toolchain defaults.
 
 #### Module Map Configuration
 
@@ -437,22 +469,193 @@ module MyLib [system] {
 }
 ```
 
-### Platform-Specific Configuration
+### Cross-Compilation and Swift SDKs
 
-Different defines per platform (future feature):
+SwiftPM's CMake integration automatically respects your selected Swift toolchain and SDK. CMake builds align with the Swift compilation target without manual configuration.
 
+#### Using Swift SDKs
+
+Swift SDKs allow you to target different platforms (iOS, Android, static Linux, etc.). The CMake integration automatically configures the build for the selected SDK.
+
+**Install and use a Swift SDK:**
+
+```bash
+# Install an SDK bundle
+swift sdk install https://download.swift.org/.../swift-android.artifactbundle.tar.gz
+
+# List available SDKs
+swift sdk list
+
+# Build with a specific SDK
+swift build --swift-sdk android-armv7
+```
+
+When building with `--swift-sdk`, the CMake integration automatically sets:
+- `CMAKE_SYSTEM_NAME` (Android, iOS, Linux, etc.)
+- `CMAKE_ANDROID_NDK`, `CMAKE_ANDROID_ARCH_ABI`, `CMAKE_ANDROID_API` (for Android)
+- `CMAKE_OSX_SYSROOT`, `CMAKE_OSX_ARCHITECTURES` (for Apple platforms)
+- `CMAKE_SYSROOT`, `CMAKE_FIND_ROOT_PATH` (for cross-compilation)
+- `CMAKE_C_COMPILER_TARGET`, `CMAKE_CXX_COMPILER_TARGET` (target triple)
+
+**Example: Building for Android**
+
+```bash
+swift sdk install swift-6.0-android.artifactbundle.tar.gz
+swift build --swift-sdk android-aarch64
+```
+
+CMake automatically receives:
+```
+CMAKE_SYSTEM_NAME=Android
+CMAKE_ANDROID_ARCH_ABI=arm64-v8a
+CMAKE_ANDROID_API=21
+CMAKE_C_COMPILER_TARGET=aarch64-unknown-linux-android
+```
+
+#### Using Custom Toolchains (macOS)
+
+On macOS, you can select custom Swift toolchains using the `TOOLCHAINS` environment variable. The CMake integration inherits this and uses the toolchain's compilers.
+
+```bash
+# Select a nightly toolchain
+export TOOLCHAINS=org.swift.DEVELOPMENT-SNAPSHOT-2025-10-30-a
+
+# Verify the toolchain
+swift --version
+
+# Build - CMake will use the toolchain's clang/clang++
+swift build
+```
+
+The selected toolchain's compilers are automatically passed to CMake via `CC` and `CXX` environment variables.
+
+#### Using Destination and Toolset Files
+
+For custom cross-compilation setups, use destination or toolset JSON files:
+
+**Destination file (linux-cross.json):**
 ```json
 {
-  "platforms": {
-    "macos": {
-      "defines": { "USE_METAL": "ON" }
-    },
-    "linux": {
-      "defines": { "USE_WAYLAND": "ON" }
-    }
+  "version": 1,
+  "target": "aarch64-unknown-linux-gnu",
+  "sysroot": "/path/to/aarch64-sysroot"
+}
+```
+
+**Build with destination:**
+```bash
+swift build --destination linux-cross.json
+```
+
+The CMake integration reads the triple and sysroot from the destination file and configures CMake accordingly.
+
+**Toolset file (custom-llvm.json):**
+```json
+{
+  "version": 1,
+  "compilers": {
+    "C": "/opt/llvm-18/bin/clang",
+    "CXX": "/opt/llvm-18/bin/clang++"
   }
 }
 ```
+
+**Build with toolset:**
+```bash
+swift build --toolset custom-llvm.json
+```
+
+#### Per-Triple Configuration
+
+You can provide platform-specific CMake configuration by creating per-triple JSON files. This is useful when different platforms need different build settings.
+
+**Directory structure:**
+```
+ThirdParty/MyLib/
+  .spm-cmake.json                    # Default configuration
+  .spm-cmake/
+    arm64-apple-ios.json              # iOS-specific
+    aarch64-unknown-linux-gnu.json    # Linux ARM64-specific
+    x86_64-apple-macosx.json          # macOS x86_64-specific
+```
+
+**Example: iOS-specific configuration (.spm-cmake/arm64-apple-ios.json):**
+```json
+{
+  "defines": {
+    "BUILD_SHARED_LIBS": "OFF",
+    "USE_METAL": "ON",
+    "USE_OPENGL": "OFF"
+  },
+  "env": {
+    "CC": "/path/to/ios-clang",
+    "CXX": "/path/to/ios-clang++"
+  }
+}
+```
+
+**Configuration selection order:**
+1. `.spm-cmake/<target-triple>.json` (most specific)
+2. `.spm-cmake.json` (fallback)
+3. Auto-detection (if no config found)
+
+When you build with `swift build --swift-sdk ios-arm64`, SwiftPM looks for `.spm-cmake/arm64-apple-ios.json` first.
+
+#### Environment Variable Overrides
+
+The `env` field in `.spm-cmake.json` allows you to override environment variables for the CMake build:
+
+```json
+{
+  "env": {
+    "CC": "/usr/local/bin/clang-18",
+    "CXX": "/usr/local/bin/clang++-18",
+    "AR": "/usr/local/bin/llvm-ar",
+    "RANLIB": "/usr/local/bin/llvm-ranlib",
+    "STRIP": "/usr/local/bin/llvm-strip"
+  }
+}
+```
+
+**Precedence (highest to lowest):**
+1. User-provided `env` in `.spm-cmake.json`
+2. Toolchain compilers (from `TOOLCHAINS` or `--toolset`)
+3. System defaults
+
+#### Platform-Specific CMake Variables
+
+The CMake integration automatically sets platform-specific variables based on the target triple:
+
+**Apple platforms (iOS, tvOS, watchOS, visionOS, macOS):**
+- `CMAKE_SYSTEM_NAME`: iOS, tvOS, watchOS, visionOS, or Darwin
+- `CMAKE_OSX_SYSROOT`: iphoneos, iphonesimulator, appletvos, etc.
+- `CMAKE_OSX_ARCHITECTURES`: arm64, x86_64, etc.
+- `CMAKE_INSTALL_RPATH`: @rpath
+
+**Linux:**
+- `CMAKE_SYSTEM_NAME`: Linux
+- `CMAKE_SYSROOT`: SDK sysroot path
+- `CMAKE_FIND_ROOT_PATH`: SDK sysroot path
+- `CMAKE_C_COMPILER_TARGET`: target triple
+- `CMAKE_CXX_COMPILER_TARGET`: target triple
+
+**Android:**
+- `CMAKE_SYSTEM_NAME`: Android
+- `CMAKE_ANDROID_NDK`: NDK path from environment
+- `CMAKE_ANDROID_ARCH_ABI`: arm64-v8a, armeabi-v7a, x86_64, or x86
+- `CMAKE_ANDROID_API`: 21 (default)
+- `CMAKE_C_COMPILER_TARGET`: target triple
+- `CMAKE_CXX_COMPILER_TARGET`: target triple
+
+**Windows:**
+- `CMAKE_SYSTEM_NAME`: Windows
+- `CMAKE_MSVC_RUNTIME_LIBRARY`: MultiThreadedDLL (for MSVC)
+
+**WebAssembly (WASI):**
+- `CMAKE_SYSTEM_NAME`: WASI
+- `CMAKE_SYSROOT`: SDK sysroot path
+
+You can override any of these by adding them to the `defines` field in `.spm-cmake.json`.
 
 ### Build Caching
 
