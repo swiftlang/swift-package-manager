@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.InternalError
+import Basics
+import BuildSystemCMake
 
 import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
@@ -40,8 +41,28 @@ extension BuildPlan {
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
             case let target as SystemLibraryModule:
-                swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
-                swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
+                // Check if this is a CMake-based system library
+                if let cmake = try prepareCMakeIfNeeded(for: target) {
+                    // Add include directory from CMake staging
+                    if let includePath = try? AbsolutePath(validating: cmake.includeDir) {
+                        swiftTarget.additionalFlags += ["-I", includePath.pathString, "-Xcc", "-I", "-Xcc", includePath.pathString]
+                    }
+
+                    // Add libraries from CMake build
+                    for lib in cmake.libFiles {
+                        if let libPath = try? AbsolutePath(validating: lib) {
+                            swiftTarget.libraryBinaryPaths.insert(libPath)
+                        }
+                    }
+
+                    // Add extra compiler flags (e.g., for overlay mode)
+                    // Note: extraCFlags from CMake integration already include -Xcc prefixes where needed
+                    swiftTarget.additionalFlags += cmake.extraCFlags
+                } else {
+                    // Fall back to traditional pkgConfig-based system library
+                    swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
+                    swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags
+                }
             case let target as BinaryModule:
                 switch target.kind {
                 case .unknown:

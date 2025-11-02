@@ -12,6 +12,7 @@
 
 import _Concurrency
 import Basics
+import BuildSystemCMake
 import Foundation
 import LLBuildManifest
 import OrderedCollections
@@ -254,6 +255,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
     /// Cache for pkgConfig flags.
     private var pkgConfigCache = [SystemLibraryModule: (cFlags: [String], libs: [String])]()
+
+    /// Cache for CMake build results.
+    private var cmakeBuildCache = [SystemLibraryModule: CMakeIntegrationResult]()
 
     /// Cache for library information.
     var externalLibrariesCache = [BinaryModule: [LibraryInfo]]()
@@ -703,6 +707,48 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
         let result = ([String](cflagsCache), libsCache)
         self.pkgConfigCache[target] = result
+        return result
+    }
+
+    /// Prepare CMake build for a system library target if it contains CMakeLists.txt.
+    func prepareCMakeIfNeeded(for target: SystemLibraryModule) throws -> CMakeIntegrationResult? {
+        // Check if we already have a cached result
+        if let cached = cmakeBuildCache[target] {
+            return cached
+        }
+
+        // Check if CMakeLists.txt exists
+        let cmakelistsPath = target.path.appending(component: "CMakeLists.txt")
+        guard fileSystem.exists(cmakelistsPath) else {
+            return nil
+        }
+
+        // Derive build/staging dirs under .build/cmake/<hash>/<triple>/<config>/
+        let targetPathString = target.path.pathString
+        let hash = String(targetPathString.hashValue)
+        let triple = destinationBuildParameters.triple.tripleString
+        let configuration = destinationBuildParameters.configuration.dirname
+
+        let buildPath = destinationBuildParameters.buildPath
+        let cmakeRoot = buildPath.appending(component: "cmake")
+        let workDir = cmakeRoot.appending(components: [hash, triple, configuration, "build"])
+        let stagingDir = cmakeRoot.appending(components: [hash, triple, configuration, "staging"])
+
+        // Create directories
+        try fileSystem.createDirectory(workDir, recursive: true)
+        try fileSystem.createDirectory(stagingDir, recursive: true)
+
+        // Build via CMake
+        let result = try CMakeIntegration.buildAndPrepare(
+            targetRoot: targetPathString,
+            buildDir: workDir.pathString,
+            stagingDir: stagingDir.pathString,
+            configuration: configuration,
+            topLevelModuleName: target.c99name
+        )
+
+        // Cache the result
+        cmakeBuildCache[target] = result
         return result
     }
 
