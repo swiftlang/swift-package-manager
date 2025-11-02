@@ -12,18 +12,41 @@ public enum CMakeIntegration {
                                        buildDir: String,
                                        stagingDir: String,
                                        configuration: String,
-                                       topLevelModuleName: String) throws -> CMakeIntegrationResult {
-        // 1) Load module map policy and CMake defines
-        let cfg = ModuleMapPolicy.loadConfig(at: targetRoot)
-        let defines = cfg.defines ?? [:]
+                                       topLevelModuleName: String,
+                                       triple: String? = nil,
+                                       platformDefines: [String: String] = [:],
+                                       platformEnv: [String: String] = [:]) throws -> CMakeIntegrationResult {
+        // 1) Load module map policy and CMake defines (with per-triple support)
+        let cfg = ModuleMapPolicy.loadConfig(at: targetRoot, triple: triple)
+        var defines = cfg.defines ?? [:]
 
-        // 2) Build via CMake
+        // 2) Merge platform defines (from Swift SDK) - user config takes precedence
+        for (key, value) in platformDefines {
+            if defines[key] == nil {
+                defines[key] = value
+            }
+        }
+
+        // 3) Merge environment variables (toolchain compilers, etc.)
+        var env = ProcessInfo.processInfo.environment
+        for (key, value) in platformEnv {
+            env[key] = value
+        }
+        // User config can override toolchain
+        if let userEnv = cfg.env {
+            for (key, value) in userEnv {
+                env[key] = value
+            }
+        }
+
+        // 4) Build via CMake
         let artifacts = try CMakeBuilder().configureBuildInstall(
             sourceDir: targetRoot,
             workDir: buildDir,
             stagingDir: stagingDir,
             buildType: configuration,
-            defines: defines
+            defines: defines,
+            env: env
         )
 
         // 3) Handle module map policy

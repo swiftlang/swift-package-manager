@@ -1,5 +1,4 @@
 import Foundation
-import Crypto
 
 /// Manages build caching to avoid unnecessary CMake rebuilds
 public struct BuildCache {
@@ -11,24 +10,24 @@ public struct BuildCache {
 
     /// Compute hash of all inputs that affect the build
     public func computeInputHash(sourceDir: String, config: SPMCMakeConfig) -> String {
-        var hasher = SHA256()
+        var hasher = 0
 
         // Hash CMakeLists.txt
         if let cmakeData = try? Data(contentsOf: URL(fileURLWithPath: (sourceDir as NSString).appendingPathComponent("CMakeLists.txt"))) {
-            hasher.update(data: cmakeData)
+            hasher ^= cmakeData.hashValue
         }
 
         // Hash .spm-cmake.json
-        let configData = (try? JSONEncoder().encode(config)) ?? Data()
-        hasher.update(data: configData)
+        if let configData = try? JSONEncoder().encode(config) {
+            hasher ^= configData.hashValue
+        }
 
         // Hash CMake version
         if let version = getCMakeVersion() {
-            hasher.update(data: Data(version.utf8))
+            hasher ^= version.hashValue
         }
 
-        let digest = hasher.finalize()
-        return digest.map { String(format: "%02x", $0) }.joined()
+        return String(hasher, radix: 16)
     }
 
     /// Check if cached build is still valid

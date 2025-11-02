@@ -41,6 +41,7 @@ public struct ModuleMapConfig: Codable {
 
 public struct SPMCMakeConfig: Codable {
     public var defines: [String:String]? = nil
+    public var env: [String:String]? = nil
     public var moduleMap: ModuleMapConfig? = nil
 }
 
@@ -56,22 +57,38 @@ public enum ModuleMapError: Error, CustomStringConvertible {
 }
 
 public enum ModuleMapPolicy {
-    public static func loadConfig(at targetRoot: String) -> SPMCMakeConfig {
+    /// Load config with per-triple fallback support
+    /// 1. Try: .spm-cmake/<triple>.json
+    /// 2. Fallback: .spm-cmake.json
+    /// 3. Fallback: auto-detect
+    public static func loadConfig(at targetRoot: String, triple: String? = nil) -> SPMCMakeConfig {
+        // Try per-triple config first
+        if let triple = triple {
+            let tripleJsonPath = (targetRoot as NSString).appendingPathComponent(".spm-cmake/\(triple).json")
+            if FileManager.default.fileExists(atPath: tripleJsonPath),
+               let data = try? Data(contentsOf: URL(fileURLWithPath: tripleJsonPath)),
+               let cfg = try? JSONDecoder().decode(SPMCMakeConfig.self, from: data) {
+                return cfg
+            }
+        }
+
+        // Fallback to generic config
         let jsonPath = (targetRoot as NSString).appendingPathComponent(".spm-cmake.json")
         if FileManager.default.fileExists(atPath: jsonPath),
            let data = try? Data(contentsOf: URL(fileURLWithPath: jsonPath)),
            let cfg = try? JSONDecoder().decode(SPMCMakeConfig.self, from: data) {
             return cfg
         }
+
         // Autodetect: if a module.modulemap exists under include/, prefer provided
         let includeMM = (targetRoot as NSString).appendingPathComponent("include/module.modulemap")
         if FileManager.default.fileExists(atPath: includeMM) {
-            return SPMCMakeConfig(defines: nil,
+            return SPMCMakeConfig(defines: nil, env: nil,
                                   moduleMap: ModuleMapConfig(mode: .provided, path: "include/module.modulemap", installAt: "include/module.modulemap"))
         }
         let rootMM = (targetRoot as NSString).appendingPathComponent("module.modulemap")
         if FileManager.default.fileExists(atPath: rootMM) {
-            return SPMCMakeConfig(defines: nil,
+            return SPMCMakeConfig(defines: nil, env: nil,
                                   moduleMap: ModuleMapConfig(mode: .provided, path: "module.modulemap", installAt: "include/module.modulemap"))
         }
         return SPMCMakeConfig()

@@ -710,6 +710,58 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         return result
     }
 
+    /// Query Swift driver for target info (respects --swift-sdk, destination, toolset)
+    func querySwiftTargetInfo(triple: String) throws -> SwiftTargetInfo {
+        let swiftPath = destinationBuildParameters.toolchain.swiftCompilerPath
+        var args = [swiftPath.pathString, "-print-target-info"]
+        args += ["-target", triple]
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = args
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+
+        try process.run()
+        process.waitUntilExit()
+
+        guard process.terminationStatus == 0 else {
+            throw StringError("Failed to query Swift target info for \(triple)")
+        }
+
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let decoder = JSONDecoder()
+        return try decoder.decode(SwiftTargetInfo.self, from: data)
+    }
+
+    /// Derive CMake toolchain settings from Swift SDK/destination
+    func deriveCMakeToolchain(targetInfo: SwiftTargetInfo, triple: Basics.Triple, sdkRoot: Basics.AbsolutePath?) -> (defines: [String: String], env: [String: String]) {
+        let platformConfig = CMakePlatformMapper.mapPlatform(
+            triple: triple.tripleString,
+            sysroot: sdkRoot?.pathString,
+            runtimePaths: targetInfo.paths?.runtimeLibraryPaths
+        )
+
+        var cmakeDefines = CMakePlatformMapper.toCMakeDefines(platformConfig)
+
+        // Apple-specific: set RPATH for frameworks
+        if triple.isDarwin() {
+            cmakeDefines["CMAKE_INSTALL_RPATH"] = "@rpath"
+        }
+
+        var env: [String: String] = [:]
+
+        // Expose toolchain compilers (respects TOOLCHAINS environment)
+        if let clangPath = try? destinationBuildParameters.toolchain.getClangCompiler() {
+            env["CC"] = clangPath.pathString
+            env["CXX"] = clangPath.pathString
+        }
+
+        return (defines: cmakeDefines, env: env)
+    }
+
     /// Prepare CMake build for a system library target if it contains CMakeLists.txt.
     func prepareCMakeIfNeeded(for target: SystemLibraryModule) throws -> CMakeIntegrationResult? {
         // Check if we already have a cached result
@@ -738,13 +790,26 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         try fileSystem.createDirectory(workDir, recursive: true)
         try fileSystem.createDirectory(stagingDir, recursive: true)
 
-        // Build via CMake
+        // Query Swift target info (respects --swift-sdk, destination, toolset)
+        let targetInfo = try querySwiftTargetInfo(triple: triple)
+
+        // Derive platform-specific CMake settings
+        let toolchain = deriveCMakeToolchain(
+            targetInfo: targetInfo,
+            triple: destinationBuildParameters.triple,
+            sdkRoot: destinationBuildParameters.toolchain.sdkRootPath
+        )
+
+        // Build via CMake with SDK-aware configuration
         let result = try CMakeIntegration.buildAndPrepare(
             targetRoot: targetPathString,
             buildDir: workDir.pathString,
             stagingDir: stagingDir.pathString,
             configuration: configuration,
-            topLevelModuleName: target.c99name
+            topLevelModuleName: target.c99name,
+            triple: triple,
+            platformDefines: toolchain.defines,
+            platformEnv: toolchain.env
         )
 
         // Cache the result

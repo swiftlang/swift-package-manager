@@ -69,17 +69,18 @@ public enum CMakeError: Error, CustomStringConvertible {
 }
 
 public final class CMakeBuilder {
-    private func run(_ args: [String], cwd: String? = nil) throws {
+    private func run(_ args: [String], env: [String: String]? = nil, cwd: String? = nil) throws {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: args[0])
         p.arguments = Array(args.dropFirst())
         if let cwd = cwd { p.currentDirectoryURL = URL(fileURLWithPath: cwd) }
+        if let env = env { p.environment = env }
         let pipe = Pipe(); p.standardOutput = pipe; p.standardError = pipe
         try p.run(); p.waitUntilExit()
         if p.terminationStatus != 0 {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let out = String(data: data, encoding: .utf8) ?? ""
-            throw CMakeError.failed(out)
+            throw CMakeError.failed(out, hint: nil)
         }
     }
 
@@ -97,7 +98,8 @@ public final class CMakeBuilder {
                                       workDir: String,
                                       stagingDir: String,
                                       buildType: String,
-                                      defines: [String:String] = [:]) throws -> CMakeArtifacts {
+                                      defines: [String:String] = [:],
+                                      env: [String:String]? = nil) throws -> CMakeArtifacts {
         guard let cmake = which("cmake") else { throw CMakeError.cmakeNotFound }
         try FileManager.default.createDirectory(at: URL(fileURLWithPath: workDir),
                                                withIntermediateDirectories: true, attributes: nil)
@@ -117,9 +119,10 @@ public final class CMakeBuilder {
             args += ["-D\(k)=\(v)"]
         }
 
-        try run(args)
-        try run([cmake, "--build", workDir, "--config", buildType, "--parallel"])
-        try run([cmake, "--install", workDir, "--config", buildType])
+        // Run with platform-aware environment (CC, CXX, etc.)
+        try run(args, env: env)
+        try run([cmake, "--build", workDir, "--config", buildType, "--parallel"], env: env)
+        try run([cmake, "--install", workDir, "--config", buildType], env: env)
 
         // Very small artifact discovery: gather libs from staging/lib*
         var libs: [String] = []

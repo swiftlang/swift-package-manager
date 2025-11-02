@@ -98,7 +98,7 @@ public struct HeaderAnalyzer {
             moduleMap["textualHeaders"] = analysis.textualHeaders
         }
 
-        if !excludedHeaders.isEmpty {
+        if !analysis.excludedHeaders.isEmpty {
             moduleMap["excludeHeaders"] = analysis.excludedHeaders
         }
 
