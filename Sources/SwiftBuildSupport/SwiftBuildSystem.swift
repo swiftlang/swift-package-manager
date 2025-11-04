@@ -842,7 +842,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             sdkVariant: sdkVariant,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
-            disableOnlyActiveArch: false
+            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
         )
     }
 

@@ -13,6 +13,7 @@ import Testing
 extension Tag {
     public enum TestSize {}
     public enum Feature {}
+    public enum Platform {}
     @Tag public static var UserWorkflow: Tag
 }
 
@@ -22,23 +23,35 @@ extension Tag.TestSize {
     @Tag public static var large: Tag
 }
 
+extension Tag.Platform {
+    @Tag public static var FileSystem: Tag
+}
+
 extension Tag.Feature {
     public enum Command {}
     public enum CommandLineArguments {}
-    public enum EnvironmentVariables  {}
+    public enum EnvironmentVariables {}
     public enum PackageType {}
     public enum ProductType {}
     public enum TargetType {}
+    public enum Product {}
 
     @Tag public static var BuildCache: Tag
     @Tag public static var CodeCoverage: Tag
+    @Tag public static var CTargets: Tag
+    @Tag public static var DependencyResolution: Tag
+    @Tag public static var ModuleAliasing: Tag
     @Tag public static var Mirror: Tag
     @Tag public static var NetRc: Tag
+    @Tag public static var Plugin: Tag
     @Tag public static var Resource: Tag
+    @Tag public static var SourceGeneration: Tag
     @Tag public static var SpecialCharacters: Tag
     @Tag public static var Snippets: Tag
+    @Tag public static var TestDiscovery: Tag
     @Tag public static var Traits: Tag
-
+    @Tag public static var TargetSettings: Tag
+    @Tag public static var Version: Tag
 }
 
 extension Tag.Feature.Command {
@@ -73,14 +86,27 @@ extension Tag.Feature.CommandLineArguments {
     @Tag public static var Verbose: Tag
     @Tag public static var VeryVerbose: Tag
     @Tag public static var Xlinker: Tag
+    @Tag public static var XbuildToolsSwiftc: Tag
     @Tag public static var Xcc: Tag
     @Tag public static var Xcxx: Tag
-    @Tag public static var SWIFT_ORIGINAL_PATH: Tag
+    @Tag public static var Xld: Tag
     @Tag public static var Xswiftc: Tag
+    @Tag public static var TestParallel: Tag
+    @Tag public static var TestNoParallel: Tag
+    @Tag public static var TestOutputXunit: Tag
+    @Tag public static var TestEnableSwiftTesting: Tag
+    @Tag public static var TestDisableSwiftTesting: Tag
+    @Tag public static var TestEnableXCTest: Tag
+    @Tag public static var TestDisableXCTest: Tag
+    @Tag public static var TestFilter: Tag
+    @Tag public static var TestSkip: Tag
+    @Tag public static var SkipBuild: Tag
+    @Tag public static var EnableCodeCoverage: Tag
 }
 
 extension Tag.Feature.CommandLineArguments.Experimental {
-     @Tag public static var BuildDylibsAsFrameworks: Tag
+    @Tag public static var BuildDylibsAsFrameworks: Tag
+    @Tag public static var PruneUnusedDependencies: Tag
 }
 extension Tag.Feature.EnvironmentVariables {
     @Tag public static var CUSTOM_SWIFT_VERSION: Tag
@@ -130,9 +156,16 @@ extension Tag.Feature.Command.PackageRegistry {
 }
 
 extension Tag.Feature.TargetType {
+    public enum BinaryTarget {}
     @Tag public static var Executable: Tag
     @Tag public static var Library: Tag
     @Tag public static var Macro: Tag
+    @Tag public static var Test: Tag
+}
+
+extension Tag.Feature.TargetType.BinaryTarget {
+    @Tag public static var ArtifactBundle: Tag
+    @Tag public static var XCFramework: Tag
 }
 
 extension Tag.Feature.ProductType {
@@ -144,10 +177,16 @@ extension Tag.Feature.ProductType {
 }
 extension Tag.Feature.PackageType {
     @Tag public static var Library: Tag
+    @Tag public static var Empty: Tag
     @Tag public static var Executable: Tag
     @Tag public static var Tool: Tag
     @Tag public static var Plugin: Tag
     @Tag public static var BuildToolPlugin: Tag
     @Tag public static var CommandPlugin: Tag
     @Tag public static var Macro: Tag
+}
+
+extension Tag.Feature.Product {
+    @Tag public static var Execute: Tag
+    @Tag public static var Link: Tag
 }

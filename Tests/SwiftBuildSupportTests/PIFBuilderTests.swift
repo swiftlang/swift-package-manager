@@ -164,14 +164,13 @@ struct PIFBuilderTests {
 
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.settings[.OTHER_LDFLAGS, platform]
-                if [.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd].contains(platform) {
-                     #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
-                } else if [.android, .linux, .wasi, .openbsd].contains(platform) {
-                    #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
-                } else if [.windows, ._iOSDevice].contains(platform) {
-                    #expect(ld_flags == nil, "for platform \(platform)")
-                } else {
-                    Issue.record("Unexpected platform \(platform)")
+                switch platform {
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                         #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
+                    case .android, .linux, .wasi, .openbsd:
+                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")                    
+                    case .windows, ._iOSDevice:
+                        #expect(ld_flags == nil, "for platform \(platform)")
                 }
             }
         }

@@ -498,10 +498,13 @@ extension PackagePIFProjectBuilder {
         if sourceModule.isCxx {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 // darwin & freebsd
-                if [.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd].contains(platform) {
-                    settings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
-                } else if [.android, .linux, .wasi, .openbsd].contains(platform) {
-                    settings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                switch platform {
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                        settings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
+                    case .android, .linux, .wasi, .openbsd:
+                        settings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                    case .windows, ._iOSDevice:
+                        break
                 }
             }
         }
