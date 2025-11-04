@@ -632,28 +632,6 @@ extension Workspace {
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return try dependenciesRequired.compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
-
-//                    let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: node.item.enabledTraits)}.map(\.name)
-
-//                        .map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: node.item.identity, name: node.item.manifest.displayName)))})
-
-//                    if let explicitlyEnabledTraits {
-//                        let explicitlyEnabledTraits = EnabledTraits(
-//                            explicitlyEnabledTraits,
-//                            setBy: .package(.init(node.item.manifest))
-//                        )
-//                        let calculatedTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
-//                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
-//                    }
-
-//                    if let enabledTraitsSet = explicitlyEnabledTraits.flatMap({ Set($0) }) {
-//                        let calculatedTraits = try manifest.enabledTraits(
-//                            using: enabledTraitsSet
-////                            .init(node.item.manifest)
-//                        )
-//                        self.enabledTraitsMap[dependency.identity] = calculatedTraits
-//                    }
-
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
@@ -696,6 +674,14 @@ extension Workspace {
             } onDuplicate: { _, _ in
                 // Nothing we need to compute here.
             }
+        }
+
+        // Second pass: Update enabled traits for dependencies now that we have all manifests loaded
+        // This resolves the race condition where parents might set traits for dependencies
+        // before the dependency manifest is loaded and its default traits are known.
+        let allManifests = allNodes.mapValues(\.manifest)
+        for (_, manifest) in allManifests {
+            try updateEnabledTraits(for: manifest)
         }
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }

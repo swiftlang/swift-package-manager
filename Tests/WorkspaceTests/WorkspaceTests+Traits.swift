@@ -805,7 +805,7 @@ extension WorkspaceTests {
     /// Tests the unified trait system where one parent disables default traits with []
     /// while another parent doesn't specify traits (defaults to default traits).
     /// The resulting EnabledTraitsMap should have both disablers AND enabled default traits.
-    func testDisablersCoexistWithDefaultTraits() async throws {
+    func testDefaultTraitDisablersCoexistWithDefaultTraits() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
 
@@ -943,4 +943,267 @@ extension WorkspaceTests {
             }
         }
     }
+
+    /// Verifies that when a parent requests defaults (doesn't specify traits),
+    /// the defaults are properly expanded when the dependency's manifest loads.
+    /// The "default" trait itself should never appear in the final enabled traits list.
+    func testDefaultTraitSettersFlattenedOnManifestLoad() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "RootPackage",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
+                        ),
+                    ],
+                    products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
+                    dependencies: [
+                        // Root doesn't specify traits - wants defaults
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "ChildPackage",
+                    targets: [
+                        MockTarget(name: "ChildTarget"),
+                    ],
+                    products: [MockProduct(name: "ChildProduct", modules: ["ChildTarget"])],
+                    traits: [
+                        // Default trait enables Feature1
+                        .init(name: "default", enabledTraits: ["Feature1"]),
+                        .init(name: "Feature1"),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "RootPackage")
+                result.check(packages: "RootPackage", "ChildPackage")
+
+                // Verify ChildPackage has Feature1 enabled (from expanded default)
+                // The "default" trait should NOT appear - it should be flattened to Feature1
+                result.checkPackage("ChildPackage") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on ChildPackage")
+                        return
+                    }
+
+                    // Should contain Feature1 (expanded from default)
+                    XCTAssertTrue(enabledTraits.contains("Feature1"))
+                    // Should NOT contain "default" - it should be flattened
+                    XCTAssertFalse(enabledTraits.contains("default"))
+                    // Should only have Feature1
+                    XCTAssertEqual(enabledTraits.count, 1)
+                }
+            }
+        }
+    }
+
+    /// Verifies that when multiple parents don't specify traits (want defaults),
+    /// all their default requests are tracked and the result is the same regardless of load order.
+    /// The "default" trait should be flattened to the actual traits it enables.
+    func testMultipleDefaultTraitSettersOrderIndependent() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "RootPackage",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "Parent1Product", package: "Parent1"),
+                                .product(name: "Parent2Product", package: "Parent2"),
+                            ]
+                        ),
+                    ],
+                    products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Parent1",
+                    targets: [
+                        MockTarget(
+                            name: "Parent1Target",
+                            dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
+                        ),
+                    ],
+                    products: [MockProduct(name: "Parent1Product", modules: ["Parent1Target"])],
+                    dependencies: [
+                        // Parent1 doesn't specify traits - wants defaults
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Parent2",
+                    targets: [
+                        MockTarget(
+                            name: "Parent2Target",
+                            dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
+                        ),
+                    ],
+                    products: [MockProduct(name: "Parent2Product", modules: ["Parent2Target"])],
+                    dependencies: [
+                        // Parent2 also doesn't specify traits - wants defaults
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "ChildPackage",
+                    targets: [MockTarget(name: "ChildTarget")],
+                    products: [MockProduct(name: "ChildProduct", modules: ["ChildTarget"])],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["Feature1"]),
+                        .init(name: "Feature1"),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
+            .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.checkPackage("ChildPackage") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on ChildPackage")
+                        return
+                    }
+
+                    // Should have Feature1 enabled from both parents wanting defaults
+                    XCTAssertTrue(enabledTraits.contains("Feature1"))
+                    // Should NOT contain "default" - it should be flattened
+                    XCTAssertFalse(enabledTraits.contains("default"))
+                }
+            }
+        }
+    }
+
+    /// Verifies that when all parents disable traits, no defaults are enabled.
+    /// The final enabled traits should be empty.
+    func testAllParentsDisableDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "RootPackage",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "Parent1Product", package: "Parent1"),
+                                .product(name: "Parent2Product", package: "Parent2"),
+                            ]
+                        ),
+                    ],
+                    products: [MockProduct(name: "RootProduct", modules: ["RootTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Parent1",
+                    targets: [
+                        MockTarget(
+                            name: "Parent1Target",
+                            dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
+                        ),
+                    ],
+                    products: [MockProduct(name: "Parent1Product", modules: ["Parent1Target"])],
+                    dependencies: [
+                        // Parent1 disables all traits
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"), traits: [])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Parent2",
+                    targets: [
+                        MockTarget(
+                            name: "Parent2Target",
+                            dependencies: [.product(name: "ChildProduct", package: "ChildPackage")]
+                        ),
+                    ],
+                    products: [MockProduct(name: "Parent2Product", modules: ["Parent2Target"])],
+                    dependencies: [
+                        // Parent2 also disables all traits
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"), traits: [])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "ChildPackage",
+                    targets: [MockTarget(name: "ChildTarget")],
+                    products: [MockProduct(name: "ChildProduct", modules: ["ChildTarget"])],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["Feature1"]),
+                        .init(name: "Feature1"),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
+            .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.checkPackage("ChildPackage") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on ChildPackage")
+                        return
+                    }
+
+                    // Should have NO traits enabled (both parents disabled)
+                    XCTAssertTrue(enabledTraits.isEmpty)
+                }
+            }
+        }
+    }
+
 }
+

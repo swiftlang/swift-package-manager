@@ -36,6 +36,23 @@ extension Workspace {
         let enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
         self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
 
+        // Check if any parents requested default traits for this package
+        // If so, expand the default traits and union them with existing traits
+        if let defaultSetters = self.enabledTraitsMap[defaultSettersFor: manifest.packageIdentity],
+           !defaultSetters.isEmpty {
+            // Calculate what the default traits are for this manifest
+            let defaultTraits = try manifest.enabledTraits(using: .defaults)
+
+            // Create enabled traits for each setter that requested defaults
+            for setter in defaultSetters {
+                let traitsFromSetter = EnabledTraits(
+                    defaultTraits.map(\.name),
+                    setBy: setter
+                )
+                self.enabledTraitsMap[manifest.packageIdentity] = traitsFromSetter
+            }
+        }
+
         // Check enabled traits for the dependencies
         for dep in manifest.dependencies {
             updateEnabledTraits(forDependency: dep, manifest)
@@ -44,18 +61,33 @@ extension Workspace {
 
     /// Update the enabled traits for a `PackageDependency` of a given parent `Manifest`.
     ///
-    /// This is only called if a loaded `Manifest` has package dependencies in which it sets
-    /// an explicit list of enabled traits for that dependency.
+    /// This is called when a manifest is loaded to register the parent's trait requirements for its dependencies.
+    /// When a parent doesn't specify traits, this explicitly registers that the parent wants the dependency
+    /// to use its default traits, with the parent as the setter.
     private func updateEnabledTraits(forDependency dependency: PackageDependency, _ parent: Manifest) {
         let parentEnabledTraits = self.enabledTraitsMap[parent.packageIdentity]
-        let explicitlyEnabledTraits = dependency.traits?.filter { $0.isEnabled(by: parentEnabledTraits)}.map(\.name)
 
-        if let explicitlyEnabledTraits {
-            let explicitlyEnabledTraits = EnabledTraits(
+        if let dependencyTraits = dependency.traits {
+            // Parent explicitly specified traits (could be [] to disable, or a list of specific traits)
+            let explicitlyEnabledTraits = dependencyTraits
+                .filter { $0.isEnabled(by: parentEnabledTraits) }
+                .map(\.name)
+
+            let enabledTraits = EnabledTraits(
                 explicitlyEnabledTraits,
                 setBy: .package(.init(parent))
             )
-            self.enabledTraitsMap[dependency.identity] = explicitlyEnabledTraits
+            self.enabledTraitsMap[dependency.identity] = enabledTraits
+        } else {
+            // Parent didn't specify traits - it wants the dependency to use its defaults.
+            // Explicitly register "default" with this parent as the setter.
+            // This ensures the union system properly tracks that this parent wants defaults enabled,
+            // even if other parents have disabled traits.
+            let defaultTraits = EnabledTraits(
+                ["default"],
+                setBy: .package(.init(parent))
+            )
+            self.enabledTraitsMap[dependency.identity] = defaultTraits
         }
     }
 }

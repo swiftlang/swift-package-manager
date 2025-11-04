@@ -76,7 +76,16 @@ public struct EnabledTraitsMap {
     /// Tracks setters that explicitly disabled default traits (via []) for each package.
     private var _disablers: ThreadSafeKeyValueStore<PackageIdentity, Set<EnabledTrait.Setter>> = .init()
 
+    /// Tracks setters that requested default traits for each package.
+    /// This is used when a parent doesn't specify traits, meaning it wants the dependency to use its defaults.
+    private var _defaultSetters: ThreadSafeKeyValueStore<PackageIdentity, Set<EnabledTrait.Setter>> = .init()
+
     public init() { }
+
+    public subscript(key: String) -> EnabledTraits {
+        get { self[PackageIdentity(key)] }
+        set { self[PackageIdentity(key)] = newValue }
+    }
 
     public subscript(key: PackageIdentity) -> EnabledTraits {
         get { storage[key] ?? ["default"] }
@@ -85,7 +94,33 @@ public struct EnabledTraitsMap {
             // if there are no explicit traits enabled. This will allow us to check
             // for nil entries in the stored dictionary, which tells us whether
             // traits have been explicitly enabled or not.
-            guard newValue != .defaults else {
+            //
+            // However, if "default" is explicitly set by a parent (has setters),
+            // track it in the `defaultSetters` property.
+            guard !(newValue == .defaults && !newValue.isExplicitlySetDefault) else {
+                return
+            }
+
+            // Track setter that disabled all default traits;
+            // continue to union existing enabled traits.
+            if newValue.isEmpty, let disabler = newValue.disabledBy {
+                if !self._disablers.contains(key) {
+                    _disablers[key] = []
+                }
+                _disablers[key]?.insert(disabler)
+            }
+
+            // Check if this is an explicitly-set "default" trait (parent wants defaults enabled)
+            if newValue.isExplicitlySetDefault {
+                // Track that this parent wants default traits, but don't store the sentinel "default"
+                // The actual default traits will be resolved when the dependency's manifest is loaded
+                if let defaultSetter = newValue.first?.setters.first {
+                    if !self._defaultSetters.contains(key) {
+                        _defaultSetters[key] = []
+                    }
+                    _defaultSetters[key]?.insert(defaultSetter)
+                }
+
                 // If explicitly disabled default traits prior, then
                 // reset this in storage and assure we can still fetch defaults.
                 // We will still track whenever default traits were disabled by
@@ -94,14 +129,6 @@ public struct EnabledTraitsMap {
                     self.storage[key] = nil
                 }
                 return
-            }
-
-            // Set disablers; continue to union existing enabled traits.
-            if newValue.isEmpty, let disabler = newValue.disabledBy {
-                if !self._disablers.contains(key) {
-                    _disablers[key] = []
-                }
-                _disablers[key]?.insert(disabler)
             }
 
             // If there are no explictly enabled traits added yet, then create entry.
@@ -118,10 +145,28 @@ public struct EnabledTraitsMap {
         get { self._disablers[key] }
     }
 
+    public subscript(disablersFor key: String) -> Set<EnabledTrait.Setter>? {
+        self[disablersFor: .init(key)]
+    }
+
+    public subscript(defaultSettersFor key: PackageIdentity) -> Set<EnabledTrait.Setter>? {
+        get { self._defaultSetters[key] }
+    }
+
+    public subscript(defaultSettersFor key: String) -> Set<EnabledTrait.Setter>? {
+        self[defaultSettersFor: .init(key)]
+    }
+
     /// Returns a list of traits that were explicitly enabled for a given package.
     public subscript(explicitlyEnabledTraitsFor key: PackageIdentity) -> EnabledTraits? {
         get { storage[key] }
     }
+
+    /// Returns a list of traits that were explicitly enabled for a given package.
+    public subscript(explicitlyEnabledTraitsFor key: String) -> EnabledTraits? {
+        self[explicitlyEnabledTraitsFor: .init(key)]
+    }
+
 
     /// Returns a dictionary literal representation of the map.
     public var dictionaryLiteral: [PackageIdentity: EnabledTraits] {
@@ -135,6 +180,13 @@ extension EnabledTraitsMap: ExpressibleByDictionaryLiteral {
         for (key, value) in elements {
             storage[key] = value
         }
+    }
+
+    public init(_ dictionary: [String: Value]) {
+        let mappedDictionary = dictionary.reduce(into: [Key: Value]()) { result, element in
+            result[PackageIdentity(element.key)] = element.value
+        }
+        self.storage = .init(mappedDictionary)
     }
 
     public init(_ dictionary: [Key: Value]) {
@@ -327,6 +379,15 @@ public struct EnabledTraits: Hashable {
 
     public var areDefaultsEnabled: Bool {
         return !_traits.filter(\.isDefault).isEmpty || !_traits.filter(\.isSetByDefault).isEmpty
+    }
+
+    /// Returns true if this represents an explicitly-set "default" trait (with setters),
+    /// as opposed to the sentinel `.defaults` value (no setters).
+    /// This is used to distinguish when a parent explicitly wants default traits enabled
+    /// versus when no traits have been specified at all.
+    public var isExplicitlySetDefault: Bool {
+        // Check if this equals .defaults (only contains "default" trait) AND has explicit setters
+        return self == .defaults && _traits.contains(where: { !$0.setters.isEmpty })
     }
 
     public static var defaults: EnabledTraits {
