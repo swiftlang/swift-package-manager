@@ -402,7 +402,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by parent package 'foo' (Foo) is not declared by package 'baz' (Baz). The available traits declared by this package are: TraitFound."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by package 'foo' (Foo) is not declared by package 'baz' (Baz). The available traits declared by this package are: TraitFound."), severity: .error)
             }
         }
         await workspace.checkManagedDependencies { result in
@@ -465,7 +465,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraphFailure(roots: ["Foo"], deps: deps) { diagnostics in
             testDiagnostics(diagnostics) { result in
-                result.check(diagnostic: .equal("Trait 'TraitNotFound' is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
+                result.check(diagnostic: .equal("Trait 'TraitNotFound' enabled by command-line trait configuration is not declared by package 'foo' (Foo). The available traits declared by this package are: Trait1, Trait2, default."), severity: .error)
             }
         }
     }
@@ -577,6 +577,9 @@ extension WorkspaceTests {
         }
     }
 
+    /// Tests that different trait configurations correctly control which conditional dependencies are included.
+    /// Verifies that enabling different traits (BreakfastOfChampions vs Healthy) includes different
+    /// dependencies, and that both are included with `enableAllTraits` while neither is included with `disableAllTraits`.
     func testTraitsConditionalDependencies() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -700,6 +703,10 @@ extension WorkspaceTests {
         }
     }
 
+    /// Tests that default traits of a dependency package are automatically enabled when
+    ////  the parent doesn't specify traits.
+    /// Verifies that the default trait enables its configured traits (Enabled1 and
+    /// Enabled2), which in turn enables trait-guarded dependencies in the dependency's package graph.
     func testDefaultTraitsEnabledInPackageDependency() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -791,6 +798,148 @@ extension WorkspaceTests {
                     XCTAssertEqual(deps, [PackageIdentity(urlString: "./GuardedDependency")])
                     XCTAssertEqual(enabledTraits, ["Enabled1", "Enabled2"])
                 }
+            }
+        }
+    }
+
+    /// Tests the unified trait system where one parent disables default traits with []
+    /// while another parent doesn't specify traits (defaults to default traits).
+    /// The resulting EnabledTraitsMap should have both disablers AND enabled default traits.
+    func testDisablersCoexistWithDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "RootPackage",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "Parent1Product", package: "Parent1"),
+                                .product(name: "Parent2Product", package: "Parent2"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "RootProduct", modules: ["RootTarget"])
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Parent1", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Parent2", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Parent1",
+                    targets: [
+                        MockTarget(
+                            name: "Parent1Target",
+                            dependencies: [
+                                .product(name: "ChildProduct", package: "ChildPackage")
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "Parent1Product", modules: ["Parent1Target"])
+                    ],
+                    dependencies: [
+                        // Parent1 explicitly disables ChildPackage's traits with []
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"), traits: [])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Parent2",
+                    targets: [
+                        MockTarget(
+                            name: "Parent2Target",
+                            dependencies: [
+                                .product(name: "ChildProduct", package: "ChildPackage")
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "Parent2Product", modules: ["Parent2Target"])
+                    ],
+                    dependencies: [
+                        // Parent2 doesn't specify traits, so ChildPackage defaults to default traits
+                        .sourceControl(path: "./ChildPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "ChildPackage",
+                    targets: [
+                        MockTarget(
+                            name: "ChildTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedDependency",
+                                    condition: .init(traits: ["Feature1"])
+                                )
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "ChildProduct", modules: ["ChildTarget"])
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedDependency", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: [
+                        "Feature1",
+                        "Feature2",
+                        TraitDescription(name: "default", enabledTraits: ["Feature1"])
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedDependency",
+                    targets: [
+                        MockTarget(name: "GuardedTarget")
+                    ],
+                    products: [
+                        MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Parent1", requirement: .exact("1.0.0")),
+            .sourceControl(path: "./Parent2", requirement: .exact("1.0.0")),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "RootPackage")
+                result.check(packages: "RootPackage", "Parent1", "Parent2", "ChildPackage", "GuardedDependency")
+
+                // Verify ChildPackage has default traits enabled (from Parent2)
+                result.checkPackage("ChildPackage") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on ChildPackage")
+                        return
+                    }
+
+                    // Should contain Feature1 from default trait (enabled by Parent2)
+                    XCTAssertEqual(enabledTraits, ["Feature1"])
+
+                    // Verify the dependency on GuardedDependency is included
+                    let deps = package.dependencies
+                    XCTAssertEqual(deps, [PackageIdentity(urlString: "./GuardedDependency")])
+                }
+
+                // The graph should include GuardedDependency since Feature1 is enabled
+                result.check(modules: "RootTarget", "Parent1Target", "Parent2Target", "ChildTarget", "GuardedTarget")
             }
         }
     }

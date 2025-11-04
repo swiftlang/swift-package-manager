@@ -618,6 +618,231 @@ struct EnabledTraitTests {
         #expect(map[explicitlyEnabledTraitsFor: packageB] != nil)
         #expect(map[explicitlyEnabledTraitsFor: packageC] == nil)
     }
+
+    // MARK: - Disablers Tests
+
+    /// Verifies that setting an empty trait set with a setter records the disabler.
+    /// Disablers track explicit [] assignments, which disable default traits.
+    @Test
+    func enabledTraitsMap_emptyTraitsRecordsDisabler() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage = PackageIdentity(stringLiteral: "ParentPackage")
+
+        // Parent package explicitly sets [] to disable default traits
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+
+        // Should record the disabler
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.count == 1)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage))) == true)
+    }
+
+    /// Tests that the `disabledBy` property correctly identifies the setter that explicitly set [].
+    /// This tracks who disabled default traits.
+    @Test
+    func enabledTraits_disabledByIdentifiesSetter() {
+        let parentPackage = PackageIdentity(stringLiteral: "ParentPackage")
+        let traits = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+
+        #expect(traits.isEmpty)
+        #expect(traits.disabledBy == .package(.init(identity: parentPackage)))
+    }
+
+    /// Verifies that a non-empty trait set has no disabler.
+    /// Disablers only track explicit [] assignments.
+    @Test
+    func enabledTraits_nonEmptyTraitsHaveNoDisabler() {
+        let traits = EnabledTraits(["Apple", "Banana"], setBy: .traitConfiguration)
+
+        #expect(!traits.isEmpty)
+        #expect(traits.disabledBy == nil)
+    }
+
+    /// Tests that multiple disablers can be recorded for the same package.
+    /// Multiple parties can each explicitly disable default traits with [].
+    @Test
+    func enabledTraitsMap_multipleDisablersRecorded() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage1 = PackageIdentity(stringLiteral: "Parent1")
+        let parentPackage2 = PackageIdentity(stringLiteral: "Parent2")
+
+        // First parent explicitly disables defaults with []
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage1)))
+
+        // Second parent also explicitly disables defaults with []
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage2)))
+
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.count == 2)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage1))) == true)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage2))) == true)
+    }
+
+    /// Verifies that disablers from trait configuration are recorded.
+    /// User can explicitly disable default traits via command line with [].
+    @Test
+    func enabledTraitsMap_traitConfigurationDisabler() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+
+        // User explicitly disables defaults via command line with []
+        map[packageId] = EnabledTraits([], setBy: .traitConfiguration)
+
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.count == 1)
+        #expect(disablers?.contains(.traitConfiguration) == true)
+    }
+
+    /// Tests that a package with no disablers returns nil for the disablers subscript.
+    /// Non-empty trait sets don't create disablers.
+    @Test
+    func enabledTraitsMap_noDisablersReturnsNil() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+
+        // Set some traits (not empty, so no disabler)
+        map[packageId] = EnabledTraits(["Apple"], setBy: .traitConfiguration)
+
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers == nil)
+    }
+
+    /// Verifies that disablers track explicit disablement while traits can still be enabled by other setters.
+    /// This demonstrates the unified nature: a package can have both disablers AND enabled traits.
+    @Test
+    func enabledTraitsMap_disablersCoexistWithEnabledTraits() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage = PackageIdentity(stringLiteral: "ParentPackage")
+
+        // Parent package explicitly disables default traits with []
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+
+        // Then trait configuration explicitly enables some traits
+        map[packageId] = EnabledTraits(["Apple"], setBy: .traitConfiguration)
+
+        // Disablers should be recorded (parent disabled defaults)
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage))) == true)
+
+        // And traits should be present (configuration enabled traits)
+        #expect(map[packageId].contains("Apple"))
+        #expect(map[packageId].count == 1)
+        #expect(!map[packageId].contains("default"))
+    }
+
+    /// Tests the distinction between an unset package and a package with explicitly disabled default traits.
+    /// Disabling (setting []) means "don't use default traits", but the package still returns defaults
+    /// if no other traits are explicitly enabled.
+    @Test
+    func enabledTraitsMap_distinguishUnsetVsDisabled() {
+        var map = EnabledTraitsMap()
+        let unsetPackage = PackageIdentity(stringLiteral: "UnsetPackage")
+        let disabledPackage = PackageIdentity(stringLiteral: "DisabledPackage")
+        let parentPackage = PackageIdentity(stringLiteral: "ParentPackage")
+
+        // Parent explicitly disables default traits with []
+        map[disabledPackage] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+
+        // Unset package: never touched, no disablers
+        #expect(map[unsetPackage] == ["default"])
+        #expect(map[explicitlyEnabledTraitsFor: unsetPackage] == nil)
+        #expect(map[disablersFor: unsetPackage] == nil)
+
+        // Disabled package: explicitly set to [], has disablers, and returns empty set
+        #expect(map[disabledPackage] == [])
+        #expect(map[explicitlyEnabledTraitsFor: disabledPackage] == [])
+        #expect(map[disablersFor: disabledPackage] != nil)
+    }
+
+    /// Verifies that initializing EnabledTraits with an empty string collection creates a disabler.
+    /// Empty [] means "explicitly disable default traits".
+    @Test
+    func enabledTraits_initWithEmptyCollectionCreatesDisabler() {
+        let emptyTraits: [String] = []
+        let traits = EnabledTraits(emptyTraits, setBy: .traitConfiguration)
+
+        #expect(traits.isEmpty)
+        #expect(traits.disabledBy == .traitConfiguration)
+    }
+
+    /// Verifies that the same disabler set multiple times only appears once in the set.
+    /// Set semantics ensure unique disablers.
+    @Test
+    func enabledTraitsMap_duplicateDisablerOnlyStoredOnce() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage = PackageIdentity(stringLiteral: "ParentPackage")
+
+        // Set the same disabler multiple times
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage)))
+
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.count == 1)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage))) == true)
+    }
+
+    /// Tests that when one package disables defaults with [] but another package enables traits
+    /// (including default), the unified map contains the enabled traits plus records the disabler.
+    @Test
+    func enabledTraitsMap_disablerAndEnabledTraitsCoexist() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage1 = PackageIdentity(stringLiteral: "Parent1")
+        let parentPackage2 = PackageIdentity(stringLiteral: "Parent2")
+
+        // Parent1 explicitly disables default traits with []
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage1)))
+
+        // Parent2 enables default trait for the same package
+        map[packageId] = EnabledTraits(["default"], setBy: .package(.init(identity: parentPackage2)))
+
+        // The disabler should be recorded
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage1))) == true)
+
+        // And the default trait should be present in the unified set
+        #expect(map[packageId].contains("default"))
+        #expect(map[explicitlyEnabledTraitsFor: packageId] == nil)
+    }
+
+    /// Tests that when one package disables defaults and another enables non-default traits,
+    /// both the disabler and the enabled traits are tracked.
+    @Test
+    func enabledTraitsMap_disablerWithNonDefaultTraitsEnabled() {
+        var map = EnabledTraitsMap()
+        let packageId = PackageIdentity(stringLiteral: "MyPackage")
+        let parentPackage1 = PackageIdentity(stringLiteral: "Parent1")
+        let parentPackage2 = PackageIdentity(stringLiteral: "Parent2")
+
+        // Parent1 disables defaults with []
+        map[packageId] = EnabledTraits([], setBy: .package(.init(identity: parentPackage1)))
+
+        // Parent2 enables specific traits
+        map[packageId] = EnabledTraits(["Apple", "Banana"], setBy: .package(.init(identity: parentPackage2)))
+
+        // Disabler should be recorded
+        let disablers = map[disablersFor: packageId]
+        #expect(disablers != nil)
+        #expect(disablers?.contains(.package(.init(identity: parentPackage1))) == true)
+
+        // Traits should be present
+        #expect(map[packageId].contains("Apple"))
+        #expect(map[packageId].contains("Banana"))
+        #expect(!map[packageId].contains("default"))
+        #expect(map[packageId].count == 2)
+        #expect(map[explicitlyEnabledTraitsFor: packageId] == ["Apple", "Banana"])
+    }
 }
 
 

@@ -40,9 +40,9 @@ extension Manifest {
             let explicitlyEnabledTraits = $0.traits?.filter {
                 guard let condition = $0.condition else { return true }
                 return condition.isSatisfied(by: enabledTraits.names)
-            }.map({ EnabledTrait(name: $0.name, setBy: .package(.init(identity: self.packageIdentity, name: self.displayName))) })
+            }.map(\.name)
 
-            let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? [])
+            let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? [], setBy: .package(.init(identity: self.packageIdentity, name: self.displayName)))
 
             return PackageContainerConstraint(
                 package: $0.packageRef,

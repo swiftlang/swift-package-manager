@@ -593,7 +593,7 @@ extension Workspace {
             // the case where a package is being loaded in a wrapper project (not package),
             // where there are no root packages but there are dependencies.
             if root.packages.isEmpty {
-                let topLevelManifestTraits = try manifest.enabledTraits(using: parentEnabledTraits, nil)
+                let topLevelManifestTraits = try manifest.enabledTraits(using: parentEnabledTraits)
                 self.enabledTraitsMap[manifest.packageIdentity] = topLevelManifestTraits
             }
 
