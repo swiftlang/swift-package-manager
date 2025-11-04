@@ -6816,8 +6816,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             Pkg.appending(components: "Sources", "Library", "Library.swift").pathString
         )
 
-        try! fs.createDirectory("/Pkg/Framework.xcframework", recursive: true)
-        try! fs.writeFileContents(
+        try fs.createDirectory("/Pkg/Framework.xcframework", recursive: true)
+        try fs.writeFileContents(
             "/Pkg/Framework.xcframework/Info.plist",
             string: """
             <?xml version="1.0" encoding="UTF-8"?>

@@ -14,9 +14,11 @@ import _InternalTestSupport
 import Basics
 import Testing
 
-#if os(Linux)
 private struct SwiftPMTests {
-    @Test(.requireHostOS(.linux))
+    @Test(
+        .requireSwift6_2,
+        .requireHostOS(.linux)
+    )
     func libraryEvolutionLinuxXCFramework() async throws {
         try await fixture(name: "Miscellaneous/LibraryEvolutionLinuxXCF") { fixturePath in
             let swiftFramework = "SwiftFramework"
@@ -35,13 +37,8 @@ private struct SwiftPMTests {
                 let arch = "x86_64"
                 #endif
 
-                #if os(macOS)
-                let platform = "macos"
-                let libraryExtension = "dylib"
-                #elseif os(Linux)
                 let platform = "linux"
                 let libraryExtension = "so"
-                #endif
 
                 let xcframeworkPath = fixturePath.appending(
                     components: "TestBinary",
@@ -110,4 +107,3 @@ private struct SwiftPMTests {
         }
     }
 }
-#endif
