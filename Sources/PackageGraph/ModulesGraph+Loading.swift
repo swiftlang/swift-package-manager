@@ -51,7 +51,7 @@ extension ModulesGraph {
             manifestMap[manifest.key] = (manifest.value, fileSystem)
         }
 
-        // Construct the root root dependencies set.
+        // Construct the root dependencies set.
         let rootDependencies = Set(root.dependencies.compactMap {
             manifestMap[$0.identity]?.manifest
         })
