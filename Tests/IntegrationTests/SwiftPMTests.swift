@@ -242,6 +242,15 @@ private struct SwiftPMTests {
 
     @Test(
         .requireSwift6_2,
+        .tags(
+            .UserWorkflow,
+            .Feature.CodeCoverage,
+            .Feature.Command.Package.Init,
+            .Feature.Command.Package.AddTarget,
+            .Feature.Command.Test,
+            .Feature.PackageType.Empty,
+            .Feature.TargetType.Test,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testCodeCoverageMergedAcrossSubprocesses(

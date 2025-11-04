@@ -21,6 +21,12 @@ let isLinux = true
 let isLinux = false
 #endif
 
+@Suite(
+    .tags(
+        .TestSize.small,
+        .Platform.FileSystem,
+    ),
+)
 struct InMemoryFileSystemTests {
     @Test(
         arguments: [
