@@ -20,7 +20,7 @@ import Basics
 private struct BasicTests {
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8409"),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8409", relationship: .defect),
         .requireUnrestrictedNetworkAccess("Test requires access to https://github.com"),
         .tags(
             Tag.UserWorkflow,
@@ -175,6 +175,7 @@ private struct BasicTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.Command.Test,
             Tag.Feature.PackageType.Executable,
+            .Feature.CommandLineArguments.VeryVerbose,
         ),
     )
     func testSwiftPackageInitExecTests() async throws {

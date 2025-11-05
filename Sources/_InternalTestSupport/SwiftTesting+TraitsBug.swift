@@ -38,7 +38,7 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
-    public static var IssueWindowsPathLastConponent: Self {
+    public static var IssueWindowsPathLastComponent: Self {
         // $0.path.lastComponent in test code returns fullpaths on Windows
         issue(
             "https://github.com/swiftlang/swift-package-manager/issues/8554",
@@ -72,6 +72,13 @@ extension Trait where Self == Testing.Bug {
     public static var IssueProductTypeForObjectLibraries: Self {
         .issue(
             "https://github.com/swiftlang/swift-build/issues/609",
+            relationship: .defect,
+        )
+    }
+
+    public static var IssueLdFailsUnexpectedly : Self {
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/9249",
             relationship: .defect,
         )
     }

@@ -435,19 +435,6 @@ extension PackageGraph.ResolvedModule {
         return self.sourceDirAbsolutePath.appending(includeDirRelativePath)
     }
 
-    /// Relative path of the module-map file, if any (*only* applies to C-language modules).
-    func moduleMapFileRelativePath(fileSystem: FileSystem) -> RelativePath? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        let moduleMapFileAbsolutePath = clangModule.moduleMapPath
-
-        // Check whether there is actually a modulemap at the specified path.
-        // FIXME: Feels wrong to do file system access at this level —— instead, libSwiftPM's TargetBuilder should do that?
-        guard fileSystem.isFile(moduleMapFileAbsolutePath) else { return nil }
-
-        let moduleMapFileRelativePath = moduleMapFileAbsolutePath.relative(to: clangModule.sources.root)
-        return try! RelativePath(validating: moduleMapFileRelativePath.pathString)
-    }
-
     /// Module map type (*only* applies to C-language modules).
     var moduleMapType: ModuleMapType? {
         guard let clangModule = self.underlying as? ClangModule else { return nil }

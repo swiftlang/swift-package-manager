@@ -31,7 +31,10 @@ public struct BuildData {
 public func getBuildData(for buildSystems: [BuildSystemProvider.Kind]) -> [BuildData] {
     buildSystems.flatMap { buildSystem in
         BuildConfiguration.allCases.compactMap { config in
-            return BuildData(buildSystem: buildSystem, config: config)
+            return BuildData(
+                buildSystem: buildSystem,
+                config: config,
+            )
         }
     }
 }

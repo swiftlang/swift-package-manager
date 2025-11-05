@@ -275,6 +275,8 @@ public class RegistryDownloadsManager: AsyncCancellable {
             return
         }
 
+        observabilityScope.emit(info: "Purging registry cache at '\(cachePath)'")
+
         do {
             try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
                 let cachedPackages = try self.fileSystem.getDirectoryContents(cachePath)

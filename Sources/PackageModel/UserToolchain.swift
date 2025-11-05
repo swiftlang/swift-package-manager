@@ -741,7 +741,10 @@ public final class UserToolchain: Toolchain {
             // targetInfo from the compiler
             let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
             self._targetInfo = targetInfo
-            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            if !triple.isDarwin() {
+                triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: true)
+            }
         }
 
         // Change the triple to the specified arch if there's exactly one of them.

@@ -27,6 +27,8 @@ struct PluginsBuildPlanTests {
     @Test(
         .tags(
             .Feature.Command.Build,
+            .Feature.Plugin,
+            .Feature.SourceGeneration,
         ),
         .IssueWindowsPathTestsFailures,  // Fails to build the project to due to incorrect Path handling
         arguments: BuildConfiguration.allCases,

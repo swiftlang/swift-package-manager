@@ -174,27 +174,6 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
-public struct PluginConfiguration {
-    /// Entity responsible for compiling and running plugin scripts.
-    let scriptRunner: PluginScriptRunner
-
-    /// Directory where plugin intermediate files are stored.
-    let workDirectory: Basics.AbsolutePath
-
-    /// Whether to sandbox commands from build tool plugins.
-    let disableSandbox: Bool
-
-    public init(
-        scriptRunner: PluginScriptRunner,
-        workDirectory: Basics.AbsolutePath,
-        disableSandbox: Bool
-    ) {
-        self.scriptRunner = scriptRunner
-        self.workDirectory = workDirectory
-        self.disableSandbox = disableSandbox
-    }
-}
-
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -863,7 +842,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             sdkVariant: sdkVariant,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
-            disableOnlyActiveArch: false
+            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
         )
     }
 

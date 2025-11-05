@@ -197,6 +197,9 @@ struct APIDiffTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Run,
+        ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -272,7 +275,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .tags(
+            .Feature.Command.Run,
+        ),
+        .requiresAPIDigester, 
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
@@ -303,7 +312,13 @@ struct APIDiffTests {
         }
     }
 
-    @Test(.requiresAPIDigester, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .tags(
+            .Feature.Command.Run,
+        ),
+        .requiresAPIDigester,
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue("https://github.com/swiftlang/swift/issues/82394") {
             try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
@@ -318,6 +333,9 @@ struct APIDiffTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Run,
+        ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -341,6 +359,9 @@ struct APIDiffTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Run,
+        ),
         .requiresAPIDigester,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,

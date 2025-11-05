@@ -50,7 +50,10 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         var hostDefaultSymbols = ReferencedSymbols()
         let symbolProvider = LLVMObjdumpSymbolProvider(objdumpPath: objdump)
         for binary in try await detectDefaultObjects(
-            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple)
+            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple,
+            observabilityScope:
+                swiftCommandState.observabilityScope.makeChildScope(
+                    description: "DefaultObjectsDetector"))
         {
             try await symbolProvider.symbols(
                 for: binary, symbols: &hostDefaultSymbols, recordUndefined: false)
@@ -98,6 +101,11 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         async throws -> AbsolutePath
     {
         let archiver = UniversalArchiver(fileSystem)
+
+        if let lastPathComponent = path.components.last,
+            lastPathComponent.hasSuffix("artifactbundle") {
+            return path
+        }
 
         guard let lastPathComponent = path.components.last,
             archiver.isFileSupported(lastPathComponent)

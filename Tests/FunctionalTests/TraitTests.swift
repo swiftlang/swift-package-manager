@@ -22,8 +22,8 @@ import _InternalTestSupport
 @Suite(
     .serializedIfOnWindows,
     .tags(
-        Tag.TestSize.large,
-        Tag.Feature.Traits,
+        .TestSize.large,
+        .Feature.Traits,
     ),
 )
 struct TraitTests {
