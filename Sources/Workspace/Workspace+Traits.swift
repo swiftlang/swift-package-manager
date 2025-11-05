@@ -33,8 +33,7 @@ extension Workspace {
         try manifest.enabledTraits(using: self.traitConfiguration) :
         self.enabledTraitsMap[manifest.packageIdentity]
 
-        let enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
-        self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+        var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
         // Check if any parents requested default traits for this package
         // If so, expand the default traits and union them with existing traits
@@ -49,9 +48,11 @@ extension Workspace {
                     defaultTraits.map(\.name),
                     setBy: setter
                 )
-                self.enabledTraitsMap[manifest.packageIdentity] = traitsFromSetter
+                enabledTraits.formUnion(traitsFromSetter)
             }
         }
+
+        self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
 
         // Check enabled traits for the dependencies
         for dep in manifest.dependencies {

@@ -14,7 +14,6 @@ import Testing
 import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
 import struct PackageModel.EnabledTraitsMap
-//import struct PackageModel.PackageIdentity
 
 @Suite(
     .tags(
