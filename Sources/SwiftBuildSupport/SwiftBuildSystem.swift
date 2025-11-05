@@ -30,8 +30,18 @@ import protocol TSCBasic.OutputByteStream
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
+import class TSCUtility.JSONMessageStreamingParser
+import protocol TSCUtility.JSONMessageStreamingParserDelegate
+import struct TSCBasic.RegEx
 
 import var TSCBasic.stdoutStream
+
+import class Build.SwiftCompilerOutputParser
+import protocol Build.SwiftCompilerOutputParserDelegate
+import struct Build.SwiftCompilerMessage
+
+// TODO bp
+import class SWBCore.SwiftCommandOutputParser
 
 import Foundation
 import SWBBuildService
@@ -174,6 +184,176 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
+private final class SWBOutputDelegate: SPMBuildCore.BuildSystemDelegate {
+    func buildSystem(_ buildSystem: BuildSystem, willStartCommand command: BuildSystemCommand) {
+        print("SWBDELEGATE will start command")
+    }
+    func buildSystem(_ buildSystem: BuildSystem, didStartCommand command: BuildSystemCommand) {
+        print("SWBDELEGATE did start command")
+
+    }
+    func buildSystem(_ buildSystem: BuildSystem, didUpdateTaskProgress text: String) {
+        print("SWBDELEGATE did Update Task Progress")
+
+    }
+    func buildSystem(_ buildSystem: BuildSystem, didFinishCommand command: BuildSystemCommand) {
+        print("SWBDELEGATE did finish command")
+
+    }
+    func buildSystemDidDetectCycleInRules(_ buildSystem: BuildSystem) {
+        print("SWBDELEGATE detect cycle")
+
+    }
+    func buildSystem(_ buildSystem: BuildSystem, didFinishWithResult success: Bool) {
+        print("SWBDELEGATE did finish with result: \(success)")
+    }
+    func buildSystemDidCancel(_ buildSystem: BuildSystem) {
+        print("SWBDELEGATE did cancel")
+    }
+
+}
+
+extension SwiftCompilerMessage {
+    fileprivate var verboseProgressText: String? {
+        switch kind {
+        case .began(let info):
+            ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
+        case .skipped, .finished, .abnormal, .signalled, .unparsableOutput:
+            nil
+        }
+    }
+
+    fileprivate var standardOutput: String? {
+        switch kind {
+        case .finished(let info),
+             .abnormal(let info),
+             .signalled(let info):
+            info.output
+        case .unparsableOutput(let output):
+            output
+        case .skipped, .began:
+            nil
+        }
+    }
+}
+
+
+extension SwiftBuildSystemOutputParser: SwiftCompilerOutputParserDelegate {
+    func swiftCompilerOutputParser(_ parser: Build.SwiftCompilerOutputParser, didParse message: Build.SwiftCompilerMessage) {
+        // TODO bp
+        if self.logLevel.isVerbose {
+            if let text = message.verboseProgressText {
+                self.outputStream.send("\(text)\n")
+                self.outputStream.flush()
+            }
+        } else if !self.logLevel.isQuiet {
+//            self.taskTracker.swiftCompilerDidOutputMessage(message, targetName: parser.targetName)
+//            self.updateProgress()
+        }
+
+        if let output = message.standardOutput {
+            // first we want to print the output so users have it handy
+            if !self.logLevel.isVerbose {
+//                self.progressAnimation.clear()
+            }
+
+            self.outputStream.send(output)
+            self.outputStream.flush()
+
+            // next we want to try and scoop out any errors from the output (if reasonable size, otherwise this
+            // will be very slow), so they can later be passed to the advice provider in case of failure.
+            if output.utf8.count < 1024 * 10 {
+                let regex = try! RegEx(pattern: #".*(error:[^\n]*)\n.*"#, options: .dotMatchesLineSeparators)
+                for match in regex.matchGroups(in: output) {
+                    self.errorMessagesByTarget[parser.targetName] = (
+                        self.errorMessagesByTarget[parser.targetName] ?? []
+                    ) + [match[0]]
+                }
+            }
+        }
+
+    }
+    
+    func swiftCompilerOutputParser(_ parser: Build.SwiftCompilerOutputParser, didFailWith error: any Error) {
+        // TODO bp
+        print("failed parsing with error: \(error.localizedDescription)")
+    }
+}
+
+/// Parser for SwiftBuild output.
+final class SwiftBuildSystemOutputParser {
+//    typealias Message = SwiftBuildMessage
+    private var buildSystem: SPMBuildCore.BuildSystem
+//    private var parser: SwiftCompilerOutputParser?
+    private let observabilityScope: ObservabilityScope
+    private let outputStream: OutputByteStream
+//    private let progressAnimation: ProgressAnimationProtocol
+    private let logLevel: Basics.Diagnostic.Severity
+    private var swiftOutputParser: SwiftCompilerOutputParser?
+    private var errorMessagesByTarget: [String: [String]] = [:]
+
+    public init(
+        buildSystem: SPMBuildCore.BuildSystem,
+        observabilityScope: ObservabilityScope,
+        outputStream: OutputByteStream,
+        logLevel: Basics.Diagnostic.Severity,
+//        progressAnimation: ProgressAnimationProtocol
+//        swiftOutputParser: SwiftCompilerOutputParser?
+    )
+    {
+        self.buildSystem = buildSystem
+        self.observabilityScope = observabilityScope
+        self.outputStream = outputStream
+        self.logLevel = logLevel
+//        self.progressAnimation = progressAnimation
+//        self.swiftOutputParser = swiftOutputParser
+        self.swiftOutputParser = nil
+        let outputParser: SwiftCompilerOutputParser? = { [weak self] in
+            guard let self else { return nil }
+                return .init(targetName: "", delegate: self)
+        }()
+
+        self.swiftOutputParser = outputParser
+    }
+
+    func parse(bytes data: Data) {
+        swiftOutputParser?.parse(bytes: data)
+    }
+
+    func handleDiagnostic(_ diagnostic: SwiftBuildMessage.DiagnosticInfo) {
+        let fixItsDescription = if diagnostic.fixIts.hasContent {
+            ": " + diagnostic.fixIts.map { String(describing: $0) }.joined(separator: ", ")
+        } else {
+            ""
+        }
+        let message = if let locationDescription = diagnostic.location.userDescription {
+            "\(locationDescription) \(diagnostic.message)\(fixItsDescription)"
+        } else {
+            "\(diagnostic.message)\(fixItsDescription)"
+        }
+        let severity: Diagnostic.Severity = switch diagnostic.kind {
+        case .error: .error
+        case .warning: .warning
+        case .note: .info
+        case .remark: .debug
+        }
+        self.observabilityScope.emit(severity: severity, message: "\(message)\n")
+
+        for childDiagnostic in diagnostic.childDiagnostics {
+            handleDiagnostic(childDiagnostic)
+        }
+    }
+
+//    func swiftCompilerOutputParser(_ parser: Build.SwiftCompilerOutputParser, didParse message: Build.SwiftCompilerMessage) {
+//        print("Attempting to parse output:")
+//        print(parser.targetName)
+//    }
+//    
+//    func swiftCompilerOutputParser(_ parser: Build.SwiftCompilerOutputParser, didFailWith error: any Error) {
+//        print("Parser encountered error: \(error.localizedDescription)")
+//    }
+}
+
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -189,6 +369,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     /// The delegate used by the build system.
     public weak var delegate: SPMBuildCore.BuildSystemDelegate?
+
+    /// A build message delegate to capture diagnostic output captured from the compiler.
+    private var buildMessageParser: SwiftBuildSystemOutputParser?
 
     /// Configuration for building and invoking plugins.
     private let pluginConfiguration: PluginConfiguration
@@ -254,7 +437,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(description: "Swift Build System")
         self.pluginConfiguration = pluginConfiguration
-        self.delegate = delegate
+        self.delegate = delegate //?? SWBOutputDelegate()
+        self.buildMessageParser = .init(
+            buildSystem: self,
+            observabilityScope: observabilityScope,
+            outputStream: outputStream,
+            logLevel: logLevel
+        )
     }
 
     private func createREPLArguments(
@@ -532,6 +721,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             }
         }
 
+        // TODO bp create swiftcompileroutputparser here?
+//        self.buildMessageParser = .init(
+//            buildSystem: self,
+//            observabilityScope: self.observabilityScope,
+//            outputStream: self.outputStream,
+//            logLevel: self.logLevel
+//        //                progressAnimation: progressAnimation
+//        )
+//        let parser = SwiftCompilerOutputParser(targetName: pifTargetName, delegate: self.delegate)
+        // TODO bp: see BuildOperation, and where LLBuildTracker is created and used.
+
         var replArguments: CLIArguments?
         var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
@@ -579,6 +779,19 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         self.observabilityScope.emit(error: error.localizedDescription)
                         throw error
                     }
+
+//                    for target in configuredTargets {
+//                        let outputParser = SwiftBuildSystemOutputParser(
+//                            buildSystem: self,
+//                            observabilityScope:self.observabilityScope,
+//                            outputStream: self.outputStream,
+//                            logLevel: self.logLevel,
+//                            progressAnimation: progressAnimation,
+//                            swiftOutputParser: .init(
+//                                targetName: target,
+//                                delegate: self)
+//                            )
+//                    }
 
                     let request = try await self.makeBuildRequest(session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
 
@@ -665,6 +878,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                             emitInfoAsDiagnostic(info: info)
                         case .output(let info):
+//                            let parsedOutputText = self.parseOutput(info)
                             self.observabilityScope.emit(info: "\(String(decoding: info.data, as: UTF8.self))")
                         case .taskStarted(let info):
                             try buildState.started(task: info)
@@ -712,7 +926,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     let operation = try await session.createBuildOperation(
                         request: request,
-                        delegate: PlanningOperationDelegate(),
+                        delegate: PlanningOperationDelegate(), // TODO bp possibly enhance this delegate?
                         retainBuildDescription: true
                     )
 
@@ -811,6 +1025,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 builtArtifacts: artifacts
             )
         }
+    }
+
+    private func parseOutput(_ info: SwiftBuildMessage.OutputInfo) -> String {
+        var result = ""
+        let data = info.data
+        // let parser = SwiftCompilerOutputParser()
+        // use json parser to parse bytes
+//        self.buildMessageParser?.parse(bytes: data)
+
+        return result
     }
 
     private func makeRunDestination() -> SwiftBuild.SWBRunDestinationInfo {
@@ -954,6 +1178,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 + buildParameters.flags.swiftCompilerFlags.map { $0.shellEscaped() }
         ).joined(separator: " ")
 
+        // TODO bp passing -v flag via verboseFlag here; investigate linker messages
         settings["OTHER_LDFLAGS"] = (
             verboseFlag + // clang will be invoked to link so the verbose flag is valid for it
                 ["$(inherited)"]
