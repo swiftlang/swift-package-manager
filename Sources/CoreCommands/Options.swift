@@ -526,6 +526,7 @@ public struct BuildOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
+    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
