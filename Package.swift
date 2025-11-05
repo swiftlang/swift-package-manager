@@ -506,10 +506,18 @@ let package = Package(
             ]
         ),
         .target(
+            /** CMake integration for system library targets */
+            name: "BuildSystemCMake",
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+        .target(
             /** Builds Modules and Products */
             name: "Build",
             dependencies: [
                 "Basics",
+                "BuildSystemCMake",
                 "LLBuildManifest",
                 "PackageGraph",
                 "SPMBuildCore",
