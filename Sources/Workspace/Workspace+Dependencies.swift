@@ -515,15 +515,6 @@ extension Workspace {
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
-        // Precompute enabled traits, beginning with
-        // root manifests, if we haven't already done so.
-//        if self.enabledTraitsMap.dictionaryLiteral.isEmpty {
-//            let rootManifestMap = rootManifests.values.reduce(into: [PackageIdentity: Manifest]()) { manifestMap, manifest in
-//                manifestMap[manifest.packageIdentity] = manifest
-//            }
-//            self.enabledTraitsMap = .init(try precomputeTraits(rootManifests.values.map({ $0 }), rootManifestMap))
-//        }
-
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
             input: root,

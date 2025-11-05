@@ -465,7 +465,6 @@ class ManifestTests: XCTestCase {
             let enabledTraits = EnabledTraits(["Trait1"], setBy: .trait("default"))
 
             for trait in traits.sorted(by: { $0.name < $1.name }) {
-                // TODO bp i think default is getting failed here
                 XCTAssertTrue(try manifest.isTraitEnabled(trait, enabledTraits))
             }
         }
