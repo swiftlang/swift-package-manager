@@ -14,6 +14,7 @@ extension Tag {
     public enum TestSize {}
     public enum Feature {}
     public enum Platform {}
+    public enum FunctionalArea {}
     @Tag public static var UserWorkflow: Tag
 }
 
@@ -190,4 +191,9 @@ extension Tag.Feature.PackageType {
 extension Tag.Feature.Product {
     @Tag public static var Execute: Tag
     @Tag public static var Link: Tag
+}
+
+extension Tag.FunctionalArea {
+    @Tag public static var PIF: Tag
+    @Tag public static var IndexMode: Tag
 }

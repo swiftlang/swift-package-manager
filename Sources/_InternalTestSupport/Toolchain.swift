@@ -53,7 +53,9 @@ extension SwiftSDK {
 extension UserToolchain {
     public static var `default`: Self {
         get throws {
-            return try .init(swiftSDK: SwiftSDK.default, environment: .current, fileSystem: localFileSystem)
+            let value = try Self.init(swiftSDK: SwiftSDK.default, environment: .current, fileSystem: localFileSystem)
+            return value
+            // return .init(swiftSDK: SwiftSDK.default, environment: .current, fileSystem: localFileSystem)
         }
     }
 }
