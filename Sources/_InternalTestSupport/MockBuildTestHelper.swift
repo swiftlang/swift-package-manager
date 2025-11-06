@@ -87,7 +87,7 @@ public func mockBuildParameters(
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
     triple: Basics.Triple = hostTriple,
-    indexStoreMode: BuildParameters.IndexStoreMode = .off,
+    indexStoreMode: BuildParameters.IndexStoreMode = .auto,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
