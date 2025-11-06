@@ -1165,8 +1165,7 @@ if !shouldUseSwiftBuildFramework {
 
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
-            //.package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
-            .package(path: "../swift-build"),
+            .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
         ]
     } else {
         package.dependencies += [
