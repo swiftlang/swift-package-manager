@@ -35,14 +35,6 @@ def change_directory(directory: pathlib.Path) -> t.Iterator[pathlib.Path]:
         os.chdir(current_directory)
 
 
-class Configuration(str, enum.Enum):
-    DEBUG = "debug"
-    RELEASE = "release"
-
-    def __str__(self) -> str:
-        return self.value
-
-
 def symlink_force(source, destination):
     try:
         os.symlink(source, destination)
