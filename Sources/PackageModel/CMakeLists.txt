@@ -14,7 +14,7 @@ add_library(PackageModel
   BuildSettings.swift
   DependencyMapper.swift
   Diagnostics.swift
-  EnabledTraitsMap.swift
+  EnabledTrait.swift
   IdentityResolver.swift
   InstalledSwiftPMConfiguration.swift
   Manifest/Manifest.swift
