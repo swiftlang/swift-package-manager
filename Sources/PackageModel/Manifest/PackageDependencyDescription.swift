@@ -31,6 +31,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             }
 
             public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
+                // If there are no traits in this condition, default to true.
                 guard let traits else { return true }
                 return !traits.intersection(enabledTraits).isEmpty
             }
@@ -72,6 +73,23 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 name: name,
                 condition: condition
             )
+        }
+
+        // represents `.defaults`
+        public var isDefaultsCase: Bool {
+            name == "default" && condition == nil
+        }
+
+        /// Determines whether this trait's condition would be met by a set of enabled traits,
+        /// therefore enabling this trait.
+        /// Defaults to true if there is no condition to be satisfied.
+        ///
+        /// - Parameters:
+        /// - traits: A list of enabled traits.
+        public func isEnabled(by traits: EnabledTraits) -> Bool {
+            guard let condition else { return true }
+
+            return condition.isSatisfied(by: traits.names)
         }
     }
 

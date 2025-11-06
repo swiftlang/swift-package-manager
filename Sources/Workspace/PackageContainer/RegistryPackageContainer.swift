@@ -104,16 +104,16 @@ public class RegistryPackageContainer: PackageContainer {
         return results
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [PackageContainerConstraint] {
+    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [PackageContainerConstraint] {
         let manifest = try await self.loadManifest(version: version)
         return try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
+    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         throw InternalError("getDependencies for revision not supported by RegistryPackageContainer")
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) throws -> [PackageContainerConstraint] {
+    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         throw InternalError("getUnversionedDependencies not supported by RegistryPackageContainer")
     }
 

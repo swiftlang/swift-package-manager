@@ -44,7 +44,7 @@ public enum DependencyResolutionNode {
     ///   Since a non‐existent product ends up with only its implicit dependency on its own package,
     ///   only whichever package contains the product will end up adding additional constraints.
     ///   See `ProductFilter` and `Manifest.register(...)`.
-    case product(String, package: PackageReference, enabledTraits: Set<String> = ["default"])
+    case product(String, package: PackageReference, enabledTraits: EnabledTraits = ["default"])
 
     /// A root node.
     ///
@@ -58,7 +58,7 @@ public enum DependencyResolutionNode {
     ///   It is a warning condition, and builds do not actually need these dependencies.
     ///   However, forcing the graph to resolve and fetch them anyway allows the diagnostics passes access
     ///   to the information needed in order to provide actionable suggestions to help the user stitch up the dependency declarations properly.
-    case root(package: PackageReference, enabledTraits: Set<String> = ["default"])
+    case root(package: PackageReference, enabledTraits: EnabledTraits = ["default"])
 
     /// The package.
     public var package: PackageReference {
@@ -91,7 +91,7 @@ public enum DependencyResolutionNode {
     }
 
     /// Returns the enabled traits for this node's manifest.
-    public var enabledTraits: Set<String> {
+    public var enabledTraits: EnabledTraits {
         switch self {
         case .root(_, let enabledTraits), .product(_, _, let enabledTraits):
             return enabledTraits
