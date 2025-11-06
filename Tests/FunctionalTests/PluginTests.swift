@@ -809,8 +809,7 @@ struct PluginTests {
                     )
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
-                    let success = try await withCheckedThrowingContinuation { continuation in
-                      plugin.invoke(
+                    let success = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         scriptRunner: scriptRunner,
@@ -826,13 +825,8 @@ struct PluginTests {
                         fileSystem: localFileSystem,
                         modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
-                        callbackQueue: delegateQueue,
-                        delegate: delegate,
-                        completion: {
-                          continuation.resume(with: $0)
-                        }
-                      )
-                    }
+                        delegate: delegate
+                    )
                     if expectFailure {
                         #expect(!success, "expected command to fail, but it succeeded")
                     }
@@ -1125,7 +1119,6 @@ struct PluginTests {
                         fileSystem: localFileSystem,
                         modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
-                        callbackQueue: delegateQueue,
                         delegate: delegate
                     )
                 } onCancel: {

@@ -503,7 +503,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 pluginName: plugin.moduleName,
                 toolsVersion: plugin.toolsVersion,
                 observabilityScope: observabilityScope,
-                callbackQueue: DispatchQueue.sharedConcurrent,
                 delegate: delegate
             )
 
