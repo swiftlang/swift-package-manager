@@ -88,7 +88,7 @@ extension WorkspaceTests {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -175,7 +175,7 @@ extension WorkspaceTests {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo", "Boo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -254,7 +254,7 @@ extension WorkspaceTests {
         ]
 
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Foo")
                 result.check(modules: "Bar", "Baz", "Foo")
@@ -335,7 +335,7 @@ extension WorkspaceTests {
             .sourceControl(path: "./Boo", requirement: .exact("1.0.0"), products: .specific(["Boo"])),
         ]
         try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Foo")
                 result.check(packages: "Baz", "Boo", "Foo")
                 result.check(modules: "Bar", "Baz", "Boo", "Foo")
@@ -526,7 +526,7 @@ extension WorkspaceTests {
         let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
         try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -540,7 +540,7 @@ extension WorkspaceTests {
         let dontTellMomAboutThisWorkspace = try await createMockWorkspace(.enabledTraits(["DontTellMom"]))
         try await dontTellMomAboutThisWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -554,7 +554,7 @@ extension WorkspaceTests {
         let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
         try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -568,7 +568,7 @@ extension WorkspaceTests {
         let noSugarForBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
         try await noSugarForBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal")
                 result.check(modules: "Wheat")
@@ -653,7 +653,7 @@ extension WorkspaceTests {
         let workspaceOfChampions = try await createMockWorkspace(.enabledTraits(["BreakfastOfChampions"]))
         try await workspaceOfChampions.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar")
                 result.check(modules: "Wheat", "Icing")
@@ -666,7 +666,7 @@ extension WorkspaceTests {
         let healthyWorkspace = try await createMockWorkspace(.enabledTraits(["Healthy"]))
         try await healthyWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "fruit")
                 result.check(modules: "Wheat", "Raisin")
@@ -680,7 +680,7 @@ extension WorkspaceTests {
         let allEnabledTraitsWorkspace = try await createMockWorkspace(.enableAllTraits)
         try await allEnabledTraitsWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal", "sugar", "fruit")
                 result.check(modules: "Wheat", "Icing", "Raisin")
@@ -694,7 +694,7 @@ extension WorkspaceTests {
         let boringBreakfastWorkspace = try await createMockWorkspace(.disableAllTraits)
         try await boringBreakfastWorkspace.checkPackageGraph(roots: ["Cereal"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "Cereal")
                 result.check(packages: "cereal")
                 result.check(modules: "Wheat")
@@ -786,7 +786,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "RootPackage")
                 result.checkPackage("PackageWithDefaultTraits") { package in
                     guard let enabledTraits = package.enabledTraits else {
@@ -919,7 +919,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "RootPackage")
                 result.check(packages: "RootPackage", "Parent1", "Parent2", "ChildPackage", "GuardedDependency")
 
@@ -993,7 +993,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.check(roots: "RootPackage")
                 result.check(packages: "RootPackage", "ChildPackage")
 
@@ -1096,7 +1096,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.checkPackage("ChildPackage") { package in
                     guard let enabledTraits = package.enabledTraits else {
                         XCTFail("No enabled traits on ChildPackage")
@@ -1191,7 +1191,7 @@ extension WorkspaceTests {
 
         try await workspace.checkPackageGraph(roots: ["RootPackage"], deps: deps) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
-            PackageGraphTesterXCTest(graph) { result in
+            PackageGraphTester(graph) { result in
                 result.checkPackage("ChildPackage") { package in
                     guard let enabledTraits = package.enabledTraits else {
                         XCTFail("No enabled traits on ChildPackage")
