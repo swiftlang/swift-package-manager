@@ -19,7 +19,12 @@ import _InternalTestSupport
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 @testable import PackageGraph
 
-extension ModulesGraphTests {
+@Suite(
+    .tags(
+        Tag.TestSize.medium,
+    )
+)
+struct ModulesGraphTraitsTests {
     @Test
     func traits_whenSingleManifest_andDefaultTrait() throws {
         let fs = InMemoryFileSystem(
