@@ -63,6 +63,13 @@ struct BuildSystemDelegateTests {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8540", relationship: .defect),  // Package fails to build when the test is being executed"
         .requiresSDKDependentTestsSupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.TargetType.Executable,
+            .Feature.TargetType.Library,
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
         arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func filterNonFatalCodesignMessages(

@@ -854,6 +854,11 @@ public final class SwiftCommandState {
         observabilityScope: ObservabilityScope? = .none,
         delegate: BuildSystemDelegate? = nil
     ) async throws -> BuildSystem {
+
+        if self.options.build.useIntegratedSwiftDriver && self.options.build.buildSystem == .native {
+            self.observabilityScope.emit(warning: "`--use-integrated-swift-driver` option is deprecated as the feature is not fully functional.")
+        }
+
         guard let buildSystemProvider else {
             fatalError("build system provider not initialized")
         }

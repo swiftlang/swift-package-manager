@@ -20,65 +20,59 @@ import struct SPMBuildCore.BuildSystemProvider
     .tags(Tag.TestSize.large)
 )
 private struct SwiftPMTests {
-    @Test(.requireHostOS(.macOS))
-    func binaryTargets() async throws {
-        await withKnownIssue("error: the path does not point to a valid framework:") {
-            try await binaryTargetsFixture { fixturePath in
-                do {
-                    await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let runOutput = try await executeSwiftRun(
-                            fixturePath,
-                            "exe",
-                            buildSystem: .native,
-                        )
-                        #expect(!runOutput.stderr.contains("error:"))
-                        #expect(
-                            runOutput.stdout == """
+    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func binaryTargets(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await binaryTargetsFixture { fixturePath in
+            do {
+                let runOutput = try await executeSwiftRun(
+                    fixturePath,
+                    "exe",
+                    buildSystem: buildSystem,
+                )
+                #expect(!runOutput.stderr.contains("error:"))
+                #expect(
+                    runOutput.stdout == """
                             SwiftFramework()
                             Library(framework: SwiftFramework.SwiftFramework())
-
+                            
                             """
-                        )
-                    }
-                }
+                )
+            }
 
-                do {
-                    await withKnownIssue("error: local binary target ... does not contain a binary artifact") {
-                        let runOutput = try await executeSwiftRun(fixturePath, "cexe", buildSystem: .native)
-                        #expect(!runOutput.stderr.contains("error:"))
-                        #expect(runOutput.stdout.contains("<CLibrary: "))
-                    }
-                }
+            do {
+                let runOutput = try await executeSwiftRun(fixturePath, "cexe", buildSystem: buildSystem)
+                #expect(!runOutput.stderr.contains("error:"))
+                #expect(runOutput.stdout.contains("<CLibrary: "))
+            }
 
-                do {
-                    let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
+            do {
+                let invalidPath = fixturePath.appending(component: "SwiftFramework.xcframework")
 
-                    await #expect {
-                        try await executeSwiftPackage(
-                            fixturePath,
-                            extraArgs: ["compute-checksum", invalidPath.pathString],
-                            buildSystem: .native,
-                        )
-                    } throws: { error in
-                        // The order of supported extensions is not ordered, and changes.
-                        //   '...supported extensions are: zip, tar.gz, tar'
-                        //   '...supported extensions are: tar.gz, zip, tar'
-                        // Only check for the start of that string.
-                        // TODO: error.stderr.contains("error: unexpected file type; supported extensions are:")
-                        return true
-                    }
-
-                    let validPath = fixturePath.appending(component: "SwiftFramework.zip")
-                    let packageOutput = try await executeSwiftPackage(
+                await #expect {
+                    try await executeSwiftPackage(
                         fixturePath,
-                        extraArgs: ["compute-checksum", validPath.pathString],
+                        extraArgs: ["compute-checksum", invalidPath.pathString],
                         buildSystem: .native,
                     )
-                    #expect(
-                        packageOutput.stdout.spm_chomp()
-                            == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
-                    )
+                } throws: { error in
+                    // The order of supported extensions is not ordered, and changes.
+                    //   '...supported extensions are: zip, tar.gz, tar'
+                    //   '...supported extensions are: tar.gz, zip, tar'
+                    // Only check for the start of that string.
+                    // TODO: error.stderr.contains("error: unexpected file type; supported extensions are:")
+                    return true
                 }
+
+                let validPath = fixturePath.appending(component: "SwiftFramework.zip")
+                let packageOutput = try await executeSwiftPackage(
+                    fixturePath,
+                    extraArgs: ["compute-checksum", validPath.pathString],
+                    buildSystem: .native,
+                )
+                #expect(
+                    packageOutput.stdout.spm_chomp()
+                    == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
+                )
             }
         }
     }
@@ -158,15 +152,15 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireHostOS(.macOS))
-    func testArchCustomization() async throws {
+    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
         try await  withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
                 extraArgs: ["init", "--type", "executable"],
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
             // delete any files generated
             for entry in try localFileSystem.getDirectoryContents(
@@ -187,42 +181,76 @@ private struct SwiftPMTests {
                 try await executeSwiftBuild(
                     packagePath,
                     extraArgs: ["--arch", arch],
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                let fooPath = try AbsolutePath(
-                    validating: ".build/\(arch)-apple-macosx/debug/foo",
-                    relativeTo: packagePath
-                )
+                let fooPath: AbsolutePath
+                switch buildSystem {
+                case .native:
+                    fooPath = try AbsolutePath(
+                        validating: ".build/\(arch)-apple-macosx/debug/foo",
+                        relativeTo: packagePath
+                    )
+                case .swiftbuild:
+                    fooPath = try AbsolutePath(
+                        validating: ".build/\(arch)-apple-macosx/Products/Debug/foo",
+                        relativeTo: packagePath
+                    )
+                default:
+                    preconditionFailure("Unsupported backend: \(buildSystem)")
+                }
                 #expect(localFileSystem.exists(fooPath))
+                // Check the product has the expected slice
+                #expect(try sh("/usr/bin/file", fooPath.pathString).stdout.contains(arch))
             }
 
-            // let args =
-            //     [swiftBuild.pathString, "--package-path", packagePath.pathString]
-            //         + archs.flatMap { ["--arch", $0] }
             try await executeSwiftBuild(
                 packagePath,
                 extraArgs: archs.flatMap { ["--arch", $0] },
-                buildSystem: .native,
+                buildSystem: buildSystem,
             )
 
-            let fooPath = try AbsolutePath(
-                validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
-            )
+            let fooPath: AbsolutePath
+            let hostArch: String
+            #if arch(x86_64)
+            hostArch = "x86_64"
+            #elseif arch(arm64)
+            hostArch = "arm64"
+            #else
+            precondition("Unsupported platform or host arch for test")
+            #endif
+            switch buildSystem {
+            case .native:
+                fooPath = try AbsolutePath(
+                    validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+                )
+            case .swiftbuild:
+                fooPath = try AbsolutePath(
+                    validating: ".build/\(hostArch)-apple-macosx/Products/Debug/foo",
+                    relativeTo: packagePath
+                )
+            default:
+                preconditionFailure("Unsupported backend: \(buildSystem)")
+            }
             #expect(localFileSystem.exists(fooPath))
-
-            let objectsDir = try AbsolutePath(
-                validating:
-                ".build/apple/Intermediates.noindex/foo.build/Debug/foo.build/Objects-normal",
-                relativeTo: packagePath
-            )
+            // Check the product has the expected slices
+            let fileOutput = try sh("/usr/bin/file", fooPath.pathString).stdout
             for arch in archs {
-                #expect(localFileSystem.isDirectory(objectsDir.appending(component: arch)))
+                #expect(fileOutput.contains(arch))
             }
         }
     }
 
     @Test(
         .requireSwift6_2,
+        .tags(
+            .UserWorkflow,
+            .Feature.CodeCoverage,
+            .Feature.Command.Package.Init,
+            .Feature.Command.Package.AddTarget,
+            .Feature.Command.Test,
+            .Feature.PackageType.Empty,
+            .Feature.TargetType.Test,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms
     )
     func testCodeCoverageMergedAcrossSubprocesses(

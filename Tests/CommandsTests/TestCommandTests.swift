@@ -116,12 +116,17 @@ struct TestCommandTests {
 
     @Test(
         .SWBINTTODO("Windows: Driver threw unable to load output file map"),
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        .tags(
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func toolsetRunner(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue(
             "Windows: Driver threw unable to load output file map",
             isIntermittent: true
@@ -221,6 +226,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func enableDisableTestabilityDefaultShouldRunWithTestability(
@@ -248,6 +256,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
@@ -282,6 +293,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func enableDisableTestabilityEnabled(
@@ -304,6 +318,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -337,6 +354,11 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Run,
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestNoParallel,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -369,6 +391,10 @@ struct TestCommandTests {
     }
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -403,6 +429,11 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -452,6 +483,11 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -503,6 +539,13 @@ struct TestCommandTests {
     )
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode }, BuildConfiguration.allCases.map { config in
@@ -668,6 +711,10 @@ struct TestCommandTests {
     }
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestFilter,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -710,6 +757,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestSkip,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8479", relationship: .defect),
         .SWBINTTODO("Result XML could not be found. The build fails because of missing test helper generation logic for non-macOS platforms"),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -782,6 +833,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -826,6 +880,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         .tags(
@@ -859,6 +916,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.BuildTests,
+        ),
         .SWBINTTODO("Fails to find test executable when run in self-hosted pipeline"),
         .SWBINTTODO("Linux: fails to build with --build-test in Smoke Tests"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
@@ -911,6 +972,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.BuildTests,
+        ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         .tags(
@@ -990,6 +1055,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func basicSwiftTestingIntegration(
@@ -1015,6 +1084,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -1039,6 +1111,9 @@ struct TestCommandTests {
         }
     }
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
         .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -1064,6 +1139,9 @@ struct TestCommandTests {
     }
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
         .IssueWindowsPathTestsFailures,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -1093,6 +1171,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestDisableSwiftTesting,
+        ),
         .SWBINTTODO("Fails to find test executable"),
         .issue("https://github.com/swiftlang/swift-package-manager/pull/8722", relationship: .fixedBy),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
@@ -1117,6 +1199,9 @@ struct TestCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/6605", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8602", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,

@@ -489,7 +489,7 @@ public struct BuildOptions: ParsableArguments {
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
-        help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)."
+        help: "Turn on runtime checks for erroneous behavior."
     )
     public var sanitizers: [Sanitizer] = []
 
@@ -526,6 +526,7 @@ public struct BuildOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
+    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import

@@ -12,7 +12,7 @@ To do so, add a `target` of type [systemLibrary](https://developer.apple.com/doc
 For Unix-like systems, Swift Package Manager can use [pkgConfig](https://en.wikipedia.org/wiki/Pkg-config) to provide the compiler with the paths for including library headers and linking to binaries.
 If your system doesn't provide pkgConfig, or the library doesn't include package config files, you can provide the options to the Swift compiler directly.
 
-`pkgConfig` looks up libraries by name, which is the paramter that you pass to the systemLibrary target.
+`pkgConfig` looks up libraries by name, which is the parameter that you pass to the systemLibrary target.
 The following two examples illustrate using `libgit2` to manually look up paths for that library: 
 
 ```bash

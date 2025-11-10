@@ -35,14 +35,19 @@ public final class InitPackage {
         /// Note: This should only contain Apple platforms right now.
         public var platforms: [SupportedPlatform]
 
+        /// The swiftLanguageModes to include
+        public var swiftLanguageModes: [SwiftLanguageVersion]
+
         public init(
             packageType: PackageType,
             supportedTestingLibraries: Set<TestingLibrary>,
-            platforms: [SupportedPlatform] = []
+            platforms: [SupportedPlatform] = [],
+            swiftLanguageModes: [SwiftLanguageVersion] = [SwiftLanguageVersion.v6]
         ) {
             self.packageType = packageType
             self.supportedTestingLibraries = supportedTestingLibraries
             self.platforms = platforms
+            self.swiftLanguageModes = swiftLanguageModes
         }
     }
 
@@ -430,6 +435,12 @@ public final class InitPackage {
                 }
 
                 pkgParams.append(param)
+            }
+
+            if (!options.swiftLanguageModes.isEmpty) {
+                pkgParams.append("""
+                    swiftLanguageModes: [\(options.swiftLanguageModes.map { ".v\($0)" }.joined(separator: ", "))]
+                """)
             }
 
             stream.send("\(pkgParams.joined(separator: ",\n"))\n)\n")

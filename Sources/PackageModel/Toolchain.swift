@@ -110,7 +110,7 @@ extension Toolchain {
                     .parentDirectory // bin
                     .parentDirectory // usr
                     .parentDirectory // <toolchain>
-            case .freebsd:
+            case .freebsd, .openbsd:
                 return compilerPath
                     .parentDirectory // bin
                     .parentDirectory // local

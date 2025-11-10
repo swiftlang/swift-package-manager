@@ -911,6 +911,9 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.Describe
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -4393,6 +4396,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.BuildToolPlugin  
+            ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5131,6 +5138,10 @@ struct PackageCommandTests {
 
         // Test reporting of plugin diagnostic messages at different verbosity levels
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin 
+            ),
             .requiresSwiftConcurrencySupport,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8180",
@@ -5322,6 +5333,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5353,6 +5368,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5388,6 +5407,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5422,6 +5445,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5459,6 +5486,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5484,6 +5515,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5508,6 +5543,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .tags(
                 .Feature.Command.Package.CommandPlugin,
@@ -5537,6 +5576,10 @@ struct PackageCommandTests {
 
         // Test logging of builds initiated by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -5774,11 +5817,12 @@ struct PackageCommandTests {
         @Test(
             .requiresSwiftConcurrencySupport,
             .tags(
+                .Feature.Command.Run,
                 .Feature.Command.Package.CommandPlugin,
             ),
             .IssueWindowsRelativePathAssert,
             .IssueWindowsLongPath,
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/9083",
                 relationship: .defect,
@@ -6747,7 +6791,7 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
             .requiresSwiftConcurrencySupport,
             .tags(
