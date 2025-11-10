@@ -19,7 +19,6 @@ import _InternalTestSupport
 struct StaticBinaryLibraryTests {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8657", relationship: .defect),
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9311", relationship: .defect),
         .tags(
             .TestSize.large,
             .Feature.Command.Run,
@@ -33,7 +32,6 @@ struct StaticBinaryLibraryTests {
     func staticLibrary(
         buildData: BuildData,
     ) async throws {
-
         try await withKnownIssue {
             try await fixture(name: "BinaryLibraries") { fixturePath in
                 let (stdout, _) = try await executeSwiftRun(
@@ -51,7 +49,6 @@ struct StaticBinaryLibraryTests {
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
-            || buildData.buildSystem == .swiftbuild
         }
     }
 }
