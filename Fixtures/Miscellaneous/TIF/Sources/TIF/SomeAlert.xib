@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="14850.00" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES" customObjectInstantitationMethod="direct">
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="14850.00"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <customObject id="-2" userLabel="File's Owner" customClass="SomeAlert" customModule="MyFwk" customModuleProvider="target">
+            <connections>
+                <outlet property="label" destination="AaI-7f-Hna" id="9Qf-KY-ZKZ"/>
+                <outlet property="view" destination="Hz6-mo-xeY" id="0bl-1N-x8E"/>
+            </connections>
+        </customObject>
+        <customObject id="-1" userLabel="First Responder" customClass="FirstResponder"/>
+        <customObject id="-3" userLabel="Application" customClass="NSObject"/>
+        <customView id="Hz6-mo-xeY">
+            <rect key="frame" x="0.0" y="0.0" width="800" height="521"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+            <subviews>
+                <imageView horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="PbM-Nr-mVI">
+                    <rect key="frame" x="0.0" y="0.0" width="800" height="521"/>
+                    <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="this_is_fine" id="oAz-HJ-kbb"/>
+                </imageView>
+                <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="AaI-7f-Hna">
+                    <rect key="frame" x="373" y="10" width="37" height="16"/>
+                    <textFieldCell key="cell" lineBreakMode="clipping" title="Label" id="8Nf-Ba-Sor">
+                        <font key="font" metaFont="system"/>
+                        <color key="textColor" name="labelColor" catalog="System" colorSpace="catalog"/>
+                        <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
+                    </textFieldCell>
+                </textField>
+            </subviews>
+            <constraints>
+                <constraint firstItem="PbM-Nr-mVI" firstAttribute="centerY" secondItem="Hz6-mo-xeY" secondAttribute="centerY" id="6qc-mk-w7c"/>
+                <constraint firstItem="PbM-Nr-mVI" firstAttribute="centerX" secondItem="Hz6-mo-xeY" secondAttribute="centerX" id="7oF-4c-nPi"/>
+                <constraint firstAttribute="trailing" secondItem="PbM-Nr-mVI" secondAttribute="trailing" id="Ixf-fF-M1X"/>
+                <constraint firstItem="AaI-7f-Hna" firstAttribute="leading" secondItem="Hz6-mo-xeY" secondAttribute="leading" constant="375" id="cSk-iC-InE"/>
+                <constraint firstItem="AaI-7f-Hna" firstAttribute="top" secondItem="Hz6-mo-xeY" secondAttribute="top" constant="495" id="ikr-Qp-hYt"/>
+                <constraint firstItem="PbM-Nr-mVI" firstAttribute="top" secondItem="Hz6-mo-xeY" secondAttribute="top" id="pbz-et-fp8"/>
+                <constraint firstAttribute="bottom" secondItem="AaI-7f-Hna" secondAttribute="bottom" constant="10" id="pwH-7O-7xL"/>
+                <constraint firstItem="PbM-Nr-mVI" firstAttribute="leading" secondItem="Hz6-mo-xeY" secondAttribute="leading" id="tzP-BG-gDa"/>
+            </constraints>
+            <point key="canvasLocation" x="139" y="189.5"/>
+        </customView>
+    </objects>
+    <resources>
+        <image name="this_is_fine" width="800" height="450"/>
+    </resources>
+</document>
