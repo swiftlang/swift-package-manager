@@ -247,13 +247,19 @@ extension AbsolutePath {
             return false
         }
 
-        if ancestorPath.hasSuffix("/") {
+#if os(Windows)
+        let pathSeparator: Character = "\\"
+#else
+        let pathSeparator: Character = "/"
+#endif
+
+        if ancestorPath.hasSuffix(String(pathSeparator)) {
             return true
         }
 
         // Handle non-root paths by ensuring the character after the prefix is a separator
         let indexAfterPrefix = selfPath.index(selfPath.startIndex, offsetBy: ancestorPath.count)
-        return selfPath[indexAfterPrefix] == "/"
+        return selfPath[indexAfterPrefix] == pathSeparator
     }
 
     /// Returns true if the path is a descendant of or equal to the given path.
