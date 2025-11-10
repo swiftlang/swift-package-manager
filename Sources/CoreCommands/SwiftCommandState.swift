@@ -460,6 +460,22 @@ public final class SwiftCommandState {
         if !options.build._deprecated_manifestFlags.isEmpty {
             observabilityScope.emit(warning: "'-Xmanifest' option is deprecated; use '-Xbuild-tools-swiftc' instead")
         }
+
+        if options.build.enableTaskBacktraces {
+            // Task backtraces require at least verbose output to be logged
+            if !options.logging.verbose && !options.logging.veryVerbose {
+                observabilityScope.emit(
+                    warning: "'--experimental-task-backtraces' requires '--verbose' or '--very-verbose'"
+                )
+            }
+
+            // Task backtraces are only supported by the swiftbuild build system
+            if options.build.buildSystem != .swiftbuild {
+                observabilityScope.emit(
+                    warning: "'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"
+                )
+            }
+        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -956,7 +972,8 @@ public final class SwiftCommandState {
             ),
             outputParameters: .init(
                 isColorized: self.options.logging.colorDiagnostics,
-                isVerbose: self.logLevel <= .info
+                isVerbose: self.logLevel <= .info,
+                enableTaskBacktraces: self.options.build.enableTaskBacktraces
             ),
             testingParameters: .init(
                 forceTestDiscovery: self.options.build.enableTestDiscovery,

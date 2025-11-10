@@ -585,6 +585,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     struct BuildState {
                         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
                         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+                        var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
 
                         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
                             if activeTasks[task.taskID] != nil {
@@ -697,9 +698,22 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                     try? Basics.AbsolutePath(validating: $0.pathString)
                                 })
                             }
+                            if self.buildParameters.outputParameters.enableTaskBacktraces {
+                                if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
+                                   let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
+                                    let formattedBacktrace = backtrace.renderTextualRepresentation()
+                                    if !formattedBacktrace.isEmpty {
+                                        self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
+                                    }
+                                }
+                            }
                         case .targetStarted(let info):
                             try buildState.started(target: info)
-                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .backtraceFrame, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
+                        case .backtraceFrame(let info):
+                            if self.buildParameters.outputParameters.enableTaskBacktraces {
+                                buildState.collectedBacktraceFrames.add(frame: info)
+                            }
+                        case .planningOperationStarted, .planningOperationCompleted, .reportBuildDescription, .reportPathMap, .preparedForIndex, .buildStarted, .preparationComplete, .targetUpToDate, .targetComplete, .taskUpToDate:
                             break
                         case .buildDiagnostic, .targetDiagnostic, .taskDiagnostic:
                             break // deprecated
@@ -1002,6 +1016,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.useDryRun = false
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
+        request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
 
         // Override the arena. We need to apply the arena info to both the request-global build
         // parameters as well as the target-specific build parameters, since they may have been
