@@ -42,11 +42,30 @@ public final class UserToolchain: Toolchain {
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
 
+    /// Lock for thread-safe access to lazy properties (recursive to handle property dependencies)
+    private let lazyPropertiesLock = NSRecursiveLock()
+
+    /// Cached runtime library paths
+    private var _runtimeLibraryPaths: [AbsolutePath]? = nil
+
     /// An array of paths to use with binaries produced by this toolchain at run time.
-    public lazy var runtimeLibraryPaths: [AbsolutePath] = {
-        guard let targetInfo else { return [] }
-        return (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
-    }()
+    public var runtimeLibraryPaths: [AbsolutePath] {
+        lazyPropertiesLock.lock()
+        defer { lazyPropertiesLock.unlock() }
+
+        if let cached = _runtimeLibraryPaths {
+            return cached
+        }
+
+        guard let targetInfo = self.targetInfo else {
+            _runtimeLibraryPaths = []
+            return []
+        }
+
+        let paths = (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
+        _runtimeLibraryPaths = paths
+        return paths
+    }
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
@@ -82,16 +101,47 @@ public final class UserToolchain: Toolchain {
     public let targetTriple: Basics.Triple
 
     private let _targetInfo: JSON?
-    private lazy var targetInfo: JSON? = {
+
+    /// Cached target info, deliberately doublely optional, one
+    /// for "not yet cached", one for "failed to get target info".
+    private var _cachedTargetInfo: Optional<JSON?> = nil
+
+    private var targetInfo: JSON? {
+        lazyPropertiesLock.lock()
+        defer { lazyPropertiesLock.unlock() }
+
+        if let cached = _cachedTargetInfo {
+            return cached
+        }
+
         // Only call out to the swift compiler to fetch the target info when necessary
-        try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
-    }()
+        let info = try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
+        _cachedTargetInfo = info
+        return info
+    }
+
+    /// Cached swift compiler version, deliberately doublely optional, one
+    /// for "not yet cached", one for "failed to get target info".
+    private var _swiftCompilerVersion: Optional<String?> = nil
 
     // A version string that can be used to identify the swift compiler version
-    public lazy var swiftCompilerVersion: String? = {
-        guard let targetInfo else { return nil }
-        return Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
-    }()
+    public var swiftCompilerVersion: String? {
+        lazyPropertiesLock.lock()
+        defer { lazyPropertiesLock.unlock() }
+
+        if let cached = _swiftCompilerVersion {
+            return cached
+        }
+
+        guard let targetInfo = self.targetInfo else {
+            _swiftCompilerVersion = nil
+            return nil
+        }
+
+        let version = Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+        _swiftCompilerVersion = version
+        return version
+    }
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
