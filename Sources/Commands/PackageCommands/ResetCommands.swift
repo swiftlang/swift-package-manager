@@ -15,7 +15,7 @@ import CoreCommands
 import Workspace
 
 extension SwiftPackageCommand {
-    struct Clean: SwiftCommand {
+    struct Clean: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             abstract: "Delete build artifacts.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
@@ -24,8 +24,8 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            try swiftCommandState.getActiveWorkspace().clean(observabilityScope: swiftCommandState.observabilityScope)
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            try await swiftCommandState.getActiveWorkspace().clean(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 

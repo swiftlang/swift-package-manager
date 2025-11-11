@@ -23,7 +23,7 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    struct AddProduct: SwiftCommand {
+    struct AddProduct: AsyncSwiftCommand {
         /// The package product type used for the command-line. This is a
         /// subset of `ProductType` that expands out the library types.
         enum CommandProductType: String, Codable, ExpressibleByArgument, CaseIterable {
@@ -54,8 +54,8 @@ extension SwiftPackageCommand {
         )
         var targets: [String] = []
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let workspace = try await swiftCommandState.getActiveWorkspace()
 
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")

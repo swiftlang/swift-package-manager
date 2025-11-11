@@ -36,7 +36,7 @@ extension SwiftPackageCommand {
         var packages: [String] = []
         
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+            let workspace = try await swiftCommandState.getActiveWorkspace()
             
             let changes = try await workspace.updateDependencies(
                 root: swiftCommandState.getWorkspaceRoot(),

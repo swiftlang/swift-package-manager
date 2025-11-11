@@ -83,7 +83,7 @@ struct BuildSystemDelegateTests {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                let execPath = try fixturePath.appending(
+                let execPath = try await fixturePath.appending(
                     components: data.buildSystem.binPath(for: data.config) + [executableName("TestableExe1")]
                 )
                 expectFileExists(at: execPath)

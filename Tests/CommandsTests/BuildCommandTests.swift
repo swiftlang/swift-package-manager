@@ -155,7 +155,7 @@ struct BuildCommandTestCases {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let fullPath = try resolveSymlinks(fixturePath)
 
-            let targetPath = try fullPath.appending(components: buildSystem.binPath(for: configuration))
+            let targetPath = try await fullPath.appending(components: buildSystem.binPath(for: configuration))
             let path = try await execute(
                 ["--show-bin-path"],
                 packagePath: fullPath,
@@ -344,8 +344,8 @@ struct BuildCommandTestCases {
                 let fullPath = try resolveSymlinks(fixturePath)
                 // Test symlink.
                 try await execute(packagePath: fullPath, configuration: configuration, buildSystem: buildSystem)
-                let actualDebug = try resolveSymlinks(fullPath.appending(components: buildSystem.binPath(for: configuration)))
-                let expectedDebug = try fullPath.appending(components: buildSystem.binPath(for: configuration))
+                let actualDebug = try resolveSymlinks(fullPath.appending(components: await buildSystem.binPath(for: configuration)))
+                let expectedDebug = try await fullPath.appending(components: buildSystem.binPath(for: configuration))
                 #expect(actualDebug == expectedDebug)
             }
         } when: {
@@ -956,7 +956,7 @@ struct BuildCommandTestCases {
                 // In the case of the native build system check for the cross-compile target, only for macOS
     #if os(macOS)
                 if buildSystem == .native {
-                    let targetTripleString = try UserToolchain.default.targetTriple.tripleString(forPlatformVersion: "")
+                    let targetTripleString = try await UserToolchain.default().targetTriple.tripleString(forPlatformVersion: "")
                     #expect(output.stdout.contains("-target \(targetTripleString)"))
                 }
     #endif
@@ -1033,7 +1033,7 @@ struct BuildCommandTestCases {
         let config = data.config
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
+            let swiftCompilerPath = try await UserToolchain.default().swiftCompilerPath
             // try await building without specifying overrides.  This should succeed, and should use the default
             // compiler path.
             let defaultOutput = try await execute(
@@ -1188,7 +1188,7 @@ struct BuildCommandTestCases {
                 return buildArenaPath.appending(component: filename)
             }
             let dummySwiftcPath = SwiftPM.xctestBinaryPath(for: "dummy-swiftc")
-            let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
+            let swiftCompilerPath = try await UserToolchain.default().swiftCompilerPath
 
             var environment: Environment = [
                 "SWIFT_EXEC": dummySwiftcPath.pathString,
@@ -1444,10 +1444,10 @@ struct BuildCommandTestCases {
         func buildSystemAndOutputLocation(
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
-        ) throws -> Basics.RelativePath {
-            let triple = try UserToolchain.default.targetTriple.withoutVersion()
+        ) async throws -> Basics.RelativePath {
+            let triple = try await UserToolchain.default().targetTriple.withoutVersion()
             let base = try RelativePath(validating: ".build")
-            let path = try base.appending(components: buildSystem.binPath(for: configuration, scratchPath: []))
+            let path = try await base.appending(components: buildSystem.binPath(for: configuration, scratchPath: []))
             switch buildSystem {
                 case .xcode:
                     return triple.platformName() == "macosx" ? path.appending("ExecutableNew") : path
@@ -1479,7 +1479,7 @@ struct BuildCommandTestCases {
                     cleanAfterward: false,
                     buildSystem: data.buildSystem,
                 )
-                let mainOFile = try fixturePath.appending(buildSystemAndOutputLocation(buildSystem: data.buildSystem, configuration: data.config))
+                let mainOFile = try await fixturePath.appending(buildSystemAndOutputLocation(buildSystem: data.buildSystem, configuration: data.config))
                 let initialMainOMtime = try FileManager.default.attributesOfItem(atPath: mainOFile.pathString)[.modificationDate] as? Date
 
                 _ = try await build(

@@ -624,9 +624,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     func testPackageNameFlag() async throws {
         try XCTSkipIfPlatformCI() // test is disabled because it isn't stable, see rdar://118239206
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8547: 'swift test' was hanging.")
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+        let isFlagSupportedInDriver = try await DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
-            toolchain: UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             fileSystem: localFileSystem
         )
         try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
@@ -662,9 +662,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
     #if os(macOS)
     func testPackageNameFlagXCBuild() async throws {
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+        let isFlagSupportedInDriver = try await DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
-            toolchain: UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             fileSystem: localFileSystem
         )
         try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
@@ -693,9 +693,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
     #endif
 
     func testTargetsWithPackageAccess() async throws {
-        let isFlagSupportedInDriver = try DriverSupport.checkToolchainDriverFlags(
+        let isFlagSupportedInDriver = try await DriverSupport.checkToolchainDriverFlags(
             flags: ["package-name"],
-            toolchain: UserToolchain.default,
+            toolchain: try await UserToolchain.default(),
             fileSystem: localFileSystem
         )
         try await fixtureXCTest(name: "Miscellaneous/TargetPackageAccess") { fixturePath in
@@ -836,7 +836,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-Xlinker", "-add_ast_path", "-Xlinker",
             buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
             "-Xlinker", "-add_ast_path", "-Xlinker",
@@ -852,7 +852,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             // "-static-stdlib",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ]
         #else
@@ -865,7 +865,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g",
         ]
         #endif
@@ -1139,6 +1139,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ]
         )
 
+        let targetTriple = try await defaultTargetTriple()
+
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -1152,7 +1154,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #elseif os(Windows)
@@ -1164,7 +1166,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "/OPT:REF",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -1177,7 +1179,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "--gc-sections",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #endif
@@ -1235,6 +1237,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ]
         )
 
+        let targetTriple = try await defaultTargetTriple()
+
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -1247,7 +1251,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #elseif os(Windows)
@@ -1258,7 +1262,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "exe",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -1270,7 +1274,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #endif
@@ -1340,7 +1344,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #if os(macOS)
         args += ["-fobjc-arc"]
         #endif
-        args += ["-target", defaultTargetTriple]
+        args += ["-target", try await defaultTargetTriple()]
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
@@ -1351,9 +1355,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         ]
         #endif
         args += ["-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString]
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [try await hostTriple().isWindows() ? "-gdwarf" : "-g"]
 
-        if hostTriple.isLinux() {
+        if try await hostTriple().isLinux() {
             args += ["-fno-omit-frame-pointer"]
         }
 
@@ -1365,9 +1369,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         args = []
 
         #if os(macOS)
-        args += ["-fobjc-arc", "-target", defaultTargetTriple]
+        args += ["-fobjc-arc", "-target", try await defaultTargetTriple()]
         #else
-        args += ["-target", defaultTargetTriple]
+        args += ["-target", try await defaultTargetTriple()]
         #endif
 
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
@@ -1386,15 +1390,17 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-I", ExtPkg.appending(components: "Sources", "extlib", "include").pathString,
             "-fmodule-map-file=\(buildPath.appending(components: "extlib.build", "module.modulemap"))",
         ]
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [try await hostTriple().isWindows() ? "-gdwarf" : "-g"]
 
-        if hostTriple.isLinux() {
+        if try await hostTriple().isLinux() {
             args += ["-fno-omit-frame-pointer"]
         }
 
         XCTAssertEqual(try exe.basicArguments(isCXX: false), args)
         XCTAssertEqual(try exe.objects, [buildPath.appending(components: "exe.build", "main.c.o")])
         XCTAssertEqual(exe.moduleMap, nil)
+
+        let targetTriple = try await defaultTargetTriple()
 
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -1407,7 +1413,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #elseif os(Windows)
@@ -1419,7 +1425,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -1432,7 +1438,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #endif
@@ -1590,6 +1596,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         result.checkTargetsCount(4)
 
         let buildPath = plan.productsBuildPath
+        let targetTriple = try await defaultTargetTriple()
 
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
@@ -1603,7 +1610,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #elseif os(Windows)
@@ -1615,7 +1622,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #elseif os(FreeBSD)
@@ -1629,7 +1636,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #else
@@ -1643,7 +1650,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #endif
@@ -1740,7 +1747,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #if os(macOS)
         args += ["-fobjc-arc"]
         #endif
-        args += ["-target", defaultTargetTriple]
+        args += ["-target", try await defaultTargetTriple()]
 
         args += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1"]
         args += ["-fblocks"]
@@ -1752,9 +1759,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         ]
         #endif
         args += ["-I", Pkg.appending(components: "Sources", "lib", "include").pathString]
-        args += [hostTriple.isWindows() ? "-gdwarf" : "-g"]
+        args += [try await hostTriple().isWindows() ? "-gdwarf" : "-g"]
 
-        if hostTriple.isLinux() {
+        if try await hostTriple().isLinux() {
             args += ["-fno-omit-frame-pointer"]
         }
 
@@ -1786,6 +1793,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ]
         )
 
+        let targetTriple1807 = try await defaultTargetTriple()
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -1798,7 +1806,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple1807,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule",
             "-g",
         ])
@@ -1810,7 +1818,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "exe",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple1807,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -1822,7 +1830,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple1807,
             "-g",
         ])
         #endif
@@ -2323,6 +2331,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         if let version = try? Version(string: version, lenient: true), version.major < 26 {
             rpathsForBackdeployment += ["-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx"]
         }
+        let hostTripleString = try await hostTriple().tripleString(forPlatformVersion: version)
         XCTAssertEqual(
             try result.buildProduct(for: "PkgPackageTests").linkArguments(),
             [
@@ -2337,7 +2346,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 "-Xlinker", "-rpath", "-Xlinker", "@loader_path/../../../",
                 "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
             ] + rpathsForBackdeployment + [
-                "-target", "\(hostTriple.tripleString(forPlatformVersion: version))",
+                "-target", hostTripleString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
                 buildPath.appending(components: "Modules", "Foo.swiftmodule").pathString,
                 "-Xlinker", "-add_ast_path", "-Xlinker",
@@ -2348,6 +2357,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ]
         )
         #elseif os(Windows)
+        let targetTriple = try await defaultTargetTriple()
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
@@ -2355,10 +2365,11 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "PkgPackageTests",
             "-emit-executable",
             "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
+        let targetTriple = try await defaultTargetTriple()
         XCTAssertEqual(try result.buildProduct(for: "PkgPackageTests").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
@@ -2367,7 +2378,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "PkgPackageTests.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple,
             "-g",
         ])
         #endif
@@ -2429,6 +2440,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         #if os(macOS)
+        let hostTripleString2493 = try await hostTriple().tripleString(forPlatformVersion: "12.0")
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
             "-L", buildPath.pathString,
@@ -2440,7 +2452,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", hostTriple.tripleString(forPlatformVersion: "12.0"),
+            "-target", hostTripleString2493,
             "-g",
         ])
         #endif
@@ -2800,6 +2812,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             assertionText
         )
 
+        let targetTriple2866 = try await defaultTargetTriple()
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "exe").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -2812,7 +2825,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple2866,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "exe.build", "exe.swiftmodule").pathString,
             "-g",
@@ -2825,7 +2838,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "exe",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple2866,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -2837,7 +2850,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple2866,
             "-g",
         ])
         #endif
@@ -2946,6 +2959,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let fooLinkArgs = try result.buildProduct(for: "Foo").linkArguments()
         let barLinkArgs = try result.buildProduct(for: "Bar-Baz").linkArguments()
 
+        let targetTriple3014 = try await defaultTargetTriple()
         #if os(macOS)
         XCTAssertEqual(fooLinkArgs, [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -2959,7 +2973,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Foo.build", "Foo.swiftmodule").pathString,
             "-g",
@@ -2977,7 +2991,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Modules", "Bar.swiftmodule").pathString,
             "-g",
@@ -2991,7 +3005,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-lBar-Baz",
             "-emit-executable",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
 
@@ -3002,7 +3016,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "Bar_Baz",
             "-emit-library",
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -3015,7 +3029,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-g",
         ])
 
@@ -3027,7 +3041,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-library",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3014,
             "-g",
         ])
         #endif
@@ -3134,7 +3148,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-Xlinker", "-add_ast_path", "-Xlinker",
             buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
             "-g",
@@ -3147,7 +3161,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "lib",
             "-emit-library",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g", "-use-ld=lld",
             "-Xlinker", "-debug:dwarf",
         ]
@@ -3160,7 +3174,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-library",
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g",
         ]
         #endif
@@ -3212,8 +3226,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let exe = try result.moduleBuildDescription(for: "exe").clang()
 
+        let defaultTargetTripleValue = try await defaultTargetTriple()
         var expectedExeBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
-        expectedExeBasicArgs += ["-target", defaultTargetTriple]
+        expectedExeBasicArgs += ["-target", defaultTargetTripleValue]
         expectedExeBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
         #if os(macOS) // FIXME(5473) - support modules on non-Apple platforms
         expectedExeBasicArgs += [
@@ -3237,7 +3252,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         let lib = try result.moduleBuildDescription(for: "lib").clang()
 
         var expectedLibBasicArgs = triple.isDarwin() ? ["-fobjc-arc"] : []
-        expectedLibBasicArgs += ["-target", defaultTargetTriple]
+        expectedLibBasicArgs += ["-target", defaultTargetTripleValue]
         expectedLibBasicArgs += ["-O0", "-DSWIFT_PACKAGE=1", "-DDEBUG=1", "-fblocks"]
 //        let shouldHaveModules = false // FIXME(5473) - support modules on non-Apple platforms, and also for C++ on any platform
 //        if shouldHaveModules {
@@ -3261,6 +3276,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertEqual(try lib.objects, [buildPath.appending(components: "lib.build", "lib.cpp.o")])
         XCTAssertEqual(lib.moduleMap, buildPath.appending(components: "lib.build", "module.modulemap"))
 
+        let targetTriple3331 = try await defaultTargetTriple()
         #if os(macOS)
         XCTAssertEqual(try result.buildProduct(for: "lib").linkArguments(), [
             result.plan.destinationBuildParameters.toolchain.swiftCompilerPath.pathString,
@@ -3274,7 +3290,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g",
         ])
 
@@ -3288,7 +3304,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g",
         ])
         #elseif os(Windows)
@@ -3300,7 +3316,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-library",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
 
@@ -3312,7 +3328,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ])
         #else
@@ -3327,7 +3343,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g",
         ])
         #else
@@ -3341,7 +3357,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g",
         ])
         #endif
@@ -3355,7 +3371,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-rpath=$ORIGIN",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-runtime-compatibility-version", "none",
-            "-target", defaultTargetTriple,
+            "-target", targetTriple3331,
             "-g",
         ])
         #endif
@@ -3857,9 +3873,10 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         func check(for mode: BuildParameters.IndexStoreMode, config: BuildConfiguration) async throws {
+            let defaultToolchain = try await UserToolchain.default()
             let result = try await BuildPlanResult(plan: mockBuildPlan(
                 config: config,
-                toolchain: try UserToolchain.default,
+                toolchain: defaultToolchain,
                 graph: graph,
                 indexStoreMode: mode,
                 fileSystem: fs,
@@ -3935,22 +3952,24 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let aTarget = try result.moduleBuildDescription(for: "ATarget").swift().compileArguments()
         #if os(macOS)
+        let hostTripleString = try await hostTriple().tripleString(forPlatformVersion: "10.13")
         XCTAssertMatch(
             aTarget,
-            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence]
+            [.equal("-target"), .equal(hostTripleString), .anySequence]
         )
         #else
-        XCTAssertMatch(aTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence])
+        let defaultTriple = try await defaultTargetTriple()
+        XCTAssertMatch(aTarget, [.equal("-target"), .equal(defaultTriple), .anySequence])
         #endif
 
         let bTarget = try result.moduleBuildDescription(for: "BTarget").swift().compileArguments()
         #if os(macOS)
         XCTAssertMatch(
             bTarget,
-            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence]
+            [.equal("-target"), .equal(hostTripleString), .anySequence]
         )
         #else
-        XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence])
+        XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTriple), .anySequence])
         #endif
     }
 
@@ -5226,7 +5245,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let userSwiftSDK = try SwiftSDK(
+        let userSwiftSDK = try await SwiftSDK(
             hostTriple: .arm64Linux,
             targetTriple: .wasi,
             toolset: .init(
@@ -5244,7 +5263,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5371,7 +5390,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5490,7 +5509,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let mockToolchain = try UserToolchain(
+        let mockToolchain = try await UserToolchain.create(
             swiftSDK: userSwiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -5604,7 +5623,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         func cliFlag(tool: Toolset.KnownTool) -> String { "-\(tool)-flag-from-cli" }
         func cliFlag(tool: Toolset.KnownTool) -> StringPattern { .equal(cliFlag(tool: tool)) }
 
-        let toolset = try Toolset(
+        let toolset = try await Toolset(
             knownTools: [
                 .cCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cCompiler)]),
                 .cxxCompiler: .init(extraCLIOptions: [jsonFlag(tool: .cxxCompiler)]),
@@ -5624,7 +5643,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 swiftStaticResourcesPath: "/usr/lib/swift_static/none"
             )
         )
-        let toolchain = try UserToolchain(
+        let toolchain = try await UserToolchain.create(
             swiftSDK: swiftSDK,
             environment: .mockEnvironment,
             customTargetInfo: UserToolchain.mockTargetInfo,
@@ -5769,7 +5788,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let targetTriple = try UserToolchain.default.targetTriple
+        let targetTriple = try await UserToolchain.default().targetTriple
         let sdkIncludeSearchPath = AbsolutePath("/usr/lib/swift_static/none/include")
         let sdkLibrarySearchPath = AbsolutePath("/usr/lib/swift_static/none/lib")
         let swiftSDK = try SwiftSDK(
@@ -5785,7 +5804,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
 
         let env = Environment.mockEnvironment
-        let toolchain = try UserToolchain(
+        let toolchain = try await UserToolchain.create(
             swiftSDK: swiftSDK,
             environment: env,
             searchStrategy: .custom(
@@ -7194,7 +7213,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let toolchain = try UserToolchain.default
+        let toolchain = try await UserToolchain.default()
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             toolchain: toolchain,
             graph: graph,
@@ -7251,7 +7270,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
-        let toolchain = try UserToolchain.default
+        let toolchain = try await UserToolchain.default()
         let result = try await BuildPlanResult(plan: mockBuildPlan(
             triple: Triple("arm64-unknown-none"),
             toolchain: toolchain,
@@ -7379,7 +7398,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-Xlinker", "-add_ast_path",
             "-Xlinker", buildPath.appending(components: "Modules", "lib.swiftmodule").pathString,
             "-Xlinker", "-add_ast_path",
@@ -7394,7 +7413,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "exe",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g", "-use-ld=lld", "-Xlinker", "-debug:dwarf",
         ]
         #else
@@ -7405,7 +7424,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-module-name", "exe",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-target", defaultTargetTriple,
+            "-target", try await defaultTargetTriple(),
             "-g",
         ]
         #endif

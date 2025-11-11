@@ -34,7 +34,7 @@ extension SwiftPackageCommand {
         var type: DescribeMode = .text
         
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
+            let workspace = try await swiftCommandState.getActiveWorkspace()
             
             guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")

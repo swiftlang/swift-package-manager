@@ -69,7 +69,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             )
         ), .buildPlan])
 
-        let symbolGraphDirectory = try swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
+        let symbolGraphDirectory = try await swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
 
         let fs = swiftCommandState.fileSystem
 
@@ -78,12 +78,12 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
         if let symbolGraph = buildResult.symbolGraph {
             // The build system produced symbol graphs for us, one for each target.
-            let buildPath = try swiftCommandState.productsBuildParameters.buildPath
+            let buildPath = try await swiftCommandState.productsBuildParameters.buildPath
 
             // Copy the symbol graphs from the target-specific locations to the single output directory
             for rootPackage in try await buildSystem.getPackageGraph().rootPackages {
                 for module in rootPackage.modules {
-                    let sgDir = symbolGraph.outputLocationForTarget(module.name, try swiftCommandState.productsBuildParameters)
+                    let sgDir = symbolGraph.outputLocationForTarget(module.name, try await swiftCommandState.productsBuildParameters)
 
                     if case let sgDir = buildPath.appending(components: sgDir), fs.exists(sgDir) {
                         for sgFile in try fs.getDirectoryContents(sgDir) {
@@ -94,9 +94,9 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             }
         } else if let buildPlan = buildResult.buildPlan {
             // Otherwise, with a build plan we can run the symbol graph extractor tool on the built targets.
-            let symbolGraphExtractor = try SymbolGraphExtract(
+            let symbolGraphExtractor = try await SymbolGraphExtract(
                 fileSystem: swiftCommandState.fileSystem,
-                tool: swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
+                tool: await swiftCommandState.getTargetToolchain().getSymbolGraphExtract(),
                 observabilityScope: swiftCommandState.observabilityScope,
                 skipSynthesizedMembers: skipSynthesizedMembers,
                 minimumAccessLevel: minimumAccessLevel,
@@ -156,7 +156,7 @@ struct DumpPackage: AsyncSwiftCommand {
     var globalOptions: GlobalOptions
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
-        let workspace = try swiftCommandState.getActiveWorkspace()
+        let workspace = try await swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
 
         let rootManifests = try await workspace.loadRootManifests(

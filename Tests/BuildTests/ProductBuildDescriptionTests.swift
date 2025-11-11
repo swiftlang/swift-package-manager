@@ -30,7 +30,7 @@ import func _InternalTestSupport.XCTAssertNoDiagnostics
 import XCTest
 
 final class ProductBuildDescriptionTests: XCTestCase {
-    func testEmbeddedProducts() throws {
+    func testEmbeddedProducts() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
             "/Pkg/Sources/exe/main.swift"
@@ -63,7 +63,7 @@ final class ProductBuildDescriptionTests: XCTestCase {
             package: package,
             product: product,
             toolsVersion: .v5_9,
-            buildParameters: mockBuildParameters(destination: .target, environment: .init(platform: .macOS)),
+            buildParameters: try await mockBuildParameters(destination: .target, environment: .init(platform: .macOS)),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )

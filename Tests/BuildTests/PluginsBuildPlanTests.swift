@@ -64,17 +64,17 @@ struct PluginsBuildPlanTests {
     func commandPluginDependenciesWhenNotCrossCompiling(
         buildData: BuildData,
     ) async throws {
-        let hostToolchain = try UserToolchain(
-            swiftSDK: .hostSwiftSDK(environment: [:]),
+        let hostToolchain = try await UserToolchain.create(
+            swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(environment: [:]),
             environment: [:]
         )
         let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
 
-        let hostBinPathSegments = try buildData.buildSystem.binPath(
+        let hostBinPathSegments = try await buildData.buildSystem.binPath(
             for: buildData.config,
             triple: hostTriple,
         )
-        let hostDebugBinPathSegments = try buildData.buildSystem.binPath(
+        let hostDebugBinPathSegments = try await buildData.buildSystem.binPath(
             for: .debug,
             triple: hostTriple,
         )
@@ -118,8 +118,8 @@ struct PluginsBuildPlanTests {
     func commandPluginDependenciesWhenCrossCompiling(
         buildData: BuildData,
     ) async throws {
-        let hostToolchain = try UserToolchain(
-            swiftSDK: .hostSwiftSDK(environment: [:]),
+        let hostToolchain = try await UserToolchain.create(
+            swiftSDK: try await SwiftSDK.hostSwiftSDKAsync(environment: [:]),
             environment: [:]
         )
         // let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
@@ -128,10 +128,10 @@ struct PluginsBuildPlanTests {
         let armTriple = "arm64-apple-macosx"
         let targetTriple = hostToolchain.targetTriple.arch == .aarch64 ? x86Triple : armTriple
 
-        let hostBinPathSegments = try buildData.buildSystem.binPath(
+        let hostBinPathSegments = try await buildData.buildSystem.binPath(
             for: buildData.config,
         )
-        let targetDebugBinPathSegments = try buildData.buildSystem.binPath(
+        let targetDebugBinPathSegments = try await buildData.buildSystem.binPath(
             for: .debug,
             triple: targetTriple,
         )
@@ -141,12 +141,12 @@ struct PluginsBuildPlanTests {
             // let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
             let targetDebugBinPath: AbsolutePath = fixturePath.appending(components: targetDebugBinPathSegments)
             let hostBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
+                components: try await buildData.buildSystem.binPath(
                     for: buildData.config,
                 )
             )
             let targetBinPath = try fixturePath.appending(
-                components: buildData.buildSystem.binPath(
+                components: try await buildData.buildSystem.binPath(
                     for: buildData.config,
                     triple: targetTriple,
                 )

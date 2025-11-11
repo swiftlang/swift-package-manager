@@ -90,7 +90,11 @@ public func mockBuildPlan(
             fatalError("unsupported platform in tests")
         }
     } else {
-        inferredTriple = triple ?? hostTriple
+        inferredTriple = if let triple = triple {
+            triple
+        } else {
+            try await hostTriple()
+        }
     }
 
     let commonDebuggingParameters = BuildParameters.Debugging(
@@ -99,7 +103,7 @@ public func mockBuildPlan(
         omitFramePointers: omitFramePointers
     )
 
-    var destinationParameters = mockBuildParameters(
+    var destinationParameters = try await mockBuildParameters(
         destination: .target,
         buildPath: buildPath,
         config: config,
@@ -114,7 +118,7 @@ public func mockBuildPlan(
     destinationParameters.linkingParameters = linkingParameters
     destinationParameters.sanitizers = targetSanitizers
 
-    var hostParameters = mockBuildParameters(
+    var hostParameters = try await mockBuildParameters(
         destination: .host,
         buildPath: buildPath,
         config: config,
