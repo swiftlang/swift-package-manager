@@ -102,6 +102,11 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
     {
         let archiver = UniversalArchiver(fileSystem)
 
+        if let lastPathComponent = path.components.last,
+            lastPathComponent.hasSuffix("artifactbundle") {
+            return path
+        }
+
         guard let lastPathComponent = path.components.last,
             archiver.isFileSupported(lastPathComponent)
         else {
