@@ -345,6 +345,9 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
         if options.mode == .oneShot {
             runnerArguments.append("--one-shot")
         }
+        if globalOptions.logging.verbose {
+            runnerArguments.append("--verbose")
+        }
         runnerArguments.append(options.list ? "--list" : options.playgroundName)
 
         let runnerProcess = AsyncProcess(
