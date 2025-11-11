@@ -1041,6 +1041,7 @@ public final class SwiftCommandState {
                 swiftSDK: swiftSDK,
                 environment: self.environment,
                 customTargetInfo: targetInfo,
+                observabilityScope: self.observabilityScope,
                 fileSystem: self.fileSystem)
         })
     }()
@@ -1057,6 +1058,7 @@ public final class SwiftCommandState {
             swiftSDK: hostSwiftSDK,
             environment: self.environment,
             customTargetInfo: targetInfo,
+            observabilityScope: self.observabilityScope,
             fileSystem: self.fileSystem
         )
     })
