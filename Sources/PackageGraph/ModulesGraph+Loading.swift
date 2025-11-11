@@ -51,7 +51,7 @@ extension ModulesGraph {
             manifestMap[manifest.key] = (manifest.value, fileSystem)
         }
 
-        // Construct the root root dependencies set.
+        // Construct the root dependencies set.
         let rootDependencies = Set(root.dependencies.compactMap {
             manifestMap[$0.identity]?.manifest
         })
@@ -399,7 +399,7 @@ private func createResolvedPackages(
         return ResolvedPackageBuilder(
             package,
             productFilter: node.productFilter,
-            enabledTraits: node.enabledTraits /*?? []*/,
+            enabledTraits: node.enabledTraits,
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider
@@ -1438,7 +1438,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var products: [ResolvedProductBuilder] = []
 
     /// The enabled traits of this package.
-    var enabledTraits: Set<String>
+    var enabledTraits: EnabledTraits
 
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
@@ -1462,7 +1462,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     init(
         _ package: Package,
         productFilter: ProductFilter,
-        enabledTraits: Set<String>,
+        enabledTraits: EnabledTraits,
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider
@@ -1485,7 +1485,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map(\.package.identity),
-            enabledTraits: self.enabledTraits,
+            enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,
             registryMetadata: self.registryMetadata,

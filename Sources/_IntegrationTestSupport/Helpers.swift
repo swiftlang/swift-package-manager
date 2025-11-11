@@ -113,7 +113,7 @@ package func _sh(
 }
 
 public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void) async throws {
-    try await fixture(name: "BinaryTargets") { fixturePath in
+    try await fixture(name: "BinaryTargets", removeFixturePathOnDeinit: false) { fixturePath in
         let inputsPath = fixturePath.appending(component: "Inputs")
         let packagePath = fixturePath.appending(component: "TestBinary")
 
@@ -157,7 +157,7 @@ public func binaryTargetsFixture(_ closure: (AbsolutePath) async throws -> Void)
             let projectPath = subpath.appending(component: "SwiftFramework.xcodeproj")
             try sh(
                 xcodebuild, "-project", projectPath, "-scheme", "SwiftFramework",
-                "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO"
+                "-derivedDataPath", tmpDir, "COMPILER_INDEX_STORE_ENABLE=NO", "DEPLOYMENT_LOCATION=NO"
             )
             let frameworkPath = try AbsolutePath(
                 validating: "Build/Products/Debug/SwiftFramework.framework",

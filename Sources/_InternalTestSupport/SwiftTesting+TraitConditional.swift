@@ -18,8 +18,8 @@ import TSCclibc  // for SPM_posix_spawn_file_actions_addchdir_np_supported
 
 extension Trait where Self == Testing.ConditionTrait {
     /// Skip test if the host operating system does not match the running OS.
-    public static func requireHostOS(_ os: OperatingSystem, when condition: Bool = true) -> Self {
-        enabled("This test requires a \(os) host OS.") {
+    public static func requireHostOS(_ os: OperatingSystem, _ comment: Comment? = nil, when condition: Bool = true) -> Self {
+        enabled(comment ?? "This test requires a \(os) host OS.") {
             ProcessInfo.hostOperatingSystem == os && condition
         }
     }
@@ -34,31 +34,28 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Enabled only if toolchain support swift concurrency
     public static var requiresSwiftConcurrencySupport: Self {
         enabled("skipping because test environment doesn't support concurrency") {
-            (try? UserToolchain.default)!.supportsSwiftConcurrency()
+            (try? UserToolchain.default)?.supportsSwiftConcurrency() != nil
         }
     }
 
     /// Enabled only if 'llvm-profdata' is available
     public static var requiresLLVMProfData: Self {
         disabled("skipping test because the `llvm-profdata` tool isn't available") {
-            let toolPath = try (try? UserToolchain.default)!.getLLVMProf()
-            return toolPath == nil
+            try (try? UserToolchain.default)?.getLLVMProf() == nil
         }
     }
 
     /// Enabled only if 'llvm-cov' is available
     public static var requiresLLVMCov: Self {
         disabled("skipping test because the `llvm-cov` tool isn't available") {
-            let toolPath = try (try? UserToolchain.default)!.getLLVMCov()
-            return toolPath == nil
+            try (try? UserToolchain.default)?.getLLVMCov() == nil
         }
     }
 
     /// Enabled only if 'swift-symbolgraph-extract' is available
     public static var requiresSymbolgraphExtract: Self {
         disabled("skipping test because the `swift-symbolgraph-extract` tools isn't available") {
-            let toolPath = try (try? UserToolchain.default)!.getSymbolGraphExtract()
-            return toolPath == nil
+            try (try? UserToolchain.default)?.getSymbolGraphExtract() == nil
         }
     }
 

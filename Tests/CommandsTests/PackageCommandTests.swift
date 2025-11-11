@@ -90,7 +90,7 @@ private func executeAddURLDependencyAndAssert(
 }
 
 @Suite(
-    // .serialized,
+    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.General,
@@ -133,7 +133,7 @@ struct PackageCommandTests {
     @Test
     func seeAlso() async throws {
         let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
-        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test"))
+        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
     @Test
@@ -151,6 +151,130 @@ struct PackageCommandTests {
         let stdout = try await SwiftPM.Package.execute(["--version"], ).stdout
         let expectedRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
         #expect(stdout.contains(expectedRegex))
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandFailsSilentlyWhenFetchingPluginFails(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(!stdout.contains("MySourceGenBuildToolPlugin"))
+            #expect(!stdout.contains("MySourceGenPrebuildPlugin"))
+        }
+    }
+
+    // Have to create empty package, as in CI, --help is invoked on swiftPM, causing test to fail
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysNoAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+
+            let packageDir = tmpPath.appending(components: "MyPackage")
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+            )
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .plugin(
+                                name: "MyPlugin",
+                                capability: .command(
+                                    intent: .custom(verb: "mycmd", description: "What is mycmd anyway?")
+                                ),
+                                dependencies: [
+                                    .target(name: "LocalBuiltTool"),
+                                ]
+                            ),
+                            .executableTarget(
+                                name: "LocalBuiltTool"
+                            )
+                        ]
+                    )
+                    """
+            )
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"),
+                string: #"print("Hello")"#
+            )
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                string: """
+                    import PackagePlugin
+                    import Foundation
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            print("This is MyCommandPlugin.")
+                        }
+                    }
+                    """
+            )
+
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(stdout.contains("mycmd"))
+            #expect(stdout.contains("(plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+        }
     }
 
     @Test(
@@ -911,6 +1035,9 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.Describe
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -1193,6 +1320,115 @@ struct PackageCommandTests {
                 )
                 #expect(result.stdout == "Foo\n")
             }
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowTraits,
+        ),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func showTraits(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/ShowTraits") { fixturePath in
+            let packageRoot = fixturePath.appending("app")
+            var (textOutput, _) = try await execute(
+                ["show-traits", "--format=text"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(textOutput.contains("trait1 - this trait is the default in app (default)"))
+            #expect(textOutput.contains("trait2 - this trait is not the default in app"))
+            #expect(!textOutput.contains("trait3"))
+
+            var (jsonOutput, _) = try await execute(
+                ["show-traits", "--format=json"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            var json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case .array(let contents) = json else {
+                Issue.record("unexpected result")
+                return
+            }
+
+            #expect(3 == contents.count)
+
+            guard case let first = contents.first else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let `default`) = first else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(`default`["name"]?.stringValue ==  "default")
+            guard case .array(let enabledTraits) = `default`["enabledTraits"] else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(enabledTraits.count == 1)
+            let firstEnabledTrait = enabledTraits[0]
+            #expect(firstEnabledTrait.stringValue == "trait1")
+
+            guard case let second = contents[1] else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait1) = second else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait1["name"]?.stringValue ==  "trait1")
+
+            guard case let third = contents[2] else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait2) = third else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait2["name"]?.stringValue ==  "trait2")
+
+            // Show traits for the dependency based on its package id
+            (textOutput, _) = try await execute(
+                ["show-traits", "--package-id=deck-of-playing-cards", "--format=text"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!textOutput.contains("trait1 - this trait is the default in app (default)"))
+            #expect(!textOutput.contains("trait2 - this trait is not the default in app"))
+            #expect(textOutput.contains("trait3"))
+
+            (jsonOutput, _) = try await execute(
+                ["show-traits", "--package-id=deck-of-playing-cards", "--format=json"],
+                packagePath: packageRoot,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            guard case .array(let contents) = json else {
+                Issue.record("unexpected result")
+                return
+            }
+
+            #expect(1 == contents.count)
+
+            guard case let first = contents.first else {
+                Issue.record("unexpected result")
+                return
+            }
+            guard case .dictionary(let trait3) = first else {
+                Issue.record("unexpected result")
+                return
+            }
+            #expect(trait3["name"]?.stringValue ==  "trait3")
         }
     }
 
@@ -2702,7 +2938,6 @@ struct PackageCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8774", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8380", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8416", relationship: .defect),  // swift run linux issue with swift build,
-        .IssueCannnotOpenSharedObjectFileLibSwiftCore,
         .tags(
             .Feature.Command.Package.Edit,
             .Feature.Command.Package.Unedit,
@@ -2712,146 +2947,138 @@ struct PackageCommandTests {
     func packageEditAndUnedit(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
-            try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
-                let fooPath = fixturePath.appending("foo")
-                func build() async throws -> (stdout: String, stderr: String) {
-                    return try await executeSwiftBuild(
-                        fooPath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
-                    )
-                }
-
-                // Put bar and baz in edit mode.
-                _ = try await execute(
-                    ["edit", "bar", "--branch", "bugfix"],
-                    packagePath: fooPath,
+        try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+            let fooPath = fixturePath.appending("foo")
+            func build() async throws -> (stdout: String, stderr: String) {
+                return try await executeSwiftBuild(
+                    fooPath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                _ = try await execute(
-                    ["edit", "baz", "--branch", "bugfix"],
-                    packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+            }
+
+            // Put bar and baz in edit mode.
+            _ = try await execute(
+                ["edit", "bar", "--branch", "bugfix"],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            _ = try await execute(
+                ["edit", "baz", "--branch", "bugfix"],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            // Path to the executable.
+            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let exec = [
+                binPath.appending("foo").pathString
+            ]
+
+            // We should see it now in packages directory.
+            let editsPath = fooPath.appending(components: "Packages", "bar")
+            expectDirectoryExists(at: editsPath)
+
+            let bazEditsPath = fooPath.appending(components: "Packages", "baz")
+            expectDirectoryExists(at: bazEditsPath)
+            // Removing baz externally should just emit an warning and not a build failure.
+            try localFileSystem.removeFileTree(bazEditsPath)
+
+            // Do a modification in bar and build.
+            try localFileSystem.writeFileContents(
+                editsPath.appending(components: "Sources", "bar.swift"),
+                bytes: "public let theValue = 88888\n"
+            )
+            let (_, stderr) = try await build()
+
+            #expect(
+                stderr.contains(
+                    "dependency 'baz' was being edited but is missing; falling back to original checkout"
                 )
+            )
+            // We should be able to see that modification now.
+            let processValue = try await AsyncProcess.checkNonZeroExit(arguments: exec)
+            #expect(processValue == "88888\(ProcessInfo.EOL)")
 
-                // Path to the executable.
-                let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
-                let exec = [
-                    binPath.appending("foo").pathString
-                ]
+            // The branch of edited package should be the one we provided when putting it in edit mode.
+            let editsRepo = GitRepository(path: editsPath)
+            #expect(try editsRepo.currentBranch() == "bugfix")
 
-                // We should see it now in packages directory.
-                let editsPath = fooPath.appending(components: "Packages", "bar")
-                expectDirectoryExists(at: editsPath)
-
-                let bazEditsPath = fooPath.appending(components: "Packages", "baz")
-                expectDirectoryExists(at: bazEditsPath)
-                // Removing baz externally should just emit an warning and not a build failure.
-                try localFileSystem.removeFileTree(bazEditsPath)
-
-                // Do a modification in bar and build.
-                try localFileSystem.writeFileContents(
-                    editsPath.appending(components: "Sources", "bar.swift"),
-                    bytes: "public let theValue = 88888\n"
-                )
-                let (_, stderr) = try await build()
-
-                #expect(
-                    stderr.contains(
-                        "dependency 'baz' was being edited but is missing; falling back to original checkout"
-                    )
-                )
-                // We should be able to see that modification now.
-                try await withKnownIssue {
-                    let processValue = try await AsyncProcess.checkNonZeroExit(arguments: exec)
-                    #expect(processValue == "88888\(ProcessInfo.EOL)")
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
-                }
-                // The branch of edited package should be the one we provided when putting it in edit mode.
-                let editsRepo = GitRepository(path: editsPath)
-                #expect(try editsRepo.currentBranch() == "bugfix")
-
-                // It shouldn't be possible to unedit right now because of uncommitted changes.
-                do {
-                    _ = try await execute(
-                        ["unedit", "bar"],
-                        packagePath: fooPath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
-                    )
-                    Issue.record("Unexpected unedit success")
-                } catch {}
-
-                try editsRepo.stageEverything()
-                try editsRepo.commit()
-
-                // It shouldn't be possible to unedit right now because of unpushed changes.
-                do {
-                    _ = try await execute(
-                        ["unedit", "bar"],
-                        packagePath: fooPath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
-                    )
-                    Issue.record("Unexpected unedit success")
-                } catch {}
-
-                // Push the changes.
-                try editsRepo.push(remote: "origin", branch: "bugfix")
-
-                // We should be able to unedit now.
+            // It shouldn't be possible to unedit right now because of uncommitted changes.
+            do {
                 _ = try await execute(
                     ["unedit", "bar"],
                     packagePath: fooPath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
+                Issue.record("Unexpected unedit success")
+            } catch {}
 
-                // Test editing with a path i.e. ToT development.
-                let bazTot = fixturePath.appending("tot")
-                try await execute(
-                    ["edit", "baz", "--path", bazTot.pathString],
+            try editsRepo.stageEverything()
+            try editsRepo.commit()
+
+            // It shouldn't be possible to unedit right now because of unpushed changes.
+            do {
+                _ = try await execute(
+                    ["unedit", "bar"],
                     packagePath: fooPath,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                #expect(localFileSystem.exists(bazTot))
-                #expect(localFileSystem.isSymlink(bazEditsPath))
+                Issue.record("Unexpected unedit success")
+            } catch {}
 
-                // Edit a file in baz ToT checkout.
-                let bazTotPackageFile = bazTot.appending("Package.swift")
-                var content: String = try localFileSystem.readFileContents(bazTotPackageFile)
-                content += "\n// Edited."
-                try localFileSystem.writeFileContents(bazTotPackageFile, string: content)
+            // Push the changes.
+            try editsRepo.push(remote: "origin", branch: "bugfix")
 
-                // Unediting baz will remove the symlink but not the checked out package.
-                try await execute(
-                    ["unedit", "baz"],
-                    packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                #expect(localFileSystem.exists(bazTot))
-                #expect(!localFileSystem.isSymlink(bazEditsPath))
+            // We should be able to unedit now.
+            _ = try await execute(
+                ["unedit", "bar"],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
 
-                // Check that on re-editing with path, we don't make a new clone.
-                try await execute(
-                    ["edit", "baz", "--path", bazTot.pathString],
-                    packagePath: fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
-                )
-                #expect(localFileSystem.isSymlink(bazEditsPath))
-                #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
+            // Test editing with a path i.e. ToT development.
+            let bazTot = fixturePath.appending("tot")
+            try await execute(
+                ["edit", "baz", "--path", bazTot.pathString],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(localFileSystem.exists(bazTot))
+            #expect(localFileSystem.isSymlink(bazEditsPath))
+
+            // Edit a file in baz ToT checkout.
+            let bazTotPackageFile = bazTot.appending("Package.swift")
+            var content: String = try localFileSystem.readFileContents(bazTotPackageFile)
+            content += "\n// Edited."
+            try localFileSystem.writeFileContents(bazTotPackageFile, string: content)
+
+            // Unediting baz will remove the symlink but not the checked out package.
+            try await execute(
+                ["unedit", "baz"],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(localFileSystem.exists(bazTot))
+            #expect(!localFileSystem.isSymlink(bazEditsPath))
+
+            // Check that on re-editing with path, we don't make a new clone.
+            try await execute(
+                ["edit", "baz", "--path", bazTot.pathString],
+                packagePath: fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(localFileSystem.isSymlink(bazEditsPath))
+            #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
         }
-
     }
 
     @Test(
@@ -2957,6 +3184,93 @@ struct PackageCommandTests {
     }
 
     @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheWithoutPackage(
+        data: BuildData,
+    ) async throws {
+        // Create a temporary directory without Package.swift
+        try await fixture(name: "Miscellaneous") { fixturePath in
+            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+            try localFileSystem.createDirectory(tempDir, recursive: true)
+
+            // Use a unique temporary cache directory to avoid conflicts with parallel tests
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                let result = try await executeSwiftPackage(
+                    tempDir,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                    buildSystem: data.buildSystem
+                )
+
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+            }
+        }
+    }
+
+    @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheInPackageDirectory(
+        data: BuildData,
+    ) async throws {
+        // Test that purge-cache works in a package directory and successfully purges caches
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+
+            // Use a unique temporary cache directory for this test
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+                let cacheDir = tempDir.appending("test-cache")
+                let cacheArgs = ["--cache-path", cacheDir.pathString]
+
+                // Resolve dependencies to populate cache
+                // Note: This fixture uses local dependencies, so only manifest cache will be populated
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["resolve"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify manifest cache was populated
+                let manifestsCache = cacheDir.appending(components: "manifests")
+                expectDirectoryExists(at: manifestsCache)
+
+                // Check for manifest.db file (main database file)
+                let manifestDB = manifestsCache.appending("manifest.db")
+                let hasManifestDB = localFileSystem.exists(manifestDB)
+
+                // Check for SQLite auxiliary files that might exist
+                let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
+                let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
+                let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
+
+                // At least one manifest database file should exist
+                #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
+
+                // Run purge-cache
+                let result = try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify command succeeded
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+
+                // Verify manifest.db was removed (the purge implementation removes this file)
+                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+
+                // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
+                // The important check is that the main database file is removed
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Package.Resolve,
         ),
@@ -3031,7 +3345,6 @@ struct PackageCommandTests {
         // windows long path issue
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8774", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8380", relationship: .defect),
-        .IssueCannnotOpenSharedObjectFileLibSwiftCore,
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Package.Resolve,
@@ -3041,156 +3354,149 @@ struct PackageCommandTests {
     func packageResolved(
         data: BuildData,
     ) async throws {
-        try await withKnownIssue(isIntermittent: (ProcessInfo.hostOperatingSystem == .linux)) {
-            try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
-                let fooPath = fixturePath.appending("foo")
-                let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
-                let exec = [
-                    binPath.appending("foo").pathString
-                ]
+        try await fixture(name: "Miscellaneous/PackageEdit") { fixturePath in
+            let fooPath = fixturePath.appending("foo")
+            let binPath = try fooPath.appending(components: data.buildSystem.binPath(for: data.config))
+            let exec = [
+                binPath.appending("foo").pathString
+            ]
 
-                // Build and check.
-                _ = try await executeSwiftBuild(
-                    fooPath,
-                    configuration: data.config,
-                    buildSystem: data.buildSystem,
+            // Build and check.
+            _ = try await executeSwiftBuild(
+                fooPath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            let value = try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp()
+            #expect(value == "\(5)")
+
+
+            // Get path to `bar` checkout.
+            let barPath = try SwiftPM.packagePath(for: "bar", packageRoot: fooPath)
+
+            // Checks the content of checked out `bar.swift`.
+            func checkBar(_ value: Int, sourceLocation: SourceLocation = #_sourceLocation) throws {
+                let contents: String = try localFileSystem.readFileContents(
+                    barPath.appending(components: "Sources", "bar.swift")
                 )
-                try await withKnownIssue {
-                    let value = try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp()
-                    #expect(value == "\(5)")
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline
-                }
+                #expect(
+                    contents.spm_chomp().hasSuffix("\(value)"),
+                    "got \(contents)",
+                    sourceLocation: sourceLocation
+                )
+            }
 
-                // Get path to `bar` checkout.
-                let barPath = try SwiftPM.packagePath(for: "bar", packageRoot: fooPath)
+            // We should see a `Package.resolved` file now.
+            let packageResolvedFile = fooPath.appending("Package.resolved")
+            expectFileExists(at: packageResolvedFile)
 
-                // Checks the content of checked out `bar.swift`.
-                func checkBar(_ value: Int, sourceLocation: SourceLocation = #_sourceLocation) throws {
-                    let contents: String = try localFileSystem.readFileContents(
-                        barPath.appending(components: "Sources", "bar.swift")
-                    )
-                    #expect(
-                        contents.spm_chomp().hasSuffix("\(value)"),
-                        "got \(contents)",
-                        sourceLocation: sourceLocation
-                    )
-                }
-
-                // We should see a `Package.resolved` file now.
-                let packageResolvedFile = fooPath.appending("Package.resolved")
-                expectFileExists(at: packageResolvedFile)
-
-                // Test `Package.resolved` file.
-                do {
-                    let resolvedPackagesStore = try ResolvedPackagesStore(
-                        packageResolvedFile: packageResolvedFile,
-                        workingDirectory: fixturePath,
-                        fileSystem: localFileSystem,
-                        mirrors: .init()
-                    )
-                    #expect(resolvedPackagesStore.resolvedPackages.count == 2)
-                    for pkg in ["bar", "baz"] {
-                        let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
-                        let resolvedPackage = resolvedPackagesStore.resolvedPackages[
-                            PackageIdentity(path: path)
-                        ]!
-                        #expect(resolvedPackage.packageRef.identity == PackageIdentity(path: path))
-                        guard case .localSourceControl(let path) = resolvedPackage.packageRef.kind,
-                            path.pathString.hasSuffix(pkg)
-                        else {
-                            Issue.record("invalid resolved package location \(path)")
-                            return
-                        }
-                        switch resolvedPackage.state {
-                        case .version(let version, revision: _):
-                            #expect(version == "1.2.3")
-                        default:
-                            Issue.record("invalid `Package.resolved` state")
-                        }
+            // Test `Package.resolved` file.
+            do {
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
+                #expect(resolvedPackagesStore.resolvedPackages.count == 2)
+                for pkg in ["bar", "baz"] {
+                    let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
+                    let resolvedPackage = resolvedPackagesStore.resolvedPackages[
+                        PackageIdentity(path: path)
+                    ]!
+                    #expect(resolvedPackage.packageRef.identity == PackageIdentity(path: path))
+                    guard case .localSourceControl(let path) = resolvedPackage.packageRef.kind,
+                          path.pathString.hasSuffix(pkg)
+                    else {
+                        Issue.record("invalid resolved package location \(path)")
+                        return
                     }
-                }
-
-                @discardableResult
-                func localExecute(_ args: String...) async throws -> String {
-                    return try await execute(
-                        [] + args,
-                        packagePath: fooPath,
-                        configuration: data.config,
-                        buildSystem: data.buildSystem,
-                    ).stdout
-                }
-
-                // Try to pin bar.
-                do {
-                    try await localExecute("resolve", "bar")
-                    let resolvedPackagesStore = try ResolvedPackagesStore(
-                        packageResolvedFile: packageResolvedFile,
-                        workingDirectory: fixturePath,
-                        fileSystem: localFileSystem,
-                        mirrors: .init()
-                    )
-                    let identity = PackageIdentity(path: barPath)
-                    // let resolvedPackageIdentify = try #require(resolvedPackagesStore.resolvedPackages[identity])
-                    // switch resolvedPackageIdentify.state {
-                    switch resolvedPackagesStore.resolvedPackages[identity]?.state {
+                    switch resolvedPackage.state {
                     case .version(let version, revision: _):
                         #expect(version == "1.2.3")
                     default:
-                        Issue.record("invalid resolved package state")
+                        Issue.record("invalid `Package.resolved` state")
                     }
-                }
-
-                // Update bar repo.
-                do {
-                    let barPath = fixturePath.appending("bar")
-                    let barRepo = GitRepository(path: barPath)
-                    try localFileSystem.writeFileContents(
-                        barPath.appending(components: "Sources", "bar.swift"),
-                        bytes: "public let theValue = 6\n"
-                    )
-                    try barRepo.stageEverything()
-                    try barRepo.commit()
-                    try barRepo.tag(name: "1.2.4")
-                }
-
-                // Running `package update` should update the package.
-                do {
-                    try await localExecute("update")
-                    try checkBar(6)
-                }
-
-                // We should be able to revert to a older version.
-                do {
-                    try await localExecute("resolve", "bar", "--version", "1.2.3")
-                    let resolvedPackagesStore = try ResolvedPackagesStore(
-                        packageResolvedFile: packageResolvedFile,
-                        workingDirectory: fixturePath,
-                        fileSystem: localFileSystem,
-                        mirrors: .init()
-                    )
-                    let identity = PackageIdentity(path: barPath)
-                    switch resolvedPackagesStore.resolvedPackages[identity]?.state {
-                    case .version(let version, revision: _):
-                        #expect(version == "1.2.3")
-                    default:
-                        Issue.record("invalid resolved package state")
-                    }
-                    try checkBar(5)
-                }
-
-                // Try resolving a dependency which is in edit mode.
-                do {
-                    try await localExecute("edit", "bar", "--branch", "bugfix")
-                    await expectThrowsCommandExecutionError(try await localExecute("resolve", "bar")) {
-                        error in
-                        #expect(error.stderr.contains("error: edited dependency 'bar' can't be resolved"))
-                    }
-                    try await localExecute("unedit", "bar")
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .linux && data.buildSystem == .swiftbuild
+
+            @discardableResult
+            func localExecute(_ args: String...) async throws -> String {
+                return try await execute(
+                    [] + args,
+                    packagePath: fooPath,
+                    configuration: data.config,
+                    buildSystem: data.buildSystem,
+                ).stdout
+            }
+
+            // Try to pin bar.
+            do {
+                try await localExecute("resolve", "bar")
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
+                let identity = PackageIdentity(path: barPath)
+                // let resolvedPackageIdentify = try #require(resolvedPackagesStore.resolvedPackages[identity])
+                // switch resolvedPackageIdentify.state {
+                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
+                case .version(let version, revision: _):
+                    #expect(version == "1.2.3")
+                default:
+                    Issue.record("invalid resolved package state")
+                }
+            }
+
+            // Update bar repo.
+            do {
+                let barPath = fixturePath.appending("bar")
+                let barRepo = GitRepository(path: barPath)
+                try localFileSystem.writeFileContents(
+                    barPath.appending(components: "Sources", "bar.swift"),
+                    bytes: "public let theValue = 6\n"
+                )
+                try barRepo.stageEverything()
+                try barRepo.commit()
+                try barRepo.tag(name: "1.2.4")
+            }
+
+            // Running `package update` should update the package.
+            do {
+                try await localExecute("update")
+                try checkBar(6)
+            }
+
+            // We should be able to revert to a older version.
+            do {
+                try await localExecute("resolve", "bar", "--version", "1.2.3")
+                let resolvedPackagesStore = try ResolvedPackagesStore(
+                    packageResolvedFile: packageResolvedFile,
+                    workingDirectory: fixturePath,
+                    fileSystem: localFileSystem,
+                    mirrors: .init()
+                )
+                let identity = PackageIdentity(path: barPath)
+                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
+                case .version(let version, revision: _):
+                    #expect(version == "1.2.3")
+                default:
+                    Issue.record("invalid resolved package state")
+                }
+                try checkBar(5)
+            }
+
+            // Try resolving a dependency which is in edit mode.
+            do {
+                try await localExecute("edit", "bar", "--branch", "bugfix")
+                await expectThrowsCommandExecutionError(try await localExecute("resolve", "bar")) {
+                    error in
+                    #expect(error.stderr.contains("error: edited dependency 'bar' can't be resolved"))
+                }
+                try await localExecute("unedit", "bar")
+            }
         }
     }
 
@@ -4335,6 +4641,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.BuildToolPlugin  
+            ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5073,6 +5383,10 @@ struct PackageCommandTests {
 
         // Test reporting of plugin diagnostic messages at different verbosity levels
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin 
+            ),
             .requiresSwiftConcurrencySupport,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8180",
@@ -5264,6 +5578,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5295,6 +5613,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5330,6 +5652,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5364,6 +5690,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5401,6 +5731,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5426,6 +5760,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5450,6 +5788,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .tags(
                 .Feature.Command.Package.CommandPlugin,
@@ -5479,6 +5821,10 @@ struct PackageCommandTests {
 
         // Test logging of builds initiated by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -5716,11 +6062,12 @@ struct PackageCommandTests {
         @Test(
             .requiresSwiftConcurrencySupport,
             .tags(
+                .Feature.Command.Run,
                 .Feature.Command.Package.CommandPlugin,
             ),
             .IssueWindowsRelativePathAssert,
             .IssueWindowsLongPath,
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/9083",
                 relationship: .defect,
@@ -6163,8 +6510,13 @@ struct PackageCommandTests {
                                         ? context.package.targets
                                         : try context.package.targets(named: targetNames)
                                     for target in targets {
+                                        #if compiler(>=6.3)
+                                        let symbolGraph = try packageManager.getSymbolGraph(for: target,
+                                            options: .init(minimumAccessLevel: .public, includeInheritedDocs: false))
+                                        #else
                                         let symbolGraph = try packageManager.getSymbolGraph(for: target,
                                             options: .init(minimumAccessLevel: .public))
+                                        #endif
                                         print("\\(target.name): \\(symbolGraph.directoryPath)")
                                     }
                                 }
@@ -6221,8 +6573,15 @@ struct PackageCommandTests {
                     }
                 }
             } when: {
-                (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
-                || !CiEnvironment.runningInSmokeTestPipeline
+                let shouldSkip: Bool = (ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild)
+                    || !CiEnvironment.runningInSmokeTestPipeline
+
+                #if compiler(>=6.3)
+                    return shouldSkip
+                #else
+                    // Symbol graph generation options are only available in 6.3 toolchain or later for swift build
+                    return shouldSkip || data.buildSystem == .swiftbuild
+                #endif
             }
         }
 
@@ -6677,7 +7036,7 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -7138,7 +7497,7 @@ struct PackageCommandTests {
                                 "iteration \(num) failed.  stderr: \(stderr)",
                             )
                         } when: {
-                            data.config == .release && data.buildSystem == .native
+                            data.buildSystem == .native
                         }
                         #expect(
                             !stdout.contains("Building for \(data.config.buildFor)..."),

@@ -19,6 +19,7 @@ import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
     ),
@@ -30,6 +31,7 @@ struct VersionSpecificTests {
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Package.Reset,
+            .Feature.Version,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
@@ -37,7 +39,7 @@ struct VersionSpecificTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) { // Test passed on Windows at-desk
         try await testWithTemporaryDirectory{ path in
             let fs = localFileSystem
 

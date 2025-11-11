@@ -31,14 +31,15 @@ struct ToolsVersionTests {
             .TestSize.large,
             .Feature.Command.Build,
             .Feature.Command.Package.ToolsVersion,
+            .Feature.ProductType.Library,
         ),
-        // arguments: [BuildSystemProvider.Kind.swiftbuild], [BuildConfiguration.release],
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func toolsVersion(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
             try await testWithTemporaryDirectory{ path in
                 let fs = localFileSystem
@@ -127,12 +128,9 @@ struct ToolsVersionTests {
                 let binPath = try primaryPath.appending(components: buildSystem.binPath(for: configuration))
                 let exe: String = binPath.appending(components: "Primary").pathString
                 // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
-                try await withKnownIssue {
-                    let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
-                    #expect(executableActualOutput == "foo@1.0")
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && !CiEnvironment.runningInSmokeTestPipeline
-                }
+                let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()
+                #expect(executableActualOutput == "foo@1.0")
+
 
                 // Set the tools version to something high.
                 _ = try await executeSwiftPackage(

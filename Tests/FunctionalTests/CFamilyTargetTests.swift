@@ -40,8 +40,10 @@ fileprivate func expectDirectoryContainsFile(
 }
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
+        .Feature.CTargets,
     ),
 )
 struct CFamilyTargetTestCase {
@@ -49,8 +51,10 @@ struct CFamilyTargetTestCase {
         .issue("https://github.com/swiftlang/swift-build/issues/333", relationship: .defect),
         .tags(
             .Feature.Command.Build,
+            .Feature.SpecialCharacters,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func cLibraryWithSpaces(
         data: BuildData,
@@ -74,14 +78,15 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        .IssueWindowsPathLastComponent,
+        .IssueWindowsRelativePathAssert,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastConponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func cUsingCAndSwiftDep(
         data: BuildData,
@@ -109,14 +114,15 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        .IssueWindowsPathLastComponent,
+        .IssueWindowsRelativePathAssert,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastConponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func moduleMapGenerationCases(
         data: BuildData,
@@ -145,7 +151,8 @@ struct CFamilyTargetTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func noIncludeDirCheck(
         data: BuildData,
@@ -166,14 +173,16 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
-        .tags(
-            .Feature.Command.Build,
-        ),
         .IssueWindowsLongPath,
-        .IssueWindowsPathLastConponent,
+        .IssueWindowsPathLastComponent,
         .IssueWindowsRelativePathAssert,
         .IssueWindowsCannotSaveAttachment,
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.Xld,
+        ),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func canForwardExtraFlagsToClang(
         data: BuildData,
@@ -197,17 +206,16 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
+        .requireHostOS(.macOS),
         .tags(
             .Feature.Command.Build,
             .Feature.Command.Test,
         ),
-        .requireHostOS(.macOS),
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
-
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func objectiveCPackageWithTestTarget(
         data: BuildData,
-
     ) async throws {
         try await fixture(name: "CFamilyTargets/ObjCmacOSPackage") { fixturePath in
             // Build the package.
@@ -216,10 +224,14 @@ struct CFamilyTargetTestCase {
                 configuration: data.config,
                 buildSystem: data.buildSystem,
             )
-            if data.buildSystem == .native {
+            switch data.buildSystem {
+            case .native:
                 let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                 expectDirectoryContainsFile(dir: binPath, filename: "HelloWorldExample.m.o")
                 expectDirectoryContainsFile(dir: binPath, filename: "HelloWorldExample.m.o")
+            case .swiftbuild, .xcode:
+                // there aren't any specific expectations to look for
+                break
             }
             // Run swift-test on package.
             try await executeSwiftTest(
@@ -232,14 +244,15 @@ struct CFamilyTargetTestCase {
     }
 
     @Test(
+        .IssueWindowsLongPath,
+        .IssueWindowsPathLastComponent,
+        .IssueWindowsRelativePathAssert,
+        .IssueWindowsCannotSaveAttachment,
         .tags(
             .Feature.Command.Build,
         ),
-        .IssueWindowsLongPath,
-        .IssueWindowsPathLastConponent,
-        .IssueWindowsRelativePathAssert,
-        .IssueWindowsCannotSaveAttachment,
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func canBuildRelativeHeaderSearchPaths(
         data: BuildData,
@@ -252,9 +265,13 @@ struct CFamilyTargetTestCase {
                     configuration: data.config,
                     buildSystem: data.buildSystem,
                 )
-                if data.buildSystem == .native {
+                switch data.buildSystem {
+                case .native:
                     let binPath = try fixturePath.appending(components: data.buildSystem.binPath(for: data.config))
                     expectDirectoryContainsFile(dir: binPath, filename: "HeaderInclude.swiftmodule")
+                case .swiftbuild, .xcode:
+                    // there aren't any specific expectations to look for
+                    break
                 }
             }
         } when: {

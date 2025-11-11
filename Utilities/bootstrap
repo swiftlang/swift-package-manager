@@ -42,7 +42,7 @@ logging.basicConfig(
     ]),
     level=logging.INFO,
 )
-g_macos_deployment_target = '12.0'
+g_macos_deployment_target = '14.0'
 
 g_shared_lib_prefix = "lib"
 if platform.system() == 'Darwin':
@@ -638,6 +638,7 @@ def build_with_cmake(args, cmake_args, ninja_args, source_path, build_dir, cmake
             "-DCMAKE_BUILD_TYPE:=Debug",
             "-DCMAKE_Swift_FLAGS='%s'" % swift_flags,
             "-DCMAKE_Swift_COMPILER:=%s" % (args.swiftc_path),
+            "-DCMAKE_Swift_COMPILER_TARGET={}".format((get_build_target(args) + g_macos_deployment_target) if platform.system() == 'Darwin' else get_build_target(args)),
             "-DCMAKE_C_COMPILER:=%s" % (args.clang_path),
             "-DCMAKE_AR:PATH=%s" % (args.ar_path),
             "-DCMAKE_RANLIB:PATH=%s" % (args.ranlib_path),
@@ -726,6 +727,9 @@ def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     logging.info("Building SwiftPM (with CMake)")
 
+    get_build_target(args)
+    module_triple = args.target_info["target"]["moduleTriple"]
+
     cmake_flags = [
         get_llbuild_cmake_arg(args),
         "-DTSC_DIR="               + os.path.join(args.build_dirs["tsc"],                   "cmake/modules"),
@@ -738,6 +742,7 @@ def build_swiftpm_with_cmake(args):
         "-DSwiftCertificates_DIR=" + os.path.join(args.build_dirs["swift-certificates"],    "cmake/modules"),
         "-DSwiftBuild_DIR="        + os.path.join(args.build_dirs["swift-build"],           "cmake/modules"),
         "-DSWIFTPM_PATH_TO_SWIFT_SYNTAX_SOURCE=" + args.source_dirs["swift-syntax"],
+        "-DSwiftPMRuntime_MODULE_TRIPLE={}".format(module_triple),
     ]
 
     if platform.system() == 'Darwin':
@@ -745,6 +750,16 @@ def build_swiftpm_with_cmake(args):
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
 
     build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin", "CompilerPluginSupport"], args.project_root, args.bootstrap_dir)
+
+    mkdir_p(os.path.join(args.bootstrap_dir, "pm", "ManifestAPI"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "PackageDescription", "PackageDescription.swiftmodule", "%s.swiftmodule" % module_triple),
+                 os.path.join(args.bootstrap_dir, "pm", "ManifestAPI", "PackageDescription.swiftmodule"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "CompilerPluginSupport", "CompilerPluginSupport.swiftmodule", "%s.swiftmodule" % module_triple),
+                 os.path.join(args.bootstrap_dir, "pm", "ManifestAPI", "CompilerPluginSupport.swiftmodule"))
+
+    mkdir_p(os.path.join(args.bootstrap_dir, "pm", "PluginAPI"))
+    shutil.copy2(os.path.join(args.bootstrap_dir, "Sources", "Runtimes", "PackagePlugin", "PackagePlugin.swiftmodule", "%s.swiftmodule" % module_triple),
+                 os.path.join(args.bootstrap_dir, "pm", "PluginAPI", "PackagePlugin.swiftmodule"))
 
     if args.llbuild_link_framework:
         add_rpath_for_cmake_build(args, args.build_dirs["llbuild"])

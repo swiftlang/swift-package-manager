@@ -358,7 +358,7 @@ public final class PackagePIFBuilder {
         // Products.
         case application
         case staticArchive
-        case objectFile
+        case commonObject
         case dynamicLibrary
         case framework
         case executable
@@ -382,7 +382,7 @@ public final class PackagePIFBuilder {
             self = switch pifProductType {
             case .application: .application
             case .staticArchive: .staticArchive
-            case .objectFile: .objectFile
+            case .commonObject: .commonObject
             case .dynamicLibrary: .dynamicLibrary
             case .framework: .framework
             case .executable: .executable
@@ -516,16 +516,16 @@ public final class PackagePIFBuilder {
         settings[.MACOSX_DEPLOYMENT_TARGET] = builder.deploymentTargets[.macOS] ?? nil
         settings[.IPHONEOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.iOS] ?? nil
         if let deploymentTarget_macCatalyst = builder.deploymentTargets[.macCatalyst] ?? nil {
-            settings
-                .platformSpecificSettings[.macCatalyst]![.IPHONEOS_DEPLOYMENT_TARGET] = [deploymentTarget_macCatalyst]
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
         }
         settings[.TVOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.tvOS] ?? nil
         settings[.WATCHOS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.watchOS] ?? nil
         settings[.DRIVERKIT_DEPLOYMENT_TARGET] = builder.deploymentTargets[.driverKit] ?? nil
         settings[.XROS_DEPLOYMENT_TARGET] = builder.deploymentTargets[.visionOS] ?? nil
 
-        for machoPlatform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
-            settings.platformSpecificSettings[machoPlatform]![.DYLIB_INSTALL_NAME_BASE]! = ["@rpath"]
+        for machoPlatform: ProjectModel.BuildSettings.Platform in [ProjectModel.BuildSettings.Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit] {
+            settings[.DYLIB_INSTALL_NAME_BASE, machoPlatform] = "@rpath"
+            settings[.CLANG_ENABLE_MODULES, machoPlatform] = "YES"
         }
 
         settings[.USE_HEADERMAP] = "NO"
@@ -552,11 +552,17 @@ public final class PackagePIFBuilder {
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
         settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
+        
+        // rdar://47937899 (Don't try to link frameworks to object files) 
+        //  - looks like this defaults to OTHER_LDFLAGS (via xcspec) which can result in linking frameworks to mh_objects which is unwanted.
         settings[.OTHER_LDRFLAGS] = []
 
         // Packages use the SwiftPM workspace's cache directory as a compiler working directory to maximize module
         // sharing.
         settings[.COMPILER_WORKING_DIRECTORY] = "$(WORKSPACE_DIR)"
+
+        // Defer to the build system for linker driver selection.
+        settings[.LINKER_DRIVER] = "auto"
 
         // Hook to customize the project-wide build settings.
         self.delegate.configureProjectBuildSettings(&settings)
@@ -566,8 +572,7 @@ public final class PackagePIFBuilder {
                 log(.warning, "Ignoring options '\(platformOptions.joined(separator: " "))' specified for unknown platform \(platform.name)")
                 continue
             }
-            settings.platformSpecificSettings[pifPlatform]![.SPECIALIZATION_SDK_OPTIONS]!
-                .append(contentsOf: platformOptions)
+            settings[.SPECIALIZATION_SDK_OPTIONS, pifPlatform]?.append(contentsOf: platformOptions)
         }
 
         let deviceFamilyIDs: Set<Int> = self.delegate.deviceFamilyIDs()
@@ -593,7 +598,7 @@ public final class PackagePIFBuilder {
                 } catch {
                     preconditionFailure("Unhandled arm64e platform: \(error)")
                 }
-                settings.platformSpecificSettings[pifPlatform]![.ARCHS, default: []].append(contentsOf: ["arm64e"])
+                settings[.ARCHS, pifPlatform]?.append(contentsOf: ["arm64e"])
             }
         }
 

@@ -23,13 +23,14 @@ import struct SPMBuildCore.BuildSystemProvider
 import enum TSCUtility.Git
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
-        Tag.TestSize.large,
+        .TestSize.large,
+        .Feature.DependencyResolution,
     ),
 )
 struct DependencyResolutionTests {
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .IssueWindowsLongPath,
         .IssueProductTypeForObjectLibraries,
         .tags(
@@ -56,8 +57,7 @@ struct DependencyResolutionTests {
                 #expect(output == "Foo\nBar\n")
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && !CiEnvironment.runningInSmokeTestPipeline)
-            || (ProcessInfo.hostOperatingSystem  == .windows && buildSystem == .swiftbuild)
+            (ProcessInfo.hostOperatingSystem  == .windows && buildSystem == .swiftbuild)
         }
     }
 
@@ -116,8 +116,7 @@ struct DependencyResolutionTests {
                 #expect(output == "meiow Baz\n")
             }
         } when: {
-            (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && !CiEnvironment.runningInSmokeTestPipeline)
-            || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
+            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
         }
     }
 
@@ -163,8 +162,9 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .IssueSwiftBuildLinuxRunnable,
         .IssueWindowsLongPath,
+        .IssueLdFailsUnexpectedly,
+        .issue("rdar://162339964", relationship: .defect),
         .tags(
             Tag.Feature.Command.Build,
         ),
@@ -175,7 +175,11 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: ProcessInfo.hostOperatingSystem == .windows){
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.hostOperatingSystem == .windows
+            // rdar://162339964
+            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
+        ) {
             try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 try await executeSwiftBuild(
@@ -191,8 +195,8 @@ struct DependencyResolutionTests {
                 #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
             }
         } when: {
-            ([.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild)
-            || (ProcessInfo.hostOperatingSystem == .windows) // due to long path isues
+            ProcessInfo.hostOperatingSystem == .windows // due to long path issues
+            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild) // Linker ld throws an unexpected error.
         }
     }
 

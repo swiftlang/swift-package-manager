@@ -200,11 +200,11 @@ public final class UserToolchain: Toolchain {
         }
     }
 
-    private static func getHostTriple(targetInfo: JSON) throws -> Basics.Triple {
+    private static func getHostTriple(targetInfo: JSON, versioned: Bool) throws -> Basics.Triple {
         // Get the triple string from the target info.
         let tripleString: String
         do {
-            tripleString = try targetInfo.get("target").get("triple")
+            tripleString = try targetInfo.get("target").get(versioned ? "triple" : "unversionedTriple")
         } catch {
             throw InternalError(
                 "Target info does not contain a triple string (\(error.interpolationDescription)).\nTarget info: \(targetInfo)"
@@ -741,7 +741,10 @@ public final class UserToolchain: Toolchain {
             // targetInfo from the compiler
             let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
             self._targetInfo = targetInfo
-            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo)
+            triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            if !triple.isDarwin() {
+                triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: true)
+            }
         }
 
         // Change the triple to the specified arch if there's exactly one of them.

@@ -337,7 +337,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     }
 
                     buildToolPluginInvocationResults[module.id] = pluginInvocationResults
-                    prebuildCommandResults[module.id] = try Self.runCommandPlugins(
+                    prebuildCommandResults[module.id] = try Self.runPluginCommands(
                         using: pluginConfiguration,
                         for: pluginInvocationResults,
                         fileSystem: fileSystem,
@@ -653,9 +653,12 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     }
 
     /// Extracts the library information from an XCFramework.
-    func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple) throws -> [LibraryInfo] {
+    func parseXCFramework(for binaryTarget: BinaryModule, triple: Basics.Triple, enableXCFrameworksOnLinux: Bool) throws -> [LibraryInfo] {
         try self.externalLibrariesCache.memoize(key: binaryTarget) {
-            try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
+            if !enableXCFrameworksOnLinux && triple.os == .linux {
+                return []
+            }
+            return try binaryTarget.parseXCFrameworks(for: triple, fileSystem: self.fileSystem)
         }
     }
 
@@ -854,9 +857,9 @@ extension BuildPlan {
         return buildToolPluginResults
     }
 
-    /// Runs any command plugins associated with the given list of plugin invocation results,
+    /// Runs any commands associated with the given list of plugin invocation results,
     /// in order, and returns the results of running those prebuild commands.
-    fileprivate static func runCommandPlugins(
+    fileprivate static func runPluginCommands(
         using pluginConfiguration: PluginConfiguration,
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,

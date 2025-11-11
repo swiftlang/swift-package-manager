@@ -27,8 +27,10 @@ struct PluginsBuildPlanTests {
     @Test(
         .tags(
             .Feature.Command.Build,
+            .Feature.Plugin,
+            .Feature.SourceGeneration,
         ),
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8511", relationship: .defect), // Fails to build the project to due to incorrect Path handling
+        .IssueWindowsPathTestsFailures,  // Fails to build the project to due to incorrect Path handling
         arguments: BuildConfiguration.allCases,
     )
     func buildToolsDatabasePath(

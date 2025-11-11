@@ -44,12 +44,12 @@ public enum TraitConfiguration: Codable, Hashable {
     }
 
     /// The set of enabled traits, if available.
-    public var enabledTraits: Set<String>? {
+    public var enabledTraits: EnabledTraits? {
         switch self {
         case .default:
-            ["default"]
+            EnabledTraits.defaults
         case .enabledTraits(let traits):
-            traits
+            EnabledTraits(traits, setBy: .traitConfiguration)
         case .disableAllTraits:
             []
         case .enableAllTraits:

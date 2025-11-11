@@ -23,10 +23,10 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    /// Initialize a new package.
-    struct Init: AsyncSwiftCommand {
-        static let configuration = CommandConfiguration(
-            abstract: "Initialize a new package."
+    struct Init: SwiftCommand {
+        public static let configuration = CommandConfiguration(
+            abstract: "Initialize a new package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup(visibility: .hidden)

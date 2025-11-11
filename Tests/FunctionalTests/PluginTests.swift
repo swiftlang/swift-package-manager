@@ -24,112 +24,113 @@ import Testing
 import Foundation
 
 @Suite(
+    .serializedIfOnWindows,
     .tags(
+        .TestSize.large,
         .Feature.Command.Package.Plugin,
+        .Feature.Plugin,
     )
 )
-final class PluginTests {
+struct PluginTests {
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testUseOfBuildToolPluginTargetByExecutableInSamePackage() async throws {
+    func testUseOfBuildToolPluginTargetByExecutableInSamePackage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenPlugin"),
                     configuration: .debug,
                     extraArgs: ["--product", "MyLocalTool"],
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("MySourceGenPlugin"),
-                    configuration: .debug,
-                    extraArgs: ["--product", "MyLocalTool", "--build-system", "swiftbuild"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8786"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Test,
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testUseOfBuildToolPluginTargetNoPreBuildCommands() async throws {
+    func testUseOfBuildToolPluginTargetNoPreBuildCommands(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (_, stderr) = try await executeSwiftTest(
                     fixturePath.appending("MySourceGenPluginNoPreBuildCommands"),
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
                 #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline
-        }
-
-        // Try again with the Swift Build build system
-        await withKnownIssue {
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (_, stderr) = try await executeSwiftTest(
-                    fixturePath.appending("MySourceGenPluginNoPreBuildCommands"),
-                    extraArgs: ["--build-system", "swiftbuild"],
-                    buildSystem: .native,
-                )
-                #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
-            }
+            (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline && buildSystem == .native)
+            || (buildSystem == .swiftbuild)
         }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Product,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testUseOfBuildToolPluginProductByExecutableAcrossPackages() async throws {
+    func testUseOfBuildToolPluginProductByExecutableAcrossPackages(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenClient"),
                     configuration: .debug,
                     extraArgs: ["--product", "MyTool"],
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("MySourceGenClient"),
-                    configuration: .debug,
-                    extraArgs: ["--build-system", "swiftbuild", "--product", "MyTool"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MyTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyTool' complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                 case .xcode:
+                    Issue.record("Test expectations must be defined.")
+               }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -137,38 +138,38 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Product,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testUseOfPrebuildPluginTargetByExecutableAcrossPackages() async throws {
+    func testUseOfPrebuildPluginTargetByExecutableAcrossPackages(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MySourceGenPlugin"),
                     configuration: .debug,
                     extraArgs: ["--product", "MyOtherLocalTool"],
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("MySourceGenPlugin"),
-                    configuration: .debug,
-                    extraArgs: ["--build-system", "swiftbuild", "--product", "MyOtherLocalTool"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling MyOtherLocalTool bar.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling MyOtherLocalTool baz.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MyOtherLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyOtherLocalTool' complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -176,33 +177,33 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms
     )
-    func testUseOfPluginWithInternalExecutable() async throws {
+    func testUseOfPluginWithInternalExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("ClientOfPluginWithInternalExecutable"),
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Compiling PluginExecutable main.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking PluginExecutable"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Compiling RootTarget foo.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking RootTarget"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("ClientOfPluginWithInternalExecutable"),
-                    extraArgs: ["--build-system", "swiftbuild"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling PluginExecutable main.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking PluginExecutable"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling RootTarget foo.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking RootTarget"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -211,13 +212,20 @@ final class PluginTests {
 
     @Test(
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testInternalExecutableAvailableOnlyToPlugin() async throws {
+    func testInternalExecutableAvailableOnlyToPlugin(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let error = try await #require(throws: SwiftPMError.self, "Illegally used internal executable") {
                 try await executeSwiftBuild(
                     fixturePath.appending("InvalidUseOfInternalPluginExecutable"),
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
             }
 
@@ -227,56 +235,41 @@ final class PluginTests {
             }
 
             #expect(
-                    stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(stderr)"
+                stderr.contains("product 'PluginExecutable' required by package 'invaliduseofinternalpluginexecutable' target 'RootTarget' not found in package 'PluginWithInternalExecutable'."), "stderr:\n\(stderr)"
             )
         }
-
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let error =  try await #require(throws: SwiftPMError.self, "Illegally used internal executable") {
-                try await executeSwiftBuild(
-                    fixturePath.appending("InvalidUseOfInternalPluginExecutable"),
-                    buildSystem: .native,
-                )
-            }
-
-            guard case SwiftPMError.executionFailure(_, _, _) = error else {
-                Issue.record("Unexpected error type: \(error.interpolationDescription)")
-                return
-            }
-        }
     }
-    
+
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testLocalBuildToolPluginUsingRemoteExecutable() async throws {
+    func testLocalBuildToolPluginUsingRemoteExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"),
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating generated.swift from generated.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Compiling MyLibrary generated.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("LibraryWithLocalBuildToolPluginUsingRemoteTool"),
-                    extraArgs: ["--build-system", "swiftbuild"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating generated.swift from generated.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling MyLibrary generated.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -284,73 +277,73 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testBuildToolPluginDependencies() async throws {
+    func testBuildToolPluginDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("MyBuildToolPluginDependencies"),
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Compiling MyLocalTool foo.swift"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling MySourceGenBuildTool main.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling MyLocalTool foo.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("MyBuildToolPluginDependencies"),
-                    extraArgs: ["--build-system", "swiftbuild"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testContrivedTestCases() async throws {
+    func testContrivedTestCases(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let buildSpecificArgs: [String] = switch buildSystem {
+                    case .native, .xcode:
+                        []
+                    case .swiftbuild:
+                        ["--disable-sandbox"]
+                }
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("ContrivedTestPlugin"),
                     configuration: .debug,
-                    extraArgs: ["--product", "MyLocalTool"],
-                    buildSystem: .native,
+                    extraArgs: ["--product", "MyLocalTool"] + buildSpecificArgs,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
-
-        try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending("ContrivedTestPlugin"),
-                    configuration: .debug,
-                    extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool", "--disable-sandbox"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Generating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expectations must be defined.")
+                }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
@@ -359,76 +352,89 @@ final class PluginTests {
 
     @Test(
         .requiresSwiftConcurrencySupport,
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS")
+        .requireHostOS(.macOS, "Test is only supported on macOS"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testPluginScriptSandbox() async throws {
+    func testPluginScriptSandbox(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("SandboxTesterPlugin"),
-                configuration: .debug,
-                extraArgs: ["--product", "MyLocalTool"],
-                    buildSystem: .native,
-                )
-            #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
-        }
-
-        // Try again with Swift Build build system
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("SandboxTesterPlugin"),
-                configuration: .debug,
-                extraArgs: ["--build-system", "swiftbuild", "--product", "MyLocalTool"],
-                    buildSystem: .native,
-                )
-            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-        }
-    }
-
-    @Test(
-        .requiresSwiftConcurrencySupport,
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS"),
-        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
-    )
-    func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("MyBinaryToolPlugin"),
                 configuration: .debug,
                 extraArgs: ["--product", "MyLocalTool"],
                 buildSystem: buildSystem,
             )
-            if buildSystem == .native {
+            switch buildSystem {
+            case .native:
                 #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
-            } else if buildSystem == .swiftbuild {
+                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+            case .swiftbuild:
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            } else {
-                Issue.record("Test has no expectation for \(buildSystem)")
+            case .xcode:
+                Issue.record("Test expectations must be defined.")
             }
         }
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9215", relationship: .verifies),
         .requiresSwiftConcurrencySupport,
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Test is only supported on macOS")
+        .disabled("rdar://162053979"),
+        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
     )
-    func testUseOfBinaryToolVendedAsProduct() async throws {
+    func testUseOfVendedBinaryTool(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+            try await withKnownIssue (isIntermittent: true) {
+                let (stdout, _) = try await executeSwiftBuild(
+                    fixturePath.appending("MyBinaryToolPlugin"),
+                    configuration: .debug,
+                    extraArgs: ["--product", "MyLocalTool"],
+                    buildSystem: buildSystem,
+                )
+                switch buildSystem {
+                case  .native:
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test has no expectation for \(buildSystem)")
+                }
+            } when: { ProcessInfo.hostOperatingSystem == .windows }
+        }
+    }
+
+    @Test(
+        .requiresSwiftConcurrencySupport,
+        .requireHostOS(.macOS, "Test is only supported on macOS"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testUseOfBinaryToolVendedAsProduct(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("BinaryToolProductPlugin"),
                 configuration: .debug,
                 extraArgs: ["--product", "MyLocalTool"],
-                    buildSystem: .native,
-                )
-            #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+                buildSystem: buildSystem,
+            )
+            switch buildSystem {
+            case .native:
+                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+            case .swiftbuild:
+                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+            case .xcode:
+                Issue.record("Test expectations must be defined.")
+            }
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8794"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -707,7 +713,7 @@ final class PluginTests {
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
-            
+
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
             let rootManifests = try await workspace.loadRootManifests(
@@ -725,11 +731,11 @@ final class PluginTests {
             #expect(packageGraph.packages.count == 2, "\(packageGraph.packages)")
             #expect(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
             let package = try #require(packageGraph.rootPackages.first)
-            
+
             // Find the regular target in our test package.
             let libraryTarget = try #require(package.modules.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftModule)
             #expect(libraryTarget.type == .library)
-            
+
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
@@ -739,13 +745,13 @@ final class PluginTests {
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
                 }
-                
+
                 func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
-                
+
                 func pluginCompilationEnded(result: PluginCompilationResult) {
                 }
-                    
+
                 func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
                 }
 
@@ -758,7 +764,7 @@ final class PluginTests {
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
                 }
-                
+
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                     // Add the diagnostic as-is.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -837,7 +843,7 @@ final class PluginTests {
                 catch {
                     Issue.record("error \(String(describing: error))", sourceLocation: sourceLocation)
                 }
-                
+
                 // Check that we didn't end up with any completely empty diagnostics.
                 #expect(observability.diagnostics.first{ $0.message.isEmpty } == nil)
 
@@ -866,9 +872,9 @@ final class PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
-        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testLocalAndRemoteToolDependencies(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue (isIntermittent: true) {
@@ -879,12 +885,16 @@ final class PluginTests {
                     extraArgs: ["plugin", "my-plugin"],
                     buildSystem: buildSystem,
                 )
-                if buildSystem == .native {
+                switch buildSystem {
+                case .native:
                     // Native build system is more explicit about what it's doing in stderr
                     #expect(stderr.contains("Linking RemoteTool"), "stdout:\n\(stderr)\n\(stdout)")
                     #expect(stderr.contains("Linking LocalTool"), "stdout:\n\(stderr)\n\(stdout)")
                     #expect(stderr.contains("Linking ImpliedLocalTool"), "stdout:\n\(stderr)\n\(stdout)")
                     #expect(stderr.contains("Build of product 'ImpliedLocalTool' complete!"), "stdout:\n\(stderr)\n\(stdout)")
+                case .swiftbuild, .xcode:
+                    // There are nothing specific to expect
+                    break
                 }
                 #expect(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
                 #expect(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
@@ -1007,7 +1017,7 @@ final class PluginTests {
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
-            
+
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
             let rootManifests = try await workspace.loadRootManifests(
@@ -1025,7 +1035,7 @@ final class PluginTests {
             #expect(packageGraph.packages.count == 1, "\(packageGraph.packages)")
             #expect(packageGraph.rootPackages.count == 1, "\(packageGraph.rootPackages)")
             let package: ResolvedPackage = try #require(packageGraph.rootPackages.first)
-            
+
             // Find the regular target in our test package.
             let libraryTarget = try #require(
                 package.modules
@@ -1033,7 +1043,7 @@ final class PluginTests {
                     .first{ $0.name == "MyLibrary" } as? SwiftModule
             )
             #expect(libraryTarget.type == .library)
-            
+
             // Set up a delegate to handle callbacks from the command plugin.  In particular we want to know the process identifier.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
@@ -1044,16 +1054,16 @@ final class PluginTests {
                 init(delegateQueue: DispatchQueue) {
                     self.delegateQueue = delegateQueue
                 }
-                
+
                 func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
-                
+
                 func pluginCompilationEnded(result: PluginCompilationResult) {
                 }
-                    
+
                 func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
                 }
-                
+
                 func pluginEmittedOutput(_ data: Data) {
                     // Add each line of emitted output as a `.info` diagnostic.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -1061,7 +1071,7 @@ final class PluginTests {
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
                     })
-                    
+
                     // If we don't already have the process identifier, we try to find it.
                     if parsedProcessIdentifier == .none {
                         func parseProcessIdentifier(_ string: String) -> Int? {
@@ -1073,7 +1083,7 @@ final class PluginTests {
                         parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
                     }
                 }
-                
+
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                     // Add the diagnostic as-is.
                     dispatchPrecondition(condition: .onQueue(delegateQueue))
@@ -1361,7 +1371,7 @@ final class PluginTests {
     struct SnippetTests {
         @Test(
             .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-            .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+            .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -1445,7 +1455,6 @@ final class PluginTests {
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .IssueWindowsCannotSaveAttachment,
             .requiresSwiftConcurrencySupport,
-            .IssueSwiftBuildLinuxRunnable,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms), try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
         )
         func testBasicRunSnippets(
@@ -1465,42 +1474,64 @@ final class PluginTests {
                 #expect(stdout.contains("hello, snippets"), "stderr: \(stderr)")
             }
             } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
+                [.windows].contains(ProcessInfo.hostOperatingSystem) && data.buildSystem == .swiftbuild
             }
         }
     }
-    
+
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildTests,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testIncorrectDependencies() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { path in
-            let (stdout, stderr) = try await executeSwiftBuild(
-                path.appending("IncorrectDependencies"),
-                extraArgs: ["--build-tests"],
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
-        }
-
+    func testIncorrectDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue (isIntermittent: true) {
-            // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { path in
                 let (stdout, stderr) = try await executeSwiftBuild(
                     path.appending("IncorrectDependencies"),
                     extraArgs: ["--build-tests"],
-                    buildSystem: .swiftbuild,
+                    buildSystem: buildSystem,
                 )
+
                 #expect(stdout.contains("Build complete!"), "output:\n\(stderr)\n\(stdout)")
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || (ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline) }
+        } when: {
+            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
+            || (ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSmokeTestPipeline)
+        }
     }
 
     @Test(
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"),
         .requiresSwiftConcurrencySupport,
-        arguments: [BuildSystemProvider.Kind.native], // FIXME: enable swiftbuild testing once pre-build plugins are working
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func testPrebuildDependencyOnExecutableTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+        // Build tool plugins aren't permitted to depend on executable targets and use them in the prebuild commands
+        // that they return. This is because these commands run immediately and the executable doesn't exist yet or
+        // it isn't up-to-date.
+        try await fixture(name: "Miscellaneous/Plugins") { path in
+            let error = try await #require(throws: Error.self) {
+                try await executeSwiftBuild(
+                    path.appending("PrebuildDependsExecutableTarget"),
+                    extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            #expect("\(error)".contains("a prebuild command cannot use executables built from source"))
+        }
+    }
+
+    @Test(
+        .requireHostOS(.macOS, "sandboxing tests are only supported on macOS"),
+        .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testSandboxViolatingBuildToolPluginCommands(
         buildSystem: BuildSystemProvider.Kind,
@@ -1515,7 +1546,14 @@ final class PluginTests {
                 )
             }
 
-            #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            switch buildSystem {
+            case .native:
+                #expect("\(error)".contains("You don’t have permission to save the file “generated” in the folder “MyLibrary”."))
+            case .swiftbuild:
+                #expect("\(error)".contains("Operation not permitted"))
+            case .xcode:
+                Issue.record("Test expected have not been considered")
+            }
         }
 
         // Check that the build succeeds if we disable the sandbox.
@@ -1526,12 +1564,12 @@ final class PluginTests {
                 extraArgs: ["--disable-sandbox"],
                 buildSystem: buildSystem,
             )
-            #expect(stdout.contains("Compiling MyLibrary foo.swift"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
+            #expect(stdout.contains("Build complete!"), "[STDOUT]\n\(stdout)\n[STDERR]\n\(stderr)\n")
         }
     }
 
     @Test(
-        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "sandboxing tests are only supported on macOS"),
+        .requireHostOS(.macOS, "sandboxing tests are only supported on macOS"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testBuildToolPluginSwiftFileExecutable(
@@ -1544,10 +1582,13 @@ final class PluginTests {
                 extraArgs: [ "--verbose"],
                 buildSystem: buildSystem,
             )
-            if buildSystem == .native {
+            switch buildSystem {
+            case .native:
                 #expect(stdout.contains("Hello, Build Tool Plugin!"), "stdout:\n\(stdout)")
-            } else {
+            case .swiftbuild:
                 #expect(stderr.contains("Hello, Build Tool Plugin!"), "stderr:\n\(stderr)")
+            case .xcode:
+                Issue.record("Test expected have not been considered")
             }
         }
     }
@@ -1555,35 +1596,39 @@ final class PluginTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testTransitivePluginOnlyDependency() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("TransitivePluginOnlyDependency"),
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Compiling Library Library.swift"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-        }
-
+    func testTransitivePluginOnlyDependency(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
-            // Try again with Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("TransitivePluginOnlyDependency"),
-                    buildSystem: .swiftbuild,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling Library Library.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expected have not been considered")
+                }
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -1605,96 +1650,106 @@ final class PluginTests {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8774"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testPluginCanBeReferencedByProductName() async throws {
-        try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-            let (stdout, _) = try await executeSwiftBuild(
-                fixturePath.appending("PluginCanBeReferencedByProductName"),
-                buildSystem: .native,
-            )
-            #expect(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
-            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-        }
-
+    func testPluginCanBeReferencedByProductName(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
-            // Try again with the Swift Build build system
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath.appending("PluginCanBeReferencedByProductName"),
-                    buildSystem: .swiftbuild,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Compiling plugin MyPlugin"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Compiling PluginCanBeReferencedByProductName gen.swift"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+                case .xcode:
+                    Issue.record("Test expected have not been considered")
+                }
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
+
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+        }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.XbuildToolsSwiftc,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testPluginCanBeAffectedByXBuildToolsParameters() async throws {
+    func testPluginCanBeAffectedByXBuildToolsParameters(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath.appending(component: "MySourceGenPlugin"),
-                    configuration: .debug,
-                    extraArgs: ["--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE"],
-                    buildSystem: .native,
-                )
-                #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
-                #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .windows }
-
-        try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/Plugins") { fixturePath in
+                let buildArgs: [String] = switch buildSystem {
+                    case .native, .xcode: []
+                    case .swiftbuild: ["-v"]
+                }
                 let (stdout, stderr) = try await executeSwiftBuild(
                     fixturePath.appending(component: "MySourceGenPlugin"),
                     configuration: .debug,
-                    extraArgs: ["-v", "--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE",],
-                    buildSystem: .swiftbuild,
+                    extraArgs: ["--product", "MyLocalTool", "-Xbuild-tools-swiftc", "-DUSE_CREATE"] + buildArgs,
+                    buildSystem: buildSystem,
                 )
-                #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+
+                switch buildSystem {
+                case .native:
+                    #expect(stdout.contains("Linking MySourceGenBuildTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Linking MyLocalTool"), "stdout:\n\(stdout)")
+                    #expect(stdout.contains("Build of product 'MyLocalTool' complete!"), "stdout:\n\(stdout)")
+                case .swiftbuild:
+                    #expect(stdout.contains("MySourceGenBuildTool-product"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                    #expect(stderr.contains("Creating foo.swift from foo.dat"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                    #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)\nstderr:\n\(stderr)")
+                case .xcode:
+                    Issue.record("Test expected have not been considered")
+
+                }
             }
-        } when: { ProcessInfo.hostOperatingSystem == .windows || ProcessInfo.hostOperatingSystem == .linux }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsRelativePathAssert,
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8791"),
         .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testURLBasedPluginAPI() async throws {
+    func testURLBasedPluginAPI(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
                 let (stdout, _) = try await executeSwiftBuild(
                     fixturePath,
                     configuration: .debug,
-                    buildSystem: .native,
+                    buildSystem: buildSystem,
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
-
-        try await withKnownIssue {
-            // Try again with the Swift Build build system
-            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginUsingURLBasedAPI") { fixturePath in
-                let (stdout, _) = try await executeSwiftBuild(
-                    fixturePath,
-                    configuration: .debug,
-                    buildSystem: .swiftbuild,
-                )
-                #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
-            }
-        } when: { ProcessInfo.hostOperatingSystem == .linux || ProcessInfo.hostOperatingSystem == .windows }
     }
 
     @Test(
@@ -1713,7 +1768,7 @@ final class PluginTests {
                 )
                 #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
             }
-        } when: { 
+        } when: {
             buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }

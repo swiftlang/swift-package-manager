@@ -132,6 +132,9 @@ public struct BuildParameters: Encodable {
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
 
+    /// Support Experimental XCF on Linux
+    public var enableXCFrameworksOnLinux: Bool
+
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -166,6 +169,7 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
+        enableXCFrameworksOnLinux: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -173,7 +177,13 @@ public struct BuildParameters: Encodable {
         testingParameters: Testing = .init(),
         apiDigesterMode: APIDigesterMode? = nil
     ) throws {
-        let triple = try triple ?? .getHostTriple(usingSwiftCompiler: toolchain.swiftCompilerPath)
+        // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
+        let triple = try triple ?? {
+            let hostTriple = try Triple.getHostTriple(
+                    usingSwiftCompiler: toolchain.swiftCompilerPath)
+            return hostTriple.versionedTriple.isDarwin() ? hostTriple.unversionedTriple : hostTriple.versionedTriple
+        }()
+
         self.debuggingParameters = debuggingParameters ?? .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: configuration == .debug,
@@ -223,6 +233,7 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
+        self.enableXCFrameworksOnLinux = enableXCFrameworksOnLinux
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters

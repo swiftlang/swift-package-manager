@@ -174,27 +174,6 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
-public struct PluginConfiguration {
-    /// Entity responsible for compiling and running plugin scripts.
-    let scriptRunner: PluginScriptRunner
-
-    /// Directory where plugin intermediate files are stored.
-    let workDirectory: Basics.AbsolutePath
-
-    /// Whether to sandbox commands from build tool plugins.
-    let disableSandbox: Bool
-
-    public init(
-        scriptRunner: PluginScriptRunner,
-        workDirectory: Basics.AbsolutePath,
-        disableSandbox: Bool
-    ) {
-        self.scriptRunner = scriptRunner
-        self.workDirectory = workDirectory
-        self.disableSandbox = disableSandbox
-    }
-}
-
 public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let buildParameters: BuildParameters
     private let packageGraphLoader: () async throws -> ModulesGraph
@@ -368,6 +347,34 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             pifTargetName: subset.pifTargetName,
             buildOutputs: buildOutputs,
         )
+    }
+
+    /// Compute the available build tools, and their destination build path for host for each plugin.
+    private func availableBuildPluginTools(
+        graph: ModulesGraph,
+        buildParameters: BuildParameters,
+        pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
+        hostTriple: Basics.Triple
+    ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
+        var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
+
+        for (_, plugins) in pluginsPerModule {
+            for plugin in plugins where accessibleToolsPerPlugin[plugin.id] == nil {
+                // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
+                // names to the corresponding paths. Built tools are assumed to be in the build tools directory.
+                let accessibleTools = try await plugin.preparePluginTools(
+                    fileSystem: fileSystem,
+                    environment: buildParameters.buildEnvironment,
+                    for: hostTriple
+                ) { name, path in
+                    return buildParameters.buildPath.appending(path)
+                }
+
+                accessibleToolsPerPlugin[plugin.id] = accessibleTools
+            }
+        }
+
+        return accessibleToolsPerPlugin
     }
 
     /// Compiles any plugins specified or implied by the build subset, returning
@@ -835,7 +842,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             sdkVariant: sdkVariant,
             targetArchitecture: buildParameters.triple.archName,
             supportedArchitectures: [],
-            disableOnlyActiveArch: false
+            disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1
         )
     }
 
@@ -875,6 +882,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             if symbolGraphOptions.emitExtensionBlocks {
                 settings["DOCC_EXTRACT_EXTENSION_SYMBOLS"] = "YES"
+            }
+
+            if !symbolGraphOptions.includeInheritedDocs {
+                settings["DOCC_SKIP_INHERITED_DOCS"] = "YES"
             }
 
             if !symbolGraphOptions.includeSynthesized {
@@ -1077,8 +1088,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
-        // TODO: enableCodeCoverage
-        // explicitlyEnabledTestability
+
+        // Coverage settings
+        settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
 
         switch parameters.explicitlyEnabledTestability {
         case true:
@@ -1137,7 +1149,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     additionalFileRules: additionalFileRules
                 ),
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
             )
             return pifBuilder
         }

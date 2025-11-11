@@ -526,7 +526,6 @@ extension Workspace {
             enabledTraitsMap: self.enabledTraitsMap
         )
 
-        // Of the enabled dependencies of targets, only consider these for dependency resolution
         let currentManifests = try await self.loadDependencyManifests(
             root: graphRoot,
             observabilityScope: observabilityScope
@@ -598,6 +597,7 @@ extension Workspace {
         var computedConstraints = [PackageContainerConstraint]()
         computedConstraints += currentManifests.editedPackagesConstraints
         computedConstraints += try graphRoot.constraints(self.enabledTraitsMap) + constraints
+
 
         // Perform dependency resolution.
         let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)

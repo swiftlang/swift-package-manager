@@ -38,7 +38,7 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
-    public static var IssueWindowsPathLastConponent: Self {
+    public static var IssueWindowsPathLastComponent: Self {
         // $0.path.lastComponent in test code returns fullpaths on Windows
         issue(
             "https://github.com/swiftlang/swift-package-manager/issues/8554",
@@ -51,6 +51,13 @@ extension Trait where Self == Testing.Bug {
             // "https://github.com/swiftlang/swift-tools-support-core/pull/521",
             "rdar://157310562",
             relationship: .fixedBy,
+        )
+    }
+
+    public static var IssueWindowsPathTestsFailures: Self {
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/8511",
+            relationship: .defect,
         )
     }
 
@@ -69,17 +76,9 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
-    public static var IssueSwiftBuildLinuxRunnable: Self {
+    public static var IssueLdFailsUnexpectedly : Self {
         .issue(
-            "https://github.com/swiftlang/swift-package-manager/issues/8416",
-            relationship: .defect,
-        )
-    }
-
-    public static var IssueCannnotOpenSharedObjectFileLibSwiftCore : Self {
-        // /tmp/Miscellaneous_PackageEdit.H5ku8Q/foo/.build/aarch64-unknown-linux-gnu/Products/Debug-linux/foo: error while loading shared libraries: libswiftCore.so: cannot open shared object file: No such file or directory
-        .issue(
-            "https://github.com/swiftlang/swift-package-manager/issues/8416",
+            "https://github.com/swiftlang/swift-package-manager/issues/9249",
             relationship: .defect,
         )
     }

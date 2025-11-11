@@ -388,7 +388,7 @@ public final class PackageBuilder {
     private var swiftVersionCache: SwiftLanguageVersion? = nil
 
     /// The enabled traits of this package.
-    private let enabledTraits: Set<String>
+    private let enabledTraits: EnabledTraits
 
     /// Create a builder for the given manifest and package `path`.
     ///
@@ -414,7 +414,7 @@ public final class PackageBuilder {
         createREPLProduct: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        enabledTraits: Set<String>
+        enabledTraits: EnabledTraits
     ) {
         self.identity = identity
         self.manifest = manifest
@@ -1170,7 +1170,7 @@ public final class PackageBuilder {
 
         // Process each setting.
         for setting in target.settings {
-            if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits).isEmpty {
+            if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
                 // The setting is currently not enabled so we should skip it
                 continue
             }

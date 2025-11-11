@@ -211,6 +211,9 @@ struct PackagePIFProjectBuilder {
         settings[.PRODUCT_MODULE_NAME] = bundleName
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(module.name).resources"
             .spm_mangledToBundleIdentifier()
+        // Resource bundles are not executable. Setting the name to an empty string will
+        // omit the CFBundleExecutable key from the Info.plist.
+        settings[.EXECUTABLE_NAME] = ""
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
 

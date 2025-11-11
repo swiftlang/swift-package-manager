@@ -452,7 +452,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             case .open:
                 symbolGraphExtractor.minimumAccessLevel = .open
             }
-            symbolGraphExtractor.skipInheritedDocs = true
+            symbolGraphExtractor.skipInheritedDocs = !options.includeInheritedDocs
             symbolGraphExtractor.includeSPISymbols = options.includeSPI
             symbolGraphExtractor.emitExtensionBlockSymbols = options.emitExtensionBlocks
 
@@ -498,6 +498,7 @@ extension BuildOutput {
     static func symbolGraph(_ options: PluginInvocationSymbolGraphOptions) -> BuildOutput {
         return .symbolGraph(SymbolGraphOptions(
                 minimumAccessLevel: .accessLevel(options.minimumAccessLevel),
+                includeInheritedDocs: options.includeInheritedDocs,
                 includeSynthesized: options.includeSynthesized,
                 includeSPI: options.includeSPI,
                 emitExtensionBlocks: options.emitExtensionBlocks
@@ -506,7 +507,7 @@ extension BuildOutput {
 }
 
 fileprivate extension BuildOutput.SymbolGraphAccessLevel {
-    fileprivate static func accessLevel(_ accessLevel: PluginInvocationSymbolGraphOptions.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
+    static func accessLevel(_ accessLevel: PluginInvocationSymbolGraphOptions.AccessLevel) -> BuildOutput.SymbolGraphAccessLevel {
         return switch accessLevel {
         case .private:
             .private

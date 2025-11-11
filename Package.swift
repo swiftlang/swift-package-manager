@@ -99,14 +99,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
+let shouldUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
 
 let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
 let swiftTSCTestSupportDeps: [Target.Dependency]
 
-if shoudUseSwiftBuildFramework {
+if shouldUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
@@ -184,20 +184,6 @@ let package = Package(
         ),
     ],
     targets: [
-        // The `PackageDescription` target provides the API that is available
-        // to `Package.swift` manifests. Here we build a debug version of the
-        // library; the bootstrap scripts build the deployable version.
-        .target(
-            name: "PackageDescription",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .define("USE_IMPL_ONLY_IMPORTS"),
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
-
         // The `AppleProductTypes` target provides additional product types
         // to `Package.swift` manifests. Here we build a debug version of the
         // library; the bootstrap scripts build the deployable version.
@@ -212,19 +198,6 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
                 .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
             ]),
-
-        // The `PackagePlugin` target provides the API that is available to
-        // plugin scripts. Here we build a debug version of the library; the
-        // bootstrap scripts build the deployable version.
-        .target(
-            name: "PackagePlugin",
-            exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
-                .unsafeFlags(["-package-description-version", "999.0"]),
-                .unsafeFlags(["-enable-library-evolution"]),
-            ],
-            linkerSettings: packageLibraryLinkSettings
-        ),
 
         .target(
             name: "SourceKitLSPAPI",
@@ -776,11 +749,41 @@ let package = Package(
             ]
         ),
 
+        // The `PackageDescription` target provides the API that is available
+        // to `Package.swift` manifests. Here we build a debug version of the
+        // library; the bootstrap scripts build the deployable version.
+        .target(
+            name: "PackageDescription",
+            path: "Sources/Runtimes/PackageDescription",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .define("USE_IMPL_ONLY_IMPORTS"),
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
+        // The `PackagePlugin` target provides the API that is available to
+        // plugin scripts. Here we build a debug version of the library; the
+        // bootstrap scripts build the deployable version.
+        .target(
+            name: "PackagePlugin",
+            path: "Sources/Runtimes/PackagePlugin",
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
+            linkerSettings: packageLibraryLinkSettings
+        ),
+
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution
 
         .target(
             name: "CompilerPluginSupport",
             dependencies: ["PackageDescription"],
+            path: "Sources/Runtimes/CompilerPluginSupport",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
@@ -790,19 +793,19 @@ let package = Package(
 
         // MARK: Additional Test Dependencies
 
-            .target(
-                /** SwiftPM internal build test suite support library */
-                name: "_InternalBuildTestSupport",
-                dependencies: [
-                    "Build",
-                    "XCBuildSupport",
-                    "SwiftBuildSupport",
-                    "_InternalTestSupport"
-                ],
-                swiftSettings: [
-                    .unsafeFlags(["-static"]),
-                ]
-            ),
+        .target(
+            /** SwiftPM internal build test suite support library */
+            name: "_InternalBuildTestSupport",
+            dependencies: [
+                "Build",
+                "XCBuildSupport",
+                "SwiftBuildSupport",
+                "_InternalTestSupport"
+            ],
+            swiftSettings: [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
 
         .target(
             /** SwiftPM internal test suite support library */
@@ -1102,17 +1105,17 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        // The 'swift-argument-parser' version declared here must match that
-        // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
-        // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.1"),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
+        // These need to match the versions in the swiftlang/swift repo,
+        // utils/update_checkout/update-checkout-config.json
+        // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
-        .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
-        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
-        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
-        // For use in previewing documentation
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
+        .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
+        .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.7"),
+        // Not in toolchain, used for use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
     if !swiftDriverDeps.isEmpty {
@@ -1147,7 +1150,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if !shoudUseSwiftBuildFramework {
+if !shouldUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [

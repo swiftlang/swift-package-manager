@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 
 import class PackageModel.Manifest
 import class PackageModel.Module
+import class PackageModel.BinaryModule
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
 
@@ -250,11 +251,7 @@ extension PackagePIFProjectBuilder {
             }
 
         case .staticLibrary, .executable:
-            #if os(Windows) // Temporary until we get a new productType in swift-build
-            productType = .staticArchive
-            #else
-            productType = .objectFile
-            #endif
+            productType = .commonObject
 
         case .macro:
             productType = .hostBuildTool
@@ -354,7 +351,7 @@ extension PackagePIFProjectBuilder {
         // Generate a module map file, if needed.
         var moduleMapFileContents = ""
         let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        let moduleMapFile = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        let generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
@@ -368,10 +365,19 @@ extension PackagePIFProjectBuilder {
             }
             """
             // We only need to impart this to C clients.
-            impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-        } else if sourceModule.moduleMapFileRelativePath(fileSystem: self.pifBuilder.fileSystem) == nil {
+            impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+        } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if case .umbrellaHeader(let path) = sourceModule.moduleMapType {
+            switch sourceModule.moduleMapType {
+            case nil, .some(.none):
+                // No modulemap, no action required.
+                break
+            case .custom(let customModuleMapPath):
+                // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
+                // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+            case .umbrellaHeader(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
@@ -379,7 +385,10 @@ extension PackagePIFProjectBuilder {
                 export *
                 }
                 """
-            } else if case .umbrellaDirectory(let path) = sourceModule.moduleMapType {
+                // Pass the path of the module map up to all direct and indirect clients.
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+            case .umbrellaDirectory(let path):
                 log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
                 moduleMapFileContents = """
                 module \(sourceModule.c99name) {
@@ -387,11 +396,9 @@ extension PackagePIFProjectBuilder {
                 export *
                 }
                 """
-            }
-            if moduleMapFileContents.hasContent {
                 // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(moduleMapFile)", "$(inherited)"]
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
             }
         }
 
@@ -411,7 +418,6 @@ extension PackagePIFProjectBuilder {
             settings[.PRODUCT_MODULE_NAME] = sourceModule.c99name
             settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(sourceModule.name)"
                 .spm_mangledToBundleIdentifier()
-            settings[.CLANG_ENABLE_MODULES] = "YES"
             settings[.GENERATE_PRELINK_OBJECT_FILE] = "NO"
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
@@ -462,7 +468,7 @@ extension PackagePIFProjectBuilder {
 
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
-        settings[.MODULEMAP_PATH] = moduleMapFile
+        settings[.MODULEMAP_PATH] = generatedModuleMapPath
         settings[.DEFINES_MODULE] = "YES"
 
         // Settings for text-based API.
@@ -489,14 +495,19 @@ extension PackagePIFProjectBuilder {
         if enableDuplicateLinkageCulling {
             impartedSettings[.LD_WARN_DUPLICATE_LIBRARIES] = "NO"
         }
-        impartedSettings[.OTHER_LDFLAGS] = (sourceModule.isCxx ? ["-lc++"] : []) + ["$(inherited)"]
-        impartedSettings[.OTHER_LDRFLAGS] = []
-        log(
-            .debug,
-            indent: 1,
-            "Added '\(impartedSettings[.OTHER_LDFLAGS]!)' to imparted OTHER_LDFLAGS"
-        )
-
+        if sourceModule.isCxx {
+            for platform in ProjectModel.BuildSettings.Platform.allCases {
+                // darwin & freebsd
+                switch platform {
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
+                    case .android, .linux, .wasi, .openbsd:
+                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
+                    case .windows, ._iOSDevice:
+                        break
+                }
+            }
+        }
         // This should be only for dynamic targets, but that isn't possible today.
         // Improvement is tracked by rdar://77403529 (Only impart `PackageFrameworks` search paths to clients of dynamic
         // package targets and products).
@@ -632,8 +643,12 @@ extension PackagePIFProjectBuilder {
                     }
 
                 case .binary:
+                    guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
+                        log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
                     let binaryReference = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: moduleDependency.path.pathString)
+                        FileReference(id: id, path: (binaryModule.artifactPath.pathString))
                     }
                     if shouldLinkProduct {
                         self.project[keyPath: sourceModuleTargetKeyPath].addLibrary { id in
@@ -722,27 +737,11 @@ extension PackagePIFProjectBuilder {
         let allBuildSettings = sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope)
 
         // Apply target-specific build settings defined in the manifest.
-        for (buildConfig, declarationsByPlatform) in allBuildSettings.targetSettings {
-            for (platform, settingsByDeclaration) in declarationsByPlatform {
-                // Note: A `nil` platform means that the declaration applies to *all* platforms.
-                for (declaration, stringValues) in settingsByDeclaration {
-                    switch buildConfig {
-                    case .debug:
-                        debugSettings.append(values: stringValues, to: declaration, platform: platform)
-                    case .release:
-                        releaseSettings.append(values: stringValues, to: declaration, platform: platform)
-                    }
-                }
-            }
-        }
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
 
-        // Impart the linker flags.
-        for (platform, settingsByDeclaration) in sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope).impartedSettings {
-            // Note: A `nil` platform means that the declaration applies to *all* platforms.
-            for (declaration, stringValues) in settingsByDeclaration {
-                impartedSettings.append(values: stringValues, to: declaration, platform: platform)
-            }
-        }
+        // Apply imparted settings
+        allBuildSettings.applyImparted(to: &impartedSettings)
 
         // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
         // For instance, given targets A, B, C with the following dependency graph:
@@ -837,7 +836,6 @@ extension PackagePIFProjectBuilder {
         impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(systemLibrary.modulemapFileAbsolutePath)"] +
             pkgConfig.cFlags.prepending("$(inherited)")
         impartedSettings[.OTHER_LDFLAGS] = pkgConfig.libs.prepending("$(inherited)")
-        impartedSettings[.OTHER_LDRFLAGS] = []
         impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc"] + impartedSettings[.OTHER_CFLAGS]!
         log(.debug, indent: 1, "Added '\(systemLibrary.path.pathString)' to imparted HEADER_SEARCH_PATHS")
 

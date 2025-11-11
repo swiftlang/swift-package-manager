@@ -23,7 +23,9 @@ import XCBuildSupport
 
 struct DumpSymbolGraph: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Dump symbol graphs.")
+        abstract: "Dump symbol graphs.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
     static let defaultMinimumAccessLevel = SymbolGraphExtract.AccessLevel.public
 
     @OptionGroup(visibility: .hidden)
@@ -60,10 +62,10 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             BuildOutput.SymbolGraphOptions(
                 prettyPrint: prettyPrint,
                 minimumAccessLevel: .accessLevel(minimumAccessLevel),
+                includeInheritedDocs: !skipInheritedDocs,
                 includeSynthesized: !skipSynthesizedMembers,
                 includeSPI: includeSPISymbols,
                 emitExtensionBlocks: extensionBlockSymbolBehavior != .omitExtensionBlockSymbols,
-                // TODO skip inherited docs
             )
         ), .buildPlan])
 
@@ -146,7 +148,9 @@ enum ExtensionBlockSymbolBehavior: String, EnumerableFlag {
 
 struct DumpPackage: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Print parsed Package.swift as JSON.")
+        abstract: "Print parsed Package.swift as JSON.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
@@ -174,7 +178,10 @@ struct DumpPackage: AsyncSwiftCommand {
 
 struct DumpPIF: AsyncSwiftCommand {
     // hides this command from CLI `--help` output
-    static let configuration = CommandConfiguration(shouldDisplay: false)
+    static let configuration = CommandConfiguration(
+        shouldDisplay: false,
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .private)
     var globalOptions: GlobalOptions

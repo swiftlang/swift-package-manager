@@ -91,9 +91,16 @@ struct RunCommandTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         .SWBINTTODO("Test package fails to build on Windows"),
+        .tags(
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func toolsetDebugger(
@@ -135,8 +142,11 @@ struct RunCommandTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
     )
     func productArgumentPassing(
@@ -170,7 +180,6 @@ struct RunCommandTests {
         } when: {
             (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild)
             || (.windows == ProcessInfo.hostOperatingSystem && buildSystem == .native && CiEnvironment.runningInSmokeTestPipeline)
-            || (.linux == ProcessInfo.hostOperatingSystem && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
@@ -201,6 +210,9 @@ struct RunCommandTests {
 
 
     @Test(
+         .tags(
+            .Feature.TargetType.Executable,
+        ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
         arguments: SupportedBuildSystemOnPlatform,
@@ -231,15 +243,18 @@ struct RunCommandTests {
             #expect(runOutput.contains("2"))
         }
         } when: {
-            ([.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
+            ([.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
             || (.windows == ProcessInfo.hostOperatingSystem && [.native, .swiftbuild].contains(buildSystem) && CiEnvironment.runningInSmokeTestPipeline)
         }
     }
 
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8511"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8602"),
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        .IssueWindowsPathTestsFailures,
+        .IssueWindowsRelativePathAssert,
         arguments: SupportedBuildSystemOnPlatform,
     )
     func unreachableExecutable(
@@ -253,11 +268,13 @@ struct RunCommandTests {
             }
         } when: {
             (ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSmokeTestPipeline && [.native, .swiftbuild].contains(buildSystem))
-            || (ProcessInfo.hostOperatingSystem ==  .linux && buildSystem == .swiftbuild && CiEnvironment.runningInSelfHostedPipeline)
         }
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func fileDeprecation(
@@ -277,6 +294,11 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.SkipBuild
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func mutualExclusiveFlags(
@@ -299,6 +321,9 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftRunSIGINT(
@@ -399,6 +424,10 @@ struct RunCommandTests {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.Quiet
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
@@ -425,12 +454,7 @@ struct RunCommandTests {
                 #expect(stdout == "done\n")
            }
         } when: {
-            (
-                ProcessInfo.hostOperatingSystem == .linux &&
-                buildSystem == .swiftbuild &&
-                CiEnvironment.runningInSelfHostedPipeline
-            )
-            || (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
+           (CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .windows)
         }
     }
 
