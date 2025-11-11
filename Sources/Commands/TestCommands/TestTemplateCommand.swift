@@ -47,7 +47,8 @@ extension SwiftTestCommand {
     /// Test the various outputs of a template.
     struct Template: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Test the various outputs of a template"
+            abstract: "Test the various outputs of a template",
+            shouldDisplay: false //until we reimplement/reorganize parsing logic
         )
 
         @OptionGroup(visibility: .hidden)

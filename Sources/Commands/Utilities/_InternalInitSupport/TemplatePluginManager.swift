@@ -112,10 +112,8 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
     /// - Returns: A 2D array of arguments provided by the user for template generation
     /// - Throws: Any errors during user prompting
     private func promptUserForTemplateArguments(using toolInfo: ToolInfoV0) throws -> [String] {
-        try TemplatePromptingSystem(hasTTY: self.swiftCommandState.outputStream.isTTY).promptUser(
-            command: toolInfo.command,
-            arguments: self.args
-        )
+        return try TemplateCLIConstructor(
+            hasTTY: self.swiftCommandState.outputStream.isTTY, observabilityScope: self.swiftCommandState.observabilityScope).createCLIArgs(predefinedArgs: self.args, toolInfoJson: toolInfo)
     }
 
     /// Runs the plugin of a template given a set of arguments.

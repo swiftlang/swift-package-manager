@@ -369,7 +369,7 @@ public class TemplateTestPromptingSystem {
     ///
     /// When `true`, the system can prompt users interactively for missing arguments.
     /// When `false`, the system relies on default values and may throw errors for required arguments.
-    private let hasTTY: Bool
+    public let hasTTY: Bool
 
     /// Initializes a new template test prompting system.
     ///
@@ -399,184 +399,33 @@ public class TemplateTestPromptingSystem {
     ///   - `TemplateError.unexpectedNamedArgument` for unknown named arguments
     ///   - `TemplateError.invalidValue` for arguments with invalid values
     ///   - `TemplateError.missingValueForOption` for options missing required values
-    private func parseAndMatchArguments(
+    func parseAndMatchArguments(
         _ input: [String],
         definedArgs: [ArgumentInfoV0],
         subcommands: [CommandInfoV0] = []
     ) throws -> (Set<ArgumentResponse>, [String]) {
-        var responses = Set<ArgumentResponse>()
-        var providedMap: [String: [String]] = [:]
-        var leftover: [String] = []
-        var tokens = input
-        var terminatorSeen = false
-        var postTerminatorArgs: [String] = []
+        let context = ParseContext(
+            input: input,
+            definedArgs: definedArgs,
+            subcommands: subcommands
+        )
+        
+        // Phase 1: Pre-processing - extract terminators and build lookup tables
+        let preprocessed = try preprocessTokens(context: context)
+        
+        // Phase 2: Token classification and extraction
+        let classified = try classifyAndExtractTokens(context: preprocessed)
+        
+        // Phase 3: Parse arguments according to their strategies
+        let parsed = try parseArgumentsByStrategy(context: classified)
 
-        let subcommandNames = Set(subcommands.map(\.commandName))
-        let positionalArgs = definedArgs.filter { $0.kind == .positional }
-
-        // Handle terminator (--) for post-terminator parsing
-        if let terminatorIndex = tokens.firstIndex(of: "--") {
-            postTerminatorArgs = Array(tokens[(terminatorIndex + 1)...])
-            tokens = Array(tokens[..<terminatorIndex])
-            terminatorSeen = true
-        }
-
-        // Phase 1: Parse named arguments (--flags, --options)
-        var i = 0
-        while i < tokens.count {
-            let token = tokens[i]
-
-            if token.starts(with: "--") {
-                let name = String(token.dropFirst(2))
-                guard let arg = definedArgs.first(where: { $0.valueName == name }) else {
-                    // Unknown named argument - could be for subcommand
-                    leftover.append(token)
-                    i += 1
-                    // Only consume next token if it's not another option and not a subcommand
-                    if i < tokens.count && !tokens[i].starts(with: "--") && !subcommandNames.contains(tokens[i]) {
-                        leftover.append(tokens[i])
-                        i += 1
-                    }
-                    continue
-                }
-
-                switch arg.kind {
-                case .flag:
-                    providedMap[arg.valueName ?? name, default: []].append("true")
-                    tokens.remove(at: i)
-                case .option:
-                    tokens.remove(at: i)
-                    let values = try parseOptionValues(arg: arg, tokens: &tokens, currentIndex: &i)
-                    providedMap[arg.valueName ?? name, default: []].append(contentsOf: values)
-                default:
-                    throw TemplateError.unexpectedNamedArgument(name: name)
-                }
-            } else {
-                i += 1
-            }
-        }
-
-        // Phase 2: Parse positional arguments in order
-        var positionalIndex = 0
-        var tokenIndex = 0
-
-        while tokenIndex < tokens.count && positionalIndex < positionalArgs.count {
-            let token = tokens[tokenIndex]
-
-            // Skip subcommands for now
-            if subcommandNames.contains(token) {
-                leftover.append(token)
-                tokens.remove(at: tokenIndex)
-                continue
-            }
-
-            let arg = positionalArgs[positionalIndex]
-            let argName = arg.valueName ?? "__positional"
-
-            var values: [String] = []
-
-            // Handle different parsing strategies for positional args
-            switch arg.parsingStrategy {
-            case .allRemainingInput:
-                // Collect all remaining tokens
-                values = Array(tokens[tokenIndex...])
-                tokens.removeSubrange(tokenIndex...)
-                tokenIndex = tokens.count
-            case .upToNextOption:
-                // Collect tokens until we hit an option or subcommand
-                while tokenIndex < tokens.count {
-                    let currentToken = tokens[tokenIndex]
-                    if currentToken.starts(with: "--") || subcommandNames.contains(currentToken) {
-                        break
-                    }
-                    values.append(currentToken)
-                    tokens.remove(at: tokenIndex)
-                }
-            default:
-                if arg.isRepeating {
-                    // Collect all remaining non-option tokens for repeating argument
-                    while tokenIndex < tokens.count {
-                        let currentToken = tokens[tokenIndex]
-                        if currentToken.starts(with: "--") || subcommandNames.contains(currentToken) {
-                            break
-                        }
-                        values.append(currentToken)
-                        tokens.remove(at: tokenIndex)
-                    }
-                } else {
-                    // Take single token for non-repeating argument
-                    values.append(token)
-                    tokens.remove(at: tokenIndex)
-                }
-            }
-
-            // Validate values if restrictions exist
-            if let allowed = arg.allValues {
-                let invalid = values.filter { !allowed.contains($0) }
-                if !invalid.isEmpty {
-                    throw TemplateError.invalidValue(
-                        argument: argName,
-                        invalidValues: invalid,
-                        allowed: allowed
-                    )
-                }
-            }
-
-            responses.insert(ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false))
-            positionalIndex += 1
-        }
-
-        // Add remaining tokens to leftover
-        leftover.append(contentsOf: tokens)
-
-        // Phase 3: Handle special parsing strategies
-        for arg in definedArgs {
-            switch arg.parsingStrategy {
-            case .postTerminator:
-                if terminatorSeen {
-                    responses.insert(ArgumentResponse(
-                        argument: arg,
-                        values: postTerminatorArgs,
-                        isExplicitlyUnset: false
-                    ))
-                }
-            case .allRemainingInput:
-                // Only process if not already handled in positional parsing
-                if arg.kind != .positional {
-                    responses.insert(ArgumentResponse(argument: arg, values: tokens, isExplicitlyUnset: false))
-                    tokens.removeAll()
-                }
-            case .allUnrecognized:
-                responses.insert(ArgumentResponse(argument: arg, values: leftover, isExplicitlyUnset: false))
-                leftover.removeAll()
-            default:
-                // Default parsing already handled above
-                break
-            }
-        }
-
-        // Phase 4: Build responses for named arguments
-        for arg in definedArgs.filter({ $0.kind != .positional }) {
-            let name = arg.valueName ?? "__unknown"
-            guard let values = providedMap[name] else {
-                continue
-            }
-
-            if let allowed = arg.allValues {
-                let invalid = values.filter { !allowed.contains($0) }
-                if !invalid.isEmpty {
-                    throw TemplateError.invalidValue(
-                        argument: name,
-                        invalidValues: invalid,
-                        allowed: allowed
-                    )
-                }
-            }
-
-            responses.insert(ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false))
-        }
-
-        return (responses, leftover)
+        // Phase 4: Apply defaults and validate requirements
+        let validated = try applyDefaultsAndValidate(context: parsed)
+        
+        // Phase 5: Build final responses
+        let (responses, leftover) = try buildFinalResponses(context: validated)
+        
+        return (Set(responses), leftover)
     }
 
     /// Parses option values based on the argument's parsing strategy.
@@ -682,12 +531,491 @@ public class TemplateTestPromptingSystem {
 
         return values
     }
+    
+    // MARK: - Enhanced Parsing Context and Helper Structures
+    
+    private struct ParseContext {
+        let originalInput: [String]
+        let definedArgs: [ArgumentInfoV0]
+        let subcommands: [CommandInfoV0]
+        let subcommandNames: Set<String>
+        let argumentLookup: [String: ArgumentInfoV0]
+        var tokens: [String]
+        var leftover: [String]
+        var responses: [ArgumentResponse]
+        var providedValues: [String: [String]]
+        var postTerminatorArgs: [String]
+        var terminatorSeen: Bool
+        
+        init(input: [String], definedArgs: [ArgumentInfoV0], subcommands: [CommandInfoV0]) {
+            self.originalInput = input
+            self.definedArgs = definedArgs
+            self.subcommands = subcommands
+            self.subcommandNames = Set(subcommands.map(\.commandName))
+            self.argumentLookup = Self.buildArgumentLookup(definedArgs)
+            self.tokens = input
+            self.leftover = []
+            self.responses = []
+            self.providedValues = [:]
+            self.postTerminatorArgs = []
+            self.terminatorSeen = false
+        }
+        
+        private static func buildArgumentLookup(_ args: [ArgumentInfoV0]) -> [String: ArgumentInfoV0] {
+            var lookup: [String: ArgumentInfoV0] = [:]
+            
+            for arg in args {
+                // Add all possible names for this argument
+                if let names = arg.names {
+                    for nameInfo in names {
+                        lookup[nameInfo.name] = arg
+                    }
+                }
+                
+                // Add valueName as a fallback
+                if let valueName = arg.valueName {
+                    lookup[valueName] = arg
+                }
+            }
+            
+            return lookup
+        }
+        
+        func findArgument(byName name: String) -> ArgumentInfoV0? {
+            return argumentLookup[name]
+        }
+        
+        func getArgumentName(_ arg: ArgumentInfoV0) -> String {
+            return arg.valueName ?? arg.names?.first?.name ?? "__unknown"
+        }
+    }
+    
+    private struct TokenClassification {
+        let flags: [ClassifiedToken]
+        let options: [ClassifiedToken]
+        let positionals: [String]
+        let subcommands: [String]
+        let unrecognized: [String]
+        let optionValuePairs: [(String, String)]
+    }
+    
+    private struct ClassifiedToken {
+        let argument: ArgumentInfoV0
+        let name: String
+        let values: [String]
+        let originalTokens: [String]
+    }
+    
+    // MARK: - Enhanced Parsing Phase Methods
+    
+    private func preprocessTokens(context: ParseContext) throws -> ParseContext {
+        var updatedContext = context
+        
+        // Handle terminator (--) extraction
+        if let terminatorIndex = updatedContext.tokens.firstIndex(of: "--") {
+            updatedContext.postTerminatorArgs = Array(updatedContext.tokens[(terminatorIndex + 1)...])
+            updatedContext.tokens = Array(updatedContext.tokens[..<terminatorIndex])
+            updatedContext.terminatorSeen = true
+        }
+        
+        return updatedContext
+    }
+    
+    private func classifyAndExtractTokens(context: ParseContext) throws -> ParseContext {
+        var updatedContext = context
+        var flags: [ClassifiedToken] = []
+        var options: [ClassifiedToken] = []
+        var positionals: [String] = []
+        var subcommands: [String] = []
+        var unrecognized: [String] = []
+        var optionValuePairs: [(String, String)] = []
+        
+        var i = 0
+        var consumedIndices: Set<Int> = []
+        
+        // First pass: identify and extract named arguments (flags/options)
+        while i < updatedContext.tokens.count {
+            guard !consumedIndices.contains(i) else {
+                i += 1
+                continue
+            }
+            
+            let token = updatedContext.tokens[i]
+            
+            if token.starts(with: "--") {
+                let name = String(token.dropFirst(2))
+                
+                if let arg = updatedContext.findArgument(byName: name) {
+                    consumedIndices.insert(i)
+                    
+                    switch arg.kind {
+                    case .flag:
+                        flags.append(ClassifiedToken(
+                            argument: arg,
+                            name: name,
+                            values: ["true"],
+                            originalTokens: [token]
+                        ))
+                        
+                    case .option:
+                        let (values, consumedCount) = try extractOptionValues(
+                            arg: arg,
+                            tokens: updatedContext.tokens,
+                            startIndex: i + 1,
+                            subcommandNames: updatedContext.subcommandNames
+                        )
+                        
+                        for j in (i + 1)..<(i + 1 + consumedCount) {
+                            consumedIndices.insert(j)
+                        }
+                        
+                        options.append(ClassifiedToken(
+                            argument: arg,
+                            name: name,
+                            values: values,
+                            originalTokens: Array(updatedContext.tokens[i...(i + consumedCount)])
+                        ))
+                        
+                    case .positional:
+                        throw TemplateError.unexpectedNamedArgument(name: name)
+                    }
+                } else {
+                    // Unknown named argument - preserve for subcommands
+                    unrecognized.append(token)
+                    consumedIndices.insert(i)
+                    
+                    // Check if next token could be a value for this unknown option
+                    if i + 1 < updatedContext.tokens.count &&
+                       !updatedContext.tokens[i + 1].starts(with: "--") &&
+                       !updatedContext.subcommandNames.contains(updatedContext.tokens[i + 1]) {
+                        let nextToken = updatedContext.tokens[i + 1]
+                        optionValuePairs.append((token, nextToken))
+                        unrecognized.append(nextToken)
+                        consumedIndices.insert(i + 1)
+                    }
+                }
+            }
+            
+            i += 1
+        }
+        
+        // Second pass: classify remaining tokens as positionals or subcommands
+        // Stop at the first subcommand and put everything after it in leftover
+        var firstSubcommandIndex: Int? = nil
+        
+        for (index, token) in updatedContext.tokens.enumerated() {
+            guard !consumedIndices.contains(index) else { continue }
+            
+            if updatedContext.subcommandNames.contains(token) {
+                // Found first subcommand - everything from here goes to leftover
+                firstSubcommandIndex = index
+                break
+            } else {
+                positionals.append(token)
+            }
+        }
+        
+        // If we found a subcommand, everything from that point onwards is leftover
+        if let firstSubcommandIndex = firstSubcommandIndex {
+            for index in firstSubcommandIndex..<updatedContext.tokens.count {
+                if !consumedIndices.contains(index) {
+                    subcommands.append(updatedContext.tokens[index])
+                }
+            }
+        }
+        
+        // Process classified tokens into responses
+        // Handle repeating arguments by combining multiple occurrences
+        var argumentAccumulator: [String: [String]] = [:]
+        
+        // Accumulate flag values
+        for flag in flags {
+            let argName = updatedContext.getArgumentName(flag.argument)
+            argumentAccumulator[argName, default: []].append(contentsOf: flag.values)
+        }
+        
+        // Accumulate option values  
+        for option in options {
+            let argName = updatedContext.getArgumentName(option.argument)
+            argumentAccumulator[argName, default: []].append(contentsOf: option.values)
+        }
+        
+        // Create responses from accumulated values
+        var processedArguments: Set<String> = []
+        
+        for flag in flags {
+            let argName = updatedContext.getArgumentName(flag.argument)
+            if !processedArguments.contains(argName) {
+                let allValues = argumentAccumulator[argName] ?? []
+                
+                // For non-repeating arguments, validate that we don't have multiple occurrences
+                if !flag.argument.isRepeating {
+                    let occurrenceCount = flags.filter { 
+                        updatedContext.getArgumentName($0.argument) == argName 
+                    }.count
+                    if occurrenceCount > 1 {
+                        throw TemplateError.tooManyValues(argument: argName, expected: 1, received: occurrenceCount)
+                    }
+                }
+                
+                let values = try validateArgumentValues(allValues, for: flag.argument, argName: argName)
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: flag.argument,
+                    values: values,
+                    isExplicitlyUnset: false
+                ))
+                processedArguments.insert(argName)
+            }
+        }
+        
+        for option in options {
+            let argName = updatedContext.getArgumentName(option.argument)
+            if !processedArguments.contains(argName) {
+                let allValues = argumentAccumulator[argName] ?? []
+                
+                // For non-repeating arguments, validate that we don't have multiple occurrences
+                if !option.argument.isRepeating {
+                    let occurrenceCount = options.filter { 
+                        updatedContext.getArgumentName($0.argument) == argName 
+                    }.count
+                    if occurrenceCount > 1 {
+                        throw TemplateError.tooManyValues(argument: argName, expected: 1, received: occurrenceCount)
+                    }
+                }
+                
+                let values = try validateArgumentValues(allValues, for: option.argument, argName: argName)
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: option.argument,
+                    values: values,
+                    isExplicitlyUnset: false
+                ))
+                processedArguments.insert(argName)
+            }
+        }
+        
+        // Process positional arguments in order
+        let positionalArgs = updatedContext.definedArgs.filter { $0.kind == .positional }
+        var positionalIndex = 0
+        var tokenIndex = 0
+        
+        while tokenIndex < positionals.count && positionalIndex < positionalArgs.count {
+            let arg = positionalArgs[positionalIndex]
+            let argName = updatedContext.getArgumentName(arg)
+            
+            var values: [String] = []
+            
+            if arg.isRepeating {
+                // Collect all remaining positional tokens for repeating argument
+                while tokenIndex < positionals.count {
+                    values.append(positionals[tokenIndex])
+                    tokenIndex += 1
+                }
+            } else {
+                // Take single token for non-repeating argument
+                values.append(positionals[tokenIndex])
+                tokenIndex += 1
+            }
+            
+            let validatedValues = try validateArgumentValues(values, for: arg, argName: argName)
+            updatedContext.responses.append(ArgumentResponse(
+                argument: arg,
+                values: validatedValues,
+                isExplicitlyUnset: false
+            ))
+            
+            positionalIndex += 1
+        }
+        
+        // Update context with leftover tokens
+        updatedContext.leftover = unrecognized + subcommands
+        
+        return updatedContext
+    }
+    
+    private func extractOptionValues(
+        arg: ArgumentInfoV0,
+        tokens: [String],
+        startIndex: Int,
+        subcommandNames: Set<String>
+    ) throws -> ([String], Int) {
+        var values: [String] = []
+        var consumedCount = 0
+        var currentIndex = startIndex
+        
+        switch arg.parsingStrategy {
+        case .default:
+            guard currentIndex < tokens.count && 
+                  !tokens[currentIndex].starts(with: "-") &&
+                  !subcommandNames.contains(tokens[currentIndex]) else {
+                throw TemplateError.missingValueForOption(name: arg.valueName ?? "")
+            }
+            values.append(tokens[currentIndex])
+            consumedCount = 1
+            
+        case .scanningForValue:
+            if currentIndex < tokens.count &&
+               !tokens[currentIndex].starts(with: "-") &&
+               !subcommandNames.contains(tokens[currentIndex]) {
+                values.append(tokens[currentIndex])
+                consumedCount = 1
+            }
+            
+        case .unconditional:
+            guard currentIndex < tokens.count else {
+                throw TemplateError.missingValueForOption(name: arg.valueName ?? "")
+            }
+            values.append(tokens[currentIndex])
+            consumedCount = 1
+            
+        case .upToNextOption:
+            while currentIndex < tokens.count &&
+                  !tokens[currentIndex].starts(with: "-") &&
+                  !subcommandNames.contains(tokens[currentIndex]) {
+                values.append(tokens[currentIndex])
+                currentIndex += 1
+                consumedCount += 1
+            }
+            
+        case .allRemainingInput:
+            // Consume all remaining tokens from current position
+            while currentIndex < tokens.count &&
+                  !subcommandNames.contains(tokens[currentIndex]) {
+                values.append(tokens[currentIndex])
+                currentIndex += 1
+                consumedCount += 1
+            }
+            
+        case .postTerminator, .allUnrecognized:
+            // These strategies are handled in later phases
+            break
+        }
+        
+        return (values, consumedCount)
+    }
+    
+    private func parseArgumentsByStrategy(context: ParseContext) throws -> ParseContext {
+        var updatedContext = context
+        
+        // Process special parsing strategies first
+        for arg in updatedContext.definedArgs {
+            let argName = updatedContext.getArgumentName(arg)
+            
+            switch arg.parsingStrategy {
+            case .postTerminator:
+                if updatedContext.terminatorSeen {
+                    let values = try validateArgumentValues(updatedContext.postTerminatorArgs, for: arg, argName: argName)
+                    updatedContext.responses.append(ArgumentResponse(
+                        argument: arg,
+                        values: values,
+                        isExplicitlyUnset: false
+                    ))
+                }
+                
+            case .allUnrecognized:
+                let unrecognizedTokens = updatedContext.leftover.filter { token in
+                    !updatedContext.subcommandNames.contains(token) && !token.starts(with: "--")
+                }
+                let values = try validateArgumentValues(unrecognizedTokens, for: arg, argName: argName)
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: arg,
+                    values: values,
+                    isExplicitlyUnset: false
+                ))
+                
+                // Remove consumed tokens from leftover
+                updatedContext.leftover = updatedContext.leftover.filter { token in
+                    updatedContext.subcommandNames.contains(token) || token.starts(with: "--")
+                }
+                
+            default:
+                // Handle normal parsing strategies in classification phase
+                break
+            }
+        }
+        
+        return updatedContext
+    }
+    
+    private func applyDefaultsAndValidate(context: ParseContext) throws -> ParseContext {
+        var updatedContext = context
+        let processedArgNames = Set(updatedContext.responses.map { updatedContext.getArgumentName($0.argument) })
+        
+        // Apply defaults and validate requirements
+        for arg in updatedContext.definedArgs {
+            let argName = updatedContext.getArgumentName(arg)
+            
+            // Skip if already processed
+            if processedArgNames.contains(argName) {
+                continue
+            }
+            
+            // Check if argument was provided via named arguments
+            if let providedValues = updatedContext.providedValues[argName] {
+                let values = try validateArgumentValues(providedValues, for: arg, argName: argName)
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: arg,
+                    values: values,
+                    isExplicitlyUnset: false
+                ))
+                continue
+            }
+            
+            // Apply default value if available
+            if let defaultValue = arg.defaultValue {
+                let values = try validateArgumentValues([defaultValue], for: arg, argName: argName)
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: arg,
+                    values: values,
+                    isExplicitlyUnset: false
+                ))
+                continue
+            }
+            
+            // Check if required argument is missing
+            if !arg.isOptional && arg.parsingStrategy != .postTerminator {
+                throw TemplateError.missingRequiredArgument(name: argName)
+            }
+            
+            // Add as explicitly unset for optional arguments
+            if arg.isOptional {
+                updatedContext.responses.append(ArgumentResponse(
+                    argument: arg,
+                    values: [],
+                    isExplicitlyUnset: true
+                ))
+            }
+        }
+        
+        return updatedContext
+    }
+    
+    private func buildFinalResponses(context: ParseContext) throws -> ([ArgumentResponse], [String]) {
+        return (context.responses, context.leftover)
+    }
+    
+    private func validateArgumentValues(
+        _ values: [String],
+        for arg: ArgumentInfoV0,
+        argName: String
+    ) throws -> [String] {
+        // Validate against allowed values if specified
+        if let allowedValues = arg.allValues {
+            let invalidValues = values.filter { !allowedValues.contains($0) }
+            if !invalidValues.isEmpty {
+                throw TemplateError.invalidValue(
+                    argument: argName,
+                    invalidValues: invalidValues,
+                    allowed: allowedValues
+                )
+            }
+        }
+        return values
+    }
 
     /// Generates all possible command paths for template testing.
     ///
-    /// This is the main entry point for command path generation. It uses a depth-first search
-    /// algorithm to explore all possible command combinations, respecting branch filters and
-    /// argument inheritance between command levels.
+    /// This is the main entry point for command path generation. It uses swift-argument-parser 
+    /// style parsing for improved consistency and reliability.
     ///
     /// - Parameters:
     ///   - rootCommand: The root command information from the template tool info
@@ -780,8 +1108,15 @@ public class TemplateTestPromptingSystem {
         )
 
         // Combine inherited responses with current parsed responses
+        // Filter inherited responses to avoid conflicts with current command's arguments
         let currentArgNames = Set(allArgs.map(\.valueName))
-        let relevantInheritedResponses = inheritedResponses.filter { !currentArgNames.contains($0.argument.valueName) }
+        let relevantInheritedResponses = inheritedResponses.filter { inherited in
+            !currentArgNames.contains(inherited.argument.valueName) &&
+            // Also check if any current responses would conflict
+            !answeredArgs.contains { answered in
+                answered.argument.valueName == inherited.argument.valueName
+            }
+        }
 
         var allCurrentResponses = Array(answeredArgs) + relevantInheritedResponses
         visitedArgs.formUnion(answeredArgs)
@@ -832,10 +1167,9 @@ public class TemplateTestPromptingSystem {
 
                 let shouldTraverse: Bool = if branches.isEmpty {
                     true
-                } else if branchDepth < (branches.count - 1) {
-                    matchedSubcommand.commandName == branches[branchDepth + 1]
                 } else {
-                    matchedSubcommand.commandName == branches[branchDepth]
+                    // Branch filtering: branchDepth 0 = root, so first branch corresponds to branchDepth 0
+                    branchDepth < branches.count && matchedSubcommand.commandName == branches[branchDepth]
                 }
 
                 if shouldTraverse {
@@ -855,10 +1189,9 @@ public class TemplateTestPromptingSystem {
                 for sub in subcommands {
                     let shouldTraverse: Bool = if branches.isEmpty {
                         true
-                    } else if branchDepth < (branches.count - 1) {
-                        sub.commandName == branches[branchDepth + 1]
                     } else {
-                        sub.commandName == branches[branchDepth]
+                        // Adjust for root command: branchDepth 0 corresponds to first branch element
+                        branchDepth < branches.count && sub.commandName == branches[branchDepth]
                     }
 
                     if shouldTraverse {
@@ -944,10 +1277,7 @@ public class TemplateTestPromptingSystem {
     /// }
     /// ```
     func convertArguments(from command: CommandInfoV0) throws -> [ArgumentInfoV0] {
-        guard let rawArgs = command.arguments else {
-            throw TemplateError.noArguments
-        }
-        return rawArgs
+        return command.arguments ?? []
     }
 
     /// A utility for prompting users for command argument values.
@@ -1040,9 +1370,7 @@ public class TemplateTestPromptingSystem {
                     switch arg.kind {
                     case .flag:
                         if !hasTTY && arg.isOptional == false && arg.defaultValue == nil {
-                            fatalError(
-                                "Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available"
-                            )
+                            throw TemplateError.missingRequiredArgumentWithoutTTY(name: arg.valueName ?? "")
                         }
 
                         var confirmed: Bool? = nil
@@ -1069,9 +1397,7 @@ public class TemplateTestPromptingSystem {
 
                     case .option, .positional:
                         if !hasTTY && arg.isOptional == false && arg.defaultValue == nil {
-                            fatalError(
-                                "Required argument '\(arg.valueName ?? "")' not provided and no interactive terminal available"
-                            )
+                            throw TemplateError.missingRequiredArgumentWithoutTTY(name: arg.valueName ?? "")
                         }
 
                         if hasTTY {
@@ -1095,11 +1421,10 @@ public class TemplateTestPromptingSystem {
                                         return response
                                     }
                                     if let allowed = arg.allValues, !allowed.contains(input) {
-                                        print(
-                                            "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
-                                        )
-                                        continue
-                                    }
+                                          print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
+                                          print("Or try completion suggestions: \(self.generateCompletionSuggestions(for: arg, input: input))")
+                                          continue
+                                      }
                                     values.append(input)
                                 }
                             }
@@ -1107,9 +1432,43 @@ public class TemplateTestPromptingSystem {
                                 values = [def]
                             }
                         } else {
-                            let input = hasTTY ? readLine() : nil
-                            if let input, !input.isEmpty {
-                                if input.lowercased() == "nil" && arg.isOptional {
+                            if hasTTY {
+                                while true {
+                                    guard let input = readLine(), !input.isEmpty else {
+                                        if let def = arg.defaultValue {
+                                            values = [def]
+                                            break
+                                        }
+                                        if !arg.isOptional {
+                                            print("This option/argument is required. Please specify a value")
+                                            continue
+                                        }
+                                        break
+                                    }
+
+                                    if input.lowercased() == "nil" && arg.isOptional {
+                                        values = []
+                                        let response = ArgumentResponse(
+                                            argument: arg,
+                                            values: values,
+                                            isExplicitlyUnset: true
+                                        )
+                                        collected[key] = response
+                                        return response
+                                    }
+                                    if let allowed = arg.allValues, !allowed.contains(input) {
+                                        print("Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))")
+                                        print("Or try completion suggestions: \(self.generateCompletionSuggestions(for: arg, input: input))")
+                                        continue
+                                    }
+
+                                    values = [input]
+                                    break
+                                }
+                            } else {
+                                if let def = arg.defaultValue {
+                                    values = [def]
+                                } else if arg.isOptional {
                                     values = []
                                     let response = ArgumentResponse(
                                         argument: arg,
@@ -1118,38 +1477,13 @@ public class TemplateTestPromptingSystem {
                                     )
                                     collected[key] = response
                                     return response
-                                } else {
-                                    if let allowed = arg.allValues, !allowed.contains(input) {
-                                        if hasTTY {
-                                            print(
-                                                "Invalid value '\(input)'. Allowed values: \(allowed.joined(separator: ", "))"
-                                            )
-                                            print(
-                                                "Or try completion suggestions: \(self.generateCompletionSuggestions(for: arg, input: input))"
-                                            )
-                                            fatalError("Invalid value provided")
-                                        } else {
-                                            throw TemplateError.invalidValue(
-                                                argument: arg.valueName ?? "",
-                                                invalidValues: [input],
-                                                allowed: allowed
-                                            )
-                                        }
-                                    }
-                                    values = [input]
-                                }
-                            } else if let def = arg.defaultValue {
-                                values = [def]
-                            } else if arg.isOptional == false {
-                                if hasTTY {
-                                    fatalError("Required argument '\(arg.valueName ?? "")' not provided.")
+                                    
                                 } else {
                                     throw TemplateError.missingRequiredArgumentWithoutTTY(name: arg.valueName ?? "")
                                 }
                             }
                         }
                     }
-
                     let response = ArgumentResponse(argument: arg, values: values, isExplicitlyUnset: false)
                     collected[key] = response
                     return response
@@ -1497,7 +1831,7 @@ public class TemplateTestPromptingSystem {
 ///     print("Invalid value for \(arg): \(invalid). Allowed: \(allowed)")
 /// }
 /// ```
-private enum TemplateError: Swift.Error {
+private enum TemplateError: Swift.Error, Equatable {
     /// The provided file path is invalid or does not exist.
     case invalidPath
 
@@ -1540,6 +1874,17 @@ private enum TemplateError: Swift.Error {
 
     /// Subcommand selection requires an interactive terminal but none is available.
     case noTTYForSubcommandSelection
+    
+    /// A required argument is missing.
+    /// - Parameter name: The name of the missing required argument
+    case missingRequiredArgument(name: String)
+    
+    /// Too many values provided for a non-repeating argument.
+    /// - Parameters:
+    ///   - argument: The argument name that received too many values
+    ///   - expected: The expected number of values (typically 1)
+    ///   - received: The actual number of values received
+    case tooManyValues(argument: String, expected: Int, received: Int)
 }
 
 extension TemplateError: CustomStringConvertible {
@@ -1587,6 +1932,10 @@ extension TemplateError: CustomStringConvertible {
             "Required argument '\(name)' not provided and no interactive terminal available"
         case .noTTYForSubcommandSelection:
             "Cannot select subcommand interactively - no terminal available"
+        case .missingRequiredArgument(name: let name):
+            "Required argument '\(name)' not provided"
+        case .tooManyValues(argument: let argument, expected: let expected, received: let received):
+            "Too many values for argument '\(argument)'. Expected \(expected), but received \(received)"
         }
     }
 }

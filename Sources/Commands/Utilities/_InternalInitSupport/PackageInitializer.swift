@@ -79,7 +79,7 @@ struct TemplatePackageInitializer: PackageInitializer {
                 .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
             let resolvedTemplateName: String = if self.templateName == nil {
-                try await self.findTemplateName(from: resolvedTemplatePath)
+                try await self.resolveTemplateNameInPackage(from: resolvedTemplatePath)
             } else {
                 self.templateName!
             }
@@ -214,7 +214,7 @@ struct TemplatePackageInitializer: PackageInitializer {
     }
 
     /// Finds the template name from a template path.
-    func findTemplateName(from templatePath: Basics.AbsolutePath) async throws -> String {
+    func resolveTemplateNameInPackage(from templatePath: Basics.AbsolutePath) async throws -> String {
         try await self.swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
                 packages: root.packages,

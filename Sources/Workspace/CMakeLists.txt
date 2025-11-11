@@ -28,6 +28,15 @@ add_library(Workspace
   TemplateWorkspaceUtilities/InitTemplatePackage.swift
   TemplateWorkspaceUtilities/InitPackage.swift
   TemplateWorkspaceUtilities/TemplateDirectoryManager.swift
+  TemplateWorkspaceUtilities/ArgumentProcessing/ArgumentProcessor.swift
+  TemplateWorkspaceUtilities/ArgumentProcessing/ArgumentResponse.swift
+  TemplateWorkspaceUtilities/CommandParsing/ParsedArgument.swift
+  TemplateWorkspaceUtilities/CommandParsing/SplitArguments.swift
+  TemplateWorkspaceUtilities/CommandParsing/TemplateCommandParser.swift
+  TemplateWorkspaceUtilities/Models/ErrorModels.swift
+  TemplateWorkspaceUtilities/Models/ParsingModels.swift
+  TemplateWorkspaceUtilities/Models/ProcessingModels.swift
+  TemplateWorkspaceUtilities/UserInteraction/InteractivePrompter.swift
   ToolsVersionSpecificationRewriter.swift
   Workspace.swift
   Workspace+BinaryArtifacts.swift
