@@ -6807,6 +6807,114 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertMatch(dynamicLibraryPathExtension, "dylib")
     }
 
+    func testXCFrameworkBinaryTargetsLinux(platform: String = "linux", arch: String, targetTriple: Basics.Triple) async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            Pkg.appending(components: "Sources", "exe", "main.swift").pathString,
+            Pkg.appending(components: "Sources", "Library", "Library.swift").pathString
+        )
+
+        try fs.createDirectory("/Pkg/Framework.xcframework", recursive: true)
+        try fs.writeFileContents(
+            "/Pkg/Framework.xcframework/Info.plist",
+            string: """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>AvailableLibraries</key>
+                <array>
+                    <dict>
+                        <key>LibraryIdentifier</key>
+                        <string>\(platform)-\(arch)</string>
+                        <key>LibraryPath</key>
+                        <string>Framework.framework</string>
+                        <key>SupportedArchitectures</key>
+                        <array>
+                            <string>\(arch)</string>
+                        </array>
+                        <key>SupportedPlatform</key>
+                        <string>\(platform)</string>
+                    </dict>
+                </array>
+                <key>CFBundlePackageType</key>
+                <string>XFWK</string>
+                <key>XCFrameworkFormatVersion</key>
+                <string>1.0</string>
+            </dict>
+            </plist>
+            """
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: .init(validating: Pkg.pathString),
+                    products: [
+                        ProductDescription(name: "exe", type: .executable, targets: ["exe"]),
+                        ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "exe", dependencies: ["Library"]),
+                        TargetDescription(name: "Library", dependencies: ["Framework"]),
+                        TargetDescription(name: "Framework", path: "Framework.xcframework", type: .binary),
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("pkg"): [
+                    "Framework": .init(kind: .xcframework, originURL: nil, path: "/Pkg/Framework.xcframework"),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: targetTriple,
+            graph: graph,
+            enableXCFrameworksOnLinux: true,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        result.checkProductsCount(2)
+        result.checkTargetsCount(2)
+
+        let buildPath = result.plan.productsBuildPath
+
+        let libraryBasicArguments = try result.moduleBuildDescription(for: "Library").swift().compileArguments()
+        XCTAssertMatch(
+            libraryBasicArguments,
+            [.anySequence, "-I", "\(Pkg.appending(components: "Framework.xcframework", "\(platform)-\(arch)"))", .anySequence]
+        )
+
+        let libraryLinkArguments = try result.buildProduct(for: "Library").linkArguments()
+        XCTAssertMatch(libraryLinkArguments, [.anySequence, "-L", "\(buildPath)", .anySequence])
+
+        let exeCompileArguments = try result.moduleBuildDescription(for: "exe").swift().compileArguments()
+        XCTAssertMatch(
+            exeCompileArguments,
+            [.anySequence, "-I", "\(Pkg.appending(components: "Framework.xcframework", "\(platform)-\(arch)"))", .anySequence]
+        )
+
+        let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
+        XCTAssertMatch(exeLinkArguments, [.anySequence, "-L", "\(buildPath)", .anySequence])
+
+        let executablePathExtension = try result.buildProduct(for: "exe").binaryPath.extension ?? ""
+        XCTAssertMatch(executablePathExtension, "")
+
+        let dynamicLibraryPathExtension = try result.buildProduct(for: "Library").binaryPath.extension
+        XCTAssertMatch(dynamicLibraryPathExtension, "so")
+    }
+
     func testXCFrameworkBinaryTargets() async throws {
         try await self.testXCFrameworkBinaryTargets(platform: "macos", arch: "x86_64", targetTriple: .x86_64MacOS)
 
@@ -6815,6 +6923,12 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let arm64eTriple = try Basics.Triple("arm64e-apple-macosx")
         try await self.testXCFrameworkBinaryTargets(platform: "macos", arch: "arm64e", targetTriple: arm64eTriple)
+
+        let x86_64Linux = try Basics.Triple("x86_64-unknown-linux-gnu")
+        try await self.testXCFrameworkBinaryTargetsLinux(arch: "x86_64", targetTriple: x86_64Linux)
+
+        let aarch64Linux = try Basics.Triple("aarch64-unknown-linux-gnu")
+        try await self.testXCFrameworkBinaryTargetsLinux(arch: "aarch64", targetTriple: aarch64Linux)
     }
 
     func testArtifactsArchiveBinaryTargets(
