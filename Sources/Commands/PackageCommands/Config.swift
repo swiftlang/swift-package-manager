@@ -22,7 +22,8 @@ extension SwiftPackageCommand {
     struct Config: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Manipulate configuration of the package",
-            subcommands: [SetMirror.self, UnsetMirror.self, GetMirror.self]
+            subcommands: [SetMirror.self, UnsetMirror.self, GetMirror.self],
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
     }
 }
