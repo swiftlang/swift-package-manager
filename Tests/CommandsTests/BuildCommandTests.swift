@@ -1760,6 +1760,45 @@ struct BuildCommandTestCases {
             data.config == .release
         }
     }
+
+    @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        arguments: getBuildData(for: [.swiftbuild]),
+    )
+    func trivialPackageResources(
+        data: BuildData,
+    ) async throws {
+        let buildSystem = data.buildSystem
+        try await fixture(name: "Miscellaneous/TIF") { fixturePath in
+            let result = try await build(
+                [],
+                packagePath: fixturePath,
+                configuration: data.config,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+            try #require(result.binContents.contains("TIF_TIF.bundle"))
+            let contentsDir = result.binPath.appending("TIF_TIF.bundle", "Contents")
+            let bundleResourceDir = contentsDir.appending("Resources")
+
+            let bundleResources = try localFileSystem.getDirectoryContents(bundleResourceDir)
+            #expect(bundleResources.contains("some.txt"))
+            #expect(bundleResources.contains("Assets.car"))
+            #expect(bundleResources.contains("SomeAlert.nib"))
+
+            // Check that the Info.plist of the resource bundle looks reasonable.  In particular, it shouldn't have a CFBundleExecutable key, since it's a codeless bundle.
+            let infoPlistPath = contentsDir.appending("Info.plist")
+            let infoPlistBytes = try localFileSystem.readFileContents(infoPlistPath)
+            let infoPlist = try infoPlistBytes.withData({
+                try #require(PropertyListSerialization.propertyList(from: $0, options: [], format: nil) as? NSDictionary, "couldn't parse built resource bundle's Info.plist as a property list")
+            })
+            #expect(infoPlist["CFBundleExecutable"] == nil, "Expected CFBundleExecutable to be omitted from the Info.plist of a codeless resource bundle")
+        }
+    }
 }
 
 extension Triple {
