@@ -192,8 +192,3 @@ extension Tag.Feature.Product {
     @Tag public static var Execute: Tag
     @Tag public static var Link: Tag
 }
-
-extension Tag.Feature.Product {
-    @Tag public static var Execute: Tag
-    @Tag public static var Link: Tag
-}
