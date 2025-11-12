@@ -32,7 +32,9 @@ extension Triple {
             // can be used to build for any Apple platform and it has its own
             // conventions for build subpaths based on platforms.
             return "apple"
-        case .swiftbuild, .native:
+        case .swiftbuild:
+            return "out"
+        case .native:
             return self.platformBuildPathComponent
         }
     }

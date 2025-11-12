@@ -66,7 +66,7 @@ extension BuildSystemProvider.Kind {
         case .native:
             return scratchPath + [tripleString, "\(config)".lowercased()]
         case .swiftbuild:
-            return scratchPath + [tripleString, "Products", "\(config)".capitalized + suffix]
+            return scratchPath + ["out", "Products", "\(config)".capitalized + suffix]
         case .xcode:
             return scratchPath + ["apple", "Products", "\(config)".capitalized + suffix]
         }
