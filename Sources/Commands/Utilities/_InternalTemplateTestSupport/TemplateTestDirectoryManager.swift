@@ -31,10 +31,7 @@ public struct TemplateTestingDirectoryManager {
         let fs = swiftCommandState.fileSystem
 
         if !self.helper.directoryExists(outputDirectoryPath) {
-            try FileManager.default.createDirectory(
-                at: outputDirectoryPath.asURL,
-                withIntermediateDirectories: true
-            )
+            try fileSystem.createDirectory(outputDirectoryPath)
         } else if fs.exists(manifestPath) {
             self.observabilityScope.emit(
                 error: DirectoryManagerError.foundManifestFile(path: outputDirectoryPath)
