@@ -152,7 +152,10 @@ private struct SwiftPMTests {
         }
     }
 
-    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    @Test(
+        .requireHostOS(.macOS),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func testArchCustomization(buildSystem: BuildSystemProvider.Kind) async throws {
         try await  withTemporaryDirectory { tmpDir in
             let packagePath = tmpDir.appending(component: "foo")
@@ -192,7 +195,7 @@ private struct SwiftPMTests {
                     )
                 case .swiftbuild:
                     fooPath = try AbsolutePath(
-                        validating: ".build/\(arch)-apple-macosx/Products/Debug/foo",
+                        validating: ".build/out/Products/Debug/foo",
                         relativeTo: packagePath
                     )
                 default:
@@ -225,7 +228,7 @@ private struct SwiftPMTests {
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(
-                    validating: ".build/\(hostArch)-apple-macosx/Products/Debug/foo",
+                    validating: ".build/out/Products/Debug/foo",
                     relativeTo: packagePath
                 )
             default:
