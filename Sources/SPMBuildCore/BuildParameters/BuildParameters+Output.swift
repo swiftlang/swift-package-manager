@@ -15,14 +15,18 @@ extension BuildParameters {
     public struct Output: Encodable {
         public init(
             isColorized: Bool = false,
-            isVerbose: Bool = false
+            isVerbose: Bool = false,
+            enableTaskBacktraces: Bool = false
         ) {
             self.isColorized = isColorized
             self.isVerbose = isVerbose
+            self.enableTaskBacktraces = enableTaskBacktraces
         }
 
         public var isColorized: Bool
 
         public var isVerbose: Bool
+
+        public var enableTaskBacktraces: Bool
     }
 }
