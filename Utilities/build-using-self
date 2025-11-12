@@ -25,7 +25,6 @@ from datetime import datetime
 import typing as t
 
 from helpers import (
-    Configuration,
     change_directory,
     call,
     call_output,
@@ -71,10 +70,8 @@ def get_arguments() -> argparse.Namespace:
     parser.add_argument(
         "-c",
         "--configuration",
-        type=Configuration,
+        type=str,
         dest="config",
-        default=Configuration.DEBUG,
-        choices=[e for e in Configuration],
         help="The configuration to use.",
     )
     parser.add_argument(
@@ -88,6 +85,12 @@ def get_arguments() -> argparse.Namespace:
         "--build-system",
         type=str,
         dest="build_system",
+    )
+    parser.add_argument(
+        "--skip-clean",
+        action="store_false",
+        dest="should_clean",
+        help="When set, do not clean the build output"
     )
     parser.add_argument(
         "--additional-build-args",
@@ -123,10 +126,12 @@ def log_environment() -> None:
         logging.info("  --> %s=%r", key, value)
 
 
-def get_swiftpm_bin_dir(config: Configuration) -> pathlib.Path:
+def get_swiftpm_bin_dir(
+        global_args: t.List[str],
+    ) -> pathlib.Path:
     logging.info("Retrieving Swift PM binary directory.")
     swiftpm_bin_dir = pathlib.Path(
-        call_output(["swift", "build", "--configuration", config, "--show-bin-path"])
+        call_output(["swift", "build", *global_args, "--show-bin-path"])
     )
     logging.info("SwiftPM BIN DIR: %s", swiftpm_bin_dir)
     return swiftpm_bin_dir
@@ -136,10 +141,7 @@ def is_on_darwin() -> bool:
     return platform.system() == "Darwin"
 
 
-def set_environment(
-    *,
-    swiftpm_bin_dir: pathlib.Path,
-) -> None:
+def set_environment() -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
     # Ensure SDKROOT is configure
@@ -198,6 +200,7 @@ def main() -> None:
     globalArgsData = [
         GlobalArgs(global_argument="--triple", value=args.triple),
         GlobalArgs(global_argument="--build-system", value=args.build_system),
+        GlobalArgs(global_argument="--configuration", value=args.config),
     ]
     global_args: t.Iterator[GlobalArgsValueType] = list(
         itertools.chain.from_iterable(
@@ -207,8 +210,8 @@ def main() -> None:
     logging.debug("Global Args: %r", global_args)
     start_time = datetime.now()
     with change_directory(REPO_ROOT_PATH):
-        swiftpm_bin_dir = get_swiftpm_bin_dir(config=args.config)
-        set_environment(swiftpm_bin_dir=swiftpm_bin_dir)
+        swiftpm_bin_dir = get_swiftpm_bin_dir(global_args=global_args)
+        set_environment()
 
         call(
             filterIsTruthy(
@@ -219,43 +222,95 @@ def main() -> None:
             )
         )
 
+        if args.should_clean:
+            call(
+                filterIsTruthy(
+                    [
+                        "swift",
+                        "package",
+                        *global_args,
+                        "clean",
+                    ]
+                )
+            )
+
         call(
             filterIsTruthy(
                 [
                     "swift",
                     "package",
+                    *global_args,
                     "update",
                 ]
             )
         )
+
         call(
             filterIsTruthy(
                 [
                     "swift",
                     "build",
                     *global_args,
-                    "--configuration",
-                    args.config,
                     *ignore_args,
                     *args.additional_build_args.split(" ")
                 ]
             )
         )
+
+        manifest_pif_file = pathlib.Path(".build") / "manifest.pif"
+        logging.info("PIF manifest file %s contents are: ", manifest_pif_file)
+        logging.info("Contents are: \n %s", manifest_pif_file.read_text())
+
+        out_dir = call_output(
+             filterIsTruthy(
+                [
+                    "swift",
+                    "build",
+                    *global_args,
+                    *ignore_args,
+                    "--show-bin-path"
+                ]
+            )
+        )
+        logging.info("Build path directory      : %s", out_dir)
+        logging.info("Listing files in directory: %s", out_dir)
+        for item in sorted(os.listdir(path=out_dir)):
+            logging.info(" -> %s", item)
+
         call(
             filterIsTruthy(
                 [
                     "swift",
                     "run",
+                    *global_args,
                     *ignore_args,
-                    *args.additional_run_args.split(" "),
+                    "swift-build",
+                    # swiftpm_bin_dir / "swift-build",
+                    *global_args,
+                    *ignore_args,
+                    "--very-verbose",
+                    "--force-resolved-versions",
+                    "--scratch-path",
+                    ".build-swb",
+                    *args.additional_build_args.split(" ")
+                ]
+            )
+        )
+
+        call(
+            filterIsTruthy(
+                [
+                    "swift",
+                    "run",
+                    *global_args,
+                    *ignore_args,
                     "swift-test",
                     *global_args,
-                    "--configuration",
-                    args.config,
+                    *ignore_args,
+                    "--force-resolved-versions",
                     "--parallel",
                     "--scratch-path",
                     ".test",
-                    *ignore_args,
                     *args.additional_test_args.split(" ")
                 ]
             )
