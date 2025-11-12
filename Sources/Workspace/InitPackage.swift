@@ -549,7 +549,7 @@ public final class InitPackage {
                     func createBuildCommand(for inputPath: URL, in outputDirectoryPath: URL, with generatorToolPath: URL) -> Command? {
                         // Skip any file that doesn't have the extension we're looking for (replace this with the actual one).
                         guard inputPath.pathExtension == "my-input-suffix" else { return .none }
-                        
+
                         // Return a command that will run during the build to generate the output file.
                         let inputName = inputPath.lastPathComponent
                         let outputName = inputPath.deletingPathExtension().lastPathComponent + ".swift"
@@ -644,7 +644,7 @@ public final class InitPackage {
             content = """
             // The Swift Programming Language
             // https://docs.swift.org/swift-book
-            // 
+            //
             // Swift Argument Parser
             // https://swiftpackageindex.com/apple/swift-argument-parser/documentation
 
@@ -731,6 +731,8 @@ public final class InitPackage {
 
                 @Test func example() async throws {
                     // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+                    // Swift Testing Documentation
+                    // https://swiftpackageindex.com/swiftlang/swift-testing/documentation
                 }
 
                 """
