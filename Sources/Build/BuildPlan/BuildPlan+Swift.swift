@@ -61,11 +61,7 @@ extension BuildPlan {
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 case .xcframework:
-                    let libraries = try self.parseXCFramework(
-                        for: target,
-                        triple: swiftTarget.buildParameters.triple,
-                        enableXCFrameworksOnLinux: swiftTarget.buildParameters.enableXCFrameworksOnLinux
-                    )
+                    let libraries = try self.parseXCFramework(for: target, triple: swiftTarget.buildParameters.triple)
                     for library in libraries {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]

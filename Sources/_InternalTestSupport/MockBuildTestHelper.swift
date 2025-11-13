@@ -91,7 +91,6 @@ public func mockBuildParameters(
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
     omitFramePointers: Bool? = nil,
-    enableXCFrameworksOnLinux: Bool = false,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off
 ) -> BuildParameters {
     try! BuildParameters(
@@ -106,7 +105,6 @@ public func mockBuildParameters(
         workers: 3,
         indexStoreMode: indexStoreMode,
         prepareForIndexing: prepareForIndexing,
-        enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
         debuggingParameters: .init(
             triple: triple,
             shouldEnableDebuggingEntitlement: config == .debug,
