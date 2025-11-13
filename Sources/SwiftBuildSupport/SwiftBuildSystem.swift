@@ -184,6 +184,26 @@ private final class PlanningOperationDelegate: SWBPlanningOperationDelegate, Sen
     }
 }
 
+extension SwiftBuildMessage.LocationContext {
+    var taskID: Int? {
+        switch self {
+        case .task(let id, _), .globalTask(let id):
+            return id
+        case .target, .global:
+            return nil
+        }
+    }
+
+    var targetID: Int? {
+        switch self {
+        case .task(_, let id), .target(let id):
+            return id
+        case .global, .globalTask:
+            return nil
+        }
+    }
+}
+
 /// Handler for SwiftBuildMessage events sent by the active SWBService.
 final class SwiftBuildSystemMessageHandler {
     private var buildSystem: SPMBuildCore.BuildSystem
@@ -195,6 +215,8 @@ final class SwiftBuildSystemMessageHandler {
 
     let progressAnimation: ProgressAnimationProtocol
     var serializedDiagnosticPathsByTargetName: [String: [Basics.AbsolutePath]] = [:]
+
+    private var unprocessedDiagnostics: [SwiftBuildMessage.DiagnosticInfo] = []
 
     public init(
         buildSystem: SPMBuildCore.BuildSystem,
@@ -216,6 +238,7 @@ final class SwiftBuildSystemMessageHandler {
     struct BuildState {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
+        private var taskBuffer: [Int: Data] = [:]
 
         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
             if activeTasks[task.taskID] != nil {
@@ -247,6 +270,19 @@ final class SwiftBuildSystemMessageHandler {
             }
             return target
         }
+
+        mutating func appendToBuffer(taskID id: Int, data: Data) {
+            taskBuffer[id, default: .init()].append(data)
+        }
+
+        func taskBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
+            guard let data = taskBuffer[task.taskID] else {
+//                throw Diagnostics.fatalError
+                return nil
+            }
+
+            return data
+        }
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
@@ -273,9 +309,41 @@ final class SwiftBuildSystemMessageHandler {
         }
     }
 
-    func emitEvent(
-        _ message: SwiftBuild.SwiftBuildMessage
-    ) throws {
+    struct ParsedDiagnostic {
+        var filePath: String
+        var col: Int
+        var line: Int
+        var kind: Diagnostic.Severity
+        var message: String
+        var codeSnippet: String?
+        var fixIts: [String] = []
+    }
+
+    private func parseCompilerOutput(_ info: Data) -> [ParsedDiagnostic] {
+        // How to separate the string by diagnostic chunk:
+        // 1. Decode into string
+        // 2. Determine how many diagnostic message there are;
+        //      a. Determine a parsing method
+        // 3. Serialize into a ParsedDiagnostic, with matching DiagnosticInfo elsewhere
+        let decodedString = String(decoding: info, as: UTF8.self)
+        var diagnostics: [ParsedDiagnostic] = []
+
+        var diagnosticUserDescriptions = unprocessedDiagnostics.compactMap({ info in
+            info.location.userDescription
+        })
+        // For each Diagnostic.Severity, there is a logLabel property that we can
+        // use to search upon in the given Data blob
+        // This can give us san estimate of how many diagnostics there are.
+        for desc in diagnosticUserDescriptions {
+            let doesContain = decodedString.contains(desc)
+            print("does contain diagnostic location \(doesContain)")
+            print("loc: \(desc)")
+        }
+
+        return diagnostics
+    }
+
+    func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws {
         guard !self.logLevel.isQuiet else { return }
         switch message {
         case .buildCompleted(let info):
@@ -298,15 +366,17 @@ final class SwiftBuildSystemMessageHandler {
         case .diagnostic(let info):
             if info.appendToOutputStream {
                 emitInfoAsDiagnostic(info: info)
+            } else {
+                unprocessedDiagnostics.append(info)
             }
         case .output(let info):
-            let parsedOutput = String(decoding: info.data, as: UTF8.self)
-            if parsedOutput.contains("error: ") {
-                self.observabilityScope.emit(severity: .error, message: parsedOutput)
-            } else {
-                self.observabilityScope.emit(info: parsedOutput)
+            // TODO bp possible bug with location context re: locationContext2 nil properties
+            // Grab the taskID to append to buffer-per-task storage
+            guard let taskID = info.locationContext.taskID else {
+                return
             }
-            // Parse the output to extract diagnostics with code snippets
+
+            buildState.appendToBuffer(taskID: taskID, data: info.data)
         case .taskStarted(let info):
             try buildState.started(task: info)
 
@@ -328,6 +398,9 @@ final class SwiftBuildSystemMessageHandler {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
+            if let buffer = buildState.taskBuffer(for: startedInfo) {
+                let parsedOutput = parseCompilerOutput(buffer)
+            }
             if info.result != .success {
                 self.observabilityScope.emit(severity: .error, message: "\(startedInfo.ruleInfo) failed with a nonzero exit code. Command line: \(startedInfo.commandLineDisplayString ?? "<no command line>")")
             }
