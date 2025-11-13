@@ -32,7 +32,7 @@ private struct SwiftPMTests {
                 )
 
                 #if arch(arm64)
-                let arch = "arm64"
+                let arch = "aarch64"
                 #elseif arch(x86_64)
                 let arch = "x86_64"
                 #endif
