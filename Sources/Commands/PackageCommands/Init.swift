@@ -26,6 +26,7 @@ extension SwiftPackageCommand {
     struct Init: AsyncSwiftCommand {
         public static let configuration = CommandConfiguration(
             abstract: "Initialize a new package.",
+            usage: "swift package init [--type <type>] [--enable-xctest] [--disable-xctest] [--enable-swift-testing] [--disable-swift-testing] [--name <name>]",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 

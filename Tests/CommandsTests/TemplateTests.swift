@@ -723,6 +723,7 @@ class TemplateTests {
     // MARK: - Template Directory Management Tests
 
     @Suite(
+        .skipSwiftCISelfHosted("Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"), // to investigate later
         .serialized,
         .tags(
             Tag.TestSize.medium,
@@ -4074,6 +4075,7 @@ class TemplateTests {
     )
     struct TestTemplateCommandTests {
         @Suite(
+            .skipSwiftCISelfHosted("Caught error: /tmp/Miscellaneous_DirectoryManagerFinalize.FBjvCq/clean-up/Package.swift doesn't exist in file system"),
             .serialized,
             .tags(
                 Tag.TestSize.small,

@@ -2075,7 +2075,7 @@ struct PackageCommandTests {
                 let path = tmpPath.appending("Foo")
                 try fs.createDirectory(path)
                 _ = try await execute(
-                    ["init"],
+                    ["init", "--type", "library"],
                     packagePath: path,
                     configuration: data.config,
                     buildSystem: data.buildSystem,
