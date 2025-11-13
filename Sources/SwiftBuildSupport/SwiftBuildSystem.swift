@@ -30,18 +30,8 @@ import protocol TSCBasic.OutputByteStream
 import func TSCBasic.withTemporaryFile
 
 import enum TSCUtility.Diagnostics
-import class TSCUtility.JSONMessageStreamingParser
-import protocol TSCUtility.JSONMessageStreamingParserDelegate
-import struct TSCBasic.RegEx
 
 import var TSCBasic.stdoutStream
-
-import class Build.SwiftCompilerOutputParser
-import protocol Build.SwiftCompilerOutputParserDelegate
-import struct Build.SwiftCompilerMessage
-
-// TODO bp
-import class SWBCore.SwiftCommandOutputParser
 
 import Foundation
 import SWBBuildService
@@ -294,6 +284,7 @@ final class SwiftBuildSystemMessageHandler {
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
+        // Assure that we haven't already emitted this diagnostic.
         let fixItsDescription = if info.fixIts.hasContent {
             ": " + info.fixIts.map { String(describing: $0) }.joined(separator: ", ")
         } else {
@@ -322,10 +313,14 @@ final class SwiftBuildSystemMessageHandler {
         guard !self.tasksEmitted.contains(info.taskSignature) else {
             return
         }
+        // Assure we have a data buffer to decode.
         guard let buffer = buildState.dataBuffer(for: info) else {
             return
         }
 
+        // Fetch the task signature for a SwiftBuildMessage.DiagnosticInfo,
+        // falling back to using the deprecated `locationContext` if we fail
+        // to find it through the `locationContext2`.
         func getTaskSignature(from info: SwiftBuildMessage.DiagnosticInfo) -> String? {
             if let taskSignature = info.locationContext2.taskSignature {
                 return taskSignature
@@ -346,6 +341,7 @@ final class SwiftBuildSystemMessageHandler {
             self.observabilityScope.emit(info: decodedOutput)
         }
 
+        // Record that we've emitted the output for a given task signature.
         self.tasksEmitted.insert(info.taskSignature)
     }
 
