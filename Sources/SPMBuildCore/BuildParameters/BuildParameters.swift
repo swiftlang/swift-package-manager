@@ -132,9 +132,6 @@ public struct BuildParameters: Encodable {
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
 
-    /// Support Experimental XCF on Linux
-    public var enableXCFrameworksOnLinux: Bool
-
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -169,7 +166,6 @@ public struct BuildParameters: Encodable {
         indexStoreMode: IndexStoreMode = .auto,
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
-        enableXCFrameworksOnLinux: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -233,7 +229,6 @@ public struct BuildParameters: Encodable {
         self.indexStoreMode = indexStoreMode
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
-        self.enableXCFrameworksOnLinux = enableXCFrameworksOnLinux
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters

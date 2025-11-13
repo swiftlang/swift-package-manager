@@ -515,13 +515,6 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-prepare-for-indexing-no-lazy"), help: .hidden)
     var prepareForIndexingNoLazy: Bool = false
 
-    /// Hidden option to allow XCFrameworks on Linux
-    @Flag(
-        name: .customLong("experimental-xcframeworks-on-linux"),
-        help: .hidden
-    )
-    public var enableXCFrameworksOnLinux: Bool = false
-
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     public var shouldEnableParseableModuleInterfaces: Bool = false

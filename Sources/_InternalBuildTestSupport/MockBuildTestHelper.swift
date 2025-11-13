@@ -66,7 +66,6 @@ public func mockBuildPlan(
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     omitFramePointers: Bool? = nil,
-    enableXCFrameworksOnLinux: Bool = false,
     driverParameters: BuildParameters.Driver = .init(),
     linkingParameters: BuildParameters.Linking = .init(),
     targetSanitizers: EnabledSanitizers = .init(),
@@ -106,8 +105,7 @@ public func mockBuildPlan(
         toolchain: toolchain,
         flags: commonFlags,
         triple: inferredTriple,
-        indexStoreMode: indexStoreMode,
-        enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
+        indexStoreMode: indexStoreMode
     )
     destinationParameters.debuggingParameters = commonDebuggingParameters
     destinationParameters.driverParameters = driverParameters
@@ -121,8 +119,7 @@ public func mockBuildPlan(
         toolchain: toolchain,
         flags: commonFlags,
         triple: inferredTriple,
-        indexStoreMode: indexStoreMode,
-        enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
+        indexStoreMode: indexStoreMode
     )
     hostParameters.debuggingParameters = commonDebuggingParameters
     hostParameters.driverParameters = driverParameters
