@@ -23,7 +23,9 @@ import var TSCBasic.stdoutStream
 extension SwiftPackageCommand {
     struct ShowDependencies: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Print the resolved dependency graph.")
+            abstract: "Print the resolved dependency graph.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

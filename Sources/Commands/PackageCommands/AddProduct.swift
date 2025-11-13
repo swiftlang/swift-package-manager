@@ -35,7 +35,9 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new product to the manifest.")
+            abstract: "Add a new product to the manifest.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

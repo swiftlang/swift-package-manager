@@ -21,7 +21,8 @@ extension SwiftPackageCommand {
     struct ArchiveSource: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "archive-source",
-            abstract: "Create a source archive for the package."
+            abstract: "Create a source archive for the package.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup(visibility: .hidden)

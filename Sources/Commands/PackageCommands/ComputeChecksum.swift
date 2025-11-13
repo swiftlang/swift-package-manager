@@ -19,7 +19,9 @@ import struct TSCBasic.SHA256
 
 struct ComputeChecksum: SwiftCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Compute the checksum for a binary artifact.")
+        abstract: "Compute the checksum for a binary artifact.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+    )
 
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions

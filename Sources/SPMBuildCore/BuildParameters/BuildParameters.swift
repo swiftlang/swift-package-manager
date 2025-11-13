@@ -242,10 +242,14 @@ public struct BuildParameters: Encodable {
         switch buildSystemKind {
         case .xcode, .swiftbuild:
             var configDir: String = configuration.dirname.capitalized
-            if self.triple.isWindows() {
-                configDir += "-windows"
-            } else if self.triple.isLinux() {
-                configDir += "-linux"
+            if self.triple.isMacOSX {
+                // no suffix
+            } else if self.triple.isAndroid() {
+                configDir += "-android"
+            } else if self.triple.isWasm {
+                configDir += "-webassembly"
+            } else {
+                configDir += "-" + (self.triple.darwinPlatform?.platformName ?? self.triple.osNameUnversioned)
             }
             return dataPath.appending(components: "Products", configDir)
         case .native:

@@ -22,7 +22,7 @@ import _InternalTestSupport
 import Workspace
 
 extension PIFBuilderParameters {
-    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath) throws -> Self {
+    fileprivate static func constructDefaultParametersForTesting(temporaryDirectory: Basics.AbsolutePath, addLocalRpaths: Bool) throws -> Self {
         self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
@@ -37,12 +37,13 @@ extension PIFBuilderParameters {
             ),
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
-            additionalFileRules: []
+            additionalFileRules: [],
+            addLocalRPaths: addLocalRpaths
         )
     }
 }
 
-fileprivate func withGeneratedPIF(fromFixture fixtureName: String, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
+fileprivate func withGeneratedPIF(fromFixture fixtureName: String, addLocalRpaths: Bool = true, do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()) async throws {
     try await fixture(name: fixtureName) { fixturePath in
         let observabilitySystem = ObservabilitySystem.makeForTesting()
         let workspace = try Workspace(
@@ -58,7 +59,7 @@ fileprivate func withGeneratedPIF(fromFixture fixtureName: String, do doIt: (Swi
         )
         let builder = PIFBuilder(
             graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath),
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(temporaryDirectory: fixturePath, addLocalRpaths: addLocalRpaths),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
@@ -235,6 +236,38 @@ struct PIFBuilderTests {
                     .buildConfig(named: "Release")
                 let arg = try #require(releaseConfig.impartedBuildProperties.settings[.OTHER_CFLAGS]?.first)
                 #expect(arg.hasPrefix("-fmodule-map-file") && arg.hasSuffix(RelativePath("CustomModuleMap").appending(components: ["include", "module.modulemap"]).pathString))
+            }
+        }
+    }
+
+    @Test func disablingLocalRpaths() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: "Release")
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(inherited)"])
+            }
+        }
+
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: false) { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: "Release")
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
             }
         }
     }

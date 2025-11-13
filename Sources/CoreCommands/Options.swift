@@ -526,6 +526,7 @@ public struct BuildOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
+    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
@@ -578,6 +579,10 @@ public struct BuildOptions: ParsableArguments {
     // this can be removed once the backtracer uses DWARF instead of frame pointers
     @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
+
+    // Whether to enable task backtrace logging.
+    @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
+    public var enableTaskBacktraces: Bool = false
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )

@@ -42,7 +42,8 @@ extension SwiftPackageCommand {
         }
 
         package static let configuration = CommandConfiguration(
-            abstract: "Add a new target to the manifest."
+            abstract: "Add a new target to the manifest.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @OptionGroup(visibility: .hidden)

@@ -133,7 +133,7 @@ struct PackageCommandTests {
     @Test
     func seeAlso() async throws {
         let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
-        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test"))
+        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
     @Test
@@ -151,6 +151,130 @@ struct PackageCommandTests {
         let stdout = try await SwiftPM.Package.execute(["--version"], ).stdout
         let expectedRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
         #expect(stdout.contains(expectedRegex))
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandFailsSilentlyWhenFetchingPluginFails(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(!stdout.contains("MySourceGenBuildToolPlugin"))
+            #expect(!stdout.contains("MySourceGenPrebuildPlugin"))
+        }
+    }
+
+    // Have to create empty package, as in CI, --help is invoked on swiftPM, causing test to fail
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysNoAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+
+            let packageDir = tmpPath.appending(components: "MyPackage")
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+            )
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .plugin(
+                                name: "MyPlugin",
+                                capability: .command(
+                                    intent: .custom(verb: "mycmd", description: "What is mycmd anyway?")
+                                ),
+                                dependencies: [
+                                    .target(name: "LocalBuiltTool"),
+                                ]
+                            ),
+                            .executableTarget(
+                                name: "LocalBuiltTool"
+                            )
+                        ]
+                    )
+                    """
+            )
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"),
+                string: #"print("Hello")"#
+            )
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                string: """
+                    import PackagePlugin
+                    import Foundation
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            print("This is MyCommandPlugin.")
+                        }
+                    }
+                    """
+            )
+
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(stdout.contains("mycmd"))
+            #expect(stdout.contains("(plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+        }
     }
 
     @Test(
