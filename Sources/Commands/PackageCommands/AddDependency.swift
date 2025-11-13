@@ -57,8 +57,8 @@ extension SwiftPackageCommand {
         @Option(help: "Specify dependency type.")
         var type: DependencyType = .url
 
-        @Option(name: .customLong("package-manifests"), help: "Filter manifests by name pattern")
-        var packageManifests: [String] = []
+        @Option(name: .customLong("filter-manifests"), help: "Filter manifests by name pattern")
+        var manifestFilter: [String] = []
 
         enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {
             case url
@@ -258,12 +258,11 @@ extension SwiftPackageCommand {
             }
 
             // Filter manifests by name patterns if specified
-            if !packageManifests.isEmpty {
+            if !manifestFilter.isEmpty {
                 manifests = manifests.filter { manifestPath in
                     let fileName = manifestPath.basename
-                    return packageManifests.contains { pattern in
-                        fileName.contains(pattern) ||
-                        NSPredicate(format: "SELF LIKE %@", pattern).evaluate(with: fileName)
+                    return manifestFilter.contains { pattern in
+                        fileName == pattern
                     }
                 }
             }

@@ -2152,7 +2152,7 @@ struct PackageCommandTests {
                     packagePath: path,
                     initialManifests: manifests,
                     url: url,
-                    requirementArgs: ["--exact", "601.0.1", "--package-manifests", "Package@swift-6.1.swift"],
+                    requirementArgs: ["--exact", "601.0.1", "--filter-manifests", "Package@swift-6.1.swift"],
                     expectedManifestString: expected,
                     buildData: data,
                 )
