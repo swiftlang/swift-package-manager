@@ -57,6 +57,9 @@ extension SwiftPackageCommand {
         @Option(help: "Specify dependency type.")
         var type: DependencyType = .url
 
+        @Option(name: .customLong("package-manifests"), help: "Filter manifests by name pattern")
+        var packageManifests: [String] = []
+
         enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {
             case url
             case path
@@ -236,7 +239,6 @@ extension SwiftPackageCommand {
 
             // Add standard manifest if it exists
             let standardManifest = packagePath.appending(component: Manifest.filename)
-            let manifestContents: ByteString
             if fileSystem.isFile(standardManifest) {
                 manifests.append(standardManifest)
             }
@@ -254,9 +256,20 @@ extension SwiftPackageCommand {
             } catch {
                 // If we cannot read directory, just use standard manifest
             }
+
+            // Filter manifests by name patterns if specified
+            if !packageManifests.isEmpty {
+                manifests = manifests.filter { manifestPath in
+                    let fileName = manifestPath.basename
+                    return packageManifests.contains { pattern in
+                        fileName.contains(pattern) ||
+                        NSPredicate(format: "SELF LIKE %@", pattern).evaluate(with: fileName)
+                    }
+                }
+            }
+
             return manifests
         }
-
 
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
@@ -279,6 +292,11 @@ extension SwiftPackageCommand {
                     try applyEditsToSingleManifest(manifestPath: manifest, fileSystem: fileSystem, packageDependency: packageDependency)
                     successCount += 1
                 } catch {
+                    // For single manifest scenarios, rethrow error
+                    if packageManifests.count == 1 {
+                        throw error
+                    }
+                    // For multiple manifests, collect error message
                     let errorMessage = "Failed to update \(manifest.basename)"
                     errors.append(errorMessage)
                 }
