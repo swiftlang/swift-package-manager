@@ -15,12 +15,12 @@ import Testing
 @testable import struct _InternalTestSupport.CombinationsWithRepetition
 
 fileprivate let d = [
-            [],
-            [""],
-            ["line1"],
-            ["line1", "line2"],
-            ["line1", "line2", "line3"],
-        ]
+    [],
+    [""],
+    ["line1"],
+    ["line1", "line2"],
+    ["line1", "line2", "line3"],
+]
 fileprivate let prefixAndSuffixData = CombinationsWithRepetition(of: d, length: 2).map( {data in
     // Content(prefix: data.0, suffix: data.1)
     Content(prefix: data[0], suffix: data[1])
@@ -46,18 +46,20 @@ fileprivate struct Content {
 struct ProcessInfoExtensionTests {
 
     @Suite
-    struct isAmazonLinux2 {
+    struct isHostOsTests {
         @Test(
             arguments: [
-                (contentUT: "", expected: false),
-                (contentUT: "PRETTY_NAME=", expected: false),
-                (contentUT: "PRETTY_NAME=foo", expected: false),
-                (contentUT: "PRETTY_NAME=amzn", expected: false),
-                (contentUT: "PRETTY_NAME=Amazon Linux 2", expected: false),
-                (contentUT: "PRETTY_NAME=Amazon Linux 2023.6.20250107", expected: false),
-                (contentUT: " PRETTY_NAME=amzn", expected: false),
-                (contentUT: "PRETTY_NAME=\"Amazon Linux 2\"", expected: true),
-                (contentUT: "PRETTY_NAME=\"Amazon Linux 2 (something else)\"", expected: false),
+                (contentUT: "", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=foo", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=amzn", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=Amazon Linux 2", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=Amazon Linux 2", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=Amazon Linux 2023.6.20250107", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: " PRETTY_NAME=amzn", nameUT: "Amazon Linux 2", expected: false),
+                (contentUT: "PRETTY_NAME=\"Amazon Linux 2\"", nameUT: "Amazon Linux 2", expected: true),
+                (contentUT: "  PRETTY_NAME=\"Amazon Linux 2\"", nameUT: "Amazon Linux 2", expected: true),
+                (contentUT: "PRETTY_NAME=\"Amazon Linux 2 (something else)\"", nameUT: "Amazon Linux 2", expected: false),
                 (
                     contentUT: """
                         NAME="Amazon Linux"
@@ -71,6 +73,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    nameUT: "Amazon Linux 2",
                     expected: true
                 ),
                 (
@@ -86,6 +89,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    nameUT: "Amazon Linux 2",
                     expected: false
                 ),
                 (
@@ -101,6 +105,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    nameUT: "Amazon Linux 2",
                     expected: false
                 ),
                 (
@@ -116,6 +121,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    nameUT: "Amazon Linux 2",
                     expected: false
                 ),
                 (
@@ -137,28 +143,60 @@ struct ProcessInfoExtensionTests {
                     VENDOR_URL="https://aws.amazon.com/"
                     SUPPORT_END="2028-03-15"
                     """,
+                    nameUT: "Amazon Linux 2",
+                    expected: false,
+                ),
+                (
+                    contentUT: """
+                    NAME="Amazon Linux"
+                    PLATFORM_ID="platform:al2023"
+                    PRETTY_NAME="myFoo"
+                    ANSI_COLOR="0;33"
+                    CPE_NAME="cpe:2.3:o:amazon:amazon_linux:2023"
+                    """,
+                    nameUT: "myfoo",
                     expected: false,
                 )
             ], prefixAndSuffixData,
         )
-        fileprivate func isAmazonLinux2ReturnsExpectedValue(
-            data: (contentUT: String, expected: Bool),
+        fileprivate func isHostOsReturnsExpectedValue(
+            data: (contentUT: String, nameUT: String, expected: Bool),
             content: Content,
+
         ) async throws {
             let content = content.getContent(data.contentUT)
 
-            let actual = ProcessInfo.isHostAmazonLinux2(content)
+            let actual = ProcessInfo.isHostOs(prettyName: data.nameUT, content: content)
 
             #expect(actual == data.expected, "Content is: '\(content)'")
         }
 
         @Test(
+            .requireHostOS(.windows),
+            .requireHostOS(.macOS),
+        )
+        func isHostOsReturnsFalseIfTheOSFileContentsCannotBeRead() async throws {
+            let actual = ProcessInfo.isHostOs(prettyName: "Amazon Linux 2")
+            #expect(actual == false)
+        }
+
+        @Test(
             "isHostAmazonLinux2 returns false when not executed on Linux",
-            .skipHostOS(.linux),
-            .tags(Tag.TestSize.medium),
+            .skipHostOS(.linux, "Test cannot run on AmazonLinux2, but we can't distinguish linux distributions, so skipping",),
+            .tags(Tag.TestSize.small),
         )
         func isAmazonLinux2ReturnsFalseWhenNotRunOnLinux() {
             let actual = ProcessInfo.isHostAmazonLinux2()
+
+            #expect(actual == false)
+        }
+        @Test(
+            "isHostDebian12 returns false when not executed on Linux",
+            .skipHostOS(.linux, "Test cannot run on Debian 12, but we can't distinguish linux distributions, so skipping",),
+            .tags(Tag.TestSize.small),
+        )
+        func isHostDebian12ReturnsFalseWhenNotRunOnLinux() {
+            let actual = ProcessInfo.isHostDebian12()
 
             #expect(actual == false)
         }

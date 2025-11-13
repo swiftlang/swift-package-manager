@@ -10,7 +10,7 @@
 import Foundation
 
 extension ProcessInfo {
-    public static func isHostAmazonLinux2(_ content: String? = nil) -> Bool {
+    package static func isHostOs(prettyName: String, content: String? = nil) -> Bool {
         let contentString: String
         if let content {
             contentString = content
@@ -22,8 +22,16 @@ extension ProcessInfo {
                 return false
             }
         }
-        let al2_name = "PRETTY_NAME=\"Amazon Linux 2\""
-        return contentString.contains(al2_name)
+        let name = "PRETTY_NAME=\"\(prettyName)\""
+        return contentString.contains(name)
+
+    }
+    public static func isHostAmazonLinux2() -> Bool {
+        return Self.isHostOs(prettyName: "Amazon Linux 2")
+    }
+
+    public static func isHostDebian12() -> Bool {
+        return Self.isHostOs(prettyName: "Debian GNU/Linux 12 (bookworm)")
     }
 
 }

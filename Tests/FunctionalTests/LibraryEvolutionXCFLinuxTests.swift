@@ -10,16 +10,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import _InternalTestSupport
 import Basics
 import Testing
+import PackageLoading
 
 private struct SwiftPMTests {
     @Test(
         .requireSwift6_2,
-        .requireHostOS(.linux)
+        .requireHostOS(.linux),
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Run,
+            .Feature.LibraryEvolution,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9372", relationship: .defect),
     )
     func libraryEvolutionLinuxXCFramework() async throws {
+        try await withKnownIssue {
         try await fixture(name: "Miscellaneous/LibraryEvolutionLinuxXCF") { fixturePath in
             let swiftFramework = "SwiftFramework"
             try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
@@ -104,6 +113,9 @@ private struct SwiftPMTests {
             )
             #expect(!runOutput.stderr.contains("error:"))
             #expect(runOutput.stdout.contains("Latest Framework with LibraryEvolution version: v2"))
+        }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2() || ProcessInfo.isHostDebian12()
         }
     }
 }
