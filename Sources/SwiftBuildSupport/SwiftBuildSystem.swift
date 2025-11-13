@@ -238,13 +238,15 @@ final class SwiftBuildSystemMessageHandler {
     struct BuildState {
         private var targetsByID: [Int: SwiftBuild.SwiftBuildMessage.TargetStartedInfo] = [:]
         private var activeTasks: [Int: SwiftBuild.SwiftBuildMessage.TaskStartedInfo] = [:]
-        private var taskBuffer: [Int: Data] = [:]
+        private var taskBuffer: [String: Data] = [:]
+        private var taskIDToSignature: [Int: String] = [:]
 
         mutating func started(task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) throws {
             if activeTasks[task.taskID] != nil {
                 throw Diagnostics.fatalError
             }
             activeTasks[task.taskID] = task
+            taskIDToSignature[task.taskID] = task.taskSignature
         }
 
         mutating func completed(task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) throws -> SwiftBuild.SwiftBuildMessage.TaskStartedInfo {
@@ -271,13 +273,20 @@ final class SwiftBuildSystemMessageHandler {
             return target
         }
 
-        mutating func appendToBuffer(taskID id: Int, data: Data) {
-            taskBuffer[id, default: .init()].append(data)
+        func taskSignature(for id: Int) -> String? {
+            if let signature = taskIDToSignature[id] {
+                return signature
+            }
+            return nil
         }
 
-        func taskBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
-            guard let data = taskBuffer[task.taskID] else {
-//                throw Diagnostics.fatalError
+        mutating func appendToBuffer(_ task: String, data: Data) {
+            taskBuffer[task, default: .init()].append(data)
+        }
+
+        func dataBuffer(for task: SwiftBuild.SwiftBuildMessage.TaskStartedInfo) -> Data? {
+            guard let data = taskBuffer[task.taskSignature] else {
+                // If there is no available buffer, simply return nil.
                 return nil
             }
 
@@ -370,13 +379,19 @@ final class SwiftBuildSystemMessageHandler {
                 unprocessedDiagnostics.append(info)
             }
         case .output(let info):
-            // TODO bp possible bug with location context re: locationContext2 nil properties
             // Grab the taskID to append to buffer-per-task storage
-            guard let taskID = info.locationContext.taskID else {
+            guard let taskSignature = info.locationContext2.taskSignature else {
+                // If we cannot find the task signature from the locationContext2,
+                // use deprecated locationContext instead.
+                if let taskID = info.locationContext.taskID,
+                    let taskSignature = buildState.taskSignature(for: taskID) {
+                    buildState.appendToBuffer(taskSignature, data: info.data)
+                }
+
                 return
             }
 
-            buildState.appendToBuffer(taskID: taskID, data: info.data)
+            buildState.appendToBuffer(taskSignature, data: info.data)
         case .taskStarted(let info):
             try buildState.started(task: info)
 
@@ -398,7 +413,7 @@ final class SwiftBuildSystemMessageHandler {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(info, targetInfo: targetInfo))
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
-            if let buffer = buildState.taskBuffer(for: startedInfo) {
+            if let buffer = buildState.dataBuffer(for: startedInfo) {
                 let parsedOutput = parseCompilerOutput(buffer)
             }
             if info.result != .success {
