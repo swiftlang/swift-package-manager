@@ -168,6 +168,11 @@ public final class PackagePIFBuilder {
     /// * <rdar://56889224> Remove IDEPackageSupportCreateDylibsForDynamicProducts.
     let createDylibForDynamicProducts: Bool
 
+    /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
+    /// when launching build products from the build directory, but should often be disabled when deploying
+    /// the build products to a different location.
+    let addLocalRpaths: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
@@ -195,6 +200,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
+        addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -208,6 +214,7 @@ public final class PackagePIFBuilder {
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.addLocalRpaths = addLocalRpaths
     }
 
     public init(
@@ -217,6 +224,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
+        addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -227,6 +235,7 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope

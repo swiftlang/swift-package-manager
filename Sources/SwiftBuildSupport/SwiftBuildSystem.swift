@@ -1095,7 +1095,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             break
         }
 
-        // TODO: shouldDisableLocalRpath
         // TODO: shouldLinkStaticSwiftStdlib
 
         return settings
@@ -1161,7 +1160,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     pluginScriptRunner: self.pluginConfiguration.scriptRunner,
                     disableSandbox: self.pluginConfiguration.disableSandbox,
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
-                    additionalFileRules: additionalFileRules
+                    additionalFileRules: additionalFileRules,
+                    addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

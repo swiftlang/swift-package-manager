@@ -119,11 +119,13 @@ extension PackagePIFProjectBuilder {
 
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
-            settings[.LD_RUNPATH_SEARCH_PATHS] = [
-                "$(RPATH_ORIGIN)/Frameworks",
-                "$(RPATH_ORIGIN)/../Frameworks",
-                "$(inherited)"
-            ]
+            if pifBuilder.addLocalRpaths {
+                settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                    "$(RPATH_ORIGIN)/Frameworks",
+                    "$(RPATH_ORIGIN)/../Frameworks",
+                    "$(inherited)"
+                ]
+            }
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
@@ -1019,10 +1021,12 @@ extension PackagePIFProjectBuilder {
 
         // A test-runner should always be adjacent to the dynamic library containing the tests,
         // so add the appropriate rpaths.
-        settings[.LD_RUNPATH_SEARCH_PATHS] = [
-            "$(inherited)",
-            "$(RPATH_ORIGIN)"
-        ]
+        if pifBuilder.addLocalRpaths {
+            settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                "$(inherited)",
+                "$(RPATH_ORIGIN)"
+            ]
+        }
 
         let deploymentTargets = unitTestProduct.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil
