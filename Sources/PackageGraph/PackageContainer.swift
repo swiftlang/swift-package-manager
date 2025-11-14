@@ -75,7 +75,7 @@ public protocol PackageContainer {
     /// - Precondition: `versions.contains(version)`
     /// - Throws: If the version could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: Set<String>) async throws -> [PackageContainerConstraint]
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint]
 
     /// Fetch the declared dependencies for a particular revision.
     ///
@@ -84,12 +84,12 @@ public protocol PackageContainer {
     ///
     /// - Throws: If the revision could not be resolved; this will abort
     ///   dependency resolution completely.
-    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String>) async throws -> [PackageContainerConstraint]
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint]
 
     /// Fetch the dependencies of an unversioned package container.
     ///
     /// NOTE: This method should not be called on a versioned container.
-    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: Set<String>) async throws -> [PackageContainerConstraint]
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint]
 
     /// Get the updated identifier at a bound version.
     ///
@@ -150,11 +150,11 @@ public struct PackageContainerConstraint: Equatable, Hashable {
     public let products: ProductFilter
 
     /// The traits that have been enabled for the package.
-    public let enabledTraits: Set<String>
+    public let enabledTraits: EnabledTraits
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `requirement`.
-    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, enabledTraits: Set<String> = ["default"]) {
+    public init(package: PackageReference, requirement: PackageRequirement, products: ProductFilter, enabledTraits: EnabledTraits = ["default"]) {
         self.package = package
         self.requirement = requirement
         self.products = products
@@ -163,7 +163,7 @@ public struct PackageContainerConstraint: Equatable, Hashable {
 
     /// Create a constraint requiring the given `container` satisfying the
     /// `versionRequirement`.
-    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: Set<String> = ["default"]) {
+    public init(package: PackageReference, versionRequirement: VersionSetSpecifier, products: ProductFilter, enabledTraits: EnabledTraits = ["default"]) {
         self.init(package: package, requirement: .versionSet(versionRequirement), products: products, enabledTraits: enabledTraits)
     }
 

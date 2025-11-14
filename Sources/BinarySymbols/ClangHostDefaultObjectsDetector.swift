@@ -14,7 +14,8 @@ import Foundation
 import protocol TSCBasic.WritableByteStream
 
 package func detectDefaultObjects(
-    clang: AbsolutePath, fileSystem: any FileSystem, hostTriple: Triple
+    clang: AbsolutePath, fileSystem: any FileSystem, hostTriple: Triple,
+    observabilityScope: ObservabilityScope
 ) async throws -> [AbsolutePath] {
     let clangProcess = AsyncProcess(args: clang.pathString, "-###", "-x", "c", "-")
     let stdinStream = try clangProcess.launch()
@@ -56,25 +57,71 @@ package func detectDefaultObjects(
         linkerArguments.append(contentsOf: ["-lm", "-lpthread", "-ldl"])
     }
 
-    for argument in linkerArguments {
+    func handleArgument(_ argument: String) throws {
         if argument.hasPrefix("-L") {
             searchPaths.append(try AbsolutePath(validating: String(argument.dropFirst(2))))
         } else if argument.hasPrefix("-l") && !argument.hasSuffix("lto_library") {
             let libraryName = argument.dropFirst(2)
             let potentialLibraries = searchPaths.flatMap { path in
-                if libraryName == "gcc_s" && hostTriple.isLinux() {
-                    // Try and pick this up first as libgcc_s tends to be either this or a GNU ld script that pulls this in.
-                    return [path.appending("libgcc_s.so.1")]
-                } else {
-                    return libraryExtensions.map { ext in path.appending("\(hostTriple.dynamicLibraryPrefix)\(libraryName)\(ext)") }
+                return libraryExtensions.map { ext in
+                    path.appending("\(hostTriple.dynamicLibraryPrefix)\(libraryName)\(ext)")
                 }
             }
 
             guard let library = potentialLibraries.first(where: { fileSystem.isFile($0) }) else {
-                throw StringError("Couldn't find library: \(libraryName)")
+                observabilityScope.emit(warning: "Could not find library: \(libraryName)")
+                return
             }
 
-            objects.insert(library)
+            // Try and detect if this a GNU ld linker script.
+            if let fileContents = try fileSystem.readFileContents(library).validDescription {
+                let lines = fileContents.split(whereSeparator: \.isNewline)
+                guard lines.contains(where: { $0.contains("GNU ld script") }) else {
+                    objects.insert(library)
+                    return
+                }
+
+                // If it is try and parse GROUP/INPUT commands as documented in https://sourceware.org/binutils/docs/ld/File-Commands.html
+                // Empirically it seems like GROUP is the only used such directive for libraries of interest.
+                // Empirically it looks like packaging linker scripts use spaces around parenthesis which greatly simplifies parsing.
+                let inputs = lines.filter { $0.hasPrefix("GROUP") || $0.hasPrefix("INPUT") }
+                let words = inputs.flatMap { $0.split(whereSeparator: \.isWhitespace) }
+                let newArguments = words.filter {
+                    !["GROUP", "AS_NEEDED", "INPUT"].contains($0) && $0 != "(" && $0 != ")"
+                }.map(String.init)
+
+                for arg in newArguments {
+                    if arg.hasPrefix("-l") {
+                        try handleArgument(arg)
+                    } else {
+                        // First try and locate the file relative to the linker script.
+                        let siblingPath = try AbsolutePath(
+                            validating: arg,
+                            relativeTo: try AbsolutePath(validating: library.dirname))
+                        if fileSystem.isFile(siblingPath) {
+                            try handleArgument(siblingPath.pathString)
+                        } else {
+                            // If this fails the file needs to be resolved relative to the search paths.
+                            guard
+                                let library = searchPaths.map({ $0.appending(arg) }).first(where: {
+                                    fileSystem.isFile($0)
+                                })
+                            else {
+                                observabilityScope.emit(
+                                    warning:
+                                        "Malformed linker script at \(library): found no library named \(arg)"
+                                )
+                                continue
+                            }
+                            try handleArgument(library.pathString)
+                        }
+                    }
+                }
+
+            } else {
+                objects.insert(library)
+            }
+
         } else if try argument.hasSuffix(".o")
             && fileSystem.isFile(AbsolutePath(validating: argument))
         {
@@ -84,6 +131,10 @@ package func detectDefaultObjects(
         {
             objects.insert(try AbsolutePath(validating: argument))
         }
+    }
+
+    for argument in linkerArguments {
+        try handleArgument(argument)
     }
 
     return objects.compactMap { $0 }

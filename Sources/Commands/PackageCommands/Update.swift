@@ -21,7 +21,9 @@ import Workspace
 extension SwiftPackageCommand {
     struct Update: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Update package dependencies.")
+            abstract: "Update package dependencies.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

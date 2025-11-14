@@ -727,9 +727,8 @@ def build_swiftpm_with_cmake(args):
     """Builds SwiftPM using CMake."""
     logging.info("Building SwiftPM (with CMake)")
 
-    module_triple = get_build_target(args)
-    if platform.system() == 'Darwin':
-        module_triple = module_triple.replace('macosx', 'macos')
+    get_build_target(args)
+    module_triple = args.target_info["target"]["moduleTriple"]
 
     cmake_flags = [
         get_llbuild_cmake_arg(args),

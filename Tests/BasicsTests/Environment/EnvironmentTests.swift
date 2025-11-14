@@ -18,6 +18,7 @@ import Basics
 import Testing
 import _InternalTestSupport
 
+@Suite(.serialized)
 struct EnvironmentTests {
     @Test
     func initialize() {

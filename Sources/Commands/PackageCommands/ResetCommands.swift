@@ -17,7 +17,9 @@ import Workspace
 extension SwiftPackageCommand {
     struct Clean: SwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Delete build artifacts.")
+            abstract: "Delete build artifacts.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -29,19 +31,23 @@ extension SwiftPackageCommand {
 
     struct PurgeCache: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Purge the global repository cache.")
+            abstract: "Purge the global repository cache.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            try await swiftCommandState.getActiveWorkspace().purgeCache(observabilityScope: swiftCommandState.observabilityScope)
+            try await swiftCommandState.purgeCaches(observabilityScope: swiftCommandState.observabilityScope)
         }
     }
 
     struct Reset: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Reset the complete cache/build directory.")
+            abstract: "Reset the complete cache/build directory.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

@@ -121,11 +121,13 @@ extension PackagePIFProjectBuilder {
 
         if mainModule.type == .test {
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
-            settings[.LD_RUNPATH_SEARCH_PATHS] = [
-                "$(RPATH_ORIGIN)/Frameworks",
-                "$(RPATH_ORIGIN)/../Frameworks",
-                "$(inherited)"
-            ]
+            if pifBuilder.addLocalRpaths {
+                settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                    "$(RPATH_ORIGIN)/Frameworks",
+                    "$(RPATH_ORIGIN)/../Frameworks",
+                    "$(inherited)"
+                ]
+            }
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
@@ -351,8 +353,12 @@ extension PackagePIFProjectBuilder {
 
                 switch moduleDependency.type {
                 case .binary:
+                    guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
+                        log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: moduleDependency.path.pathString)
+                        FileReference(id: id, path: binaryModule.artifactPath.pathString)
                     }
                     let toolsVersion = self.package.manifest.toolsVersion
                     self.project[keyPath: mainModuleTargetKeyPath].addLibrary { id in
@@ -600,11 +606,12 @@ extension PackagePIFProjectBuilder {
         // FIXME: Cleanup this mess with <rdar://56889224>
 
         let productType: ProjectModel.Target.ProductType
-
+        var productName = "$(EXECUTABLE_NAME)"
         if desiredProductType == .dynamic {
             if pifBuilder.createDylibForDynamicProducts {
                 productType = .dynamicLibrary
             } else {
+                productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
         } else {
@@ -620,7 +627,7 @@ extension PackagePIFProjectBuilder {
                 id: product.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: product.targetName(suffix: targetSuffix),
-                productName: "$(EXECUTABLE_NAME)"
+                productName: productName
             )
         }
         do {
@@ -731,7 +738,7 @@ extension PackagePIFProjectBuilder {
 
                 if let binaryTarget = moduleDependency.underlying as? BinaryModule {
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: binaryTarget.path.pathString)
+                        FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                     }
                     let toolsVersion = package.manifest.toolsVersion
                     self.project[keyPath: libraryUmbrellaTargetKeyPath].addLibrary { id in
@@ -1023,6 +1030,15 @@ extension PackagePIFProjectBuilder {
         settings[.SWIFT_VERSION] = "5.0"
         // This should eventually be set universally for all package targets/products.
         settings[.LINKER_DRIVER] = "swiftc"
+
+        // A test-runner should always be adjacent to the dynamic library containing the tests,
+        // so add the appropriate rpaths.
+        if pifBuilder.addLocalRpaths {
+            settings[.LD_RUNPATH_SEARCH_PATHS] = [
+                "$(inherited)",
+                "$(RPATH_ORIGIN)"
+            ]
+        }
 
         let deploymentTargets = unitTestProduct.deploymentTargets
         settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets?[.macOS] ?? nil

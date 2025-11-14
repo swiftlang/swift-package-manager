@@ -42,11 +42,18 @@ public final class UserToolchain: Toolchain {
     /// An array of paths to search for libraries at link time.
     public let librarySearchPaths: [AbsolutePath]
 
+    /// Thread-safe cached runtime library paths
+    private let _runtimeLibraryPaths = ThreadSafeBox<[AbsolutePath]>()
+
     /// An array of paths to use with binaries produced by this toolchain at run time.
-    public lazy var runtimeLibraryPaths: [AbsolutePath] = {
-        guard let targetInfo else { return [] }
-        return (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
-    }()
+    public var runtimeLibraryPaths: [AbsolutePath] {
+        return _runtimeLibraryPaths.memoize {
+            guard let targetInfo = self.targetInfo else {
+                return []
+            }
+            return (try? Self.computeRuntimeLibraryPaths(targetInfo: targetInfo)) ?? []
+        }
+    }
 
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
@@ -82,16 +89,29 @@ public final class UserToolchain: Toolchain {
     public let targetTriple: Basics.Triple
 
     private let _targetInfo: JSON?
-    private lazy var targetInfo: JSON? = {
-        // Only call out to the swift compiler to fetch the target info when necessary
-        try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
-    }()
+
+    /// Thread-safe cached target info that allows for lazy instantiation
+    private let _cachedTargetInfo = ThreadSafeBox<JSON?>()
+
+    private var targetInfo: JSON? {
+        return _cachedTargetInfo.memoize {
+            // Only call out to the swift compiler to fetch the target info when necessary
+            return try? _targetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilerPath)
+        }
+    }
+
+    /// Thread-safe cached swift compiler version that allows for lazy instantiation
+    private let _swiftCompilerVersion = ThreadSafeBox<String?>()
 
     // A version string that can be used to identify the swift compiler version
-    public lazy var swiftCompilerVersion: String? = {
-        guard let targetInfo else { return nil }
-        return Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
-    }()
+    public var swiftCompilerVersion: String? {
+        return _swiftCompilerVersion.memoize {
+            guard let targetInfo = self.targetInfo else {
+                return nil
+            }
+            return Self.computeSwiftCompilerVersion(targetInfo: targetInfo)
+        }
+    }
 
     /// The list of CPU architectures to build for.
     public let architectures: [String]?
@@ -741,7 +761,10 @@ public final class UserToolchain: Toolchain {
             // targetInfo from the compiler
             let targetInfo = try customTargetInfo ?? Self.getTargetInfo(swiftCompiler: swiftCompilers.compile)
             self._targetInfo = targetInfo
-            triple = try swiftSDK.targetTriple ?? Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: false)
+            if !triple.isDarwin() {
+                triple = try Self.getHostTriple(targetInfo: targetInfo, versioned: true)
+            }
         }
 
         // Change the triple to the specified arch if there's exactly one of them.

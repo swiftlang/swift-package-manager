@@ -489,7 +489,7 @@ public struct BuildOptions: ParsableArguments {
     /// Which compile-time sanitizers should be enabled.
     @Option(
         name: .customLong("sanitize"),
-        help: "Turn on runtime checks for erroneous behavior, possible values: \(Sanitizer.formattedValues)."
+        help: "Turn on runtime checks for erroneous behavior."
     )
     public var sanitizers: [Sanitizer] = []
 
@@ -515,6 +515,13 @@ public struct BuildOptions: ParsableArguments {
     @Flag(name: .customLong("experimental-prepare-for-indexing-no-lazy"), help: .hidden)
     var prepareForIndexingNoLazy: Bool = false
 
+    /// Hidden option to allow XCFrameworks on Linux
+    @Flag(
+        name: .customLong("experimental-xcframeworks-on-linux"),
+        help: .hidden
+    )
+    public var enableXCFrameworksOnLinux: Bool = false
+
     /// Whether to enable generation of `.swiftinterface`s alongside `.swiftmodule`s.
     @Flag(name: .customLong("enable-parseable-module-interfaces"))
     public var shouldEnableParseableModuleInterfaces: Bool = false
@@ -526,6 +533,7 @@ public struct BuildOptions: ParsableArguments {
     /// Whether to use the integrated Swift driver rather than shelling out
     /// to a separate process.
     @Flag()
+    /// This flag is deprecated but cannot indicate so in Swift Argument Parser until https://github.com/apple/swift-argument-parser/issues/656
     public var useIntegratedSwiftDriver: Bool = false
 
     /// A flag that indicates this build should check whether targets only import
@@ -578,6 +586,14 @@ public struct BuildOptions: ParsableArguments {
     // this can be removed once the backtracer uses DWARF instead of frame pointers
     @Flag(inversion: .prefixedNo, help: .hidden)
     public var omitFramePointers: Bool? = nil
+
+    // Whether to enable task backtrace logging.
+    @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
+    public var enableTaskBacktraces: Bool = false
+
+    // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
+    @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
+    public var shouldBuildDylibsAsFrameworks: Bool = false
 
     // @Flag works best when there is a default value present
     // if true, false aren't enough and a third state is needed

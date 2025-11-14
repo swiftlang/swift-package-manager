@@ -83,7 +83,7 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
 
     public func intersection(_ otherSequence: some Sequence<Element>) -> Self {
         let keysToRemove = Set(self.storage.keys).subtracting(otherSequence.map(\.id))
-        var result = Self()
+        var result = self
         for key in keysToRemove {
             result.storage.removeValue(forKey: key)
         }
@@ -100,6 +100,14 @@ public struct IdentifiableSet<Element: Identifiable>: Collection {
 
     public func contains(id: Element.ID) -> Bool {
         self.storage.keys.contains(id)
+    }
+
+    public mutating func remove(id: Element.ID) -> Element? {
+        self.storage.removeValue(forKey: id)
+    }
+
+    public mutating func remove(_ member: Element) -> Element? {
+        self.storage.removeValue(forKey: member.id)
     }
 }
 

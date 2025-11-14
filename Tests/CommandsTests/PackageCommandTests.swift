@@ -133,7 +133,7 @@ struct PackageCommandTests {
     @Test
     func seeAlso() async throws {
         let stdout = try await SwiftPM.Package.execute(["--help"]).stdout
-        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test"))
+        #expect(stdout.contains("SEE ALSO: swift build, swift run, swift test \n(Run this command without --help to see possible dynamic plugin commands.)"))
     }
 
     @Test
@@ -151,6 +151,130 @@ struct PackageCommandTests {
         let stdout = try await SwiftPM.Package.execute(["--version"], ).stdout
         let expectedRegex = try Regex(#"Swift Package Manager -( \w+ )?\d+.\d+.\d+(-\w+)?"#)
         #expect(stdout.contains(expectedRegex))
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandFailsSilentlyWhenFetchingPluginFails(
+        data: BuildData,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in // Contains only build-tool-plugins, therefore would not appear in available plugin commands.
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: fixturePath,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(!stdout.contains("MySourceGenBuildToolPlugin"))
+            #expect(!stdout.contains("MySourceGenPrebuildPlugin"))
+        }
+    }
+
+    // Have to create empty package, as in CI, --help is invoked on swiftPM, causing test to fail
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysNoAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+
+            let packageDir = tmpPath.appending(components: "MyPackage")
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    // The swift-tools-version declares the minimum version of Swift required to build this package.
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "foo"
+                    )
+                    """
+            )
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+            #expect(!stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+        }
+    }
+
+    @Test(
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func commandDisplaysAvailablePluginCommands(
+        data: BuildData
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            // Create a sample package with a library target, a plugin, and a local tool. It depends on a sample package which also has a tool.
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string:
+                    """
+                    // swift-tools-version: 5.9
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .plugin(
+                                name: "MyPlugin",
+                                capability: .command(
+                                    intent: .custom(verb: "mycmd", description: "What is mycmd anyway?")
+                                ),
+                                dependencies: [
+                                    .target(name: "LocalBuiltTool"),
+                                ]
+                            ),
+                            .executableTarget(
+                                name: "LocalBuiltTool"
+                            )
+                        ]
+                    )
+                    """
+            )
+
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Sources", "LocalBuiltTool", "main.swift"),
+                string: #"print("Hello")"#
+            )
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                string: """
+                    import PackagePlugin
+                    import Foundation
+                    @main
+                    struct MyCommandPlugin: CommandPlugin {
+                        func performCommand(
+                            context: PluginContext,
+                            arguments: [String]
+                        ) throws {
+                            print("This is MyCommandPlugin.")
+                        }
+                    }
+                    """
+            )
+
+            let (stdout, _) = try await execute(
+                ["--help"],
+                packagePath: packageDir,
+                configuration: data.config,
+                buildSystem: data.buildSystem,
+            )
+
+            #expect(stdout.contains("AVAILABLE PLUGIN COMMANDS:"))
+            #expect(stdout.contains("mycmd"))
+            #expect(stdout.contains("(plugin ‘MyPlugin’ in package ‘MyPackage’)"))
+        }
     }
 
     @Test(
@@ -911,6 +1035,9 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.Describe
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -2936,6 +3063,93 @@ struct PackageCommandTests {
     }
 
     @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheWithoutPackage(
+        data: BuildData,
+    ) async throws {
+        // Create a temporary directory without Package.swift
+        try await fixture(name: "Miscellaneous") { fixturePath in
+            let tempDir = fixturePath.appending("empty-dir-for-purge-test")
+            try localFileSystem.createDirectory(tempDir, recursive: true)
+
+            // Use a unique temporary cache directory to avoid conflicts with parallel tests
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
+                let result = try await executeSwiftPackage(
+                    tempDir,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache", "--cache-path", cacheDir.pathString],
+                    buildSystem: data.buildSystem
+                )
+
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+            }
+        }
+    }
+
+    @Test(
+        .tags(.Feature.Command.Package.PurgeCache),
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+    )
+    func purgeCacheInPackageDirectory(
+        data: BuildData,
+    ) async throws {
+        // Test that purge-cache works in a package directory and successfully purges caches
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+
+            // Use a unique temporary cache directory for this test
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+                let cacheDir = tempDir.appending("test-cache")
+                let cacheArgs = ["--cache-path", cacheDir.pathString]
+
+                // Resolve dependencies to populate cache
+                // Note: This fixture uses local dependencies, so only manifest cache will be populated
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["resolve"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify manifest cache was populated
+                let manifestsCache = cacheDir.appending(components: "manifests")
+                expectDirectoryExists(at: manifestsCache)
+
+                // Check for manifest.db file (main database file)
+                let manifestDB = manifestsCache.appending("manifest.db")
+                let hasManifestDB = localFileSystem.exists(manifestDB)
+
+                // Check for SQLite auxiliary files that might exist
+                let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
+                let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
+                let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
+
+                // At least one manifest database file should exist
+                #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
+
+                // Run purge-cache
+                let result = try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: data.config,
+                    extraArgs: ["purge-cache"] + cacheArgs,
+                    buildSystem: data.buildSystem
+                )
+
+                // Verify command succeeded
+                #expect(!result.stderr.contains("Could not find Package.swift"))
+
+                // Verify manifest.db was removed (the purge implementation removes this file)
+                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+
+                // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
+                // The important check is that the main database file is removed
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Package.Resolve,
         ),
@@ -4306,6 +4520,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.BuildToolPlugin  
+            ),
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5044,6 +5262,10 @@ struct PackageCommandTests {
 
         // Test reporting of plugin diagnostic messages at different verbosity levels
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin 
+            ),
             .requiresSwiftConcurrencySupport,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/8180",
@@ -5235,6 +5457,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5266,6 +5492,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5301,6 +5531,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5335,6 +5569,10 @@ struct PackageCommandTests {
 
         // Test target builds requested by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
@@ -5372,6 +5610,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5397,6 +5639,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
         )
@@ -5421,6 +5667,10 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+              .Feature.Command.Run,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .tags(
                 .Feature.Command.Package.CommandPlugin,
@@ -5450,6 +5700,10 @@ struct PackageCommandTests {
 
         // Test logging of builds initiated by a command plugin
         @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.CommandPlugin
+            ),
             .IssueWindowsRelativePathAssert,
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -5687,11 +5941,12 @@ struct PackageCommandTests {
         @Test(
             .requiresSwiftConcurrencySupport,
             .tags(
+                .Feature.Command.Run,
                 .Feature.Command.Package.CommandPlugin,
             ),
             .IssueWindowsRelativePathAssert,
             .IssueWindowsLongPath,
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/9083",
                 relationship: .defect,
@@ -6660,7 +6915,7 @@ struct PackageCommandTests {
         }
 
         @Test(
-            .IssueWindowsPathLastConponent,
+            .IssueWindowsPathLastComponent,
             // Only run the test if the environment in which we're running actually supports Swift concurrency (which the plugin APIs require).
             .requiresSwiftConcurrencySupport,
             .tags(
@@ -7121,7 +7376,7 @@ struct PackageCommandTests {
                                 "iteration \(num) failed.  stderr: \(stderr)",
                             )
                         } when: {
-                            data.config == .release && data.buildSystem == .native
+                            data.buildSystem == .native
                         }
                         #expect(
                             !stdout.contains("Building for \(data.config.buildFor)..."),

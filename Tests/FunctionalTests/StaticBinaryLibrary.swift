@@ -18,17 +18,28 @@ import _InternalTestSupport
 
 struct StaticBinaryLibraryTests {
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8657")
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8657", relationship: .defect),
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Run,
+            .Feature.CommandLineArguments.Experimental.PruneUnusedDependencies,
+            .Feature.TargetType.Library,
+            .Feature.TargetType.BinaryTarget.ArtifactBundle,
+        ),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
-    func staticLibrary() async throws {
-
+    func staticLibrary(
+        buildData: BuildData,
+    ) async throws {
         try await withKnownIssue {
             try await fixture(name: "BinaryLibraries") { fixturePath in
                 let (stdout, _) = try await executeSwiftRun(
                     fixturePath.appending("Static").appending("Package1"),
                     "Example",
+                    configuration: buildData.config,
                     extraArgs: ["--experimental-prune-unused-dependencies"],
-                    buildSystem: .native,
+                    buildSystem: buildData.buildSystem,
                 )
                 #expect(stdout == """
                 42

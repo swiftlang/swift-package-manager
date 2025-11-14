@@ -129,7 +129,8 @@ struct BuildCommandTestCases {
 
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func usage(
         data: BuildData,
@@ -139,7 +140,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.ShowBinPath,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func binSymlink(
         buildData: BuildData,
@@ -164,7 +169,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Help,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func seeAlso(
         data: BuildData,
@@ -178,7 +187,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Help,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func commandDoesNotEmitDuplicateSymbols(
         data: BuildData,
@@ -194,7 +207,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Version,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func version(
         data: BuildData,
@@ -210,7 +227,11 @@ struct BuildCommandTestCases {
 
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.ExplicitTargetDependencyImportCheck,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func importOfMissedDepWarning(
         buildData: BuildData,
@@ -244,7 +265,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.ExplicitTargetDependencyImportCheck,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func importOfMissedDepWarningVerifyingErrorFlow(
         data: BuildData
@@ -278,7 +303,8 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func importOfMissedDepWarningVerifyingDefaultDoesNotRunTheCheck(
         data: BuildData,
@@ -305,7 +331,8 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func symlink(
         data: BuildData,
@@ -327,8 +354,13 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .tags(
+              .Feature.Command.Build,
+              .Feature.TargetType.Executable
+        ),
         .IssueWindowsLongPath,
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildExistingExecutableProductIsSuccessfull(
         data: BuildData,
@@ -354,7 +386,11 @@ struct BuildCommandTestCases {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9137", relationship: .defect),
         .IssueWindowsCannotSaveAttachment,
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Product,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildExistingLibraryProductIsSuccessfull(
         data: BuildData,
@@ -393,7 +429,11 @@ struct BuildCommandTestCases {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9138", relationship: .defect),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Target,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildExistingTargetIsSuccessfull(
         data: BuildData,
@@ -421,7 +461,12 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.Target,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildProductAndTargetsFailsWithAMutuallyExclusiveMessage(
         buildData: BuildData,
@@ -445,7 +490,12 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.Product,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildProductAndTestsFailsWithAMutuallyExclusiveMessage(
         buildData: BuildData,
@@ -469,7 +519,12 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.Target,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildTargetAndTestsFailsWithAMutuallyExclusiveMessage(
         data: BuildData,
@@ -493,7 +548,13 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.Target,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildProductTargetAndTestsFailsWithAMutuallyExclusiveMessage(
         data: BuildData,
@@ -525,7 +586,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Product,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildUnknownProductFailsWithAppropriateMessage(
         data: BuildData,
@@ -560,7 +625,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Target,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildUnknownTargetFailsWithAppropriateMessage(
         data: BuildData,
@@ -596,7 +665,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform), ["ClangExecSingleFile", "SwiftExecSingleFile", "SwiftExecMultiFile"],
+        .tags(
+            .Feature.CommandLineArguments.Product,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData, ["ClangExecSingleFile", "SwiftExecSingleFile", "SwiftExecMultiFile"],
     )
     func atMainSupport(
         data: BuildData,
@@ -605,12 +678,17 @@ struct BuildCommandTestCases {
         let buildSystem = data.buildSystem
         let config = data.config
         try await withKnownIssue(
-            "SWBINTTODO: File not found or missing libclang errors on non-macOS platforms. This needs to be investigated",
+            "SWBINTTODO: File not found or missing libclang errors on windows platforms. This needs to be investigated",
             isIntermittent: true,
         ) {
             try await fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
                 let fullPath = try resolveSymlinks(fixturePath)
-                let result = try await build(["--product", executable], packagePath: fullPath, configuration: config, buildSystem: buildSystem)
+                let result = try await build(
+                    ["--product", executable],
+                    packagePath: fullPath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
                 #expect(result.binContents.contains(executableName(executable)))
             }
         } when: {
@@ -619,7 +697,8 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func nonReachableProductsAndTargetsFunctional(
         data: BuildData,
@@ -641,7 +720,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        .tags(
+            .Feature.CommandLineArguments.Product,
+        ),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
     func nonReachableProductsAndTargetsFunctionalWhereDependencyContainsADependentProducts(
         data: BuildData,
@@ -688,7 +771,11 @@ struct BuildCommandTestCases {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.EnableParseableModuleInterfaces,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func parseableInterfaces(
         data: BuildData,
@@ -720,7 +807,12 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.Product,
+            .Feature.CommandLineArguments.BuildTests,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func automaticParseableInterfacesWithLibraryEvolution(
         data: BuildData,
@@ -755,7 +847,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.BuildCache,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildCompleteMessage(
         data: BuildData,
@@ -806,7 +902,8 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildStartMessage(
     data: BuildData,
@@ -838,7 +935,8 @@ struct BuildCommandTestCases {
 
     @Test(
         .IssueWindowsLongPath,
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func buildSystemDefaultSettings(
         data: BuildData,
@@ -874,6 +972,17 @@ struct BuildCommandTestCases {
 
     @Test(
         .disabled("Disabled for now because it is hitting 'IR generation failure: Cannot read legacy layout file' in CI (rdar://88828632)"),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.VeryVerbose,
+            .Feature.CommandLineArguments.Xlinker,
+            .Feature.CommandLineArguments.Xcc,
+            .Feature.CommandLineArguments.Xcxx,
+            .Feature.CommandLineArguments.Xswiftc,
+        ),
         arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild, .xcode]),
     )
     func xcodeBuildSystemWithAdditionalBuildFlags(
@@ -907,6 +1016,14 @@ struct BuildCommandTestCases {
 
     @Test(
         .requireHostOS(.macOS),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        .tags(
+            .Feature.EnvironmentVariables.SWIFT_EXEC,
+            .Feature.EnvironmentVariables.SWIFT_EXEC_MANIFEST,
+        ),
         arguments: getBuildData(for: [BuildSystemProvider.Kind.swiftbuild, .xcode]),
     )
     func buildSystemOverrides(
@@ -914,7 +1031,7 @@ struct BuildCommandTestCases {
     ) async throws {
         let buildSystem = data.buildSystem
         let config = data.config
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             let swiftCompilerPath = try UserToolchain.default.swiftCompilerPath
             // try await building without specifying overrides.  This should succeed, and should use the default
@@ -955,7 +1072,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.PrintManifestJobGraph,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func printLLBuildManifestJobGraph(
         data: BuildData,
@@ -974,7 +1095,41 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .tags(
+            .Feature.CommandLineArguments.PrintPIFManifestGraph,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+    )
+    func printPIFManifestGraph(
+        data: BuildData,
+    ) async throws {
+        let buildSystem = data.buildSystem
+        let configuration = data.config
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let output = try await execute(
+                ["--print-pif-manifest-graph"],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            ).stdout
+            switch buildSystem {
+                case .native, .xcode:
+                    #expect(!output.hasPrefix("digraph PIF {"))
+                case .swiftbuild:
+                    #expect(output.hasPrefix("digraph PIF {"))
+            }
+        }
+    }
+
+    @Test(
         .SWBINTTODO("Swift build produces an error building the fixture for this test."),
+        .tags(
+            .Feature.CommandLineArguments.Xswiftc,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func swiftDriverRawOutputGetsNewlines(
@@ -1011,7 +1166,14 @@ struct BuildCommandTestCases {
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8659", "SWIFT_EXEC override is not working"),
         .SWBINTTODO("Test fails because the dummy-swiftc used in the test isn't accepted by swift-build. This needs to be investigated"),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.EnvironmentVariables.SWIFT_EXEC,
+            .Feature.EnvironmentVariables.SWIFT_ORIGINAL_PATH,
+            .Feature.EnvironmentVariables.CUSTOM_SWIFT_VERSION,
+            .Feature.CommandLineArguments.Verbose,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func swiftGetVersion(
         data: BuildData,
@@ -1119,6 +1281,14 @@ struct BuildCommandTestCases {
 
     @Test(
         .SWBINTTODO("Test failed because swiftbuild doesn't output precis codesign commands. Once swift run works with swiftbuild the test can be investigated."),
+        .tags(
+            .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
+            .Feature.CommandLineArguments.EnableGetTaskAllowEntitlement,
+            .Feature.CommandLineArguments.Verbose,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
         arguments: SupportedBuildSystemOnPlatform,
     )
     func getTaskAllowEntitlement(
@@ -1217,7 +1387,13 @@ struct BuildCommandTestCases {
     @Test(
         .requireHostOS(.linux),
         .SWBINTTODO("Swift build doesn't currently ignore Linux main when linking on Linux. This needs further investigation."),
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.BuildTests,
+            .Feature.CommandLineArguments.EnableTestDiscovery,
+            .Feature.CommandLineArguments.Verbose,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func ignoresLinuxMain(
         data: BuildData,
@@ -1248,8 +1424,16 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),[
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9299", relationship: .defect),
+        .tags(
+            .Feature.CommandLineArguments.Verbose,
+            .Feature.CommandLineArguments.VeryVerbose,
+            .Feature.CommandLineArguments.Xswiftc,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,[
             ["--verbose"],
+            ["--very-verbose"],
             ["-Xswiftc", "-diagnostic-style=llvm"],
         ]
     )
@@ -1281,7 +1465,12 @@ struct BuildCommandTestCases {
             }
         }
 
-        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
+        try await withKnownIssue(
+            """
+            Windows: Sometimes failed to build due to a possible path issue
+            All: --very-verbose causes rebuild on SwiftBuild (https://github.com/swiftlang/swift-package-manager/issues/9299)
+            """, 
+            isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
                 _ = try await build(
                     [],
@@ -1306,11 +1495,13 @@ struct BuildCommandTestCases {
             }
         } when: {
             data.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+            || (data.buildSystem == .swiftbuild && flags.contains("--very-verbose"))
         }
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
+        buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.tags,
+        arguments: buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags.buildData,
     )
      func parseAsLibraryCriteria(
         buildData: BuildData,
@@ -1331,7 +1522,11 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
+        .tags(
+            .Feature.CommandLineArguments.BuildTests,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
     func fatalErrorDisplayedCorrectNumberOfTimesWhenSingleXCTestHasFatalErrorInBuildCompilation(
         data: BuildData,
@@ -1364,9 +1559,13 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .defect),
-         arguments: getBuildData(for: SupportedBuildSystemOnPlatform),
-     )
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .defect),
+        .tags(
+            .Feature.CommandLineArguments.Quiet,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+    )
      func swiftBuildQuietLogLevel(
         data: BuildData,
      ) async throws {
@@ -1394,38 +1593,43 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .defect),
-         arguments: SupportedBuildSystemOnPlatform,  BuildConfiguration.allCases
-     )
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .defect),
+        .tags(
+            .Feature.CommandLineArguments.Quiet,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+    )
      func swiftBuildQuietLogLevelWithError(
-         buildSystem: BuildSystemProvider.Kind,
-         configuration: BuildConfiguration
-     ) async throws {
+        buildData: BuildData,
+    ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
          // GIVEN we have a simple test package
-         try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
-             let mainFilePath = fixturePath.appending("main.swift")
-             try localFileSystem.removeFileTree(mainFilePath)
-             try localFileSystem.writeFileContents(
-                mainFilePath,
-                string: """
-                 print("done"
-                 """
-             )
+        try await fixture(name: "Miscellaneous/SwiftBuild") { fixturePath in
+            let mainFilePath = fixturePath.appending("main.swift")
+            try localFileSystem.removeFileTree(mainFilePath)
+            try localFileSystem.writeFileContents(
+            mainFilePath,
+            string: """
+                print("done"
+                """
+            )
 
-             //WHEN we build with the --quiet option
-             let error = await #expect(throws: SwiftPMError.self) {
-                 try await executeSwiftBuild(
-                    fixturePath,
-                    configuration: .debug,
-                    extraArgs: ["--quiet"],
-                    buildSystem: buildSystem
-                 )
-             }
+            //WHEN we build with the --quiet option
+            let error = await #expect(throws: SwiftPMError.self) {
+                try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: ["--quiet"],
+                buildSystem: buildSystem
+                )
+            }
 
-             guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
-                 Issue.record("Incorrect error was raised.")
-                 return
-             }
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
 
             switch buildSystem {
                 case .swiftbuild:
@@ -1439,11 +1643,22 @@ struct BuildCommandTestCases {
                     // AND no output in stderr
                     #expect(stderr.isEmpty)
             }
-         }
-     }
+        }
+    }
 
-    @Test(.requireHostOS(.macOS), arguments: SupportedBuildSystemOnPlatform)
-    func buildingPackageWhichRequiresOlderDeploymentTarget(buildSystem: BuildSystemProvider.Kind) async throws {
+    @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.CommandLineArguments.Triple,
+        ),
+        buildDataUsingAllBuildSystemWithTags.tags,
+        arguments: buildDataUsingAllBuildSystemWithTags.buildData,
+    )
+    func buildingPackageWhichRequiresOlderDeploymentTarget(
+        buildData: BuildData,
+    ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         // This fixture specifies a deployment target of macOS 12, and uses API obsoleted in macOS 13. The goal
         // of this test is to ensure that SwiftPM respects the deployment target specified in the package manifest
         // when passed no triple of an unversioned triple, rather than using the latests deployment target.
@@ -1452,6 +1667,7 @@ struct BuildCommandTestCases {
         try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
                 try await executeSwiftBuild(
                     path,
+                    configuration: configuration,
                     buildSystem: buildSystem,
                     throwIfCommandFails: true
                 )
@@ -1471,6 +1687,7 @@ struct BuildCommandTestCases {
         try await fixture(name: "Miscellaneous/RequiresOlderDeploymentTarget") { path in
                 try await executeSwiftBuild(
                     path,
+                    configuration: configuration,
                     extraArgs: ["--triple", "\(hostArch)-apple-macosx"],
                     buildSystem: buildSystem,
                     throwIfCommandFails: true
@@ -1502,6 +1719,84 @@ struct BuildCommandTestCases {
         } when: {
             // The native build system does not correctly pass the elevated deployment target
             buildSystem != .swiftbuild
+        }
+    }
+
+
+    @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.CommandLineArguments.Experimental.BuildDylibsAsFrameworks,
+        ),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        arguments: getBuildData(for: [.swiftbuild]),
+    )
+    func dynamicLibrariesAsFrameworks(
+        data: BuildData,
+    ) async throws {
+        let buildSystem = data.buildSystem
+        try await withKnownIssue {
+            try await fixture(name: "Miscellaneous/DynamicProduct") { fixturePath in
+                let aPath = fixturePath.appending("exec")
+                let result = try await build(
+                    ["--experimental-build-dylibs-as-frameworks"],
+                    packagePath: aPath,
+                    configuration: data.config,
+                    cleanAfterward: false,
+                    buildSystem: buildSystem,
+                )
+                #expect(result.binContents.contains("PackageFrameworks"))
+                #expect(result.binContents.contains("exec"))
+
+                let frameworks = try localFileSystem.getDirectoryContents(result.binPath.appending("PackageFrameworks"))
+                #expect(frameworks.contains("firstDyna.framework"))
+                #expect(frameworks.contains("secondDyna.framework"))
+
+            }
+        } when: {
+            data.config == .release
+        }
+    }
+
+    @Test(
+        .requireHostOS(.macOS),
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.CommandLineArguments.Configuration,
+        ),
+        arguments: getBuildData(for: [.swiftbuild]),
+    )
+    func trivialPackageResources(
+        data: BuildData,
+    ) async throws {
+        let buildSystem = data.buildSystem
+        try await fixture(name: "Miscellaneous/TIF") { fixturePath in
+            let result = try await build(
+                [],
+                packagePath: fixturePath,
+                configuration: data.config,
+                cleanAfterward: false,
+                buildSystem: buildSystem,
+            )
+            try #require(result.binContents.contains("TIF_TIF.bundle"))
+            let contentsDir = result.binPath.appending("TIF_TIF.bundle", "Contents")
+            let bundleResourceDir = contentsDir.appending("Resources")
+
+            let bundleResources = try localFileSystem.getDirectoryContents(bundleResourceDir)
+            #expect(bundleResources.contains("some.txt"))
+            #expect(bundleResources.contains("Assets.car"))
+            #expect(bundleResources.contains("SomeAlert.nib"))
+
+            // Check that the Info.plist of the resource bundle looks reasonable.  In particular, it shouldn't have a CFBundleExecutable key, since it's a codeless bundle.
+            let infoPlistPath = contentsDir.appending("Info.plist")
+            let infoPlistBytes = try localFileSystem.readFileContents(infoPlistPath)
+            let infoPlist = try infoPlistBytes.withData({
+                try #require(PropertyListSerialization.propertyList(from: $0, options: [], format: nil) as? NSDictionary, "couldn't parse built resource bundle's Info.plist as a property list")
+            })
+            #expect(infoPlist["CFBundleExecutable"] == nil, "Expected CFBundleExecutable to be omitted from the Info.plist of a codeless resource bundle")
         }
     }
 }

@@ -67,7 +67,12 @@ package struct PIFBuilderParameters {
     /// Additional rules for including a source or resource file in a target
     let additionalFileRules: [FileRuleDescription]
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription]) {
+    /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
+    /// when launching build products from the build directory, but should often be disabled when deploying
+    /// the build products to a different location.
+    let addLocalRpaths: Bool
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -78,6 +83,7 @@ package struct PIFBuilderParameters {
         self.disableSandbox = disableSandbox
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
+        self.addLocalRpaths = addLocalRPaths
     }
 }
 
@@ -412,6 +418,7 @@ public final class PIFBuilder {
                     delegate: packagePIFBuilderDelegate,
                     buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
                     createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
+                    addLocalRpaths: self.parameters.addLocalRpaths,
                     packageDisplayVersion: package.manifest.displayName,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope
@@ -509,7 +516,8 @@ public final class PIFBuilder {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
-        additionalFileRules: [FileRuleDescription]
+        additionalFileRules: [FileRuleDescription],
+        addLocalRpaths: Bool
     ) async throws -> String {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -518,6 +526,7 @@ public final class PIFBuilder {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
+            addLocalRpaths: addLocalRpaths
         )
         let builder = Self(
             graph: packageGraph,
@@ -779,7 +788,8 @@ extension PIFBuilderParameters {
         pluginScriptRunner: PluginScriptRunner,
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
-        additionalFileRules: [FileRuleDescription]
+        additionalFileRules: [FileRuleDescription],
+        addLocalRpaths: Bool
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -792,6 +802,7 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
+            addLocalRPaths: addLocalRpaths,
         )
     }
 }

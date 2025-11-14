@@ -99,14 +99,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" 
  */
 let autoProducts = [swiftPMProduct, swiftPMDataModelProduct]
 
-let shoudUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
+let shouldUseSwiftBuildFramework = (ProcessInfo.processInfo.environment["SWIFTPM_SWBUILD_FRAMEWORK"] != nil)
 
 let swiftDriverDeps: [Target.Dependency]
 let swiftTSCBasicsDeps: [Target.Dependency]
 let swiftToolsCoreSupportAutoDeps: [Target.Dependency]
 let swiftTSCTestSupportDeps: [Target.Dependency]
 
-if shoudUseSwiftBuildFramework {
+if shouldUseSwiftBuildFramework {
     swiftDriverDeps = []
     swiftTSCBasicsDeps = []
     swiftToolsCoreSupportAutoDeps = []
@@ -1104,17 +1104,17 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        // The 'swift-argument-parser' version declared here must match that
-        // used by 'swift-driver' and 'sourcekit-lsp'. Please coordinate
-        // dependency version changes here with those projects.
-        .package(url: "https://github.com/apple/swift-argument-parser.git", .upToNextMinor(from: "1.5.1")),
-        .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "3.0.0")),
+        // These need to match the versions in the swiftlang/swift repo,
+        // utils/update_checkout/update-checkout-config.json
+        // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-system.git", from: "1.1.1"),
-        .package(url: "https://github.com/apple/swift-collections.git", "1.0.1" ..< "1.2.0"),
-        .package(url: "https://github.com/apple/swift-certificates.git", "1.0.1" ..< "1.6.0"),
-        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.0"),
-        // For use in previewing documentation
+        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
+        .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
+        .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.7"),
+        // Not in toolchain, used for use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
     if !swiftDriverDeps.isEmpty {
@@ -1149,7 +1149,7 @@ if ProcessInfo.processInfo.environment["ENABLE_APPLE_PRODUCT_TYPES"] == "1" {
     }
 }
 
-if !shoudUseSwiftBuildFramework {
+if !shouldUseSwiftBuildFramework {
 
     let swiftbuildsupport: Target = package.targets.first(where: { $0.name == "SwiftBuildSupport" } )!
     swiftbuildsupport.dependencies += [

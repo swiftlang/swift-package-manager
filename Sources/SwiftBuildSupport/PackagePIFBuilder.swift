@@ -168,6 +168,11 @@ public final class PackagePIFBuilder {
     /// * <rdar://56889224> Remove IDEPackageSupportCreateDylibsForDynamicProducts.
     let createDylibForDynamicProducts: Bool
 
+    /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
+    /// when launching build products from the build directory, but should often be disabled when deploying
+    /// the build products to a different location.
+    let addLocalRpaths: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
@@ -195,6 +200,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
         createDylibForDynamicProducts: Bool = false,
+        addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -208,6 +214,7 @@ public final class PackagePIFBuilder {
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.addLocalRpaths = addLocalRpaths
     }
 
     public init(
@@ -217,6 +224,7 @@ public final class PackagePIFBuilder {
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
+        addLocalRpaths: Bool = true,
         packageDisplayVersion: String?,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
@@ -227,6 +235,7 @@ public final class PackagePIFBuilder {
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
+        self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -358,7 +367,7 @@ public final class PackagePIFBuilder {
         // Products.
         case application
         case staticArchive
-        case objectFile
+        case commonObject
         case dynamicLibrary
         case framework
         case executable
@@ -382,7 +391,7 @@ public final class PackagePIFBuilder {
             self = switch pifProductType {
             case .application: .application
             case .staticArchive: .staticArchive
-            case .objectFile: .objectFile
+            case .commonObject: .commonObject
             case .dynamicLibrary: .dynamicLibrary
             case .framework: .framework
             case .executable: .executable
@@ -552,6 +561,9 @@ public final class PackagePIFBuilder {
         // We currently deliberately do not support Swift ObjC interface headers.
         settings[.SWIFT_INSTALL_OBJC_HEADER] = "NO"
         settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = ""
+        
+        // rdar://47937899 (Don't try to link frameworks to object files) 
+        //  - looks like this defaults to OTHER_LDFLAGS (via xcspec) which can result in linking frameworks to mh_objects which is unwanted.
         settings[.OTHER_LDRFLAGS] = []
 
         // Packages use the SwiftPM workspace's cache directory as a compiler working directory to maximize module

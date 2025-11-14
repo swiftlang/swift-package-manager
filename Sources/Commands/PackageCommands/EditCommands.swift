@@ -19,7 +19,9 @@ import Workspace
 extension SwiftPackageCommand {
     struct Edit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Put a package in editable mode.")
+            abstract: "Put a package in editable mode.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -53,7 +55,9 @@ extension SwiftPackageCommand {
 
     struct Unedit: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
-            abstract: "Remove a package from editable mode.")
+            abstract: "Remove a package from editable mode.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
+        )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions

@@ -666,11 +666,12 @@ extension InitPackage {
         packageType: PackageType,
         supportedTestingLibraries: Set<TestingLibrary> = [.swiftTesting],
         destinationPath: AbsolutePath,
-        fileSystem: FileSystem
+        fileSystem: FileSystem,
+        swiftLanguageModes: [SwiftLanguageVersion] = []
     ) throws {
         try self.init(
             name: name,
-            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries),
+            options: InitPackageOptions(packageType: packageType, supportedTestingLibraries: supportedTestingLibraries, swiftLanguageModes: swiftLanguageModes),
             destinationPath: destinationPath,
             installedSwiftPMConfiguration: .default,
             fileSystem: fileSystem

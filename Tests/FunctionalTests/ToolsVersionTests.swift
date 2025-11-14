@@ -31,14 +31,15 @@ struct ToolsVersionTests {
             .TestSize.large,
             .Feature.Command.Build,
             .Feature.Command.Package.ToolsVersion,
+            .Feature.ProductType.Library,
         ),
-        // arguments: [BuildSystemProvider.Kind.swiftbuild], [BuildConfiguration.release],
-        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func toolsVersion(
-        buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
+        buildData: BuildData,
     ) async throws {
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
             try await testWithTemporaryDirectory{ path in
                 let fs = localFileSystem

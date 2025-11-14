@@ -24,7 +24,8 @@ import struct TSCBasic.StringError
 struct AuditBinaryArtifact: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(
         commandName: "experimental-audit-binary-artifact",
-        abstract: "Audit a static library binary artifact for undefined symbols."
+        abstract: "Audit a static library binary artifact for undefined symbols.",
+        helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
     )
 
     @OptionGroup(visibility: .hidden)
@@ -50,7 +51,10 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         var hostDefaultSymbols = ReferencedSymbols()
         let symbolProvider = LLVMObjdumpSymbolProvider(objdumpPath: objdump)
         for binary in try await detectDefaultObjects(
-            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple)
+            clang: clang, fileSystem: fileSystem, hostTriple: hostTriple,
+            observabilityScope:
+                swiftCommandState.observabilityScope.makeChildScope(
+                    description: "DefaultObjectsDetector"))
         {
             try await symbolProvider.symbols(
                 for: binary, symbols: &hostDefaultSymbols, recordUndefined: false)
@@ -98,6 +102,11 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
         async throws -> AbsolutePath
     {
         let archiver = UniversalArchiver(fileSystem)
+
+        if let lastPathComponent = path.components.last,
+            lastPathComponent.hasSuffix("artifactbundle") {
+            return path
+        }
 
         guard let lastPathComponent = path.components.last,
             archiver.isFileSupported(lastPathComponent)

@@ -499,12 +499,6 @@ public final class SwiftModuleBuildDescription {
             args.append("-enable-batch-mode")
         }
 
-        // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
-        if self.useMergeableSymbols {
-            args.append("-Xfrontend")
-            args.append("-mergeable-symbols")
-        }
-
         args += ["-serialize-diagnostics"]
 
         args += self.buildParameters.indexStoreArguments(for: self.target)
@@ -1091,12 +1085,6 @@ public final class SwiftModuleBuildDescription {
         case .release:
             return true
         }
-    }
-
-    // Workaround for https://github.com/swiftlang/swift-package-manager/issues/8648
-    /// Whether to build Swift code with -Xfrontend -mergeable-symbols.
-    package var useMergeableSymbols: Bool {
-        return self.isEmbeddedSwift
     }
 }
 

@@ -470,6 +470,8 @@ public class RepositoryManager: Cancellable {
             return
         }
 
+        observabilityScope.emit(info: "Purging repository cache at '\(cachePath)'")
+
         do {
             try self.fileSystem.withLock(on: cachePath, type: .exclusive) {
                 let cachedRepositories = try self.fileSystem.getDirectoryContents(cachePath)

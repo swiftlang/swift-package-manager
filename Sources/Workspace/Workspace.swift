@@ -907,16 +907,6 @@ extension Workspace {
         }
     }
 
-    /// Cleans the build artifacts from workspace data.
-    ///
-    /// - Parameters:
-    ///     - observabilityScope: The observability scope that reports errors, warnings, etc
-    public func purgeCache(observabilityScope: ObservabilityScope) async {
-        self.repositoryManager.purgeCache(observabilityScope: observabilityScope)
-        self.registryDownloadsManager.purgeCache(observabilityScope: observabilityScope)
-        await self.manifestLoader.purgeCache(observabilityScope: observabilityScope)
-    }
-
     /// Resets the entire workspace by removing the data directory.
     ///
     /// - Parameters:
@@ -1107,6 +1097,10 @@ extension Workspace {
                         )
                         return (package, manifest)
                     } catch {
+                        // Propagate the TraitError if it exists.
+                        if let error = error as? TraitError {
+                            throw error
+                        }
                         return nil
                     }
                 }
@@ -1117,11 +1111,6 @@ extension Workspace {
                 if let (package, manifest) = result {
                     // Store the manifest.
                     rootManifests[package] = manifest
-
-                    // Compute the enabled traits for roots.
-                    let traitConfiguration = self.configuration.traitConfiguration
-                    let enabledTraits = try manifest.enabledTraits(using: traitConfiguration)
-                    self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
                 }
             }
 
@@ -1261,7 +1250,7 @@ extension Workspace {
                     prebuilts: [:],
                     fileSystem: self.fileSystem,
                     observabilityScope: observabilityScope,
-                    enabledTraits: try manifest.enabledTraits(using: .default)
+                    enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)
                 )
                 return try builder.construct()
             }
@@ -1328,7 +1317,7 @@ extension Workspace {
             createREPLProduct: self.configuration.createREPLProduct,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
-            enabledTraits: try manifest.enabledTraits(using: .default)
+            enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)
         )
         return try builder.construct()
     }

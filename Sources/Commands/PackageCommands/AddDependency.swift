@@ -27,7 +27,8 @@ import class PackageModel.Manifest
 extension SwiftPackageCommand {
     struct AddDependency: SwiftCommand {
         package static let configuration = CommandConfiguration(
-            abstract: "Add a package dependency to the manifest."
+            abstract: "Add a package dependency to the manifest.",
+            helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
         @Argument(help: "The URL or directory of the package to add.")
