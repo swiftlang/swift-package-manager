@@ -60,6 +60,7 @@ extension PackagePIFBuilder {
         public var arguments: [String]
         public var environment: [String: String]
         public var workingDir: AbsolutePath?
+        public var pluginOutputDir: AbsolutePath
         public var inputPaths: [AbsolutePath] = []
 
         /// Output paths can contain references with un-resolved paths (e.g. "$(DERIVED_FILE_DIR)/myOutput.txt")
@@ -76,6 +77,7 @@ extension PackagePIFBuilder {
             arguments: [String],
             environment: [String: String],
             workingDir: AbsolutePath?,
+            pluginOutputDir: AbsolutePath,
             inputPaths: [AbsolutePath],
             outputPaths: [String],
             sandboxProfile: SandboxProfile?
@@ -85,6 +87,7 @@ extension PackagePIFBuilder {
             self.arguments = arguments
             self.environment = environment
             self.workingDir = workingDir
+            self.pluginOutputDir = pluginOutputDir
             self.inputPaths = inputPaths
             self.outputPaths = outputPaths
             self.sandboxProfile = sandboxProfile
