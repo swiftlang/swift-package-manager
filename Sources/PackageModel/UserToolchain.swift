@@ -359,7 +359,8 @@ public final class UserToolchain: Toolchain {
         useXcrun: Bool,
         environment: Environment,
         searchPaths: [AbsolutePath],
-        fileSystem: any FileSystem
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope? = nil
     ) throws -> SwiftCompilers {
         func validateCompiler(at path: AbsolutePath?) throws {
             guard let path else { return }
@@ -371,9 +372,36 @@ public final class UserToolchain: Toolchain {
         }
 
         let lookup = { UserToolchain.lookup(variable: $0, searchPaths: searchPaths, environment: environment) }
+
+        // Warn if SWIFT_EXEC or SWIFT_EXEC_MANIFEST is set but points to a non-existent or non-executable path
+        func warnIfInvalid(envVar: String, value: String, resolved: AbsolutePath?) {
+            guard resolved == nil else { return }
+
+            let message: String
+            if let absolutePath = try? AbsolutePath(validating: value) {
+                if fileSystem.exists(absolutePath) {
+                    message = "\(envVar) is set to '\(value)' which exists but is not executable; ignoring"
+                } else {
+                    message = "\(envVar) is set to '\(value)' but the file does not exist; ignoring"
+                }
+            } else {
+                message = "\(envVar) is set to '\(value)' but no executable was found in search paths; ignoring"
+            }
+
+            observabilityScope?.emit(warning: message)
+        }
+
         // Get overrides.
         let SWIFT_EXEC_MANIFEST = lookup("SWIFT_EXEC_MANIFEST")
         let SWIFT_EXEC = lookup("SWIFT_EXEC")
+
+        // Emit warnings if environment variables are set but lookup failed
+        if let swiftExecValue = environment["SWIFT_EXEC"], !swiftExecValue.isEmpty {
+            warnIfInvalid(envVar: "SWIFT_EXEC", value: swiftExecValue, resolved: SWIFT_EXEC)
+        }
+        if let swiftExecManifestValue = environment["SWIFT_EXEC_MANIFEST"], !swiftExecManifestValue.isEmpty {
+            warnIfInvalid(envVar: "SWIFT_EXEC_MANIFEST", value: swiftExecManifestValue, resolved: SWIFT_EXEC_MANIFEST)
+        }
 
         // Validate the overrides.
         try validateCompiler(at: SWIFT_EXEC)
@@ -713,6 +741,7 @@ public final class UserToolchain: Toolchain {
         customTargetInfo: JSON? = nil,
         customLibrariesLocation: ToolchainConfiguration.SwiftPMLibrariesLocation? = nil,
         customInstalledSwiftPMConfiguration: InstalledSwiftPMConfiguration? = nil,
+        observabilityScope: ObservabilityScope? = nil,
         fileSystem: any FileSystem = localFileSystem
     ) throws {
         self.swiftSDK = swiftSDK
@@ -736,7 +765,8 @@ public final class UserToolchain: Toolchain {
             useXcrun: self.useXcrun,
             environment: environment,
             searchPaths: self.envSearchPaths,
-            fileSystem: fileSystem
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope
         )
         self.swiftCompilerPath = swiftCompilers.compile
         self.architectures = swiftSDK.architectures
