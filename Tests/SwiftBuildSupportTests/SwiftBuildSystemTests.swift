@@ -113,12 +113,89 @@ func withInstantiatedSwiftBuildSystem(
     }
 }
 
+extension PackageModel.Sanitizer {
+    var hasSwiftBuildSupport: Bool {
+        switch self {
+            case .address, .thread, .undefined: true
+            case .fuzzer, .scudo: false
+        }
+    }
+
+    var swiftBuildSettingName: String? {
+        switch self {
+            case .address: "ENABLE_ADDRESS_SANITIZER"
+            case .thread: "ENABLE_THREAD_SANITIZER"
+            case .undefined: "ENABLE_UNDEFINED_BEHAVIOR_SANITIZER"
+            case .fuzzer, .scudo: nil
+        }
+
+    }
+}
+
 @Suite(
     .tags(
         .TestSize.medium,
     ),
 )
 struct SwiftBuildSystemTests {
+
+    @Suite(
+        .tags(
+            .FunctionalArea.Sanitizer,
+        )
+    )
+    struct SanitizerTests {
+
+        @Test(
+            arguments: PackageModel.Sanitizer.allCases.filter { $0.hasSwiftBuildSupport },
+        )
+        func sanitizersSettingSetCorrectBuildRequest(
+            sanitizer: Sanitizer,
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    sanitizers: [sanitizer],
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                    session: session,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                )
+
+                let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+
+                let swbSettingName = try #require(sanitizer.swiftBuildSettingName)
+                #expect(synthesizedArgs.table[swbSettingName] == "YES")
+            }
+
+        }
+
+        @Test(
+            arguments: PackageModel.Sanitizer.allCases.filter { !$0.hasSwiftBuildSupport },
+        )
+        func unsupportedSanitizersRaisesError(
+            sanitizer: Sanitizer,
+        ) async throws {
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    sanitizers: [sanitizer],
+                ),
+            ) { swiftBuild, session, observabilityScope, buildParameters in
+                await #expect(throws: (any Error).self) {
+                    try await swiftBuild.makeBuildParameters(
+                        session: session,
+                        symbolGraphOptions: nil,
+                        setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    )
+                }
+            }
+        }
+    }
 
     @Test(
         arguments: BuildParameters.IndexStoreMode.allCases,
