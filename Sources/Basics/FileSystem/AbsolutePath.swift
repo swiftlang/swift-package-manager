@@ -220,7 +220,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isAncestor(of descendant: AbsolutePath) -> Bool {
-        self.underlying.isAncestor(of: descendant.underlying)
+        descendant.isDescendant(of: self)
     }
 
     /// Returns true if the path is an ancestor of or equal to the given path.
@@ -228,7 +228,7 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isAncestorOfOrEqual(to descendant: AbsolutePath) -> Bool {
-        self.underlying.isAncestorOfOrEqual(to: descendant.underlying)
+        descendant.isDescendantOfOrEqual(to: self)
     }
 
     /// Returns true if the path is a descendant of the given path.
@@ -236,7 +236,30 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isDescendant(of ancestor: AbsolutePath) -> Bool {
-        self.underlying.isDescendant(of: ancestor.underlying)
+        let selfPath = self.pathString
+        let ancestorPath = ancestor.pathString
+
+        guard selfPath.count > ancestorPath.count else {
+            return false
+        }
+
+        guard selfPath.hasPrefix(ancestorPath) else {
+            return false
+        }
+
+#if os(Windows)
+        let pathSeparator: Character = "\\"
+#else
+        let pathSeparator: Character = "/"
+#endif
+
+        if ancestorPath.hasSuffix(String(pathSeparator)) {
+            return true
+        }
+
+        // Handle non-root paths by ensuring the character after the prefix is a separator
+        let indexAfterPrefix = selfPath.index(selfPath.startIndex, offsetBy: ancestorPath.count)
+        return selfPath[indexAfterPrefix] == pathSeparator
     }
 
     /// Returns true if the path is a descendant of or equal to the given path.
@@ -244,7 +267,10 @@ extension AbsolutePath {
     /// This method is strictly syntactic and does not access the file system
     /// in any way.
     public func isDescendantOfOrEqual(to ancestor: AbsolutePath) -> Bool {
-        self.underlying.isDescendantOfOrEqual(to: ancestor.underlying)
+        if self == ancestor {
+            return true
+        }
+        return self.isDescendant(of: ancestor)
     }
 }
 

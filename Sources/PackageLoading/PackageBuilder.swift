@@ -992,7 +992,11 @@ public final class PackageBuilder {
         let publicHeaderComponent = manifestTarget.publicHeadersPath ?? ClangModule.defaultPublicHeadersComponent
         let publicHeadersPath = try potentialModule.path.appending(RelativePath(validating: publicHeaderComponent))
         guard publicHeadersPath.isDescendantOfOrEqual(to: potentialModule.path) else {
-            throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+            let publicHeadersPathString = publicHeadersPath.pathString
+            let potentialModulePathString = potentialModule.path.pathString
+            let potentialModuleName = potentialModule.name
+            let errorMessage = "\(publicHeadersPathString) isDescendantOfOrEqual \(potentialModulePathString) - potentialModule.name(\(potentialModuleName))"
+            throw ModuleError.invalidPublicHeadersDirectory(errorMessage)
         }
 
         let sourcesBuilder = TargetSourcesBuilder(
