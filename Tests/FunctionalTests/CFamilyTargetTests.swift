@@ -48,7 +48,7 @@ fileprivate func expectDirectoryContainsFile(
 )
 struct CFamilyTargetTestCase {
     @Test(
-        .issue("https://github.com/swiftlang/swift-build/issues/333", relationship: .defect),
+        .IssueWindowsLongPath,
         .tags(
             .Feature.Command.Build,
             .Feature.SpecialCharacters,
@@ -73,7 +73,7 @@ struct CFamilyTargetTestCase {
                 }
             }
         } when: {
-            data.buildSystem == .swiftbuild
+            ProcessInfo.hostOperatingSystem == .windows && data.buildSystem == .swiftbuild
         }
     }
 
