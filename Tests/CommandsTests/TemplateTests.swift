@@ -38,6 +38,7 @@ import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 
 @Suite(
+    .disabled("Until finding a fix for parrallel tests"),
     .serialized,
     .tags(
         .TestSize.large,

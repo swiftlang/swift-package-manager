@@ -47,7 +47,7 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
 
     func testTemplate() async throws {
         let content = """
-        // swift-tools-version:999.0.0
+        // swift-tools-version:6.3.0
         import PackageDescription
 
         let package = Package(
