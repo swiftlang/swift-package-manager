@@ -401,7 +401,8 @@ final class SwiftCommandStateTests: XCTestCase {
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
+            environment: ["PATH": "/usr/bin"],
+            hostTriple: .arm64Linux
         )
 
         XCTAssertEqual(swiftCommandState.originalWorkingDirectory, fs.currentWorkingDirectory)
@@ -458,7 +459,8 @@ final class SwiftCommandStateTests: XCTestCase {
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
+            environment: ["PATH": "/usr/bin"],
+            hostTriple: .arm64Linux
         )
 
         let hostToolchain = try swiftCommandState.getHostToolchain()
@@ -516,7 +518,8 @@ final class SwiftCommandStateTests: XCTestCase {
         let swiftCommandState = try SwiftCommandState.makeMockState(
             options: options,
             fileSystem: fs,
-            environment: ["PATH": "/usr/bin"]
+            environment: ["PATH": "/usr/bin"],
+            hostTriple: .arm64Linux
         )
 
         let hostToolchain = try swiftCommandState.getHostToolchain()
@@ -557,7 +560,8 @@ extension SwiftCommandState {
         options: GlobalOptions,
         createPackagePath: Bool = false,
         fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
+        environment: Environment = .current,
+        hostTriple: Triple = hostTriple
     ) throws -> SwiftCommandState {
         return try SwiftCommandState(
             outputStream: outputStream,
@@ -578,7 +582,7 @@ extension SwiftCommandState {
                 )
             },
             createPackagePath: createPackagePath,
-            hostTriple: .arm64Linux,
+            hostTriple: hostTriple,
             targetInfo: UserToolchain.mockTargetInfo,
             fileSystem: fileSystem,
             environment: environment
