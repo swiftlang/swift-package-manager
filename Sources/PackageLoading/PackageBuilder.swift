@@ -1407,40 +1407,39 @@ public final class PackageBuilder {
             table.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         }
 
-        // Add in flags for prebuilts if the target is a macro or a macro test.
-        // Currently we only support prebuilts for macros.
-        if target.type == .macro || target.isMacroTest(in: manifest) {
-            let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
-                guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
-                      let package = package,
-                      let prebuilt = prebuilts[.plain(package)]?[name]
-                else {
-                    return
-                }
-
-                $0[prebuilt.libraryName] = prebuilt
+        // Add in flags for prebuilts on host
+        let prebuiltLibraries: [String: PrebuiltLibrary] = target.dependencies.reduce(into: .init()) {
+            guard case let .product(name: name, package: package, moduleAliases: _, condition: _) = $1,
+                  let package = package,
+                  let prebuilt = prebuilts[.plain(package)]?[name]
+            else {
+                return
             }
 
-            for prebuilt in prebuiltLibraries.values {
-                let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
-                var ldFlagsAssignment = BuildSettings.Assignment()
-                ldFlagsAssignment.values = [lib]
-                table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+            $0[prebuilt.libraryName] = prebuilt
+        }
 
-                var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
-                if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
-                    for includeDir in includePath {
-                        includeDirs.append(checkoutPath.appending(includeDir))
-                    }
-                } else {
-                    for cModule in prebuilt.cModules {
-                        includeDirs.append(prebuilt.path.appending(components: "include", cModule))
-                    }
+        for prebuilt in prebuiltLibraries.values {
+            let lib = prebuilt.path.appending(components: ["lib", "lib\(prebuilt.libraryName).a"]).pathString
+            var ldFlagsAssignment = BuildSettings.Assignment()
+            ldFlagsAssignment.values = [lib]
+            ldFlagsAssignment.conditions = [.host(.init(isHost: true))]
+            table.add(ldFlagsAssignment, for: .OTHER_LDFLAGS)
+
+            var includeDirs: [AbsolutePath] = [prebuilt.path.appending(component: "Modules")]
+            if let checkoutPath = prebuilt.checkoutPath, let includePath = prebuilt.includePath {
+                for includeDir in includePath {
+                    includeDirs.append(checkoutPath.appending(includeDir))
                 }
-                var includeAssignment = BuildSettings.Assignment()
-                includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
-                table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
+            } else {
+                for cModule in prebuilt.cModules {
+                    includeDirs.append(prebuilt.path.appending(components: "include", cModule))
+                }
             }
+            var includeAssignment = BuildSettings.Assignment()
+            includeAssignment.values = includeDirs.map({ "-I\($0.pathString)" })
+            includeAssignment.conditions = [.host(.init(isHost: true))]
+            table.add(includeAssignment, for: .OTHER_SWIFT_FLAGS)
         }
 
         return table
