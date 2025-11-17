@@ -7,7 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_executable(swift-bootstrap
-    main.swift)
+    SwiftBootstrapBuildTool.swift)
 target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics
