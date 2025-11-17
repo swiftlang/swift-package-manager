@@ -415,13 +415,6 @@ struct PackagePIFProjectBuilder {
                 )
 
                 generatedFiles.merge(result)
-
-                // if the results contain headers or module maps, add the plugin output dir to the header search path
-                if !result.headers.isEmpty, !result.moduleMaps.isEmpty {
-                    if !generatedFiles.headerSearchPaths.contains(command.pluginOutputDir) {
-                        generatedFiles.headerSearchPaths.append(command.pluginOutputDir)
-                    }
-                }
             }
 
             generatedFiles.merge(self.process(

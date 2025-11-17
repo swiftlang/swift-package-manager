@@ -488,7 +488,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // Add paths to plugin generated headers
-        headerSearchPaths.append(contentsOf: generatedFiles.headerSearchPaths.map(\.pathString))
+        //headerSearchPaths.append(contentsOf: generatedFiles.headerSearchPaths.map(\.pathString))
 
         if !headerSearchPaths.isEmpty {
             // Let the target itself find its own headers.

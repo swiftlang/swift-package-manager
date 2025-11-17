@@ -616,7 +616,7 @@ extension ModulesGraph {
         var generatedFiles = GeneratedFiles()
 
         for result in buildToolPluginInvocationResults {
-            var files = TargetSourcesBuilder.computeContents(
+            let files = TargetSourcesBuilder.computeContents(
                 for: result.buildCommands.flatMap(\.outputFiles),
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -626,18 +626,20 @@ extension ModulesGraph {
                 observabilityScope: observabilityScope
             )
             generatedFiles.merge(files)
-            if !files.headers.isEmpty || !files.moduleMaps.isEmpty {
-                // Add plugin output directory as include path
-                // TODO: plugins should be able to explicity add header search paths to the target
-                if !generatedFiles.headerSearchPaths.contains(result.pluginOutputDirectory) {
-                    generatedFiles.headerSearchPaths.append(result.pluginOutputDirectory)
+            if !files.headers.isEmpty {
+                // Capture the plugin output directory and public include directory if there were header files generated
+                generatedFiles.headerPaths.insert(result.pluginOutputDirectory)
+                // Hardcoding as the default for now
+                let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
+                if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
+                    generatedFiles.publicHeaderPaths.insert(publicDir)
                 }
             }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
         for result in prebuildCommandResults {
-            generatedFiles.merge(TargetSourcesBuilder.computeContents(
+            let files = TargetSourcesBuilder.computeContents(
                 for: result.derivedFiles,
                 toolsVersion: toolsVersion,
                 additionalFileRules: additionalFileRules,
@@ -645,7 +647,19 @@ extension ModulesGraph {
                 targetName: target.name,
                 targetPath: target.underlying.path,
                 observabilityScope: observabilityScope
-            ))
+            )
+            generatedFiles.merge(files)
+            for header in files.headers {
+                let outputDirs = result.outputDirectories.filter { header.isDescendantOfOrEqual(to: $0) }
+                for dir in outputDirs {
+                    // If the output dir ends in the default public header dir, make it public (yuck)
+                    if dir.basename == ClangModule.defaultPublicHeadersComponent {
+                        generatedFiles.publicHeaderPaths.insert(dir)
+                    } else {
+                        generatedFiles.headerPaths.insert(dir)
+                    }
+                }
+            }
         }
 
         return generatedFiles

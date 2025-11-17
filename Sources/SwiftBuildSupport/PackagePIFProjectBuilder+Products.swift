@@ -161,9 +161,6 @@ extension PackagePIFProjectBuilder {
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
             headerSearchPaths.insert(includeDirAbsolutePath)
         }
-        if !generatedFiles.headers.isEmpty || !generatedFiles.moduleMaps.isEmpty {
-            headerSearchPaths.formUnion(generatedFiles.headerSearchPaths)
-        }
 
         if !headerSearchPaths.isEmpty {
             // Let the main module itself find its own headers.

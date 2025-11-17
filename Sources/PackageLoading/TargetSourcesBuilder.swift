@@ -585,9 +585,9 @@ public struct TargetSourcesBuilder {
 }
 
 public struct GeneratedFiles {
+    public var headerPaths: Set<Basics.AbsolutePath> = []
+    public var publicHeaderPaths: Set<Basics.AbsolutePath> = []
     public var sources: Set<Basics.AbsolutePath>
-    // Order matters with the header search paths
-    public var headerSearchPaths: [Basics.AbsolutePath]
     public var headers: Set<Basics.AbsolutePath>
     public var moduleMaps: Set<Basics.AbsolutePath>
     public var apiNotes: Set<Basics.AbsolutePath>
@@ -595,14 +595,12 @@ public struct GeneratedFiles {
 
     public init(
         sources: Set<Basics.AbsolutePath> = [],
-        headerSearchPaths: [Basics.AbsolutePath] = [],
         headers: Set<Basics.AbsolutePath> = [],
         moduleMaps: Set<Basics.AbsolutePath> = [],
         apiNotes: Set<Basics.AbsolutePath> = [],
         resources: [Basics.AbsolutePath: Resource] = [:])
     {
         self.sources = sources
-        self.headerSearchPaths = headerSearchPaths
         self.headers = headers
         self.moduleMaps = moduleMaps
         self.apiNotes = apiNotes
@@ -611,7 +609,6 @@ public struct GeneratedFiles {
 
     public mutating func merge(_ other: GeneratedFiles) {
         sources.formUnion(other.sources)
-        headerSearchPaths.append(contentsOf: other.headerSearchPaths)
         headers.formUnion(other.headers)
         moduleMaps.formUnion(other.moduleMaps)
         apiNotes.formUnion(other.apiNotes)
