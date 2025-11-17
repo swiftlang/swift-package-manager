@@ -373,37 +373,43 @@ extension PackagePIFProjectBuilder {
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            switch sourceModule.moduleMapType {
-            case nil, .some(.none):
-                // No modulemap, no action required.
-                break
-            case .custom(let customModuleMapPath):
-                // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
-                // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
-            case .umbrellaHeader(let path):
-                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
-                moduleMapFileContents = """
+            if let generatedModuleMapPath = generatedFiles.moduleMaps.first {
+                // The modulemap was already generated, we should explicitly impart it on dependents,
+                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+            } else {
+                switch sourceModule.moduleMapType {
+                case nil, .some(.none):
+                    // No modulemap, no action required.
+                    break
+                case .custom(let customModuleMapPath):
+                    // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
+                    // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
+                case .umbrellaHeader(let path):
+                    log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
+                    moduleMapFileContents = """
                 module \(sourceModule.c99name) {
                 umbrella header "\(path.escapedPathString)"
                 export *
                 }
                 """
-                // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-            case .umbrellaDirectory(let path):
-                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
-                moduleMapFileContents = """
+                    // Pass the path of the module map up to all direct and indirect clients.
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                case .umbrellaDirectory(let path):
+                    log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
+                    moduleMapFileContents = """
                 module \(sourceModule.c99name) {
                 umbrella "\(path.escapedPathString)"
                 export *
                 }
                 """
-                // Pass the path of the module map up to all direct and indirect clients.
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    // Pass the path of the module map up to all direct and indirect clients.
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+                }
             }
         }
 
