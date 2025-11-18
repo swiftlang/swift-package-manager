@@ -18,6 +18,7 @@ jobs:
     with:
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_swift_versions: '["nightly-main"]'
+      linux_pre_build_command: 'curl -L https://raw.githubusercontent.com/swiftlang/swift-build/refs/heads/main/.github/scripts/prebuild.sh > prebuild.sh && sh prebuild.sh'
       windows_swift_versions: '["nightly-main"]'
       enable_android_sdk_build: true
       android_sdk_build_command: "swift build --build-tests"
@@ -30,4 +31,4 @@ jobs:
     name: Soundness
     uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
     with:
-      license_header_check_project_name: "Swift.org"
+      license_header_check_project_name: "Swift"
