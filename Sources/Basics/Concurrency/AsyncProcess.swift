@@ -25,9 +25,13 @@ import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
 
 @_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+
+@_implementationOnly
+import func TSCclibc.SPM_posix_spawnp
 #else
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+package import func TSCclibc.SPM_posix_spawnp
 #endif // #if USE_IMPL_ONLY_IMPORTS
 #endif
 
@@ -687,7 +691,11 @@ package final class AsyncProcess {
         }
         let argv = CStringArray(resolvedArgs)
         let env = CStringArray(environment.map { "\($0.0)=\($0.1)" })
+        #if canImport(Darwin)
         let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        #else
+        let rv = SPM_posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        #endif
 
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, self.arguments)
