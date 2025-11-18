@@ -216,7 +216,7 @@ private struct SwiftPMTests {
             #elseif arch(arm64)
             hostArch = "arm64"
             #else
-            precondition("Unsupported platform or host arch for test")
+            preconditionFailure("Unsupported platform or host arch for test")
             #endif
             switch buildSystem {
             case .native:
