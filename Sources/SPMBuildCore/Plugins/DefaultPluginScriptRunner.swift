@@ -23,6 +23,10 @@ import class Basics.AsyncProcess
 
 import struct TSCUtility.SerializedDiagnostics
 
+#if os(Android)
+import Android
+#endif
+
 /// A plugin script runner that compiles the plugin source files as an executable binary for the host platform, and invokes it as a subprocess.
 public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     private let fileSystem: FileSystem
@@ -51,7 +55,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         self.cancellator = Cancellator(observabilityScope: .none)
         self.verboseOutput = verboseOutput
     }
-    
+
     /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
     public func runPluginScript(
         sourceFiles: [Basics.AbsolutePath],
@@ -109,7 +113,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
     public var hostTriple: Triple {
         return self.toolchain.targetTriple
     }
-    
+
     /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
     public func compilePluginScript(
         sourceFiles: [Basics.AbsolutePath],
@@ -136,7 +140,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // We use the toolchain's Swift compiler for compiling the plugin.
         var commandLine = [self.toolchain.swiftCompilerPathForManifests.pathString]
-        
+
         observabilityScope.emit(debug: "Using compiler \(self.toolchain.swiftCompilerPathForManifests.pathString)")
 
         // Get access to the path containing the PackagePlugin module and library.
@@ -246,7 +250,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 completion(.failure(DefaultPluginScriptRunnerError.compilationPreparationFailed(error: error)))
             }
         }
-        
+
         // Hash the compiler inputs to decide whether we really need to recompile.
         let compilerInputHash: String?
         do {
@@ -267,7 +271,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             observabilityScope.emit(debug: "Couldn't compute hash of plugin compilation inputs", underlyingError: error)
             compilerInputHash = .none
         }
-        
+
         /// Persisted information about the last time the compiler was invoked.
         struct PersistedCompilationState: Codable {
             var commandLine: [String]
@@ -279,7 +283,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 case exit(code: Int32)
                 case abnormal(exception: UInt32)
                 case signal(number: Int32)
-                
+
                 init(_ processExitStatus: AsyncProcessResult.ExitStatus) {
                     switch processExitStatus {
                     case .terminated(let code):
@@ -294,12 +298,12 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     }
                 }
             }
-            
+
             var succeeded: Bool {
                 return result == .exit(code: 0)
             }
         }
-        
+
         // Check if we already have a compiled executable and a persisted state (we only recompile if things have changed).
         let stateFilePath = self.cacheDir.appending(component: execName + "-state" + ".json")
         var compilationState: PersistedCompilationState? = .none
@@ -310,7 +314,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     path: stateFilePath,
                     fileSystem: fileSystem,
                     as: PersistedCompilationState.self)
-                
+
                 // If it succeeded last time and the compiler inputs are the same, we don't need to recompile.
                 if previousState.succeeded && previousState.inputHash == compilerInputHash {
                     compilationState = previousState
@@ -321,7 +325,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 observabilityScope.emit(debug: "Couldn't read previous compilation state", underlyingError: error)
             }
         }
-        
+
         // If we still have a compilation state, it means the executable is still valid and we don't need to do anything.
         if let compilationState {
             // Just call the completion handler with the persisted results.
@@ -350,7 +354,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         catch {
             observabilityScope.emit(debug: "Couldn't clean up before invoking compiler", underlyingError: error)
         }
-        
+
         // Now invoke the compiler asynchronously.
         AsyncProcess.popen(arguments: commandLine, environment: environment, queue: callbackQueue) {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
@@ -388,7 +392,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
                 // Tell the delegate that we're done compiling the plugin, passing it the result.
                 delegate.didCompilePlugin(result: result)
-                
+
                 // Also return the result to the caller.
                 return result
             })
@@ -487,7 +491,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         process.environment = .init(env)
 
         process.currentDirectoryURL = workingDirectory.asURL
-        
+
         // Set up a pipe for sending structured messages to the plugin on its stdin.
         let stdinPipe = Pipe()
         let outputHandle = stdinPipe.fileHandleForWriting
