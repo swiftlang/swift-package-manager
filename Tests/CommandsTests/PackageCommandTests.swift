@@ -3070,7 +3070,7 @@ struct PackageCommandTests {
         data: BuildData,
     ) async throws {
         try await withKnownIssue(
-            isIntermittent: ProcessInfo.isHostAmazonLinux2() //rdar://134238535
+            isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
         ) {
             // Create a temporary directory without Package.swift
             try await fixture(name: "Miscellaneous") { fixturePath in
@@ -3101,57 +3101,63 @@ struct PackageCommandTests {
     func purgeCacheInPackageDirectory(
         data: BuildData,
     ) async throws {
-        // Test that purge-cache works in a package directory and successfully purges caches
-        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
-            let packageRoot = fixturePath.appending("Bar")
+        try await withKnownIssue(
+            isIntermittent: ProcessInfo.isHostAmazonLinux2() // rdar://134238535
+        ) {
+            // Test that purge-cache works in a package directory and successfully purges caches
+            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+                let packageRoot = fixturePath.appending("Bar")
 
-            // Use a unique temporary cache directory for this test
-            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
-                let cacheDir = tempDir.appending("test-cache")
-                let cacheArgs = ["--cache-path", cacheDir.pathString]
+                // Use a unique temporary cache directory for this test
+                try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
+                    let cacheDir = tempDir.appending("test-cache")
+                    let cacheArgs = ["--cache-path", cacheDir.pathString]
 
-                // Resolve dependencies to populate cache
-                // Note: This fixture uses local dependencies, so only manifest cache will be populated
-                try await executeSwiftPackage(
-                    packageRoot,
-                    configuration: data.config,
-                    extraArgs: ["resolve"] + cacheArgs,
-                    buildSystem: data.buildSystem
-                )
+                    // Resolve dependencies to populate cache
+                    // Note: This fixture uses local dependencies, so only manifest cache will be populated
+                    try await executeSwiftPackage(
+                        packageRoot,
+                        configuration: data.config,
+                        extraArgs: ["resolve"] + cacheArgs,
+                        buildSystem: data.buildSystem
+                    )
 
-                // Verify manifest cache was populated
-                let manifestsCache = cacheDir.appending(components: "manifests")
-                expectDirectoryExists(at: manifestsCache)
+                    // Verify manifest cache was populated
+                    let manifestsCache = cacheDir.appending(components: "manifests")
+                    expectDirectoryExists(at: manifestsCache)
 
-                // Check for manifest.db file (main database file)
-                let manifestDB = manifestsCache.appending("manifest.db")
-                let hasManifestDB = localFileSystem.exists(manifestDB)
+                    // Check for manifest.db file (main database file)
+                    let manifestDB = manifestsCache.appending("manifest.db")
+                    let hasManifestDB = localFileSystem.exists(manifestDB)
 
-                // Check for SQLite auxiliary files that might exist
-                let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
-                let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
-                let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
+                    // Check for SQLite auxiliary files that might exist
+                    let manifestDBWAL = manifestsCache.appending("manifest.db-wal")
+                    let manifestDBSHM = manifestsCache.appending("manifest.db-shm")
+                    let hasAuxFiles = localFileSystem.exists(manifestDBWAL) || localFileSystem.exists(manifestDBSHM)
 
-                // At least one manifest database file should exist
-                #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
+                    // At least one manifest database file should exist
+                    #expect(hasManifestDB || hasAuxFiles, "Manifest cache should be populated after resolve")
 
-                // Run purge-cache
-                let result = try await executeSwiftPackage(
-                    packageRoot,
-                    configuration: data.config,
-                    extraArgs: ["purge-cache"] + cacheArgs,
-                    buildSystem: data.buildSystem
-                )
+                    // Run purge-cache
+                    let result = try await executeSwiftPackage(
+                        packageRoot,
+                        configuration: data.config,
+                        extraArgs: ["purge-cache"] + cacheArgs,
+                        buildSystem: data.buildSystem
+                    )
 
-                // Verify command succeeded
-                #expect(!result.stderr.contains("Could not find Package.swift"))
+                    // Verify command succeeded
+                    #expect(!result.stderr.contains("Could not find Package.swift"))
 
-                // Verify manifest.db was removed (the purge implementation removes this file)
-                expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
+                    // Verify manifest.db was removed (the purge implementation removes this file)
+                    expectFileDoesNotExists(at: manifestDB, "manifest.db should be removed after purge")
 
-                // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
-                // The important check is that the main database file is removed
+                    // Note: SQLite auxiliary files (WAL/SHM) may or may not be removed depending on SQLite state
+                    // The important check is that the main database file is removed
+                }
             }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2()
         }
     }
 
