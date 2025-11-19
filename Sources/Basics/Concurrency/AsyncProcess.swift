@@ -27,9 +27,15 @@ import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
 
 @_implementationOnly
 import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+
+@_implementationOnly
+import func TSCclibc.SPM_posix_spawnp
 #else
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
-private import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+// `package` rather than `private`: importing SPM_posix_spawnp brings TSCclibc's `pid_t` into scope,
+// which then backs `package typealias ProcessID` below.
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np_supported
+package import func TSCclibc.SPM_posix_spawn_file_actions_addchdir_np
+package import func TSCclibc.SPM_posix_spawnp
 #endif // #if USE_IMPL_ONLY_IMPORTS
 #endif
 
@@ -680,7 +686,13 @@ package final class AsyncProcess {
         let argv = CStringArray(resolvedArgs)
         let envValues = environment.map { "\($0.0)=\($0.1)" }
         let env = CStringArray(envValues)
+        #if canImport(Darwin)
         let rv = posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        #else
+        // Go through TSCclibc's wrapper: Android NDK r27 and r28+ declare posix_spawnp with incompatible
+        // nullability, so a direct call could only compile against one of them.
+        let rv = SPM_posix_spawnp(&self.processID, argv.cArray[0]!, &fileActions, &attributes, argv.cArray, env.cArray)
+        #endif
 
         guard rv == 0 else {
             throw SystemError.posix_spawn(rv, self.arguments)
