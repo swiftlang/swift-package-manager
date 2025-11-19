@@ -25,6 +25,10 @@ import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import Testing
 
+#if canImport(Android)
+import Android
+#endif
+
 import enum TSCBasic.JSON
 import struct Basics.AsyncProcessResult
 

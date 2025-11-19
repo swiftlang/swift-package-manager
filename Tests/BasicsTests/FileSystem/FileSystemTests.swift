@@ -13,6 +13,10 @@ import Foundation
 import TSCTestSupport
 import Testing
 
+#if canImport(Android)
+import Android
+#endif
+
 @testable import Basics
 
 struct FileSystemTests {

@@ -28,9 +28,12 @@ jobs:
       windows_swift_versions: '["nightly-main", "nightly-6.4.x",]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
-      # enable_android_sdk_build: true
-      # android_sdk_build_command: "swift run swift-build --build-tests --build-system swiftbuild"
-      # android_ndk_versions: '["r27d", "r29"]'
+      enable_android_sdk_build: true
+      android_sdk_versions: '["nightly-main", "nightly-6.4.x"]'
+      android_sdk_pre_build_command: 'SKIP_ANDROID=1 ./.github/scripts/prebuild.sh'
+      android_sdk_build_command: 'swift run swift-build --build-tests'
+      # r27 and r28+ declare posix_spawnp with incompatible nullability, so cover both sides of that change.
+      android_ndk_versions: '["r27d", "r29"]'
       enable_windows_checks: true
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"swift_6.1\"}]"
