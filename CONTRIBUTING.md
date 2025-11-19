@@ -16,7 +16,7 @@ Fill the following fields:
 
 * `Title`: A one line summary of the problem you're facing.
 * `Description`: The complete description of the problem. Be specific.
-* `Expected behavior`: How you expect SwiftPM to behave. 
+* `Expected behavior`: How you expect SwiftPM to behave.
 * `Actual behavior` : What actually happens.
 * `Steps to reproduce`: Be specific, provide steps to reproduce the bug.
 * `Swift Package Manager version/commit hash` : With which version are you testing.
@@ -42,6 +42,12 @@ First, clone a copy of SwiftPM code from https://github.com/swiftlang/swift-pack
 If you are preparing to make a contribution you should fork the repository first and clone the fork which will make opening Pull Requests easier. See "Creating Pull Requests" section below.
 
 SwiftPM is typically built with a pre-existing version of SwiftPM present on the system, but there are multiple ways to setup your development environment:
+
+Once the repository is clone, configure your local repository so blame ignores some commits:
+
+```
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ### Using Xcode (Easiest)
 
@@ -510,5 +516,5 @@ Make sure to update your TSC (Tools Support Core):
 ```bash
 $> swift package update
 ```
-Alternatively, if you are using Xcode, you can update to the latest version of all packages:  
+Alternatively, if you are using Xcode, you can update to the latest version of all packages:
 **Xcode App** > *File* > *Swift Packages* > *Update to Latest Package Versions*
